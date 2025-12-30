@@ -94,7 +94,3 @@ struct ShmUri
     path::String
     require_hugepages::Bool
 end
-
-@inline function is_pow2(n::Integer)
-    return n > 0 && (n & (n - 1)) == 0
-end

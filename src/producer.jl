@@ -6,6 +6,7 @@ mutable struct ProducerState
     pub_control::Aeron.Publication
     pub_qos::Aeron.Publication
     pub_metadata::Aeron.Publication
+    sub_control::Aeron.Subscription
     header_mmap::Vector{UInt8}
     payload_mmaps::Dict{UInt16, Vector{UInt8}}
     epoch::UInt64
@@ -30,7 +31,7 @@ mutable struct ProducerState
     descriptor_claim::Aeron.BufferClaim
     progress_claim::Aeron.BufferClaim
     qos_claim::Aeron.BufferClaim
-    hello_decoder::ConsumerHello.Decoder{Vector{UInt8}}
+    hello_decoder::ConsumerHello.Decoder{UnsafeArrays.UnsafeArray{UInt8, 1}}
 end
 
 @inline function should_emit_progress!(state::ProducerState, bytes_filled::UInt64, final::Bool)
@@ -46,7 +47,7 @@ end
 end
 
 function init_producer(config::ProducerConfig)
-    is_pow2(config.nslots) || throw(ArgumentError("header nslots must be power of two"))
+    ispow2(config.nslots) || throw(ArgumentError("header nslots must be power of two"))
     for pool in config.payload_pools
         pool.nslots == config.nslots || throw(ArgumentError("payload nslots must match header nslots"))
     end
@@ -111,6 +112,7 @@ function init_producer(config::ProducerConfig)
     pub_control = Aeron.add_publication(client, config.aeron_uri, config.control_stream_id)
     pub_qos = Aeron.add_publication(client, config.aeron_uri, config.qos_stream_id)
     pub_metadata = Aeron.add_publication(client, config.aeron_uri, config.metadata_stream_id)
+    sub_control = Aeron.add_subscription(client, config.aeron_uri, config.control_stream_id)
 
     state = ProducerState(
         config,
@@ -120,6 +122,7 @@ function init_producer(config::ProducerConfig)
         pub_control,
         pub_qos,
         pub_metadata,
+        sub_control,
         header_mmap,
         payload_mmaps,
         UInt64(1),
@@ -144,7 +147,7 @@ function init_producer(config::ProducerConfig)
         Aeron.BufferClaim(),
         Aeron.BufferClaim(),
         Aeron.BufferClaim(),
-        ConsumerHello.Decoder(Vector{UInt8}),
+        ConsumerHello.Decoder(UnsafeArrays.UnsafeArray{UInt8, 1}),
     )
 
     emit_announce!(state)
@@ -318,7 +321,7 @@ function emit_qos!(state::ProducerState)
 end
 
 function handle_consumer_hello!(state::ProducerState, msg::ConsumerHello.Decoder)
-    if ConsumerHello.supportsProgress(msg) == Bool_.TRUE
+    if ConsumerHello.supportsProgress(msg) == ShmTensorpoolControl.Bool_.TRUE
         state.supports_progress = true
         interval = ConsumerHello.progressIntervalUs(msg)
         bytes_delta = ConsumerHello.progressBytesDelta(msg)

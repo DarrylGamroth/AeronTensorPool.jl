@@ -48,9 +48,9 @@ mutable struct ConsumerState
     qos_encoder::QosConsumer.Encoder{Vector{UInt8}}
     hello_claim::Aeron.BufferClaim
     qos_claim::Aeron.BufferClaim
-    desc_decoder::FrameDescriptor.Decoder{Vector{UInt8}}
-    announce_decoder::ShmPoolAnnounce.Decoder{Vector{UInt8}}
-    config_decoder::ConsumerConfigMsg.Decoder{Vector{UInt8}}
+    desc_decoder::FrameDescriptor.Decoder{UnsafeArrays.UnsafeArray{UInt8, 1}}
+    announce_decoder::ShmPoolAnnounce.Decoder{UnsafeArrays.UnsafeArray{UInt8, 1}}
+    config_decoder::ConsumerConfigMsg.Decoder{UnsafeArrays.UnsafeArray{UInt8, 1}}
 end
 
 function init_consumer(config::ConsumerConfig)
@@ -93,9 +93,9 @@ function init_consumer(config::ConsumerConfig)
         QosConsumer.Encoder(Vector{UInt8}),
         Aeron.BufferClaim(),
         Aeron.BufferClaim(),
-        FrameDescriptor.Decoder(Vector{UInt8}),
-        ShmPoolAnnounce.Decoder(Vector{UInt8}),
-        ConsumerConfigMsg.Decoder(Vector{UInt8}),
+        FrameDescriptor.Decoder(UnsafeArrays.UnsafeArray{UInt8, 1}),
+        ShmPoolAnnounce.Decoder(UnsafeArrays.UnsafeArray{UInt8, 1}),
+        ConsumerConfigMsg.Decoder(UnsafeArrays.UnsafeArray{UInt8, 1}),
     )
 end
 
@@ -112,7 +112,7 @@ function validate_stride(
     page_size_bytes::Int = page_size_bytes(),
     hugepage_size::Int = 0,
 )
-    is_pow2(stride_bytes) || return false
+    ispow2(stride_bytes) || return false
     (stride_bytes % UInt32(page_size_bytes)) == 0 || return false
     if require_hugepages
         hugepage_size > 0 || return false
@@ -264,7 +264,7 @@ function apply_consumer_config!(state::ConsumerState, msg::ConsumerConfigMsg.Dec
     ConsumerConfigMsg.streamId(msg) == state.config.stream_id || return false
     ConsumerConfigMsg.consumerId(msg) == state.config.consumer_id || return false
 
-    state.config.use_shm = (ConsumerConfigMsg.useShm(msg) == Bool_.TRUE)
+    state.config.use_shm = (ConsumerConfigMsg.useShm(msg) == ShmTensorpoolControl.Bool_.TRUE)
     state.config.mode = ConsumerConfigMsg.mode(msg)
     state.config.decimation = ConsumerConfigMsg.decimation(msg)
     state.config.payload_fallback_uri = String(ConsumerConfigMsg.payloadFallbackUri(msg))
@@ -280,8 +280,14 @@ function emit_consumer_hello!(state::ConsumerState)
         wrap_and_apply_header!(state.hello_encoder, buf, 0)
         ConsumerHello.streamId!(state.hello_encoder, state.config.stream_id)
         ConsumerHello.consumerId!(state.hello_encoder, state.config.consumer_id)
-        ConsumerHello.supportsShm!(state.hello_encoder, state.config.supports_shm ? Bool_.TRUE : Bool_.FALSE)
-        ConsumerHello.supportsProgress!(state.hello_encoder, state.config.supports_progress ? Bool_.TRUE : Bool_.FALSE)
+        ConsumerHello.supportsShm!(
+            state.hello_encoder,
+            state.config.supports_shm ? ShmTensorpoolControl.Bool_.TRUE : ShmTensorpoolControl.Bool_.FALSE,
+        )
+        ConsumerHello.supportsProgress!(
+            state.hello_encoder,
+            state.config.supports_progress ? ShmTensorpoolControl.Bool_.TRUE : ShmTensorpoolControl.Bool_.FALSE,
+        )
         ConsumerHello.mode!(state.hello_encoder, state.config.mode)
         ConsumerHello.maxRateHz!(state.hello_encoder, state.config.max_rate_hz)
         ConsumerHello.expectedLayoutVersion!(state.hello_encoder, state.config.expected_layout_version)
@@ -293,8 +299,14 @@ function emit_consumer_hello!(state::ConsumerState)
         wrap_and_apply_header!(state.hello_encoder, state.hello_buf, 0)
         ConsumerHello.streamId!(state.hello_encoder, state.config.stream_id)
         ConsumerHello.consumerId!(state.hello_encoder, state.config.consumer_id)
-        ConsumerHello.supportsShm!(state.hello_encoder, state.config.supports_shm ? Bool_.TRUE : Bool_.FALSE)
-        ConsumerHello.supportsProgress!(state.hello_encoder, state.config.supports_progress ? Bool_.TRUE : Bool_.FALSE)
+        ConsumerHello.supportsShm!(
+            state.hello_encoder,
+            state.config.supports_shm ? ShmTensorpoolControl.Bool_.TRUE : ShmTensorpoolControl.Bool_.FALSE,
+        )
+        ConsumerHello.supportsProgress!(
+            state.hello_encoder,
+            state.config.supports_progress ? ShmTensorpoolControl.Bool_.TRUE : ShmTensorpoolControl.Bool_.FALSE,
+        )
         ConsumerHello.mode!(state.hello_encoder, state.config.mode)
         ConsumerHello.maxRateHz!(state.hello_encoder, state.config.max_rate_hz)
         ConsumerHello.expectedLayoutVersion!(state.hello_encoder, state.config.expected_layout_version)

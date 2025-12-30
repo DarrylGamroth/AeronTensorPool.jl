@@ -5,6 +5,7 @@ using Agent
 using Clocks
 using Mmap
 using SBE
+using UnsafeArrays
 
 include("gen/ShmTensorpoolControl.jl")
 using .ShmTensorpoolControl
@@ -74,6 +75,7 @@ export Dtype,
     poll_control!,
     poll_descriptor!,
     write_superblock!,
-    write_tensor_slot_header!
+    write_tensor_slot_header!,
+    try_claim_sbe!
 
 end
