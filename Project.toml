@@ -1,0 +1,21 @@
+name = "AeronTensorPool"
+uuid = "6ad55a46-f6a9-4b6f-a099-2d80be27a373"
+authors = ["Darryl Gamroth <dgamroth@rubus.ca>"]
+version = "0.1.0"
+
+[deps]
+Aeron = "b850ffb1-6704-484e-996b-4710e2f097f0"
+Agent = "f7939a7f-2bcc-4096-952b-c44031b5533b"
+SBE = "b5db94cf-04c1-4db7-9b05-47f582871ea8"
+
+[compat]
+Aeron = "0.18"
+Agent = "0.3"
+SBE = "0.2"
+julia = "1.10"
+
+[extras]
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+
+[targets]
+test = ["Test"]
