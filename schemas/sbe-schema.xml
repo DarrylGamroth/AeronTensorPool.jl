@@ -34,43 +34,6 @@
     <type name="StridesArray"  primitiveType="int32" length="8"/>
     <type name="Pad144"        primitiveType="uint8" length="144"/>
 
-    <composite name="ShmRegionSuperblock">
-      <!-- 64-byte fixed layout, little-endian -->
-      <type name="magic"              primitiveType="uint64"/>
-      <type name="layoutVersion"      primitiveType="uint32"/>
-      <type name="epoch"              primitiveType="uint64"/>
-      <type name="streamId"           primitiveType="uint32"/>
-      <type name="regionType"         primitiveType="RegionType"/>
-      <type name="poolId"             primitiveType="uint16"/>
-      <type name="nslots"             primitiveType="uint32"/>
-      <type name="slotBytes"          primitiveType="uint32"/>
-      <type name="strideBytes"        primitiveType="uint32"/>
-      <type name="pid"                primitiveType="uint64"/>
-      <type name="startTimestampNs"   primitiveType="uint64"/>
-      <type name="activityTimestampNs" primitiveType="uint64"/>
-    </composite>
-
-    <!-- Stored in SHM header ring slots; not transmitted over Aeron -->
-    <!-- Field sizes: 8+8+8+4+4+4+4+2+2+2+1+1+(8×4)+(8×4)+144 = 256 bytes -->
-    <!-- Field order optimized for alignment: all uint32 fields are 4-byte aligned -->
-    <composite name="TensorSlotHeader256">
-      <type name="commitWord"     primitiveType="uint64"/>
-      <type name="frameId"        primitiveType="uint64"/>
-      <type name="timestampNs"    primitiveType="uint64"/>
-      <type name="metaVersion"    primitiveType="uint32"/>
-      <type name="valuesLenBytes" primitiveType="uint32"/>
-      <type name="payloadSlot"    primitiveType="uint32"/>
-      <type name="payloadOffset"  primitiveType="uint32"/>
-      <type name="poolId"         primitiveType="uint16"/>
-      <type name="dtype"          primitiveType="Dtype"/>
-      <type name="majorOrder"     primitiveType="MajorOrder"/>
-      <type name="ndims"          primitiveType="uint8"/>
-      <type name="padAlign"       primitiveType="uint8"/>
-      <type name="dims"           primitiveType="DimsArray"/>
-      <type name="strides"        primitiveType="StridesArray"/>
-      <type name="padding"        primitiveType="Pad144"/>
-    </composite>
-
     <enum name="Bool" encodingType="uint8">
       <validValue name="FALSE">0</validValue>
       <validValue name="TRUE">1</validValue>
@@ -138,13 +101,13 @@
     <field name="headerNslots"    id="5" type="uint32"/>
     <field name="headerSlotBytes" id="6" type="uint16"/>
     <field name="maxDims"         id="7" type="uint8"/>
-    <data  name="headerRegionUri" id="8" type="varAsciiEncoding"/>
     <group name="payloadPools"    id="9" dimensionType="groupSizeEncoding">
       <field name="poolId"      id="1" type="uint16"/>
       <field name="poolNslots"  id="2" type="uint32"/>
       <field name="strideBytes" id="3" type="uint32"/>
       <data  name="regionUri"   id="4" type="varAsciiEncoding"/>
     </group>
+    <data  name="headerRegionUri" id="8" type="varAsciiEncoding"/>
   </sbe:message>
 
   <sbe:message name="ConsumerHello" id="2">
@@ -204,6 +167,40 @@
     <field name="epoch"      id="3" type="epoch_t"/>
     <field name="currentSeq" id="4" type="seq_t"/>
     <field name="watermark"  id="5" type="uint32" presence="optional" nullValue="4294967295"/>
+  </sbe:message>
+
+  <!-- SHM-only composites wrapped without SBE headers -->
+  <sbe:message name="ShmRegionSuperblock" id="50" blockLength="64">
+    <field name="magic"              id="1" type="uint64"/>
+    <field name="layoutVersion"      id="2" type="uint32"/>
+    <field name="epoch"              id="3" type="epoch_t"/>
+    <field name="streamId"           id="4" type="uint32"/>
+    <field name="regionType"         id="5" type="RegionType"/>
+    <field name="poolId"             id="6" type="uint16"/>
+    <field name="nslots"             id="7" type="uint32"/>
+    <field name="slotBytes"          id="8" type="uint32"/>
+    <field name="strideBytes"        id="9" type="uint32"/>
+    <field name="pid"                id="10" type="uint64"/>
+    <field name="startTimestampNs"   id="11" type="uint64"/>
+    <field name="activityTimestampNs" id="12" type="uint64"/>
+  </sbe:message>
+
+  <sbe:message name="TensorSlotHeader256" id="51" blockLength="256">
+    <field name="commitWord"     id="1" type="uint64"/>
+    <field name="frameId"        id="2" type="seq_t"/>
+    <field name="timestampNs"    id="3" type="uint64"/>
+    <field name="metaVersion"    id="4" type="version_t"/>
+    <field name="valuesLenBytes" id="5" type="uint32"/>
+    <field name="payloadSlot"    id="6" type="uint32"/>
+    <field name="payloadOffset"  id="7" type="uint32"/>
+    <field name="poolId"         id="8" type="uint16"/>
+    <field name="dtype"          id="9" type="Dtype"/>
+    <field name="majorOrder"     id="10" type="MajorOrder"/>
+    <field name="ndims"          id="11" type="uint8"/>
+    <field name="padAlign"       id="12" type="uint8"/>
+    <field name="dims"           id="13" type="DimsArray"/>
+    <field name="strides"        id="14" type="StridesArray"/>
+    <field name="padding"        id="15" type="Pad144"/>
   </sbe:message>
 
   <sbe:message name="DataSourceAnnounce" id="7">
