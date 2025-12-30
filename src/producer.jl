@@ -254,6 +254,22 @@ function emit_qos!(state::ProducerState)
     return nothing
 end
 
+function handle_consumer_hello!(state::ProducerState, msg::ConsumerHello.Decoder)
+    if ConsumerHello.supportsProgress(msg) == Bool_.TRUE
+        state.supports_progress = true
+        interval = ConsumerHello.progressIntervalUs(msg)
+        bytes_delta = ConsumerHello.progressBytesDelta(msg)
+
+        if interval != typemax(UInt32)
+            state.progress_interval_ns = min(state.progress_interval_ns, UInt64(interval) * 1000)
+        end
+        if bytes_delta != typemax(UInt32)
+            state.progress_bytes_delta = min(state.progress_bytes_delta, UInt64(bytes_delta))
+        end
+    end
+    return nothing
+end
+
 function refresh_activity_timestamps!(state::ProducerState)
     fetch!(state.clock)
     now_ns = UInt64(Clocks.time_nanos(state.clock))

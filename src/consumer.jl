@@ -10,14 +10,24 @@ struct ConsumerConfig
     max_dims::UInt8
     mode::Mode.SbeEnum
     decimation::UInt16
+    supports_shm::Bool
+    supports_progress::Bool
+    max_rate_hz::UInt16
     payload_fallback_uri::String
     require_hugepages::Bool
+    progress_interval_us::UInt32
+    progress_bytes_delta::UInt32
+    progress_rows_delta::UInt32
+    hello_interval_ns::UInt64
+    qos_interval_ns::UInt64
 end
 
 mutable struct ConsumerState
     config::ConsumerConfig
     clock::Clocks.AbstractClock
     client::Aeron.Client
+    pub_control::Aeron.Publication
+    pub_qos::Aeron.Publication
     sub_descriptor::Aeron.Subscription
     sub_control::Aeron.Subscription
     sub_qos::Aeron.Subscription
@@ -29,6 +39,12 @@ mutable struct ConsumerState
     seen_any::Bool
     drops_gap::UInt64
     drops_late::UInt64
+    last_hello_ns::UInt64
+    last_qos_ns::UInt64
+    hello_buf::Vector{UInt8}
+    qos_buf::Vector{UInt8}
+    hello_encoder::ConsumerHello.Encoder{Vector{UInt8}}
+    qos_encoder::QosConsumer.Encoder{Vector{UInt8}}
 end
 
 function init_consumer(config::ConsumerConfig)
@@ -39,6 +55,9 @@ function init_consumer(config::ConsumerConfig)
     Aeron.aeron_dir!(ctx, config.aeron_dir)
     client = Aeron.Client(ctx)
 
+    pub_control = Aeron.add_publication(client, config.aeron_uri, config.control_stream_id)
+    pub_qos = Aeron.add_publication(client, config.aeron_uri, config.qos_stream_id)
+
     sub_descriptor = Aeron.add_subscription(client, config.aeron_uri, config.descriptor_stream_id)
     sub_control = Aeron.add_subscription(client, config.aeron_uri, config.control_stream_id)
     sub_qos = Aeron.add_subscription(client, config.aeron_uri, config.qos_stream_id)
@@ -47,6 +66,8 @@ function init_consumer(config::ConsumerConfig)
         config,
         clock,
         client,
+        pub_control,
+        pub_qos,
         sub_descriptor,
         sub_control,
         sub_qos,
@@ -58,6 +79,12 @@ function init_consumer(config::ConsumerConfig)
         false,
         UInt64(0),
         UInt64(0),
+        UInt64(0),
+        UInt64(0),
+        Vector{UInt8}(undef, 512),
+        Vector{UInt8}(undef, 512),
+        ConsumerHello.Encoder(Vector{UInt8}),
+        QosConsumer.Encoder(Vector{UInt8}),
     )
 end
 
@@ -171,6 +198,60 @@ function maybe_track_gap!(state::ConsumerState, seq::UInt64)
     return nothing
 end
 
+function emit_consumer_hello!(state::ConsumerState)
+    wrap_and_apply_header!(state.hello_encoder, state.hello_buf, 0)
+    ConsumerHello.streamId!(state.hello_encoder, state.config.stream_id)
+    ConsumerHello.consumerId!(state.hello_encoder, state.config.consumer_id)
+    ConsumerHello.supportsShm!(state.hello_encoder, state.config.supports_shm ? Bool_.TRUE : Bool_.FALSE)
+    ConsumerHello.supportsProgress!(state.hello_encoder, state.config.supports_progress ? Bool_.TRUE : Bool_.FALSE)
+    ConsumerHello.mode!(state.hello_encoder, state.config.mode)
+    ConsumerHello.maxRateHz!(state.hello_encoder, state.config.max_rate_hz)
+    ConsumerHello.expectedLayoutVersion!(state.hello_encoder, state.config.expected_layout_version)
+    ConsumerHello.progressIntervalUs!(state.hello_encoder, state.config.progress_interval_us)
+    ConsumerHello.progressBytesDelta!(state.hello_encoder, state.config.progress_bytes_delta)
+    ConsumerHello.progressRowsDelta!(state.hello_encoder, state.config.progress_rows_delta)
+    Aeron.offer(
+        state.pub_control,
+        view(state.hello_buf, 1:sbe_encoded_length(state.hello_encoder)),
+    )
+    return nothing
+end
+
+function emit_qos!(state::ConsumerState)
+    wrap_and_apply_header!(state.qos_encoder, state.qos_buf, 0)
+    QosConsumer.streamId!(state.qos_encoder, state.config.stream_id)
+    QosConsumer.consumerId!(state.qos_encoder, state.config.consumer_id)
+    QosConsumer.epoch!(state.qos_encoder, state.mapped_epoch)
+    QosConsumer.lastSeqSeen!(state.qos_encoder, state.last_seq_seen)
+    QosConsumer.dropsGap!(state.qos_encoder, state.drops_gap)
+    QosConsumer.dropsLate!(state.qos_encoder, state.drops_late)
+    QosConsumer.mode!(state.qos_encoder, state.config.mode)
+    Aeron.offer(
+        state.pub_qos,
+        view(state.qos_buf, 1:sbe_encoded_length(state.qos_encoder)),
+    )
+    return nothing
+end
+
+function emit_periodic!(state::ConsumerState)
+    fetch!(state.clock)
+    now_ns = UInt64(Clocks.time_nanos(state.clock))
+    work_done = false
+
+    if now_ns - state.last_hello_ns >= state.config.hello_interval_ns
+        emit_consumer_hello!(state)
+        state.last_hello_ns = now_ns
+        work_done = true
+    end
+
+    if now_ns - state.last_qos_ns >= state.config.qos_interval_ns
+        emit_qos!(state)
+        state.last_qos_ns = now_ns
+        work_done = true
+    end
+
+    return work_done
+end
 function try_read_frame!(
     state::ConsumerState,
     desc::FrameDescriptor.Decoder,
