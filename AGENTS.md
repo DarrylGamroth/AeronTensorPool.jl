@@ -5,14 +5,14 @@
 > Steady-state requirement: codegen targets should be type-stable and zero-allocation after initialization; preallocate buffers and avoid runtime dispatch in hot paths.
 
 **Julia packages to reference**
-- Aeron.jl (DarrylGamroth fork): Context/Client, add_publication/add_subscription, FragmentHandler/FragmentAssembler, poll
-- SBE.jl: generated codecs (wrap!/wrap_and_apply_header!, Encoder/Decoder accessors, repeating groups)
-- SBEDomainMapper.jl: schema-to-domain helpers if mapping SBE to richer types (maybe useful but might be easier to use purpose built code)
-- Clocks.jl: MonotonicClock + CachedEpochClock, time_nanos/fetch!
-- Agent.jl: Agent protocol hooks and poller patterns (if mirroring RtcFramework style)
-- RtcFramework.jl (reference only): FragmentAssembler adapters and PollerRegistry usage patterns
+- Aeron.jl (/home/dgamroth/workspaces/codex/Aeron.jl): Context/Client, add_publication/add_subscription, FragmentHandler/FragmentAssembler, poll
+- SBE.jl: (/home/dgamroth/workspaces/codex/SBE.jl) generated codecs (wrap!/wrap_and_apply_header!, Encoder/Decoder accessors, repeating groups)
+- SBEDomainMapper.jl: (/home/dgamroth/workspaces/codex/SBEDomainMapper.jl) schema-to-domain helpers if mapping SBE to richer types (maybe useful but might be easier to use purpose built code, not decided wheter to use it or not)
+- Clocks.jl: (https://github.com/DarrylGamroth/Clocks.jl.git) MonotonicClock + CachedEpochClock, time_nanos/fetch!
+- Agent.jl: (/home/dgamroth/workspaces/codex/Agent.jl) Agent protocol hooks and poller patterns (if mirroring RtcFramework style)
+- RtcFramework.jl (/home/dgamroth/workspaces/codex/RtcFrameWork.jl) (reference only): Examples of Aeron.jl, Clocks.jl, Agent.jl, Hsm.jl. Might have some useful patterns.
 - Mmap (stdlib) + Base atomics: mmap SHM and commit_word atomics
-- Hsm.jl: hierarchical state machine patterns (if you want explicit agent state machines)
+- Hsm.jl: (/home/dgamroth/workspaces/codex/Hsm.jl) hierarchical state machine patterns (if you want explicit agent state machines)
 
 Code generation and implementation templates for the agents in the SHM Tensor Pool spec (v1.1). This guide is optimized for LLM-assisted codegen and human implementers building agents with Julia (Aeron.jl, SBE.jl, Agent.jl). See normative spec: [SHM_Aeron_Tensor_Pool.md](docs/SHM_Aeron_Tensor_Pool.md). For deployment/config/testing, see [IMPLEMENTATION.md](docs/IMPLEMENTATION.md).
 
