@@ -1,0 +1,220 @@
+struct ConsumerConfig
+    aeron_dir::String
+    aeron_uri::String
+    descriptor_stream_id::Int32
+    control_stream_id::Int32
+    qos_stream_id::Int32
+    stream_id::UInt32
+    consumer_id::UInt32
+    expected_layout_version::UInt32
+    max_dims::UInt8
+    mode::Mode.SbeEnum
+    decimation::UInt16
+    payload_fallback_uri::String
+    require_hugepages::Bool
+end
+
+mutable struct ConsumerState
+    config::ConsumerConfig
+    clock::Clocks.AbstractClock
+    client::Aeron.Client
+    sub_descriptor::Aeron.Subscription
+    sub_control::Aeron.Subscription
+    sub_qos::Aeron.Subscription
+    mapped_epoch::UInt64
+    header_mmap::Union{Nothing, Vector{UInt8}}
+    payload_mmaps::Dict{UInt16, Vector{UInt8}}
+    pool_stride_bytes::Dict{UInt16, UInt32}
+    last_seq_seen::UInt64
+    seen_any::Bool
+    drops_gap::UInt64
+    drops_late::UInt64
+end
+
+function init_consumer(config::ConsumerConfig)
+    clock = Clocks.CachedEpochClock(Clocks.MonotonicClock())
+    fetch!(clock)
+
+    ctx = Aeron.Context()
+    Aeron.aeron_dir!(ctx, config.aeron_dir)
+    client = Aeron.Client(ctx)
+
+    sub_descriptor = Aeron.add_subscription(client, config.aeron_uri, config.descriptor_stream_id)
+    sub_control = Aeron.add_subscription(client, config.aeron_uri, config.control_stream_id)
+    sub_qos = Aeron.add_subscription(client, config.aeron_uri, config.qos_stream_id)
+
+    return ConsumerState(
+        config,
+        clock,
+        client,
+        sub_descriptor,
+        sub_control,
+        sub_qos,
+        UInt64(0),
+        nothing,
+        Dict{UInt16, Vector{UInt8}}(),
+        Dict{UInt16, UInt32}(),
+        UInt64(0),
+        false,
+        UInt64(0),
+        UInt64(0),
+    )
+end
+
+@inline function should_process(state::ConsumerState, seq::UInt64)
+    if state.config.mode == Mode.DECIMATED
+        return state.config.decimation > 0 && (seq % state.config.decimation == 0)
+    end
+    return true
+end
+
+function validate_stride(stride_bytes::UInt32; require_hugepages::Bool)
+    is_pow2(stride_bytes) || return false
+    page = ccall(:getpagesize, Cint, ())
+    (stride_bytes % UInt32(page)) == 0 || return false
+    if require_hugepages
+        return false
+    end
+    return true
+end
+
+function validate_superblock_fields(
+    fields::SuperblockFields;
+    expected_layout_version::UInt32,
+    expected_stream_id::UInt32,
+    expected_nslots::UInt32,
+    expected_slot_bytes::UInt32,
+    expected_region_type::RegionType.SbeEnum,
+    expected_pool_id::UInt16,
+)
+    fields.magic == MAGIC_TPOLSHM1 || return false
+    fields.layout_version == expected_layout_version || return false
+    fields.stream_id == expected_stream_id || return false
+    fields.region_type == expected_region_type || return false
+    fields.pool_id == expected_pool_id || return false
+    fields.nslots == expected_nslots || return false
+    fields.slot_bytes == expected_slot_bytes || return false
+    return true
+end
+
+function map_from_announce!(state::ConsumerState, msg::ShmPoolAnnounce.Decoder)
+    header_uri = String(ShmPoolAnnounce.headerRegionUri(msg))
+    validate_uri(header_uri) || return false
+    header_mmap = mmap_shm(header_uri, SUPERBLOCK_SIZE + HEADER_SLOT_BYTES * Int(ShmPoolAnnounce.headerNslots(msg)))
+
+    sb_dec = ShmRegionSuperblock.Decoder(Vector{UInt8})
+    wrap_superblock!(sb_dec, header_mmap, 0)
+    header_fields = read_superblock(sb_dec)
+
+    header_expected_nslots = ShmPoolAnnounce.headerNslots(msg)
+    header_ok = validate_superblock_fields(
+        header_fields;
+        expected_layout_version = ShmPoolAnnounce.layoutVersion(msg),
+        expected_stream_id = ShmPoolAnnounce.streamId(msg),
+        expected_nslots = header_expected_nslots,
+        expected_slot_bytes = UInt32(HEADER_SLOT_BYTES),
+        expected_region_type = RegionType.HEADER_RING,
+        expected_pool_id = UInt16(0),
+    )
+    header_ok || return false
+
+    payload_mmaps = Dict{UInt16, Vector{UInt8}}()
+    stride_bytes = Dict{UInt16, UInt32}()
+
+    pools = ShmPoolAnnounce.payloadPools(msg)
+    for pool in pools
+        pool_id = ShmPoolAnnounce.PayloadPools.poolId(pool)
+        pool_nslots = ShmPoolAnnounce.PayloadPools.poolNslots(pool)
+        pool_stride = ShmPoolAnnounce.PayloadPools.strideBytes(pool)
+        pool_uri = String(ShmPoolAnnounce.PayloadPools.regionUri(pool))
+
+        validate_uri(pool_uri) || return false
+        validate_stride(pool_stride; require_hugepages = state.config.require_hugepages) || return false
+
+        pool_mmap = mmap_shm(pool_uri, SUPERBLOCK_SIZE + Int(pool_nslots) * Int(pool_stride))
+        wrap_superblock!(sb_dec, pool_mmap, 0)
+        pool_fields = read_superblock(sb_dec)
+
+        pool_ok = validate_superblock_fields(
+            pool_fields;
+            expected_layout_version = ShmPoolAnnounce.layoutVersion(msg),
+            expected_stream_id = ShmPoolAnnounce.streamId(msg),
+            expected_nslots = pool_nslots,
+            expected_slot_bytes = pool_stride,
+            expected_region_type = RegionType.PAYLOAD_POOL,
+            expected_pool_id = pool_id,
+        )
+        pool_ok || return false
+
+        payload_mmaps[pool_id] = pool_mmap
+        stride_bytes[pool_id] = pool_stride
+    end
+
+    state.header_mmap = header_mmap
+    state.payload_mmaps = payload_mmaps
+    state.pool_stride_bytes = stride_bytes
+    state.mapped_epoch = ShmPoolAnnounce.epoch(msg)
+    state.last_seq_seen = UInt64(0)
+    state.seen_any = false
+    return true
+end
+
+function maybe_track_gap!(state::ConsumerState, seq::UInt64)
+    if state.seen_any
+        if seq > state.last_seq_seen + 1
+            state.drops_gap += seq - state.last_seq_seen - 1
+        end
+    else
+        state.seen_any = true
+    end
+    state.last_seq_seen = seq
+    return nothing
+end
+
+function try_read_frame!(
+    state::ConsumerState,
+    desc::FrameDescriptor.Decoder,
+)
+    state.header_mmap === nothing && return nothing
+    FrameDescriptor.epoch(desc) == state.mapped_epoch || return nothing
+    seq = FrameDescriptor.seq(desc)
+    should_process(state, seq) || return nothing
+
+    header_index = FrameDescriptor.headerIndex(desc)
+    header_offset = header_slot_offset(header_index)
+    header_mmap = state.header_mmap::Vector{UInt8}
+
+    commit_ptr = Ptr{UInt64}(pointer(header_mmap, header_offset + 1))
+    first = atomic_load_u64(commit_ptr)
+    if isodd(first)
+        state.drops_late += 1
+        return nothing
+    end
+
+    hdr_dec = TensorSlotHeader256.Decoder(Vector{UInt8})
+    wrap_tensor_header!(hdr_dec, header_mmap, header_offset)
+    header = read_tensor_slot_header(hdr_dec)
+
+    second = atomic_load_u64(commit_ptr)
+    if first != second || isodd(second)
+        state.drops_late += 1
+        return nothing
+    end
+
+    if header.frame_id != seq
+        state.drops_late += 1
+        return nothing
+    end
+
+    pool_stride = get(state.pool_stride_bytes, header.pool_id, UInt32(0))
+    pool_stride == 0 && return nothing
+    payload_mmap = get(state.payload_mmaps, header.pool_id, nothing)
+    payload_mmap === nothing && return nothing
+
+    payload_offset = SUPERBLOCK_SIZE + Int(header.payload_slot) * Int(pool_stride)
+    payload_len = Int(header.values_len_bytes)
+    payload = view(payload_mmap, payload_offset + 1:payload_offset + payload_len)
+
+    maybe_track_gap!(state, seq)
+    return (header, payload)
+end

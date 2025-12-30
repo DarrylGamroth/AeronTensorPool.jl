@@ -8,6 +8,7 @@ const Dtype = ShmTensorpoolControl.Dtype
 const MajorOrder = ShmTensorpoolControl.MajorOrder
 const FrameDescriptor = ShmTensorpoolControl.FrameDescriptor
 const FrameProgress = ShmTensorpoolControl.FrameProgress
+const Mode = ShmTensorpoolControl.Mode
 const QosProducer = ShmTensorpoolControl.QosProducer
 const ShmPoolAnnounce = ShmTensorpoolControl.ShmPoolAnnounce
 const ShmRegionSuperblock = ShmTensorpoolControl.ShmRegionSuperblock
