@@ -7,6 +7,41 @@ end
     return nothing
 end
 
+@inline function page_size_bytes()
+    return Int(ccall(:getpagesize, Cint, ()))
+end
+
+function hugepage_size_bytes()
+    Sys.islinux() || return 0
+    for line in eachline("/proc/meminfo")
+        if startswith(line, "Hugepagesize:")
+            parts = split(line)
+            length(parts) >= 2 || continue
+            size_kb = parse(Int, parts[2])
+            return size_kb * 1024
+        end
+    end
+    return 0
+end
+
+function is_hugetlbfs_path(path::String)
+    Sys.islinux() || return false
+    best_len = 0
+    best_fstype = ""
+    for line in eachline("/proc/mounts")
+        fields = split(line)
+        length(fields) >= 3 || continue
+        mount_point = fields[2]
+        if startswith(path, mount_point)
+            if length(mount_point) > best_len
+                best_len = length(mount_point)
+                best_fstype = fields[3]
+            end
+        end
+    end
+    return best_fstype == "hugetlbfs"
+end
+
 @inline function header_slot_offset(index::Integer)
     return SUPERBLOCK_SIZE + Int(index) * HEADER_SLOT_BYTES
 end

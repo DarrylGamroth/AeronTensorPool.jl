@@ -46,6 +46,11 @@ mutable struct ConsumerState
     qos_buf::Vector{UInt8}
     hello_encoder::ConsumerHello.Encoder{Vector{UInt8}}
     qos_encoder::QosConsumer.Encoder{Vector{UInt8}}
+    hello_claim::Aeron.BufferClaim
+    qos_claim::Aeron.BufferClaim
+    desc_decoder::FrameDescriptor.Decoder{Vector{UInt8}}
+    announce_decoder::ShmPoolAnnounce.Decoder{Vector{UInt8}}
+    config_decoder::ConsumerConfigMsg.Decoder{Vector{UInt8}}
 end
 
 function init_consumer(config::ConsumerConfig)
@@ -86,6 +91,11 @@ function init_consumer(config::ConsumerConfig)
         Vector{UInt8}(undef, 512),
         ConsumerHello.Encoder(Vector{UInt8}),
         QosConsumer.Encoder(Vector{UInt8}),
+        Aeron.BufferClaim(),
+        Aeron.BufferClaim(),
+        FrameDescriptor.Decoder(Vector{UInt8}),
+        ShmPoolAnnounce.Decoder(Vector{UInt8}),
+        ConsumerConfigMsg.Decoder(Vector{UInt8}),
     )
 end
 
@@ -96,12 +106,17 @@ end
     return true
 end
 
-function validate_stride(stride_bytes::UInt32; require_hugepages::Bool)
+function validate_stride(
+    stride_bytes::UInt32;
+    require_hugepages::Bool,
+    page_size_bytes::Int = page_size_bytes(),
+    hugepage_size::Int = 0,
+)
     is_pow2(stride_bytes) || return false
-    page = ccall(:getpagesize, Cint, ())
-    (stride_bytes % UInt32(page)) == 0 || return false
+    (stride_bytes % UInt32(page_size_bytes)) == 0 || return false
     if require_hugepages
-        return false
+        hugepage_size > 0 || return false
+        (stride_bytes % UInt32(hugepage_size)) == 0 || return false
     end
     return true
 end
@@ -130,6 +145,13 @@ function map_from_announce!(state::ConsumerState, msg::ShmPoolAnnounce.Decoder)
     header_uri = String(ShmPoolAnnounce.headerRegionUri(msg))
     validate_uri(header_uri) || return false
     ShmPoolAnnounce.headerSlotBytes(msg) == UInt16(HEADER_SLOT_BYTES) || return false
+    header_parsed = parse_shm_uri(header_uri)
+    require_hugepages = header_parsed.require_hugepages || state.config.require_hugepages
+    if require_hugepages && !is_hugetlbfs_path(header_parsed.path)
+        return false
+    end
+    hugepage_size = require_hugepages ? hugepage_size_bytes() : 0
+    require_hugepages && hugepage_size == 0 && return false
     header_mmap = mmap_shm(header_uri, SUPERBLOCK_SIZE + HEADER_SLOT_BYTES * Int(ShmPoolAnnounce.headerNslots(msg)))
 
     sb_dec = ShmRegionSuperblock.Decoder(Vector{UInt8})
@@ -160,7 +182,18 @@ function map_from_announce!(state::ConsumerState, msg::ShmPoolAnnounce.Decoder)
 
         pool_nslots == header_expected_nslots || return false
         validate_uri(pool_uri) || return false
-        validate_stride(pool_stride; require_hugepages = state.config.require_hugepages) || return false
+        pool_parsed = parse_shm_uri(pool_uri)
+        pool_require_hugepages = pool_parsed.require_hugepages || state.config.require_hugepages
+        if pool_require_hugepages && !is_hugetlbfs_path(pool_parsed.path)
+            return false
+        end
+        pool_hugepage_size = pool_require_hugepages ? hugepage_size_bytes() : 0
+        pool_require_hugepages && pool_hugepage_size == 0 && return false
+        validate_stride(
+            pool_stride;
+            require_hugepages = pool_require_hugepages,
+            hugepage_size = pool_hugepage_size,
+        ) || return false
 
         pool_mmap = mmap_shm(pool_uri, SUPERBLOCK_SIZE + Int(pool_nslots) * Int(pool_stride))
         wrap_superblock!(sb_dec, pool_mmap, 0)
@@ -243,38 +276,101 @@ function apply_consumer_config!(state::ConsumerState, msg::ConsumerConfigMsg.Dec
 end
 
 function emit_consumer_hello!(state::ConsumerState)
-    wrap_and_apply_header!(state.hello_encoder, state.hello_buf, 0)
-    ConsumerHello.streamId!(state.hello_encoder, state.config.stream_id)
-    ConsumerHello.consumerId!(state.hello_encoder, state.config.consumer_id)
-    ConsumerHello.supportsShm!(state.hello_encoder, state.config.supports_shm ? Bool_.TRUE : Bool_.FALSE)
-    ConsumerHello.supportsProgress!(state.hello_encoder, state.config.supports_progress ? Bool_.TRUE : Bool_.FALSE)
-    ConsumerHello.mode!(state.hello_encoder, state.config.mode)
-    ConsumerHello.maxRateHz!(state.hello_encoder, state.config.max_rate_hz)
-    ConsumerHello.expectedLayoutVersion!(state.hello_encoder, state.config.expected_layout_version)
-    ConsumerHello.progressIntervalUs!(state.hello_encoder, state.config.progress_interval_us)
-    ConsumerHello.progressBytesDelta!(state.hello_encoder, state.config.progress_bytes_delta)
-    ConsumerHello.progressRowsDelta!(state.hello_encoder, state.config.progress_rows_delta)
-    Aeron.offer(
-        state.pub_control,
-        view(state.hello_buf, 1:sbe_encoded_length(state.hello_encoder)),
-    )
+    sent = try_claim_sbe!(state.pub_control, state.hello_claim, CONSUMER_HELLO_LEN) do buf
+        wrap_and_apply_header!(state.hello_encoder, buf, 0)
+        ConsumerHello.streamId!(state.hello_encoder, state.config.stream_id)
+        ConsumerHello.consumerId!(state.hello_encoder, state.config.consumer_id)
+        ConsumerHello.supportsShm!(state.hello_encoder, state.config.supports_shm ? Bool_.TRUE : Bool_.FALSE)
+        ConsumerHello.supportsProgress!(state.hello_encoder, state.config.supports_progress ? Bool_.TRUE : Bool_.FALSE)
+        ConsumerHello.mode!(state.hello_encoder, state.config.mode)
+        ConsumerHello.maxRateHz!(state.hello_encoder, state.config.max_rate_hz)
+        ConsumerHello.expectedLayoutVersion!(state.hello_encoder, state.config.expected_layout_version)
+        ConsumerHello.progressIntervalUs!(state.hello_encoder, state.config.progress_interval_us)
+        ConsumerHello.progressBytesDelta!(state.hello_encoder, state.config.progress_bytes_delta)
+        ConsumerHello.progressRowsDelta!(state.hello_encoder, state.config.progress_rows_delta)
+    end
+    if !sent
+        wrap_and_apply_header!(state.hello_encoder, state.hello_buf, 0)
+        ConsumerHello.streamId!(state.hello_encoder, state.config.stream_id)
+        ConsumerHello.consumerId!(state.hello_encoder, state.config.consumer_id)
+        ConsumerHello.supportsShm!(state.hello_encoder, state.config.supports_shm ? Bool_.TRUE : Bool_.FALSE)
+        ConsumerHello.supportsProgress!(state.hello_encoder, state.config.supports_progress ? Bool_.TRUE : Bool_.FALSE)
+        ConsumerHello.mode!(state.hello_encoder, state.config.mode)
+        ConsumerHello.maxRateHz!(state.hello_encoder, state.config.max_rate_hz)
+        ConsumerHello.expectedLayoutVersion!(state.hello_encoder, state.config.expected_layout_version)
+        ConsumerHello.progressIntervalUs!(state.hello_encoder, state.config.progress_interval_us)
+        ConsumerHello.progressBytesDelta!(state.hello_encoder, state.config.progress_bytes_delta)
+        ConsumerHello.progressRowsDelta!(state.hello_encoder, state.config.progress_rows_delta)
+        Aeron.offer(
+            state.pub_control,
+            view(state.hello_buf, 1:sbe_encoded_length(state.hello_encoder)),
+        )
+    end
     return nothing
 end
 
 function emit_qos!(state::ConsumerState)
-    wrap_and_apply_header!(state.qos_encoder, state.qos_buf, 0)
-    QosConsumer.streamId!(state.qos_encoder, state.config.stream_id)
-    QosConsumer.consumerId!(state.qos_encoder, state.config.consumer_id)
-    QosConsumer.epoch!(state.qos_encoder, state.mapped_epoch)
-    QosConsumer.lastSeqSeen!(state.qos_encoder, state.last_seq_seen)
-    QosConsumer.dropsGap!(state.qos_encoder, state.drops_gap)
-    QosConsumer.dropsLate!(state.qos_encoder, state.drops_late)
-    QosConsumer.mode!(state.qos_encoder, state.config.mode)
-    Aeron.offer(
-        state.pub_qos,
-        view(state.qos_buf, 1:sbe_encoded_length(state.qos_encoder)),
-    )
+    sent = try_claim_sbe!(state.pub_qos, state.qos_claim, QOS_CONSUMER_LEN) do buf
+        wrap_and_apply_header!(state.qos_encoder, buf, 0)
+        QosConsumer.streamId!(state.qos_encoder, state.config.stream_id)
+        QosConsumer.consumerId!(state.qos_encoder, state.config.consumer_id)
+        QosConsumer.epoch!(state.qos_encoder, state.mapped_epoch)
+        QosConsumer.lastSeqSeen!(state.qos_encoder, state.last_seq_seen)
+        QosConsumer.dropsGap!(state.qos_encoder, state.drops_gap)
+        QosConsumer.dropsLate!(state.qos_encoder, state.drops_late)
+        QosConsumer.mode!(state.qos_encoder, state.config.mode)
+    end
+    if !sent
+        wrap_and_apply_header!(state.qos_encoder, state.qos_buf, 0)
+        QosConsumer.streamId!(state.qos_encoder, state.config.stream_id)
+        QosConsumer.consumerId!(state.qos_encoder, state.config.consumer_id)
+        QosConsumer.epoch!(state.qos_encoder, state.mapped_epoch)
+        QosConsumer.lastSeqSeen!(state.qos_encoder, state.last_seq_seen)
+        QosConsumer.dropsGap!(state.qos_encoder, state.drops_gap)
+        QosConsumer.dropsLate!(state.qos_encoder, state.drops_late)
+        QosConsumer.mode!(state.qos_encoder, state.config.mode)
+        Aeron.offer(
+            state.pub_qos,
+            view(state.qos_buf, 1:sbe_encoded_length(state.qos_encoder)),
+        )
+    end
     return nothing
+end
+
+function make_descriptor_assembler(state::ConsumerState)
+    handler = Aeron.FragmentHandler(state) do st, buffer, _
+        header = MessageHeader.Decoder(buffer, 0)
+        if MessageHeader.templateId(header) == TEMPLATE_FRAME_DESCRIPTOR
+            FrameDescriptor.wrap!(st.desc_decoder, buffer, 0; header = header)
+            try_read_frame!(st, st.desc_decoder)
+        end
+        nothing
+    end
+    return Aeron.FragmentAssembler(handler)
+end
+
+function make_control_assembler(state::ConsumerState)
+    handler = Aeron.FragmentHandler(state) do st, buffer, _
+        header = MessageHeader.Decoder(buffer, 0)
+        template_id = MessageHeader.templateId(header)
+        if template_id == TEMPLATE_SHM_POOL_ANNOUNCE
+            ShmPoolAnnounce.wrap!(st.announce_decoder, buffer, 0; header = header)
+            handle_shm_pool_announce!(st, st.announce_decoder)
+        elseif template_id == TEMPLATE_CONSUMER_CONFIG
+            ConsumerConfigMsg.wrap!(st.config_decoder, buffer, 0; header = header)
+            apply_consumer_config!(st, st.config_decoder)
+        end
+        nothing
+    end
+    return Aeron.FragmentAssembler(handler)
+end
+
+@inline function poll_descriptor!(state::ConsumerState, assembler::Aeron.FragmentAssembler, fragment_limit::Int32 = DEFAULT_FRAGMENT_LIMIT)
+    return Aeron.poll(state.sub_descriptor, assembler, fragment_limit)
+end
+
+@inline function poll_control!(state::ConsumerState, assembler::Aeron.FragmentAssembler, fragment_limit::Int32 = DEFAULT_FRAGMENT_LIMIT)
+    return Aeron.poll(state.sub_control, assembler, fragment_limit)
 end
 
 function emit_periodic!(state::ConsumerState)

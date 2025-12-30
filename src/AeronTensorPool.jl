@@ -10,6 +10,7 @@ include("gen/ShmTensorpoolControl.jl")
 using .ShmTensorpoolControl
 
 include("constants.jl")
+include("aeron_utils.jl")
 include("shm.jl")
 include("producer.jl")
 include("consumer.jl")
@@ -28,6 +29,10 @@ export Dtype,
     ConsumerConfigMsg,
     ConsumerState,
     ConsumerHello,
+    FrameDescriptor,
+    FrameProgress,
+    MessageHeader,
+    QosProducer,
     ShmRegionSuperblock,
     ShmUri,
     SuperblockFields,
@@ -64,6 +69,10 @@ export Dtype,
     validate_superblock_fields,
     wrap_superblock!,
     wrap_tensor_header!,
+    make_control_assembler,
+    make_descriptor_assembler,
+    poll_control!,
+    poll_descriptor!,
     write_superblock!,
     write_tensor_slot_header!
 

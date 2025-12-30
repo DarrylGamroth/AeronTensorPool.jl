@@ -14,6 +14,7 @@ mutable struct ProducerState
     progress_interval_ns::UInt64
     progress_bytes_delta::UInt64
     last_progress_ns::UInt64
+    last_progress_bytes::UInt64
     last_announce_ns::UInt64
     last_qos_ns::UInt64
     descriptor_buf::Vector{UInt8}
@@ -26,6 +27,22 @@ mutable struct ProducerState
     progress_encoder::FrameProgress.Encoder{Vector{UInt8}}
     announce_encoder::ShmPoolAnnounce.Encoder{Vector{UInt8}}
     qos_encoder::QosProducer.Encoder{Vector{UInt8}}
+    descriptor_claim::Aeron.BufferClaim
+    progress_claim::Aeron.BufferClaim
+    qos_claim::Aeron.BufferClaim
+    hello_decoder::ConsumerHello.Decoder{Vector{UInt8}}
+end
+
+@inline function should_emit_progress!(state::ProducerState, bytes_filled::UInt64, final::Bool)
+    if final
+        return true
+    end
+    now_ns = UInt64(Clocks.time_nanos(state.clock))
+    if now_ns - state.last_progress_ns < state.progress_interval_ns &&
+       bytes_filled - state.last_progress_bytes < state.progress_bytes_delta
+        return false
+    end
+    return true
 end
 
 function init_producer(config::ProducerConfig)
@@ -113,6 +130,7 @@ function init_producer(config::ProducerConfig)
         UInt64(0),
         UInt64(0),
         UInt64(0),
+        UInt64(0),
         Vector{UInt8}(undef, 512),
         Vector{UInt8}(undef, 512),
         Vector{UInt8}(undef, 1024),
@@ -123,11 +141,32 @@ function init_producer(config::ProducerConfig)
         FrameProgress.Encoder(Vector{UInt8}),
         ShmPoolAnnounce.Encoder(Vector{UInt8}),
         QosProducer.Encoder(Vector{UInt8}),
+        Aeron.BufferClaim(),
+        Aeron.BufferClaim(),
+        Aeron.BufferClaim(),
+        ConsumerHello.Decoder(Vector{UInt8}),
     )
 
     emit_announce!(state)
 
     return state
+end
+
+function encode_frame_descriptor!(
+    enc::FrameDescriptor.Encoder,
+    state::ProducerState,
+    seq::UInt64,
+    header_index::UInt32,
+    meta_version::UInt32,
+    now_ns::UInt64,
+)
+    FrameDescriptor.streamId!(enc, state.config.stream_id)
+    FrameDescriptor.epoch!(enc, state.epoch)
+    FrameDescriptor.seq!(enc, seq)
+    FrameDescriptor.headerIndex!(enc, header_index)
+    FrameDescriptor.timestampNs!(enc, now_ns)
+    FrameDescriptor.metaVersion!(enc, meta_version)
+    return nothing
 end
 
 function publish_frame!(
@@ -177,19 +216,21 @@ function publish_frame!(
 
     atomic_store_u64!(commit_ptr, frame_id << 1)
 
-    wrap_and_apply_header!(state.descriptor_encoder, state.descriptor_buf, 0)
-    FrameDescriptor.streamId!(state.descriptor_encoder, state.config.stream_id)
-    FrameDescriptor.epoch!(state.descriptor_encoder, state.epoch)
-    FrameDescriptor.seq!(state.descriptor_encoder, seq)
-    FrameDescriptor.headerIndex!(state.descriptor_encoder, header_index)
-    FrameDescriptor.timestampNs!(state.descriptor_encoder, UInt64(Clocks.time_nanos(state.clock)))
-    FrameDescriptor.metaVersion!(state.descriptor_encoder, meta_version)
-    Aeron.offer(
-        state.pub_descriptor,
-        view(state.descriptor_buf, 1:sbe_encoded_length(state.descriptor_encoder)),
-    )
+    now_ns = UInt64(Clocks.time_nanos(state.clock))
+    sent = try_claim_sbe!(state.pub_descriptor, state.descriptor_claim, FRAME_DESCRIPTOR_LEN) do buf
+        wrap_and_apply_header!(state.descriptor_encoder, buf, 0)
+        encode_frame_descriptor!(state.descriptor_encoder, state, seq, header_index, meta_version, now_ns)
+    end
+    if !sent
+        wrap_and_apply_header!(state.descriptor_encoder, state.descriptor_buf, 0)
+        encode_frame_descriptor!(state.descriptor_encoder, state, seq, header_index, meta_version, now_ns)
+        Aeron.offer(
+            state.pub_descriptor,
+            view(state.descriptor_buf, 1:sbe_encoded_length(state.descriptor_encoder)),
+        )
+    end
 
-    if state.supports_progress
+    if state.supports_progress && should_emit_progress!(state, UInt64(values_len), true)
         emit_progress_complete!(state, frame_id, header_index, UInt64(values_len))
     end
 
@@ -203,17 +244,30 @@ function emit_progress_complete!(
     header_index::UInt32,
     bytes_filled::UInt64,
 )
-    wrap_and_apply_header!(state.progress_encoder, state.progress_buf, 0)
-    FrameProgress.streamId!(state.progress_encoder, state.config.stream_id)
-    FrameProgress.epoch!(state.progress_encoder, state.epoch)
-    FrameProgress.frameId!(state.progress_encoder, frame_id)
-    FrameProgress.headerIndex!(state.progress_encoder, header_index)
-    FrameProgress.payloadBytesFilled!(state.progress_encoder, bytes_filled)
-    FrameProgress.state!(state.progress_encoder, FrameProgressState.COMPLETE)
-    Aeron.offer(
-        state.pub_control,
-        view(state.progress_buf, 1:sbe_encoded_length(state.progress_encoder)),
-    )
+    sent = try_claim_sbe!(state.pub_control, state.progress_claim, FRAME_PROGRESS_LEN) do buf
+        wrap_and_apply_header!(state.progress_encoder, buf, 0)
+        FrameProgress.streamId!(state.progress_encoder, state.config.stream_id)
+        FrameProgress.epoch!(state.progress_encoder, state.epoch)
+        FrameProgress.frameId!(state.progress_encoder, frame_id)
+        FrameProgress.headerIndex!(state.progress_encoder, header_index)
+        FrameProgress.payloadBytesFilled!(state.progress_encoder, bytes_filled)
+        FrameProgress.state!(state.progress_encoder, FrameProgressState.COMPLETE)
+    end
+    if !sent
+        wrap_and_apply_header!(state.progress_encoder, state.progress_buf, 0)
+        FrameProgress.streamId!(state.progress_encoder, state.config.stream_id)
+        FrameProgress.epoch!(state.progress_encoder, state.epoch)
+        FrameProgress.frameId!(state.progress_encoder, frame_id)
+        FrameProgress.headerIndex!(state.progress_encoder, header_index)
+        FrameProgress.payloadBytesFilled!(state.progress_encoder, bytes_filled)
+        FrameProgress.state!(state.progress_encoder, FrameProgressState.COMPLETE)
+        Aeron.offer(
+            state.pub_control,
+            view(state.progress_buf, 1:sbe_encoded_length(state.progress_encoder)),
+        )
+    end
+    state.last_progress_ns = UInt64(Clocks.time_nanos(state.clock))
+    state.last_progress_bytes = bytes_filled
     return nothing
 end
 
@@ -245,12 +299,21 @@ function emit_announce!(state::ProducerState)
 end
 
 function emit_qos!(state::ProducerState)
-    wrap_and_apply_header!(state.qos_encoder, state.qos_buf, 0)
-    QosProducer.streamId!(state.qos_encoder, state.config.stream_id)
-    QosProducer.producerId!(state.qos_encoder, state.config.producer_id)
-    QosProducer.epoch!(state.qos_encoder, state.epoch)
-    QosProducer.currentSeq!(state.qos_encoder, state.seq)
-    Aeron.offer(state.pub_qos, view(state.qos_buf, 1:sbe_encoded_length(state.qos_encoder)))
+    sent = try_claim_sbe!(state.pub_qos, state.qos_claim, QOS_PRODUCER_LEN) do buf
+        wrap_and_apply_header!(state.qos_encoder, buf, 0)
+        QosProducer.streamId!(state.qos_encoder, state.config.stream_id)
+        QosProducer.producerId!(state.qos_encoder, state.config.producer_id)
+        QosProducer.epoch!(state.qos_encoder, state.epoch)
+        QosProducer.currentSeq!(state.qos_encoder, state.seq)
+    end
+    if !sent
+        wrap_and_apply_header!(state.qos_encoder, state.qos_buf, 0)
+        QosProducer.streamId!(state.qos_encoder, state.config.stream_id)
+        QosProducer.producerId!(state.qos_encoder, state.config.producer_id)
+        QosProducer.epoch!(state.qos_encoder, state.epoch)
+        QosProducer.currentSeq!(state.qos_encoder, state.seq)
+        Aeron.offer(state.pub_qos, view(state.qos_buf, 1:sbe_encoded_length(state.qos_encoder)))
+    end
     return nothing
 end
 
@@ -268,6 +331,22 @@ function handle_consumer_hello!(state::ProducerState, msg::ConsumerHello.Decoder
         end
     end
     return nothing
+end
+
+function make_control_assembler(state::ProducerState)
+    handler = Aeron.FragmentHandler(state) do st, buffer, _
+        header = MessageHeader.Decoder(buffer, 0)
+        if MessageHeader.templateId(header) == TEMPLATE_CONSUMER_HELLO
+            ConsumerHello.wrap!(st.hello_decoder, buffer, 0; header = header)
+            handle_consumer_hello!(st, st.hello_decoder)
+        end
+        nothing
+    end
+    return Aeron.FragmentAssembler(handler)
+end
+
+@inline function poll_control!(state::ProducerState, assembler::Aeron.FragmentAssembler, fragment_limit::Int32 = DEFAULT_FRAGMENT_LIMIT)
+    return Aeron.poll(state.sub_control, assembler, fragment_limit)
 end
 
 function refresh_activity_timestamps!(state::ProducerState)

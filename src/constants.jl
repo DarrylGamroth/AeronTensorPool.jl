@@ -2,10 +2,12 @@ const SUPERBLOCK_SIZE = 64
 const HEADER_SLOT_BYTES = 256
 const MAGIC_TPOLSHM1 = 0x544F504C53484D31
 const MAX_DIMS = 8
+const DEFAULT_FRAGMENT_LIMIT = Int32(10)
 
 const RegionType = ShmTensorpoolControl.RegionType
 const Dtype = ShmTensorpoolControl.Dtype
 const MajorOrder = ShmTensorpoolControl.MajorOrder
+const MessageHeader = ShmTensorpoolControl.MessageHeader
 const FrameDescriptor = ShmTensorpoolControl.FrameDescriptor
 const FrameProgress = ShmTensorpoolControl.FrameProgress
 const ConsumerConfigMsg = ShmTensorpoolControl.ConsumerConfig
@@ -16,6 +18,18 @@ const QosProducer = ShmTensorpoolControl.QosProducer
 const ShmPoolAnnounce = ShmTensorpoolControl.ShmPoolAnnounce
 const ShmRegionSuperblock = ShmTensorpoolControl.ShmRegionSuperblock
 const TensorSlotHeader256 = ShmTensorpoolControl.TensorSlotHeader256
+
+const MESSAGE_HEADER_LEN = Int(MessageHeader.sbe_encoded_length(MessageHeader.Decoder))
+const FRAME_DESCRIPTOR_LEN = MESSAGE_HEADER_LEN + Int(FrameDescriptor.sbe_block_length(FrameDescriptor.Decoder))
+const FRAME_PROGRESS_LEN = MESSAGE_HEADER_LEN + Int(FrameProgress.sbe_block_length(FrameProgress.Decoder))
+const QOS_PRODUCER_LEN = MESSAGE_HEADER_LEN + Int(QosProducer.sbe_block_length(QosProducer.Decoder))
+const QOS_CONSUMER_LEN = MESSAGE_HEADER_LEN + Int(QosConsumer.sbe_block_length(QosConsumer.Decoder))
+const CONSUMER_HELLO_LEN = MESSAGE_HEADER_LEN + Int(ConsumerHello.sbe_block_length(ConsumerHello.Decoder))
+
+const TEMPLATE_FRAME_DESCRIPTOR = FrameDescriptor.sbe_template_id(FrameDescriptor.Decoder)
+const TEMPLATE_SHM_POOL_ANNOUNCE = ShmPoolAnnounce.sbe_template_id(ShmPoolAnnounce.Decoder)
+const TEMPLATE_CONSUMER_CONFIG = ConsumerConfigMsg.sbe_template_id(ConsumerConfigMsg.Decoder)
+const TEMPLATE_CONSUMER_HELLO = ConsumerHello.sbe_template_id(ConsumerHello.Decoder)
 
 struct PayloadPoolConfig
     pool_id::UInt16
