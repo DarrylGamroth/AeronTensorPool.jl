@@ -30,6 +30,8 @@ const TEMPLATE_FRAME_DESCRIPTOR = FrameDescriptor.sbe_template_id(FrameDescripto
 const TEMPLATE_SHM_POOL_ANNOUNCE = ShmPoolAnnounce.sbe_template_id(ShmPoolAnnounce.Decoder)
 const TEMPLATE_CONSUMER_CONFIG = ConsumerConfigMsg.sbe_template_id(ConsumerConfigMsg.Decoder)
 const TEMPLATE_CONSUMER_HELLO = ConsumerHello.sbe_template_id(ConsumerHello.Decoder)
+const TEMPLATE_QOS_CONSUMER = QosConsumer.sbe_template_id(QosConsumer.Decoder)
+const TEMPLATE_QOS_PRODUCER = QosProducer.sbe_template_id(QosProducer.Decoder)
 
 struct PayloadPoolConfig
     pool_id::UInt16

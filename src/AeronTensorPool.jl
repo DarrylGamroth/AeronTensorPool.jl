@@ -12,9 +12,11 @@ using .ShmTensorpoolControl
 
 include("constants.jl")
 include("aeron_utils.jl")
+include("polled_timer.jl")
 include("shm.jl")
 include("producer.jl")
 include("consumer.jl")
+include("supervisor.jl")
 
 export Dtype,
     MajorOrder,
@@ -26,9 +28,13 @@ export Dtype,
     PayloadPoolConfig,
     ProducerConfig,
     ProducerState,
+    ProducerInfo,
     ConsumerConfig,
     ConsumerConfigMsg,
     ConsumerState,
+    ConsumerInfo,
+    SupervisorConfig,
+    SupervisorState,
     ConsumerHello,
     FrameDescriptor,
     FrameProgress,
@@ -43,8 +49,13 @@ export Dtype,
     QosConsumer,
     atomic_load_u64,
     atomic_store_u64!,
+    PolledTimer,
+    due!,
+    reset!,
     init_consumer,
+    init_supervisor,
     map_from_announce!,
+    emit_consumer_config!,
     emit_announce!,
     emit_consumer_hello!,
     emit_periodic!,
@@ -74,6 +85,7 @@ export Dtype,
     make_descriptor_assembler,
     poll_control!,
     poll_descriptor!,
+    poll_qos!,
     write_superblock!,
     write_tensor_slot_header!,
     try_claim_sbe!
