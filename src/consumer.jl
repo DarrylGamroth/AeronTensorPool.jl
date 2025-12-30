@@ -1,4 +1,4 @@
-struct ConsumerConfig
+mutable struct ConsumerConfig
     aeron_dir::String
     aeron_uri::String
     descriptor_stream_id::Int32
@@ -10,6 +10,7 @@ struct ConsumerConfig
     max_dims::UInt8
     mode::Mode.SbeEnum
     decimation::UInt16
+    use_shm::Bool
     supports_shm::Bool
     supports_progress::Bool
     max_rate_hz::UInt16
@@ -125,8 +126,10 @@ function validate_superblock_fields(
 end
 
 function map_from_announce!(state::ConsumerState, msg::ShmPoolAnnounce.Decoder)
+    state.config.use_shm || return false
     header_uri = String(ShmPoolAnnounce.headerRegionUri(msg))
     validate_uri(header_uri) || return false
+    ShmPoolAnnounce.headerSlotBytes(msg) == UInt16(HEADER_SLOT_BYTES) || return false
     header_mmap = mmap_shm(header_uri, SUPERBLOCK_SIZE + HEADER_SLOT_BYTES * Int(ShmPoolAnnounce.headerNslots(msg)))
 
     sb_dec = ShmRegionSuperblock.Decoder(Vector{UInt8})
@@ -155,6 +158,7 @@ function map_from_announce!(state::ConsumerState, msg::ShmPoolAnnounce.Decoder)
         pool_stride = ShmPoolAnnounce.PayloadPools.strideBytes(pool)
         pool_uri = String(ShmPoolAnnounce.PayloadPools.regionUri(pool))
 
+        pool_nslots == header_expected_nslots || return false
         validate_uri(pool_uri) || return false
         validate_stride(pool_stride; require_hugepages = state.config.require_hugepages) || return false
 
@@ -186,6 +190,31 @@ function map_from_announce!(state::ConsumerState, msg::ShmPoolAnnounce.Decoder)
     return true
 end
 
+function reset_mappings!(state::ConsumerState)
+    state.header_mmap = nothing
+    empty!(state.payload_mmaps)
+    empty!(state.pool_stride_bytes)
+    state.mapped_epoch = UInt64(0)
+    state.last_seq_seen = UInt64(0)
+    state.seen_any = false
+    return nothing
+end
+
+function handle_shm_pool_announce!(state::ConsumerState, msg::ShmPoolAnnounce.Decoder)
+    ShmPoolAnnounce.streamId(msg) == state.config.stream_id || return false
+    ShmPoolAnnounce.layoutVersion(msg) == state.config.expected_layout_version || return false
+    ShmPoolAnnounce.maxDims(msg) == state.config.max_dims || return false
+
+    if state.mapped_epoch != 0 && ShmPoolAnnounce.epoch(msg) != state.mapped_epoch
+        reset_mappings!(state)
+    end
+
+    if state.header_mmap === nothing
+        return map_from_announce!(state, msg)
+    end
+    return true
+end
+
 function maybe_track_gap!(state::ConsumerState, seq::UInt64)
     if state.seen_any
         if seq > state.last_seq_seen + 1
@@ -196,6 +225,21 @@ function maybe_track_gap!(state::ConsumerState, seq::UInt64)
     end
     state.last_seq_seen = seq
     return nothing
+end
+
+function apply_consumer_config!(state::ConsumerState, msg::ConsumerConfigMsg.Decoder)
+    ConsumerConfigMsg.streamId(msg) == state.config.stream_id || return false
+    ConsumerConfigMsg.consumerId(msg) == state.config.consumer_id || return false
+
+    state.config.use_shm = (ConsumerConfigMsg.useShm(msg) == Bool_.TRUE)
+    state.config.mode = ConsumerConfigMsg.mode(msg)
+    state.config.decimation = ConsumerConfigMsg.decimation(msg)
+    state.config.payload_fallback_uri = String(ConsumerConfigMsg.payloadFallbackUri(msg))
+
+    if !state.config.use_shm
+        reset_mappings!(state)
+    end
+    return true
 end
 
 function emit_consumer_hello!(state::ConsumerState)
