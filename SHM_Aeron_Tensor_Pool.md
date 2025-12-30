@@ -1,0 +1,965 @@
+# Shared-Memory Tensor Pool with Aeron + SBE
+## Design Specification (v1.1)
+
+**Abstract** This specification defines a zero-copy shared-memory transport for large tensors/images coordinated via Aeron messaging and SBE encoding. Producers write tensor metadata (shape, dtype, strides) and payloads into fixed-size SHM rings with lossy-overwrite semantics; consumers receive lightweight descriptors over Aeron IPC and read SHM directly. A seqlock commit protocol prevents torn reads. The design supports multiple independent producers/consumers, optional partial-frame progress reporting, unified QoS/metadata streams, and language-neutral implementation (C/Java/Go/Rust/Julia). Operational patterns mirror Aeron (single-writer ownership, epoch-based remapping, agent lifecycle).
+
+This document defines a complete, self-contained specification for implementing
+a zero-copy shared-memory tensor/image transport coordinated via Aeron and SBE.
+
+It is written to be directly consumable by automated code-generation tools
+(e.g. Codex, other LLMs) and by human implementers.
+
+**Key Words** The key words “MUST”, “MUST NOT”, “REQUIRED”, “SHOULD”, “SHOULD NOT”, and “MAY” are to be interpreted as described in RFC 2119.
+
+**Document Conventions** Normative sections: 6–11, 15.1–15.22, 16. Informative sections: 1–5, 12–14. "NOTE:"/"Rationale:" text is informative. Uppercase MUST/SHOULD/MAY keywords appear only in normative sections and carry RFC 2119 force; any lowercase "must/should/may" in informative text is non-normative.
+**Version History**
+- v1.1 (2025-12-30): Initial RFC-style specification. Adds normative algorithms, compatibility matrix, explicit field alignment (TensorSlotHeader256), language-neutral requirements, and progress reporting protocol. Normative wire/SHM schemas included.
+---
+
+## 1. Goals
+
+- Zero-copy local data exchange for large tensors/images.
+- Small descriptor and control messages transported via Aeron.
+- All messages are **SBE encoded**.
+- Support many independent producer and consumer services.
+- Define two roles: producers (server/driver; own SHM and publish descriptors/control) and consumers (client; map SHM and subscribe). Packaging of these roles (combined vs split, akin to Aeron driver/client) is an implementation choice, not a protocol requirement.
+- Lossy overwrite semantics: slow consumers may drop frames.
+- Consumers must never read partially written (“torn”) data.
+- Optional bridge service for remote consumers or recording.
+- Unified management/observability via Aeron control-plane streams.
+
+## 2. Non-Goals (v1)
+
+- Exactly-once delivery.
+- Per-consumer backpressure or gating (no Disruptor-style gating).
+- POSIX IPC (`shm_open`) or `memfd`.
+- GPU-backed shared memory (future extension).
+
+---
+
+## 3. High-Level Architecture
+
+Roles: producer (server/driver) owns SHM regions and publishes descriptors/control; consumer (client) maps SHM and subscribes to descriptors/control. A deployment may package both roles together (like Aeron driver+client) or split them; packaging is an implementation detail.
+
+Each **producer service** owns:
+
+1. **Header Ring (SHM)**
+   - Fixed-size header slots (256 bytes each).
+   - Slot count is a power of two.
+
+2. **Payload Pool(s) (SHM)**
+   - Raw byte buffers.
+   - Fixed stride per pool.
+   - Multiple size classes allowed.
+  - v1.1: same slot count as header ring; `payload_slot = header_index` (decoupled/free-list mapping is a v2 change).
+  - Choose `stride_bytes` as a power of two and a multiple of the backing page/hugepage size (e.g., 4 KiB or 2 MiB); size-class upward from there (1 MiB, 2 MiB, 4 MiB, 8 MiB on 2 MiB hugepages is a reasonable start).
+
+3. **Aeron Publications**
+   - `FrameDescriptor` stream (IPC).
+   - Control / metadata / QoS streams (also IPC or UDP, depending on deployment).
+
+Consumers subscribe to Aeron streams and map SHM regions when local.
+
+---
+
+## 4. Shared Memory Backends
+
+All shared-memory regions are file-backed `mmap` using a URI provided in control-plane messages. The backing filesystem and page size are deployment concerns; validation rules are defined in the normative backend validation section (see 15.22).
+
+### 4.1 Region URI Scheme (v1.1) *(informative; validation is normative in 15.22)*
+
+Supported scheme (only):
+
+```
+shm:file?path=<absolute_path>[|require_hugepages=true]
+```
+
+- Separator: parameters use Aeron-style `|` between entries (not `&`).
+- `path` (required): absolute path to the backing file (POSIX) or the platform-defined shared-memory identifier (e.g., Windows named shared memory). Examples: `/dev/shm/<name>` (tmpfs) or `/dev/hugepages/<name>` (hugetlbfs). Absolute POSIX paths use a leading `/`; platform-specific names follow their native rules.
+- `require_hugepages` (optional, default false): if true, the region MUST be backed by hugepages; mappings that do not satisfy this requirement MUST be rejected (see 15.22).
+- v1.1 supports only `shm:file`; other schemes or additional parameters are unsupported and MUST be rejected (see 15.22).
+
+Informative ABNF (single scheme):
+
+```
+shm-uri  = "shm:file?path=" abs-path ["|" "require_hugepages=" bool]
+abs-path = 1*( VCHAR except "?" and "|" and SP )
+bool     = "true" / "false"
+```
+
+Only `path` and `require_hugepages` are defined; unknown parameters MUST be rejected (see 15.22).
+
+### 4.2 Behavior Overview (informative)
+
+- Region discovery occurs via Aeron control messages.
+- Unknown URI schemes are treated as unsupported; consumers may fall back to a bridged payload stream when configured.
+- `stride_bytes` remains explicit and is not inferred from page size; alignment/rejection rules are normative in 15.22.
+
+---
+
+## 5. Control-Plane and Data-Plane Streams
+
+Per `stream_id` (data source), define these logical streams (how you map to Aeron channels/stream IDs is an implementation detail):
+
+- **Descriptor Stream**: producer → all consumers (`FrameDescriptor`)
+- **Control Stream**: bi-directional management and discovery messages
+- **QoS Stream**: producer and consumers → supervisor/console (or shared bus)
+- **Metadata Stream**: producer → all (`DataSourceAnnounce`, `DataSourceMeta`, optional blobs)
+
+A simple deployment can multiplex these message types on one Aeron channel/stream ID, but separating them improves observability.
+
+---
+
+## 6. SHM Region Structure
+
+All regions begin with an SBE-encoded superblock:
+
+```
++------------------------------+
+| SBE Superblock (fixed-size)  |
++------------------------------+
+| Region-specific contents     |
++------------------------------+
+```
+
+Encoding is **little-endian**.
+
+Define `superblock_size = 64` bytes (fixed); all offsets/formulas refer to this constant in v1.1. This is normative: implementations MUST treat `superblock_size` as exactly 64 bytes (do not derive from SBE blockLength metadata).
+
+---
+
+## 7. SBE Messages Stored in SHM
+
+### 7.1 ShmRegionSuperblock
+
+Stored at offset 0 of every SHM region.
+
+**Fields**
+- `magic : u64`
+- `layout_version : u32`
+- `epoch : u64`
+- `stream_id : u32`
+- `region_type : enum { HEADER_RING=1, PAYLOAD_POOL=2 }`
+- `pool_id : u16`
+- `nslots : u32`
+- `slot_bytes : u32`
+- `stride_bytes : u32`
+- `pid : u64`
+- `start_timestamp_ns : u64`
+- `activity_timestamp_ns : u64`
+- padding
+
+**Rules**
+- Written once by producer at initialization.
+- Consumers MUST validate against announced parameters.
+- Producer refreshes `activity_timestamp_ns` periodically (e.g., at announce cadence); stale timestamps imply producer death and force remap.
+- Encoding is little-endian. Superblock layout is SBE-defined (see schema appendix) so existing SBE parsers can `wrap!` directly over the mapped memory. v1.1 magic MUST be ASCII `TPOLSHM1` (`0x544F504C53484D31` as u64, little-endian); treat mismatches as invalid.
+- Field order is cacheline-oriented: first cache line carries validation fields (`magic`, `layout_version`, `epoch`, `stream_id`, `region_type`, `pool_id`, `nslots`, `slot_bytes`, `stride_bytes`); second cache line carries liveness/identity (`pid`, `start_timestamp_ns`, `activity_timestamp_ns`). Total size is 64 bytes.
+- Keep `layout_version` even though SBE `version` exists: `layout_version` governs SHM layout compatibility; SBE `version`/`schemaId` governs control-plane messages.
+- Epoch wraparound (uint64) is practically unreachable; if encountered, treat as incompatible and remap with a new `layout_version`/`epoch`.
+- `pool_id` meaning: for `region_type=HEADER_RING`, `pool_id` MUST be 0. For `region_type=PAYLOAD_POOL`, `pool_id` MUST match the `pool_id` advertised in `ShmPoolAnnounce`.
+
+---
+
+## 8. Header Ring
+
+### 8.1 Slot Layout
+
+Each header slot is exactly **256 bytes** and SBE encoded.
+
+```
+slot_offset(i) =
+    superblock_size + i * 256
+```
+
+### 8.2 TensorSlotHeader256
+
+This header represents “almost fixed-size TensorMessage metadata” with the large `values` buffer stored out-of-line in a payload pool.
+
+SBE definition: `TensorSlotHeader256` message in the schema appendix (using `MAX_DIMS=8`; adjust `length` if you pick a different `MAX_DIMS`).
+
+**Fields** (in wire/layout order)
+- `commit_word : u64` (commit sentinel, written last)
+- `frame_id : u64` (monotonic per stream; MUST equal `seq` in v1.1)
+- `timestamp_ns : u64`
+- `meta_version : u32` (ties frame to `DataSourceMeta`)
+- `values_len_bytes : u32`
+- `payload_slot : u32`
+- `payload_offset : u32` (typically 0; reserved)
+- `pool_id : u16`
+- `dtype : enum Dtype` (scalar element type)
+- `major_order : enum MajorOrder` (row- vs column-major)
+- `ndims : u8`
+- `pad_align : u8` (aligns `dims`/`strides` to 4-byte boundary)
+- `dims[MAX_DIMS] : i32[]`
+- `strides[MAX_DIMS] : i32[]` (bytes per dim; 0 = contiguous/infer)
+- padding to 256 bytes
+
+v1.1 canonical identity: `TensorSlotHeader256.frame_id`, `FrameDescriptor.seq`, and `FrameProgress.frame_id` MUST be equal for the same frame; consumers MUST DROP if any differ.
+
+**NOTE**
+- Region-of-interest (ROI) offsets/boxes do not belong in this fixed header; carry ROI in `DataSourceMeta` attributes when needed.
+- Interpretation: `dtype` = scalar element type; `major_order` = row/column-major; `strides` allow arbitrary layouts; 0 strides mean contiguous inferred from shape and dtype.
+- `commit_word` MUST reside entirely within a single cache line and be written with a single aligned store; assume 64-byte cache lines (common); if different, still place `commit_word` in the first cache line and use an 8-byte aligned atomic store.
+- Strides: `0` means inferred contiguous; negative strides are **not supported in v1.1**; strides MUST describe a non-overlapping layout consistent with `major_order` (row-major implies increasing stride as dimension index decreases); reject headers whose strides would overlap or contradict `major_order`.
+- Arrays alignment: `pad_align` ensures `dims` and `strides` are 4-byte aligned; consumers may rely on this for word accesses.
+- Padding (`Pad144`) is reserved/opaque; producers MAY leave it zeroed or use it for implementation-specific data; consumers MUST ignore it and MUST NOT store process-specific pointers/addresses there.
+- Frame identity: `frame_id` in the header MUST equal the `seq` in `FrameDescriptor` and MUST match any `FrameProgress.frame_id`. Consumers SHOULD drop a frame if `commit_word`/`frame_id` and `FrameDescriptor.seq` disagree (stale header_index reuse).
+
+### 8.3 Commit Sentinel Protocol
+
+Use `commit_word` as a seqlock derived from `frame_id`:
+
+- WRITING: `(frame_id << 1) | 1`
+- COMMITTED: `(frame_id << 1)`
+
+**Producer**
+0. Write `commit_word = (frame_id << 1) | 1` (WRITING) with at least relaxed store (release is fine).
+1. Write payload bytes (DMA complete or memcpy complete).
+2. Write all header fields except `commit_word` (full overwrite of the slot; do not rely on prior zeroing/truncate).
+3. Ensure payload visibility (see coherency note below), then write committed `commit_word = (frame_id << 1)` with **release** semantics.
+
+**Consumer**
+1. Read `commit_word` (acquire).
+2. If odd → skip/drop (not committed).
+3. Read header + payload.
+4. Re-read `commit_word` (acquire).
+5. Accept only if unchanged and even.
+
+This prevents torn reads under overwrite.
+
+**Coherency / DMA visibility**
+- Producer MUST ensure payload bytes are visible to CPUs before writing the COMMITTED `commit_word` (and before emitting a `FrameProgress` COMPLETE state). On non-coherent DMA paths, flush/invalidate as required by the platform/driver.
+- Consumers MUST treat payload as valid only after the seqlock check on `commit_word` succeeds.
+
+---
+
+## 9. Payload Pools
+
+- Raw byte buffers with fixed stride.
+- Slot offset:
+  ```
+  payload_offset = superblock_size + payload_slot * stride_bytes
+  ```
+- Pools MAY be size-classed (e.g. 1 MiB, 16 MiB).
+- Pool selection rule (v1): choose the smallest pool where `stride_bytes >= values_len_bytes`.
+- If no pool fits (`values_len_bytes` larger than all `stride_bytes`), the producer MUST drop the frame (and MAY log/emit QoS) rather than blocking; future v2 may add dynamic pooling.
+
+**Mapping rule (v1.1, simple):**
+- All pools use the same `nslots` as the header ring.
+- `payload_slot = header_index` (same index mapping).
+- Header stores `pool_id` (size class).
+
+(Alternate mapping with free lists can be added later as v2.)
+
+---
+
+## 10. Aeron + SBE Messages (Wire Protocol)
+
+All messages below are SBE encoded and transported over Aeron.
+
+### 10.1 Service Discovery and SHM Coordination
+
+**Optional primitives and null values (normative)**
+- All primitive fields marked `presence="optional"` use explicit null sentinels in the schema: `uint32 nullValue = 0xFFFFFFFF`, `uint64 nullValue = 0xFFFFFFFFFFFFFFFF`.
+- Producers MUST encode “absent” optional primitives using the nullValue; consumers MUST interpret those null values as “not provided”.
+- Implementations MAY instead choose to always populate fields and omit `presence="optional"`; keep schema and prose aligned.
+
+#### 10.1.1 ShmPoolAnnounce (producer → all)
+
+Sent periodically (e.g. 1 Hz) and on change.
+
+**Fields**
+- `stream_id : u32`
+- `producer_id : u32`
+- `epoch : u64`
+- `layout_version : u32`
+- `header_region_uri : string`
+- `header_nslots : u32`
+- `header_slot_bytes : u16` (must be 256)
+- `max_dims : u8`
+- repeating group `payload_pools`:
+  - `pool_id : u16`
+  - `region_uri : string`
+  - `pool_nslots : u32`
+  - `stride_bytes : u32`
+
+**Rules**
+- Consumers use this to open/mmap regions and validate superblocks.
+- If `epoch` changes, consumers must remap and reset state.
+
+#### 10.1.2 ConsumerHello (consumer → producer/supervisor)
+
+Sent on startup and optionally periodically.
+
+**Fields**
+- `stream_id : u32`
+- `consumer_id : u32`
+- `supports_shm : bool`
+- `supports_progress : bool` (can consume partial DMA progress hints)
+- `mode : enum { STREAM=1, LATEST=2, DECIMATED=3 }`
+- `max_rate_hz : u16` (0 = unlimited; mainly for GUI)
+- `expected_layout_version : u32`
+- optional progress policy hints (producer may coarsen across consumers):
+  - `progress_interval_us : u32` (minimum interval between `PROGRESS` messages; optional; if absent, producer defaults apply; **recommended default**: 250 µs)
+  - `progress_bytes_delta : u32` (minimum byte delta to report; optional; if absent, producer defaults apply; **recommended default**: 65,536 bytes)
+  - `progress_rows_delta : u32` (minimum row delta to report; optional; 0/absent if not row-major; **recommended default**: 0 when not row-major)
+
+**Purpose**
+- Advertise consumer capabilities.
+- Enables management decisions (e.g., instruct remote consumers to use a bridge).
+- Provides optional per-consumer progress throttling hints; producer aggregates hints (e.g., smallest intervals/deltas within producer safety floors) and retains final authority.
+- Consumer IDs: recommended to be assigned by supervisor/authority per stream; if self-assigned, use randomized IDs and treat collisions (detected via `QosConsumer`) as a reason to reconnect with a new ID.
+
+#### 10.1.3 ConsumerConfig (producer/supervisor → consumer) [optional]
+
+**Fields**
+- `stream_id : u32`
+- `consumer_id : u32`
+- `use_shm : bool`
+- `mode : enum { STREAM, LATEST, DECIMATED }`
+- `decimation : u16` (valid when mode=DECIMATED; 1=none)
+- `payload_fallback_uri : string` (optional; e.g., bridge channel/stream info)
+  - URI SHOULD follow Aeron channel syntax when bridged over Aeron (e.g., `aeron:udp?...`) or a documented scheme such as `bridge://<id>` when using a custom bridge; undefined schemes MUST be treated as unsupported.
+
+**Purpose**
+- Central authority can force GUI into LATEST or DECIMATED.
+- Can redirect non-local consumers to bridged payload.
+
+### 10.2 Data Availability
+
+#### 10.2.1 FrameDescriptor (producer → all)
+
+One per produced tensor/frame.
+
+**Fields**
+- `stream_id : u32`
+- `epoch : u64`
+- `seq : u64` (monotonic; may equal `frame_id`)
+- `header_index : u32` (`seq & (header_nslots - 1)`)
+
+Optional fields (may reduce SHM reads for filtering):
+- `timestamp_ns : u64`
+- `meta_version : u32`
+
+**Rules**
+- Consumers MUST ignore descriptors whose `epoch` does not match mapped SHM regions.
+- Consumers derive all payload location/shape/type from the SHM header slot.
+- Consumer MUST drop if the header slot’s committed `frame_id` (derived from `commit_word` or header) does not equal `FrameDescriptor.seq` for that `header_index` (stale reuse guard).
+
+#### 10.2.2 FrameProgress (producer → interested consumers, optional)
+
+Optional partial-availability hints during DMA.
+
+**Fields**
+- `stream_id : u32`
+- `epoch : u64`
+- `frame_id : u64` (MUST equal `FrameDescriptor.seq` and the header `frame_id`)
+- `header_index : u32`
+- `payload_bytes_filled : u64`
+- `state : enum { UNKNOWN=0, STARTED=1, PROGRESS=2, COMPLETE=3 }`
+- optional: `rows_filled : u32` (if present, rows count for row-major sensors)
+
+**Rules**
+- Producer emits `STARTED` when acquisition for the slot begins.
+- Producer emits `PROGRESS` throttled (e.g., every N rows or X µs) with updated `payload_bytes_filled`.
+- Producer emits `COMPLETE` or simply the usual `FrameDescriptor` when DMA finishes; `commit_word` semantics remain unchanged (even = committed).
+- Consumers that do not opt in ignore `FrameProgress` and rely on `FrameDescriptor`.
+- Consumers that opt in must read only the prefix `[0:payload_bytes_filled)` (or rows up to `rows_filled`) and may reread `payload_bytes_filled` to confirm.
+- `FrameProgress.state=COMPLETE` does **not** guarantee payload visibility; consumers MUST still validate `commit_word` before treating data as committed.
+- FrameDescriptor remains the canonical “frame available” signal; consumers MUST NOT treat `FrameProgress` (including COMPLETE) as a substitute, and producers MAY omit `FrameProgress` entirely.
+- Progress payload prefix safety:
+  - If strides are inferred contiguous **and** `payload_offset=0`, then bytes in `[0:payload_bytes_filled)` are safe to read (subject to `commit_word`).
+  - Otherwise, treat `payload_bytes_filled` as informational only unless `rows_filled` is present and the consumer understands the row layout; consumers MUST NOT assume prefix contiguity.
+
+**State machine**
+- Per frame: STARTED → PROGRESS (0..N) → COMPLETE. No regression within a frame. New frame uses a new `frame_id`/`header_index`.
+
+**Throttling guidance**
+- Emit `STARTED` once, then at most one `PROGRESS` per interval (e.g., 200–500 µs) and only when `payload_bytes_filled` advances by a threshold (e.g., ≥64 KiB or ≥N rows).
+- Cap burstiness with a per-stream max rate (e.g., 1–2 kHz) or token bucket; drop intermediate updates but always send the latest state when the interval elapses.
+- Use monotone triggers: combine (a) time-based tick, (b) byte/row delta threshold, (c) final `COMPLETE`. This avoids floods of tiny updates and long silences.
+- Only publish when at least one subscriber has `supports_progress=true`; otherwise skip to reduce control-plane load.
+- When consumers provide policy hints (`progress_interval_us`, `progress_bytes_delta`, `progress_rows_delta`), producer applies the most aggressive common policy that stays within its safety floor: take the **smallest** interval and **smallest** deltas offered, but not below producer minima.
+- If no hints are provided, fall back to producer defaults (recommend 250 µs interval, 64 KiB delta, rows hint unset).
+
+### 10.3 Per-Data-Source Metadata
+
+#### 10.3.1 DataSourceAnnounce (producer → all)
+
+Periodic beacon for discovery/inventory.
+
+**Fields**
+- `stream_id : u32`
+- `producer_id : u32`
+- `epoch : u64`
+- `meta_version : u32`
+- optional: human-readable name/id (bounded varAscii)
+- optional: nominal dtype/shape summary
+- keep this lean; richer metadata lives in `DataSourceMeta`
+
+#### 10.3.2 DataSourceMeta (producer → all)
+
+Sent on change and periodically (or on request). Carries structured key/format/value items so decoders can pick specific fields without decoding arbitrary blobs.
+
+**Fields**
+- `stream_id : u32`
+- `meta_version : u32`
+- `timestamp_ns : u64`
+- repeating group `attributes`:
+  - `key : varAscii` (e.g., "camera_serial", "intrinsics")
+  - `format : varAscii` (e.g., "text/plain", "application/json", "application/msgpack", "sbe:<schemaId>.<templateId>")
+  - `value : varData` (bytes per `format`)
+
+**Rules**
+- Each `TensorSlotHeader256.meta_version` and/or `FrameDescriptor.meta_version` references the applicable metadata version.
+- Use `meta_version` bumps to add/remove `attributes`. Consumers MAY ignore unknown `key` values.
+
+#### 10.3.3 Meta blobs (optional, if large metadata is needed)
+
+If you must distribute large calibration tables (flat fields, masks, etc.), define chunked SBE messages:
+
+- `MetaBlobAnnounce(stream_id, meta_version, blob_type, total_len, checksum)`
+- `MetaBlobChunk(stream_id, meta_version, offset, bytes[CHUNK_MAX])`
+- `MetaBlobComplete(stream_id, meta_version, checksum)`
+
+Rules (experimental): offsets MUST be monotonically increasing, non-overlapping, and cover `[0, total_len)`; consumers discard on gap/overlap or checksum mismatch; retransmission/repair is out of scope in v1.1.
+
+### 10.4 QoS and Health
+
+#### 10.4.1 QosConsumer (consumer → supervisor/producer)
+
+Sent periodically (e.g. 1 Hz).
+
+**Fields**
+- `stream_id : u32`
+- `consumer_id : u32`
+- `epoch : u64`
+- `last_seq_seen : u64`
+- `drops_gap : u64` (seq gaps)
+- `drops_late : u64` (failed sentinel validation / overwritten mid-read)
+- `mode : enum`
+- optional latency stats (p50/p99)
+
+#### 10.4.2 QosProducer (producer → all)
+
+**Fields**
+- `stream_id : u32`
+- `producer_id : u32`
+- `epoch : u64`
+- `current_seq : u64`
+- optional per-pool watermark/health
+
+### 10.5 Supervisor / Unified Management (recommended)
+
+A “supervisor/console” service subscribes to:
+- `ShmPoolAnnounce`
+- `DataSourceAnnounce` / `DataSourceMeta`
+- `QosConsumer` / `QosProducer`
+- service health announcements (optional)
+
+It may publish:
+- `ConsumerConfig`
+- service commands (optional extension): `ServiceCommand(target_service_id, cmd_type, params)`
+
+---
+
+## 11. Consumer Modes
+
+- **STREAM**: process all descriptors; drop if late.
+- **LATEST**: keep newest descriptor only; render/process at low rate.
+- **DECIMATED**: process every Nth frame (N = `decimation`).
+
+Progress with DECIMATED: producers MAY emit `FrameProgress` for all frames; decimating consumers MAY ignore progress for dropped frames. Implementations MAY optionally suppress progress for frames that will be decimated to reduce control-plane load.
+
+Decimation can be consumer-side or via a tap/decimator service.
+
+---
+
+## 12. Bridge Service (Optional)
+
+- Subscribes to descriptors + SHM.
+- Republishes payload over Aeron UDP (or records).
+- Provides fallback path for remote or non-SHM consumers.
+- Not required for v1; specification only reserves the option for future deployment.
+
+---
+
+## 13. Implementation Notes (Informative; Julia-focused example)
+
+- Specification is language-neutral and should be implementable in C/Java/Go/Rust/Julia (or any platform with Aeron + SBE support).
+- SHM layout must remain language-agnostic: no runtime-specific pointers/vtables/handles; only POD data per the SBE schema.
+- Use `Mmap.mmap` on `region_uri` paths.
+- Decode SBE directly from mapped memory (no allocations in hot paths).
+- Implement `commit_word` loads/stores with acquire/release semantics.
+- Avoid storing language-managed pointers/handles (GC/JVM/Rust lifetimes/Julia-managed) in SHM; only POD per schema.
+- Use Aeron transport via Aeron.jl and SBE encoding/decoding via SBE.jl.
+- Use Agent.jl for agent-style services (supervisor/console, bridge, decimator) to mirror Aeron/Agrona agents with structured lifecycle.
+
+---
+
+## 14. Open Parameters (fill these in)
+
+- `MAX_DIMS` (recommend 8 or 16)
+- Pool size classes and `stride_bytes` (e.g., 1 MiB, 16 MiB)
+- `header_nslots` and per-pool `nslots` (power-of-two)
+- `layout_version` initial value
+- Aeron channel/stream ID mapping conventions (examples in 15.11 are non-normative; deployments SHOULD set explicit defaults)
+
+---
+
+End of specification.
+
+---
+
+## 15. Additional Requirements and Guidance (v1.1)
+
+### 15.1 Validation and Compatibility
+- Consumers MUST validate that `layout_version`, `nslots`, `slot_bytes`, `stride_bytes`, `region_type`, and `pool_id` in `ShmRegionSuperblock` match the most recent `ShmPoolAnnounce`; mismatches MUST trigger a remap or fallback.
+- Consumers MUST validate `magic` and `epoch` on every `ShmPoolAnnounce`; `pid` is informational and cannot alone detect restarts or multi-producer contention.
+- `max_dims` in `ShmPoolAnnounce` MUST match the compiled SBE schema expectation; otherwise consumers SHOULD reject SHM and use fallback.
+- Host endianness: implementation is little-endian only; big-endian hosts MUST reject or byte-swap consistently (out of scope in v1.1).
+
+### 15.2 Epoch Lifecycle
+- Increment `epoch` on any producer restart or layout change (superblock size change, `nslots`, pool size classes, or slot size change).
+- On `epoch` change, producer SHOULD reset `seq`/`frame_id` to 0; consumers MUST drop stale frames, unmap, and remap regions.
+- Consumers treat any regression of `epoch` or `seq` as a remap requirement.
+
+### 15.3 Commit Protocol Edge Cases
+- If `commit_word` is even but lower than a previously observed value for the same slot, consumers MUST treat it as stale and skip.
+- If `commit_word` changes between the two reads in the consumer flow, count as `drops_late` and skip the frame.
+- Specify atomics per language: C/C++ `std::atomic<uint64_t>` with release/acquire; Java `VarHandle` setRelease/getAcquire; Julia `Base.Threads.atomic_store!`/`atomic_load!` with :release/:acquire.
+
+### 15.4 Overwrite and Drop Accounting
+- Producers MAY overwrite any slot following `header_index = seq & (nslots - 1)` with no waiting.
+- Consumers SHOULD treat gaps in `seq` as `drops_gap` and commit-word instability as `drops_late`.
+- Documented policy: no producer backpressure in v1.1; supervisor MAY act on QoS to throttle externally.
+- Optional policy: implementations MAY configure `max_outstanding_seq_gap` per consumer; if exceeded, consumer SHOULD resync (e.g., drop to latest) and report in QoS.
+- Recommended `max_outstanding_seq_gap` default: 256 frames; deployments MAY tune based on buffer depth and latency tolerance.
+
+### 15.5 Pool Mapping Rules (v1.1)
+- All payload pools MUST use the same `nslots` as the header ring; differing `nslots` are invalid in v1.1.
+- `payload_slot = header_index` is mandatory in v1.1; free-list or decoupled mappings are deferred to v2.
+
+### 15.6 Sizing Guidance
+- Recommended minimum `header_nslots`: `ceil(producer_rate_hz * worst_case_consumer_latency_s * safety_factor)`; start with safety factor 2–4.
+- Example pool size classes: 1 MiB, 4 MiB, 16 MiB. Choose smallest `stride_bytes >= values_len_bytes`.
+
+### 15.7 Timebase
+- `timestamp_ns` SHOULD be monotonic (CLOCK_MONOTONIC) for latency calculations. If cross-host alignment is required and PTP is available, `CLOCK_REALTIME` is acceptable—document the source clock and drift budget. When possible, include both a monotonic timestamp (for latency) and a realtime/epoch timestamp (for cross-host alignment).
+- Latency = `now_monotonic - timestamp_ns_monotonic`. Cross-host correlation requires externally synchronized clocks.
+
+### 15.7a NUMA Policy (deployment-driven)
+- Follow Aeron practice: pin critical agents (producer, supervisor) to cores on the NUMA node that owns the NIC/storage for SHM paths; allocate SHM (tmpfs/hugetlb) bound to that node using OS tooling (e.g., `numactl`).
+- Do not implement NUMA policy in-protocol; placement is an ops/deployment concern. Co-locate producers and their SHM pools; prefer consumers on the same node when low latency matters.
+
+### 15.8 Enum and Type Registry
+- Define and version registries for `dtype`, `major_order`, and set `MAX_DIMS` (recommend 8 or 16). Unknown enum values MUST cause rejection of the frame (or fallback) rather than silent misinterpretation.
+- Document evolution: add new enum values with bumped `layout_version`; keep wire encoding stable; avoid reuse of retired values.
+- Normative numeric values (v1.1): `Dtype.UNKNOWN=0, UINT8=1, INT8=2, UINT16=3, INT16=4, UINT32=5, INT32=6, UINT64=7, INT64=8, FLOAT32=9, FLOAT64=10, BOOLEAN=11, BYTES=13, BIT=14`; `MajorOrder.UNKNOWN=0, ROW=1, COLUMN=2`. These values MUST NOT change within v1.x.
+
+### 15.9 Metadata Blobs
+- Define `CHUNK_MAX`; checksum is OPTIONAL given Aeron reliability. Offsets MUST be monotonically increasing and non-overlapping.
+- If integrity beyond transport is desired, use CRC32C over the full blob; otherwise omit checksum to reduce overhead.
+- Suggested constant: `CHUNK_MAX = 64 KiB`.
+
+### 15.10 Security and Permissions (Security Considerations)
+- SHM files SHOULD be created with restrictive modes (e.g., 660) and owned by the producing service user/group; set appropriate `umask`.
+- On systems with MAC (SELinux/AppArmor), label/allow rules SHOULD be set to limit writers to trusted services.
+
+### 15.11 Stream Mapping Guidance
+- Recommend fixed stream ID ranges per channel: descriptor, control, QoS, metadata. Template IDs alone MAY be used for multiplexing, but separate streams improve observability.
+- Example (adjust per deployment):
+  - Control: stream IDs 1000–1003 (announce/hello/config/response) on IPC.
+  - Descriptor: 1100 on IPC.
+  - QoS: 1200 on IPC.
+  - Metadata: 1300 on IPC.
+  - Bridge/fallback (if used): UDP with separate stream IDs per direction.
+- Cadence guidance (SHOULD, configurable per deployment): `ShmPoolAnnounce` 1 Hz; `DataSourceAnnounce` 1 Hz; `QosProducer`/`QosConsumer` 1 Hz; `activity_timestamp` refresh at same cadence.
+- Minimal deployment can multiplex all control/announce/QoS/metadata on a single IPC stream to avoid extra term buffers; the above ranges are optional for clarity/observability.
+
+### 15.12 Consumer State Machine (suggested)
+- UNMAPPED: waiting for `ShmPoolAnnounce`.
+- MAPPED: SHM mapped, `epoch` matches.
+- FALLBACK: SHM unsupported/unavailable → use `payload_fallback_uri` if provided.
+
+### 15.13 Test and Validation Checklist
+- mmap and superblock validation (magic, version, sizes, endianness) fails closed.
+- Commit-word stability under overwrite at load: no torn reads.
+- Epoch rollover/remap behavior: consumers drop and remap.
+- Unlink/remap recovery: producer recreation detected via `epoch` and `magic`.
+- QoS counters: `drops_gap` vs `drops_late` reported correctly.
+
+### 15.14 Deployment & Liveness (Aeron-inspired)
+- Superblock/mark fields: include `magic`, `layout_version`, `epoch`, `pid`, `start_timestamp`, `activity_timestamp`. Producers update `activity_timestamp` periodically; supervisors treat stale values as dead and require remap.
+- Single-writer rule: producer is sole writer of header/pool regions; if `pid` changes or concurrent writers are detected, consumers MUST unmap and wait for a new `epoch`.
+- Creation/cleanup: on producer start, create/truncate, write superblock, fsync, then publish `ShmPoolAnnounce`. On clean shutdown, optionally unlink or set a clean-close flag. Crashes are inferred by stale `activity_timestamp`.
+- Permissions: create SHM files with restrictive modes (e.g., umask 007, mode 660) and trusted group ownership; align with Aeron’s driver directory practices.
+- Liveness timeouts: supervisors set a timeout (e.g., 3–5× announce period) on `activity_timestamp`; on expiry, unmap and await new `epoch`.
+- Recreation detection: any change to `magic`, `layout_version`, or `epoch` requires remap; treat version mismatch as incompatible.
+- Optional error log: add a small fixed-size error ring (timestamp, pid, code) in SHM for postmortem without stdout scraping.
+
+### 15.15 Aeron Terminology Mapping
+- Producer service ≈ Aeron driver for this data source (owns SHM, publishes descriptors/QoS/meta over Aeron).
+- Supervisor/consumer coordination layer ≈ client conductor (tracks announces, epochs, remaps, issues configs, observes QoS).
+- Bridge/tap/decimator agents follow the Agent.jl pattern analogous to Agrona agents used by Aeron.
+
+### 15.16 Heartbeats
+- Primary liveness comes from periodic `ShmPoolAnnounce` plus `activity_timestamp_ns` updates in the superblock; `activity_timestamp_ns` acts as the heartbeat. Supervisors time out on stale timestamps.
+- Optional control-plane heartbeat: a lightweight `Heartbeat` message on the control stream can signal liveness without touching SHM; define cadence alongside announce.
+
+### 15.17 Reuse Aeron Primitives (do not reinvent)
+- Keep all control/descriptor/QoS/metadata over Aeron IPC streams; avoid new SHM counter regions—use Aeron-style QoS messages and existing counter semantics for drops/health.
+- If you need counters/metrics, prefer Aeron Counters (driver/client) instead of adding custom SHM counters; expose QoS via Aeron messages.
+- Implement producer, supervisor, bridge/decimator as Aeron-style agents (Agent.jl mirrors Agrona agents) with single-writer ownership of SHM, matching Aeron driver patterns.
+- Use the SBE toolchain for every control and descriptor message; multiplex by template ID when collapsing streams, or separate streams for observability—same choice pattern as Aeron archive/control.
+- Liveness and lifecycle mirror Aeron driver: mark/superblock with pid/start/activity timestamps, periodic announces, and timeouts to declare death/remap.
+- Optional bridge can mirror Aeron archive/tap behavior: subscribe to descriptor + SHM, then republish over UDP or record; keep it optional so the core remains SHM + Aeron IPC.
+- Operationally mirror Aeron: pin agents, place SHM on the local NUMA node, and apply restrictive permissions to SHM paths and driver directories.
+
+### 15.18 ControlResponse Error Codes (usage guidance)
+- `Ok`: request succeeded.
+- `Unsupported`: capability not implemented (e.g., progress hints on a producer that lacks support).
+- `InvalidParams`: malformed or incompatible request (bad stream_id/layout_version/mismatched nslots).
+- `Rejected`: policy-based refusal (e.g., unauthorized consumer_id, oversubscription).
+- `InternalError`: transient or unexpected server failure; requester MAY retry after backoff.
+
+### 15.19 Normative Algorithms (minimal, per role)
+- **Producer publish**
+  1. Compute `header_index = seq & (nslots - 1)`.
+  2. Store `commit_word = (frame_id << 1) | 1` (WRITING, release or relaxed).
+  3. Fill payload bytes (DMA or memcpy).
+  4. Fill the full header (including `frame_id=seq`, shape/strides, pool/slot, metadata refs).
+  5. Ensure payload visibility to CPUs.
+  6. Store `commit_word = (frame_id << 1)` with release.
+  7. Emit `FrameDescriptor` (and optional `FrameProgress COMPLETE`).
+
+- **Consumer receive**
+  1. On `FrameDescriptor`, validate `epoch`; derive/map `header_index`.
+  2. Read `commit_word` (acquire).
+  3. If odd → drop/skip.
+  4. Read header + payload.
+  5. Re-read `commit_word` (acquire).
+  6. Accept only if unchanged and even **and** header `frame_id` equals `seq`; otherwise drop and count (`drops_gap` or `drops_late`).
+
+- **Epoch remap**
+  1. On `epoch` change, superblock/layout mismatch, or magic/version mismatch: unmap all regions for the stream.
+  2. Reset local state.
+  3. Remap on next `ShmPoolAnnounce` and resume with `seq` tracking reset.
+
+### 15.20 Compatibility Matrix (layout/wire)
+| Change | Compatible? |
+| --- | --- |
+| Add enum value (dtype/majorOrder) | Yes (bump `layout_version`; older readers may reject unknown values) |
+| Change header slot size (256 → N) | No (requires new `layout_version` and remap) |
+| Decouple `payload_slot` from `header_index` (free list) | No (v2 feature; incompatible with v1.1 readers) |
+| Change `MAX_DIMS` length | No (requires new `layout_version` and schema rebuild) |
+
+### 15.21 Protocol State Machines and Sequences (Normative)
+
+This section defines protocol state machines for slot lifecycle and mapping/epoch handling. Any sequence diagrams or examples elsewhere are informative and do not introduce additional requirements.
+
+#### Terminology
+
+- **Slot**: header slot and its associated payload slot (v1.1: same index).
+- **Commit word**: per-slot commit indicator for logical completeness.
+- **DROP**: frame is discarded without error or retry.
+
+#### Slot Lifecycle State Machine (per slot index `i`)
+
+States
+- **S0: EMPTY_OR_STALE** — slot does not contain a valid committed frame (never written, overwritten, or prior epoch).
+- **S1: WRITING** — producer claimed slot and is populating header/payload; commit word indicates in-progress.
+- **S2: COMMITTED(seq)** — slot has a logically complete frame with sequence `seq`; commit word is even and stable.
+
+Producer transitions
+| From | Event | Action | To |
+| ---- | ---- | ---- | ---- |
+| S0, S2 | Begin write to slot `i` | Set commit word to WRITING | S1 |
+| S1 | Payload DMA complete and header finalized | Set commit word to an even value (commit) | S2 |
+
+Consumer validation rules (given `FrameDescriptor(seq, headerIndex = i)`)
+1. **Slot validity**: `headerIndex` MUST be within the mapped header ring; else DROP.
+2. **Commit stability**: MUST observe a stable, even commit word before accepting; if WRITING/unstable, DROP.
+3. **Frame identity**: header `frame_id` MUST equal `FrameDescriptor.seq`; if not, DROP.
+4. **No waiting**: MUST NOT block/spin waiting for commit; on any failure, DROP and continue.
+
+Dropped frames are treated as overwritten or in-flight; they are not errors.
+
+#### Mapping and Epoch State Machine (per process per mapped region)
+
+States
+- **M0: UNMAPPED** — no regions are mapped.
+- **M1: MAPPED(epoch = E)** — regions mapped/validated for epoch `E`.
+
+Mapping transitions
+| From | Event | Condition | Action | To |
+| ---- | ---- | ---- | ---- | ---- |
+| M0 | Receive `ShmPoolAnnounce(epoch = E, paths…)` | Paths valid, superblock valid | Map regions; verify superblock matches announce; store epoch `E` | M1 |
+| M1 | Receive `ShmPoolAnnounce(epoch = E2, …)` | `E2 == E` | Optionally refresh metadata | M1 |
+| M1 | Receive `ShmPoolAnnounce(epoch = E2, …)` | `E2 ≠ E` | DROP in-flight frames; unmap regions | M0 |
+| M1 | Slot validation indicates remap | — | DROP in-flight frames; unmap regions | M0 |
+
+Epoch handling rules
+- A consumer MUST treat any epoch mismatch as a hard boundary. All in-flight frames MUST be DROPPED.
+- After detecting an epoch mismatch, the consumer MUST NOT accept subsequent frames until the regions have been remapped for the new epoch.
+- While in M0: UNMAPPED, frames referencing unmapped regions MUST be DROPPED.
+
+### 15.22 SHM Backend Validation (v1.1)
+
+- Consumers MUST reject any `region_uri` with an unknown scheme.
+- For `shm:file`, if `require_hugepages=true`, consumers MUST verify that the mapped region is hugepage-backed; if verification fails or is unsupported on the platform, the region MUST be rejected (no silent downgrade).
+- `stride_bytes` is explicit and MUST NOT be inferred from page size. It MUST be a power of two and a multiple of the backing page size; if `require_hugepages=true`, it MUST also be a multiple of the mapped hugepage size.
+- For `shm:file`, parameters are separated by `|`; unknown parameters MUST be rejected.
+- Regions that violate these requirements MUST be rejected. On rejection, consumers MAY fall back to a configured `payload_fallback_uri`; otherwise they MUST fail the data source with a clear diagnostic. Rejected regions MUST NOT be partially consumed.
+
+---
+
+## 16. Control-Plane SBE Schema (Draft)
+
+Reference schema patterned after Aeron archive control style; adjust IDs and fields as needed. Keep `schemaId` and `version` aligned with `layout_version`/doc version.
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<sbe:messageSchema xmlns:sbe="http://fixprotocol.io/2016/sbe"
+                   package="shm.tensorpool.control"
+                   id="900"
+                   version="1"
+                   semanticVersion="1.1"
+                   byteOrder="littleEndian">
+
+  <types>
+    <composite name="messageHeader">
+      <type name="blockLength" primitiveType="uint16"/>
+      <type name="templateId"  primitiveType="uint16"/>
+      <type name="schemaId"    primitiveType="uint16"/>
+      <type name="version"     primitiveType="uint16"/>
+    </composite>
+
+    <composite name="groupSizeEncoding">
+      <type name="blockLength" primitiveType="uint16"/>
+      <type name="numInGroup"  primitiveType="uint16"/>
+    </composite>
+
+    <composite name="varAsciiEncoding">
+      <type name="length"  primitiveType="uint32" maxValue="1073741824"/>
+      <type name="varData" primitiveType="uint8" length="0" characterEncoding="US-ASCII"/>
+    </composite>
+
+    <composite name="varDataEncoding">
+      <type name="length"  primitiveType="uint32" maxValue="1073741824"/>
+      <type name="varData" primitiveType="uint8" length="0"/>
+    </composite>
+
+    <!-- Fixed-length arrays for TensorSlotHeader256 (set length to MAX_DIMS) -->
+    <type name="DimsArray"     primitiveType="int32" length="8"/>
+    <type name="StridesArray"  primitiveType="int32" length="8"/>
+    <type name="Pad144"        primitiveType="uint8" length="144"/>
+
+    <composite name="ShmRegionSuperblock">
+      <!-- 64-byte fixed layout, little-endian -->
+      <type name="magic"              primitiveType="uint64"/>
+      <type name="layoutVersion"      primitiveType="uint32"/>
+      <type name="epoch"              primitiveType="uint64"/>
+      <type name="streamId"           primitiveType="uint32"/>
+      <type name="regionType"         primitiveType="RegionType"/>
+      <type name="poolId"             primitiveType="uint16"/>
+      <type name="nslots"             primitiveType="uint32"/>
+      <type name="slotBytes"          primitiveType="uint32"/>
+      <type name="strideBytes"        primitiveType="uint32"/>
+      <type name="pid"                primitiveType="uint64"/>
+      <type name="startTimestampNs"   primitiveType="uint64"/>
+      <type name="activityTimestampNs" primitiveType="uint64"/>
+    </composite>
+
+    <!-- Stored in SHM header ring slots; not transmitted over Aeron -->
+    <!-- Field sizes: 8+8+8+4+4+4+4+2+2+2+1+1+(8×4)+(8×4)+144 = 256 bytes -->
+    <!-- Field order optimized for alignment: all uint32 fields are 4-byte aligned -->
+    <composite name="TensorSlotHeader256">
+      <type name="commitWord"     primitiveType="uint64"/>
+      <type name="frameId"        primitiveType="uint64"/>
+      <type name="timestampNs"    primitiveType="uint64"/>
+      <type name="metaVersion"    primitiveType="uint32"/>
+      <type name="valuesLenBytes" primitiveType="uint32"/>
+      <type name="payloadSlot"    primitiveType="uint32"/>
+      <type name="payloadOffset"  primitiveType="uint32"/>
+      <type name="poolId"         primitiveType="uint16"/>
+      <type name="dtype"          primitiveType="Dtype"/>
+      <type name="majorOrder"     primitiveType="MajorOrder"/>
+      <type name="ndims"          primitiveType="uint8"/>
+      <type name="padAlign"       primitiveType="uint8"/> <!-- align arrays on 4-byte boundary -->
+      <type name="dims"           primitiveType="DimsArray"/>
+      <type name="strides"        primitiveType="StridesArray"/>
+      <type name="padding"        primitiveType="Pad144"/>
+    </composite>    
+
+    <enum name="Bool" encodingType="uint8">
+      <validValue name="FALSE" value="0"/>
+      <validValue name="TRUE"  value="1"/>
+    </enum>
+
+    <enum name="Mode" encodingType="uint8">
+      <validValue name="STREAM"    value="1"/>
+      <validValue name="LATEST"    value="2"/>
+      <validValue name="DECIMATED" value="3"/>
+    </enum>
+
+    <enum name="FrameProgressState" encodingType="uint8">
+      <validValue name="UNKNOWN"  value="0"/>
+      <validValue name="STARTED"  value="1"/>
+      <validValue name="PROGRESS" value="2"/>
+      <validValue name="COMPLETE" value="3"/>
+    </enum>
+
+    <enum name="ResponseCode" encodingType="int32">
+      <validValue name="OK"             value="0"/>
+      <validValue name="UNSUPPORTED"    value="1"/>
+      <validValue name="INVALID_PARAMS" value="2"/>
+      <validValue name="REJECTED"       value="3"/>
+      <validValue name="INTERNAL_ERROR" value="4"/>
+    </enum>
+
+    <enum name="RegionType" encodingType="int16">
+      <validValue name="HEADER_RING"  value="1"/>
+      <validValue name="PAYLOAD_POOL" value="2"/>
+    </enum>
+
+    <enum name="Dtype" encodingType="int16">
+      <validValue name="UNKNOWN" value="0"/>
+      <validValue name="UINT8"   value="1"/>
+      <validValue name="INT8"    value="2"/>
+      <validValue name="UINT16"  value="3"/>
+      <validValue name="INT16"   value="4"/>
+      <validValue name="UINT32"  value="5"/>
+      <validValue name="INT32"   value="6"/>
+      <validValue name="UINT64"  value="7"/>
+      <validValue name="INT64"   value="8"/>
+      <validValue name="FLOAT32" value="9"/>
+      <validValue name="FLOAT64" value="10"/>
+      <validValue name="BOOLEAN" value="11"/>
+      <validValue name="BYTES"   value="13"/>
+      <validValue name="BIT"     value="14"/>
+    </enum>
+
+    <enum name="MajorOrder" encodingType="int16">
+      <validValue name="UNKNOWN" value="0"/>
+      <validValue name="ROW"     value="1"/>
+      <validValue name="COLUMN"  value="2"/>
+    </enum>
+
+    <type name="epoch_t"   primitiveType="uint64"/>
+    <type name="seq_t"     primitiveType="uint64"/>
+    <type name="version_t" primitiveType="uint32"/>
+  </types>
+
+  <sbe:message name="ShmPoolAnnounce" id="1">
+    <field name="streamId"        id="1" type="uint32"/>
+    <field name="producerId"      id="2" type="uint32"/>
+    <field name="epoch"           id="3" type="epoch_t"/>
+    <field name="layoutVersion"   id="4" type="version_t"/>
+    <field name="headerNslots"    id="5" type="uint32"/>
+    <field name="headerSlotBytes" id="6" type="uint16"/>
+    <field name="maxDims"         id="7" type="uint8"/>
+    <data  name="headerRegionUri" id="8" type="varAsciiEncoding"/>
+    <group name="payloadPools"    id="9" dimensionType="groupSizeEncoding">
+      <field name="poolId"      id="1" type="uint16"/>
+      <field name="poolNslots"  id="2" type="uint32"/>
+      <field name="strideBytes" id="3" type="uint32"/>
+      <data  name="regionUri"   id="4" type="varAsciiEncoding"/>
+    </group>
+  </sbe:message>
+
+  <sbe:message name="ConsumerHello" id="2">
+    <field name="streamId"              id="1" type="uint32"/>
+    <field name="consumerId"            id="2" type="uint32"/>
+    <field name="supportsShm"           id="3" type="Bool"/>
+    <field name="supportsProgress"      id="4" type="Bool"/>
+    <field name="mode"                  id="5" type="Mode"/>
+    <field name="maxRateHz"             id="6" type="uint16"/>
+    <field name="expectedLayoutVersion" id="7" type="version_t"/>
+    <field name="progressIntervalUs"    id="8" type="uint32" presence="optional" nullValue="4294967295"/>
+    <field name="progressBytesDelta"    id="9" type="uint32" presence="optional" nullValue="4294967295"/>
+    <field name="progressRowsDelta"     id="10" type="uint32" presence="optional" nullValue="4294967295"/>
+  </sbe:message>
+
+  <sbe:message name="ConsumerConfig" id="3">
+    <field name="streamId"           id="1" type="uint32"/>
+    <field name="consumerId"         id="2" type="uint32"/>
+    <field name="useShm"             id="3" type="Bool"/>
+    <field name="mode"               id="4" type="Mode"/>
+    <field name="decimation"         id="5" type="uint16"/>
+    <data  name="payloadFallbackUri" id="6" type="varAsciiEncoding"/>
+  </sbe:message>
+
+  <sbe:message name="FrameDescriptor" id="4">
+    <field name="streamId"    id="1" type="uint32"/>
+    <field name="epoch"       id="2" type="epoch_t"/>
+    <field name="seq"         id="3" type="seq_t"/>
+    <field name="headerIndex" id="4" type="uint32"/>
+    <field name="timestampNs" id="5" type="uint64" presence="optional" nullValue="18446744073709551615"/>
+    <field name="metaVersion" id="6" type="version_t" presence="optional" nullValue="4294967295"/>
+  </sbe:message>
+
+  <sbe:message name="FrameProgress" id="11">
+    <field name="streamId"          id="1" type="uint32"/>
+    <field name="epoch"             id="2" type="epoch_t"/>
+    <field name="frameId"           id="3" type="seq_t"/>
+    <field name="headerIndex"       id="4" type="uint32"/>
+    <field name="payloadBytesFilled" id="5" type="uint64"/>
+    <field name="state"             id="6" type="FrameProgressState"/>
+    <field name="rowsFilled"        id="7" type="uint32" presence="optional" nullValue="4294967295"/>
+  </sbe:message>
+
+  <sbe:message name="QosConsumer" id="5">
+    <field name="streamId"    id="1" type="uint32"/>
+    <field name="consumerId"  id="2" type="uint32"/>
+    <field name="epoch"       id="3" type="epoch_t"/>
+    <field name="lastSeqSeen" id="4" type="seq_t"/>
+    <field name="dropsGap"    id="5" type="uint64"/>
+    <field name="dropsLate"   id="6" type="uint64"/>
+    <field name="mode"        id="7" type="Mode"/>
+  </sbe:message>
+
+  <sbe:message name="QosProducer" id="6">
+    <field name="streamId"   id="1" type="uint32"/>
+    <field name="producerId" id="2" type="uint32"/>
+    <field name="epoch"      id="3" type="epoch_t"/>
+    <field name="currentSeq" id="4" type="seq_t"/>
+    <field name="watermark"  id="5" type="uint32" presence="optional" nullValue="4294967295"/>
+  </sbe:message>
+
+  <sbe:message name="DataSourceAnnounce" id="7">
+    <field name="streamId"    id="1" type="uint32"/>
+    <field name="producerId"  id="2" type="uint32"/>
+    <field name="epoch"       id="3" type="epoch_t"/>
+    <field name="metaVersion" id="4" type="version_t"/>
+    <data  name="name"        id="5" type="varAsciiEncoding" presence="optional"/>
+    <data  name="summary"     id="6" type="varAsciiEncoding" presence="optional"/>
+  </sbe:message>
+
+  <sbe:message name="DataSourceMeta" id="8">
+    <field name="streamId"    id="1" type="uint32"/>
+    <field name="metaVersion" id="2" type="version_t"/>
+    <field name="timestampNs" id="3" type="uint64"/>
+    <group name="attributes"  id="4" dimensionType="groupSizeEncoding">
+      <data  name="key"    id="1" type="varAsciiEncoding"/>
+      <data  name="format" id="2" type="varAsciiEncoding"/>
+      <data  name="value"  id="3" type="varDataEncoding"/>
+    </group>
+  </sbe:message>
+
+  <sbe:message name="Heartbeat" id="10">
+    <field name="streamId"    id="1" type="uint32"/>
+    <field name="producerId"  id="2" type="uint32"/>
+    <field name="epoch"       id="3" type="epoch_t"/>
+    <field name="timestampNs" id="4" type="uint64"/>
+  </sbe:message>
+
+  <sbe:message name="ControlResponse" id="9">
+    <field name="correlationId" id="1" type="int64"/>
+    <field name="code"          id="2" type="ResponseCode"/>
+    <data  name="errorMessage"  id="3" type="varAsciiEncoding" presence="optional"/>
+  </sbe:message>
+
+</sbe:messageSchema>
+```
