@@ -6,6 +6,12 @@ const MAX_DIMS = 8
 const RegionType = ShmTensorpoolControl.RegionType
 const Dtype = ShmTensorpoolControl.Dtype
 const MajorOrder = ShmTensorpoolControl.MajorOrder
+const FrameDescriptor = ShmTensorpoolControl.FrameDescriptor
+const FrameProgress = ShmTensorpoolControl.FrameProgress
+const QosProducer = ShmTensorpoolControl.QosProducer
+const ShmPoolAnnounce = ShmTensorpoolControl.ShmPoolAnnounce
+const ShmRegionSuperblock = ShmTensorpoolControl.ShmRegionSuperblock
+const TensorSlotHeader256 = ShmTensorpoolControl.TensorSlotHeader256
 
 struct PayloadPoolConfig
     pool_id::UInt16

@@ -111,16 +111,20 @@ function write_tensor_slot_header!(
     TensorSlotHeader256.ndims!(m, ndims)
     TensorSlotHeader256.padAlign!(m, UInt8(0))
 
+    dims_view = TensorSlotHeader256.dims!(m)
+    strides_view = TensorSlotHeader256.strides!(m)
     for i in 1:MAX_DIMS
-        TensorSlotHeader256.dims!(m, i - 1, i <= length(dims) ? dims[i] : Int32(0))
-        TensorSlotHeader256.strides!(m, i - 1, i <= length(strides) ? strides[i] : Int32(0))
+        dims_view[i] = i <= length(dims) ? dims[i] : Int32(0)
+        strides_view[i] = i <= length(strides) ? strides[i] : Int32(0)
     end
     return nothing
 end
 
 function read_tensor_slot_header(m::TensorSlotHeader256.Decoder)
-    dims = ntuple(i -> TensorSlotHeader256.dims(m, i - 1), Val(MAX_DIMS))
-    strides = ntuple(i -> TensorSlotHeader256.strides(m, i - 1), Val(MAX_DIMS))
+    dims_view = TensorSlotHeader256.dims(m)
+    strides_view = TensorSlotHeader256.strides(m)
+    dims = ntuple(i -> dims_view[i], Val(MAX_DIMS))
+    strides = ntuple(i -> strides_view[i], Val(MAX_DIMS))
     return TensorSlotHeader(
         TensorSlotHeader256.commitWord(m),
         TensorSlotHeader256.frameId(m),
