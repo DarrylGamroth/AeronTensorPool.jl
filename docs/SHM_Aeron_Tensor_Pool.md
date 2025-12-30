@@ -794,57 +794,57 @@ Reference schema patterned after Aeron archive control style; adjust IDs and fie
     </composite>    
 
     <enum name="Bool" encodingType="uint8">
-      <validValue name="FALSE" value="0"/>
-      <validValue name="TRUE"  value="1"/>
+      <validValue name="FALSE">0</validValue>
+      <validValue name="TRUE">1</validValue>
     </enum>
 
     <enum name="Mode" encodingType="uint8">
-      <validValue name="STREAM"    value="1"/>
-      <validValue name="LATEST"    value="2"/>
-      <validValue name="DECIMATED" value="3"/>
+      <validValue name="STREAM">1</validValue>
+      <validValue name="LATEST">2</validValue>
+      <validValue name="DECIMATED">3</validValue>
     </enum>
 
     <enum name="FrameProgressState" encodingType="uint8">
-      <validValue name="UNKNOWN"  value="0"/>
-      <validValue name="STARTED"  value="1"/>
-      <validValue name="PROGRESS" value="2"/>
-      <validValue name="COMPLETE" value="3"/>
+      <validValue name="UNKNOWN">0</validValue>
+      <validValue name="STARTED">1</validValue>
+      <validValue name="PROGRESS">2</validValue>
+      <validValue name="COMPLETE">3</validValue>
     </enum>
 
     <enum name="ResponseCode" encodingType="int32">
-      <validValue name="OK"             value="0"/>
-      <validValue name="UNSUPPORTED"    value="1"/>
-      <validValue name="INVALID_PARAMS" value="2"/>
-      <validValue name="REJECTED"       value="3"/>
-      <validValue name="INTERNAL_ERROR" value="4"/>
+      <validValue name="OK">0</validValue>
+      <validValue name="UNSUPPORTED">1</validValue>
+      <validValue name="INVALID_PARAMS">2</validValue>
+      <validValue name="REJECTED">3</validValue>
+      <validValue name="INTERNAL_ERROR">4</validValue>
     </enum>
 
     <enum name="RegionType" encodingType="int16">
-      <validValue name="HEADER_RING"  value="1"/>
-      <validValue name="PAYLOAD_POOL" value="2"/>
+      <validValue name="HEADER_RING">1</validValue>
+      <validValue name="PAYLOAD_POOL">2</validValue>
     </enum>
 
     <enum name="Dtype" encodingType="int16">
-      <validValue name="UNKNOWN" value="0"/>
-      <validValue name="UINT8"   value="1"/>
-      <validValue name="INT8"    value="2"/>
-      <validValue name="UINT16"  value="3"/>
-      <validValue name="INT16"   value="4"/>
-      <validValue name="UINT32"  value="5"/>
-      <validValue name="INT32"   value="6"/>
-      <validValue name="UINT64"  value="7"/>
-      <validValue name="INT64"   value="8"/>
-      <validValue name="FLOAT32" value="9"/>
-      <validValue name="FLOAT64" value="10"/>
-      <validValue name="BOOLEAN" value="11"/>
-      <validValue name="BYTES"   value="13"/>
-      <validValue name="BIT"     value="14"/>
+      <validValue name="UNKNOWN">0</validValue>
+      <validValue name="UINT8">1</validValue>
+      <validValue name="INT8">2</validValue>
+      <validValue name="UINT16">3</validValue>
+      <validValue name="INT16">4</validValue>
+      <validValue name="UINT32">5</validValue>
+      <validValue name="INT32">6</validValue>
+      <validValue name="UINT64">7</validValue>
+      <validValue name="INT64">8</validValue>
+      <validValue name="FLOAT32">9</validValue>
+      <validValue name="FLOAT64">10</validValue>
+      <validValue name="BOOLEAN">11</validValue>
+      <validValue name="BYTES">13</validValue>
+      <validValue name="BIT">14</validValue>
     </enum>
 
     <enum name="MajorOrder" encodingType="int16">
-      <validValue name="UNKNOWN" value="0"/>
-      <validValue name="ROW"     value="1"/>
-      <validValue name="COLUMN"  value="2"/>
+      <validValue name="UNKNOWN">0</validValue>
+      <validValue name="ROW">1</validValue>
+      <validValue name="COLUMN">2</validValue>
     </enum>
 
     <type name="epoch_t"   primitiveType="uint64"/>
