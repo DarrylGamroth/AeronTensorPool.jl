@@ -1,0 +1,167 @@
+# Implementation Phases (Aeron Tensor Pool, Julia)
+
+This plan sequences implementation into concrete phases with deliverables, validation, and spec links.
+It assumes SBE codecs are already generated in `src/gen` and favors minimal dependencies.
+
+## Dependency Decisions (pre-review)
+
+These decisions should be made before deeper implementation work begins.
+
+- SBEDomainMapper.jl: Defer for v1.1. We already have SBE.jl codecs, and the initial agents can use direct encoders/decoders for tight control and zero-allocation. Revisit later if we want schema-aligned domain structs, publishing proxies, or standardized adapters.
+- Hsm.jl: Defer unless agent lifecycle becomes complex. Agent.jl + explicit state enums is sufficient for v1.1. Introduce Hsm.jl only if we need hierarchical states, richer transitions, or formalized event handling across roles.
+- RtcFramework.jl: Use as a reference only. Patterns for PollerRegistry usage and FragmentAssembler adapters are valuable, and its PolledTimer is a good model for zero-allocation timeouts, but we should not take a dependency yet. We can mirror its timer and adapter structure inside this repo.
+
+## Phase 0 - Baseline and Alignment
+
+Goals
+- Confirm constants and layout assumptions match the spec.
+- Define the minimal config surface and shared constants.
+
+Deliverables
+- Shared constants module (superblock size, slot bytes, magic, layout_version, MAX_DIMS).
+- Config structs for Producer/Consumer/Supervisor (URIs, stream IDs, nslots, stride classes, cadences).
+- Timer utility selection (PolledTimer-style scheduler for periodic announces/QoS).
+- Decision log for dependency choices (this document).
+
+Validation
+- Static checks for power-of-two nslots and stride alignment.
+- Compile-time assertions for MAX_DIMS matching the generated schema.
+
+Spec refs
+- `docs/SHM_Aeron_Tensor_Pool.md` sections 6-8, 15.1, 15.5, 15.8, 15.22
+
+## Phase 1 - SHM Utilities and Superblock IO
+
+Goals
+- Build SHM URI parsing, validation, and mmap helpers.
+- Implement superblock read/write for producers and consumers.
+
+Deliverables
+- `parse_shm_uri`, `validate_uri`, `mmap_shm` helpers.
+- Superblock write (producer) and validate (consumer) helpers.
+- Atomic commit_word load/store wrappers with acquire/release.
+
+Validation
+- Unit tests for URI parsing and unknown-param rejection.
+- Superblock validation tests (magic/layout/epoch/region_type/stride/nslots).
+
+Spec refs
+- 7.1, 15.1, 15.22
+
+## Phase 2 - Producer Core Path (SHM + Descriptor)
+
+Goals
+- Implement producer init, SHM allocation, and publish loop.
+
+Deliverables
+- Producer init: allocate header/pool files, write superblocks, open Aeron pubs.
+- Frame publish path: commit_word protocol, payload write, header fill, descriptor publish.
+- Periodic announce, QoS, and activity timestamp refresh.
+
+Validation
+- Producer publishes descriptors with correct seq/header_index mapping.
+- commit_word transitions: WRITING -> COMMITTED with release semantics.
+
+Spec refs
+- 8.1-8.2, 10.2.1, 15.19
+
+## Phase 3 - Consumer Core Path (Mapping + Seqlock Read)
+
+Goals
+- Implement consumer mapping, frame validation, and seqlock read.
+
+Deliverables
+- On ShmPoolAnnounce: validate + mmap regions, cache epoch.
+- Descriptor handler: seqlock read and payload extraction.
+- Drop accounting: drops_gap and drops_late tracking.
+- Mode handling: STREAM / LATEST / DECIMATED.
+
+Validation
+- Drop on odd/unstable commit_word.
+- Drop on frame_id != descriptor.seq.
+- Remap on epoch/layout mismatch.
+
+Spec refs
+- 10.2.1, 11, 15.19, 15.21
+
+## Phase 4 - Control Plane and QoS
+
+Goals
+- Implement ConsumerHello, QosConsumer, QosProducer, and ShmPoolAnnounce cadence.
+
+Deliverables
+- ConsumerHello (supports_progress, progress hints).
+- QosProducer/QosConsumer periodic emissions.
+- Optional ConsumerConfig handling (mode changes, fallback_uri).
+
+Validation
+- QoS counters updated correctly.
+- Progress hints aggregated at producer without violating floors.
+
+Spec refs
+- 10.1, 10.4, 15.14, 15.18
+
+## Phase 5 - Supervisor Agent
+
+Goals
+- Track producer/consumer liveness and issue ConsumerConfig.
+
+Deliverables
+- Subscriptions to announce/QoS/control streams.
+- Liveness tracking using announce/activity timestamps.
+- ConsumerConfig issuance and logging.
+
+Validation
+- Stale detection using 3-5x announce interval.
+- Correct handling of epoch changes and re-registrations.
+
+Spec refs
+- 10.5, 15.14, 15.16
+
+## Phase 6 - Optional Bridge and Decimator
+
+Goals
+- Provide fallback and downsampled streams.
+
+Deliverables
+- Bridge: re-read SHM, republish payload + descriptor.
+- Decimator: apply ratio, republish subset.
+
+Validation
+- Preserve seq/frame_id identity.
+- Only republish committed frames.
+
+Spec refs
+- 12, 15.20
+
+## Phase 7 - Testing and Tooling
+
+Goals
+- Ensure spec compliance and regression safety.
+
+Deliverables
+- Unit tests for SHM validation, seqlock behavior, epoch remap.
+- Integration test harness for producer/consumer loopback (IPC).
+
+Validation
+- Spec checklist from 15.13 satisfied.
+
+Spec refs
+- 15.13
+
+## Phase 8 - Perf and Ops Hardening
+
+Goals
+- Reach steady-state zero-allocation and deployment readiness.
+
+Deliverables
+- Preallocation audit and @allocated checks in hot paths.
+- CPU pinning/NUMA guidance (docs).
+- Optional Aeron counters integration for metrics.
+
+Validation
+- Perf profile shows zero allocations in steady state.
+- Drops and liveness behave under load.
+
+Spec refs
+- 15.7a, 15.14, 15.17
