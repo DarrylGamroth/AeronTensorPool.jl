@@ -171,7 +171,7 @@ Spec refs
 - 15.13
 
 Status
-- In progress (unit + Aeron embedded driver integration tests in place; CLI tooling tested and can send ConsumerConfig).
+- In progress (unit + Aeron embedded driver integration tests in place, including remap/fallback cases; CLI tooling tested and can send ConsumerConfig).
 
 ## Phase 8 - Perf and Ops Hardening
 

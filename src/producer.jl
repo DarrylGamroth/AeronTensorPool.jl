@@ -202,19 +202,19 @@ function publish_frame!(
 
     wrap_tensor_header!(state.header_encoder, state.header_mmap, header_offset)
     write_tensor_slot_header!(
-        state.header_encoder;
-        frame_id = frame_id,
-        timestamp_ns = UInt64(Clocks.time_nanos(state.clock)),
-        meta_version = meta_version,
-        values_len_bytes = UInt32(values_len),
-        payload_slot = payload_slot,
-        payload_offset = UInt32(0),
-        pool_id = pool.pool_id,
-        dtype = dtype,
-        major_order = MajorOrder.ROW,
-        ndims = UInt8(length(shape)),
-        dims = shape,
-        strides = strides,
+        state.header_encoder,
+        frame_id,
+        UInt64(Clocks.time_nanos(state.clock)),
+        meta_version,
+        UInt32(values_len),
+        payload_slot,
+        UInt32(0),
+        pool.pool_id,
+        dtype,
+        MajorOrder.ROW,
+        UInt8(length(shape)),
+        shape,
+        strides,
     )
 
     atomic_store_u64!(commit_ptr, frame_id << 1)
@@ -366,19 +366,19 @@ function publish_reservation!(
 
     wrap_tensor_header!(state.header_encoder, state.header_mmap, header_offset)
     write_tensor_slot_header!(
-        state.header_encoder;
-        frame_id = frame_id,
-        timestamp_ns = UInt64(Clocks.time_nanos(state.clock)),
-        meta_version = meta_version,
-        values_len_bytes = UInt32(values_len),
-        payload_slot = reservation.payload_slot,
-        payload_offset = UInt32(0),
-        pool_id = reservation.pool_id,
-        dtype = dtype,
-        major_order = MajorOrder.ROW,
-        ndims = UInt8(length(shape)),
-        dims = shape,
-        strides = strides,
+        state.header_encoder,
+        frame_id,
+        UInt64(Clocks.time_nanos(state.clock)),
+        meta_version,
+        UInt32(values_len),
+        reservation.payload_slot,
+        UInt32(0),
+        reservation.pool_id,
+        dtype,
+        MajorOrder.ROW,
+        UInt8(length(shape)),
+        shape,
+        strides,
     )
 
     atomic_store_u64!(commit_ptr, frame_id << 1)
@@ -445,19 +445,19 @@ function publish_frame_from_slot!(
 
     wrap_tensor_header!(state.header_encoder, state.header_mmap, header_offset)
     write_tensor_slot_header!(
-        state.header_encoder;
-        frame_id = frame_id,
-        timestamp_ns = UInt64(Clocks.time_nanos(state.clock)),
-        meta_version = meta_version,
-        values_len_bytes = UInt32(values_len),
-        payload_slot = payload_slot,
-        payload_offset = UInt32(0),
-        pool_id = pool.pool_id,
-        dtype = dtype,
-        major_order = MajorOrder.ROW,
-        ndims = UInt8(length(shape)),
-        dims = shape,
-        strides = strides,
+        state.header_encoder,
+        frame_id,
+        UInt64(Clocks.time_nanos(state.clock)),
+        meta_version,
+        UInt32(values_len),
+        payload_slot,
+        UInt32(0),
+        pool.pool_id,
+        dtype,
+        MajorOrder.ROW,
+        UInt8(length(shape)),
+        shape,
+        strides,
     )
 
     atomic_store_u64!(commit_ptr, frame_id << 1)

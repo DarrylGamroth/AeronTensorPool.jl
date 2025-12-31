@@ -7,6 +7,17 @@ end
     return nothing
 end
 
+@inline function load_int32_le(buffer::AbstractVector{UInt8}, offset::Integer)
+    ptr = Ptr{Int32}(pointer(buffer, offset + 1))
+    return ltoh(unsafe_load(ptr))
+end
+
+@inline function store_int32_le!(buffer::AbstractVector{UInt8}, offset::Integer, val::Int32)
+    ptr = Ptr{Int32}(pointer(buffer, offset + 1))
+    unsafe_store!(ptr, htol(val))
+    return nothing
+end
+
 @inline function page_size_bytes()
     return Int(ccall(:getpagesize, Cint, ()))
 end
@@ -135,8 +146,8 @@ function read_superblock(m::ShmRegionSuperblock.Decoder)
     )
 end
 
-function write_tensor_slot_header!(
-    m::TensorSlotHeader256.Encoder;
+@inline function write_tensor_slot_header!(
+    m::TensorSlotHeader256.Encoder,
     frame_id::UInt64,
     timestamp_ns::UInt64,
     meta_version::UInt32,
@@ -166,20 +177,62 @@ function write_tensor_slot_header!(
     TensorSlotHeader256.ndims!(m, ndims)
     TensorSlotHeader256.padAlign!(m, UInt8(0))
 
-    dims_view = TensorSlotHeader256.dims!(m)
-    strides_view = TensorSlotHeader256.strides!(m)
+    dims_len = length(dims)
+    strides_len = length(strides)
+    dims_offset = TensorSlotHeader256.dims_encoding_offset(m)
+    strides_offset = TensorSlotHeader256.strides_encoding_offset(m)
     for i in 1:MAX_DIMS
-        dims_view[i] = i <= length(dims) ? dims[i] : Int32(0)
-        strides_view[i] = i <= length(strides) ? strides[i] : Int32(0)
+        dim_val = i <= dims_len ? dims[i] : Int32(0)
+        stride_val = i <= strides_len ? strides[i] : Int32(0)
+        store_int32_le!(m.buffer, m.offset + dims_offset + (i - 1) * 4, dim_val)
+        store_int32_le!(m.buffer, m.offset + strides_offset + (i - 1) * 4, stride_val)
     end
     return nothing
 end
 
+@inline function write_tensor_slot_header!(
+    m::TensorSlotHeader256.Encoder;
+    frame_id::UInt64,
+    timestamp_ns::UInt64,
+    meta_version::UInt32,
+    values_len_bytes::UInt32,
+    payload_slot::UInt32,
+    payload_offset::UInt32,
+    pool_id::UInt16,
+    dtype::Dtype.SbeEnum,
+    major_order::MajorOrder.SbeEnum,
+    ndims::UInt8,
+    dims::AbstractVector{Int32},
+    strides::AbstractVector{Int32},
+)
+    return write_tensor_slot_header!(
+        m,
+        frame_id,
+        timestamp_ns,
+        meta_version,
+        values_len_bytes,
+        payload_slot,
+        payload_offset,
+        pool_id,
+        dtype,
+        major_order,
+        ndims,
+        dims,
+        strides,
+    )
+end
+
 function read_tensor_slot_header(m::TensorSlotHeader256.Decoder)
-    dims_view = TensorSlotHeader256.dims(m)
-    strides_view = TensorSlotHeader256.strides(m)
-    dims = ntuple(i -> dims_view[i], Val(MAX_DIMS))
-    strides = ntuple(i -> strides_view[i], Val(MAX_DIMS))
+    dims_offset = TensorSlotHeader256.dims_encoding_offset(m)
+    strides_offset = TensorSlotHeader256.strides_encoding_offset(m)
+    dims = ntuple(
+        i -> load_int32_le(m.buffer, m.offset + dims_offset + (i - 1) * 4),
+        Val(MAX_DIMS),
+    )
+    strides = ntuple(
+        i -> load_int32_le(m.buffer, m.offset + strides_offset + (i - 1) * 4),
+        Val(MAX_DIMS),
+    )
     return TensorSlotHeader(
         TensorSlotHeader256.commitWord(m),
         TensorSlotHeader256.frameId(m),
