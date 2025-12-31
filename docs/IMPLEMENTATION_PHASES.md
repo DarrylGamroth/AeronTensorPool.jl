@@ -263,3 +263,10 @@ Spec refs
 
 Status
 - Partial (bridge/decimator scaffolds present; no on-wire format yet).
+
+## Driver Implementation Checklist (decided)
+
+- Implement driver config per Driver Spec §16 (TOML surface + env overrides).
+- Client API is task-based proxies with a response poller (Aeron-style).
+- Control-plane mapping follows driver config: control/announce/qos channels + stream IDs.
+- Tests must include driver protocol integration and end-to-end driver-mode smoke test.
