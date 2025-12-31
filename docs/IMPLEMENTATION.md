@@ -91,6 +91,7 @@ This guide maps the normative spec (SHM_Aeron_Tensor_Pool.md) to concrete implem
 - Generate codecs: `julia --project -e 'using SBE; SBE.generate("schemas/sbe-schema.xml", "gen/TensorPool.jl")'`.
 - Keep generated codec at gen/TensorPool.jl; include it from src as needed.
 - Optional VS Code task/make target: regenerate codec, then `julia --project -e 'using Pkg; Pkg.test()'` or run agents.
+- Tooling: `scripts/run_tests.sh` wraps the full test run for CI/local workflows.
 
 ## 15. Configuration pattern (TOML + env overrides)
 - Keep a default TOML (e.g., config/defaults.toml) with uri, nslots, stride_bytes, cadences, progress defaults, payload_fallback_uri, and Aeron directory when needed.
@@ -169,3 +170,33 @@ aeron_dir = "/dev/shm/aeron-${USER}"
 ## 22. Bridge/decimator specifics
 - Bridge republishes with its own epoch/layout in announces; preserves seq/frame_id from source descriptors.
 - Decimator/Tap may suppress progress for dropped frames; must keep seq/frame_id identity and follow same commit_word rules on republished descriptors.
+
+## 23. Device DMA integration (zero-copy)
+- Use the producer to allocate payload pools, then register each payload slot with your device SDK for DMA writes.
+- Map the next header index to a payload slot (v1.1 uses slot == header_index), and hand the slot pointer to the device.
+- Once the device fills the buffer, call `publish_frame_from_slot!` to emit the descriptor without copying.
+
+Example (DMA buffer registration):
+
+```julia
+header_index = next_header_index(state)
+pool_id = UInt16(1)
+slot = header_index
+ptr, stride = payload_slot_ptr(state, pool_id, slot)
+# Pass (ptr, stride) to device SDK for DMA
+```
+
+Example (publish after DMA completion):
+
+```julia
+publish_frame_from_slot!(
+    state,
+    pool_id,
+    slot,
+    values_len,
+    shape,
+    strides,
+    Dtype.UINT8,
+    meta_version,
+)
+```

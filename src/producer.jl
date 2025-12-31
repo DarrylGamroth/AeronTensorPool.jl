@@ -241,6 +241,107 @@ function publish_frame!(
     return true
 end
 
+@inline function next_header_index(state::ProducerState)
+    return UInt32(state.seq & (UInt64(state.config.nslots) - 1))
+end
+
+function payload_pool_config(state::ProducerState, pool_id::UInt16)
+    for pool in state.config.payload_pools
+        if pool.pool_id == pool_id
+            return pool
+        end
+    end
+    return nothing
+end
+
+function payload_slot_ptr(state::ProducerState, pool_id::UInt16, slot::UInt32)
+    pool = payload_pool_config(state, pool_id)
+    pool === nothing && error("Unknown pool_id: $pool_id")
+    slot < pool.nslots || error("Slot out of range: $slot")
+    payload_mmap = state.payload_mmaps[pool.pool_id]
+    return payload_slot_ptr(payload_mmap, pool.stride_bytes, slot)
+end
+
+function payload_slot_view(
+    state::ProducerState,
+    pool_id::UInt16,
+    slot::UInt32;
+    len::Integer = -1,
+)
+    pool = payload_pool_config(state, pool_id)
+    pool === nothing && error("Unknown pool_id: $pool_id")
+    slot < pool.nslots || error("Slot out of range: $slot")
+    payload_mmap = state.payload_mmaps[pool.pool_id]
+    view_len = len < 0 ? Int(pool.stride_bytes) : Int(len)
+    return payload_slot_view(payload_mmap, pool.stride_bytes, slot, view_len)
+end
+
+function publish_frame_from_slot!(
+    state::ProducerState,
+    pool_id::UInt16,
+    payload_slot::UInt32,
+    values_len::Int,
+    shape::AbstractVector{Int32},
+    strides::AbstractVector{Int32},
+    dtype::Dtype.SbeEnum,
+    meta_version::UInt32,
+)
+    fetch!(state.clock)
+
+    seq = state.seq
+    frame_id = seq
+    header_index = next_header_index(state)
+    payload_slot == header_index || error("payload_slot must equal header_index for seq=$seq")
+
+    pool = payload_pool_config(state, pool_id)
+    pool === nothing && return false
+    values_len <= Int(pool.stride_bytes) || return false
+
+    header_offset = header_slot_offset(header_index)
+    commit_ptr = Ptr{UInt64}(pointer(state.header_mmap, header_offset + 1))
+    atomic_store_u64!(commit_ptr, (frame_id << 1) | 1)
+
+    wrap_tensor_header!(state.header_encoder, state.header_mmap, header_offset)
+    write_tensor_slot_header!(
+        state.header_encoder;
+        frame_id = frame_id,
+        timestamp_ns = UInt64(Clocks.time_nanos(state.clock)),
+        meta_version = meta_version,
+        values_len_bytes = UInt32(values_len),
+        payload_slot = payload_slot,
+        payload_offset = UInt32(0),
+        pool_id = pool.pool_id,
+        dtype = dtype,
+        major_order = MajorOrder.ROW,
+        ndims = UInt8(length(shape)),
+        dims = shape,
+        strides = strides,
+    )
+
+    atomic_store_u64!(commit_ptr, frame_id << 1)
+
+    now_ns = UInt64(Clocks.time_nanos(state.clock))
+    sent = try_claim_sbe!(state.pub_descriptor, state.descriptor_claim, FRAME_DESCRIPTOR_LEN) do buf
+        wrap_and_apply_header!(state.descriptor_encoder, buf, 0)
+        encode_frame_descriptor!(state.descriptor_encoder, state, seq, header_index, meta_version, now_ns)
+    end
+    if !sent
+        wrap_and_apply_header!(state.descriptor_encoder, state.descriptor_buf, 0)
+        encode_frame_descriptor!(state.descriptor_encoder, state, seq, header_index, meta_version, now_ns)
+        Aeron.offer(
+            state.pub_descriptor,
+            view(state.descriptor_buf, 1:sbe_message_length(state.descriptor_encoder)),
+        )
+    end
+
+    if state.supports_progress && should_emit_progress!(state, UInt64(values_len), true)
+        emit_progress_complete!(state, frame_id, header_index, UInt64(values_len))
+    end
+
+    state.seq += 1
+    return true
+end
+
 function emit_progress_complete!(
     state::ProducerState,
     frame_id::UInt64,

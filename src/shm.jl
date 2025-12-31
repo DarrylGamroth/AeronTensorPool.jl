@@ -46,6 +46,26 @@ end
     return SUPERBLOCK_SIZE + Int(index) * HEADER_SLOT_BYTES
 end
 
+@inline function payload_slot_offset(stride_bytes::Integer, slot::Integer)
+    return SUPERBLOCK_SIZE + Int(slot) * Int(stride_bytes)
+end
+
+@inline function payload_slot_view(
+    buffer::AbstractVector{UInt8},
+    stride_bytes::Integer,
+    slot::Integer,
+    len::Integer = stride_bytes,
+)
+    len <= stride_bytes || throw(ArgumentError("len exceeds stride_bytes"))
+    offset = payload_slot_offset(stride_bytes, slot)
+    return view(buffer, offset + 1:offset + Int(len))
+end
+
+@inline function payload_slot_ptr(buffer::AbstractVector{UInt8}, stride_bytes::Integer, slot::Integer)
+    offset = payload_slot_offset(stride_bytes, slot)
+    return Ptr{UInt8}(pointer(buffer, offset + 1)), Int(stride_bytes)
+end
+
 @inline function wrap_superblock!(m::ShmRegionSuperblock.Encoder, buffer::AbstractVector{UInt8}, offset::Integer = 0)
     @boundscheck length(buffer) >= offset + SUPERBLOCK_SIZE || throw(ArgumentError("buffer too small for superblock"))
     ShmRegionSuperblock.wrap!(m, buffer, offset)
