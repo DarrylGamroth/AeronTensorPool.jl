@@ -162,6 +162,25 @@ Client                        Driver
         (code=REJECTED)
 ```
 
+Lease expiry/revoke sequence (producer lease, driver forces remap):
+
+```
+Client                        Driver                      Consumers
+  | --- ShmLeaseKeepalive --->   |                             |
+  | (missed/expired)             |                             |
+  |                              | --- ShmLeaseRevoked ----->  |
+  |                              | --- ShmPoolAnnounce ----->  |
+  |                              |   (epoch bumped)            |
+```
+
+Graceful driver shutdown sequence:
+
+```
+Clients                       Driver
+  | <--- ShmDriverShutdown --- |
+  | (invalidate leases)        |
+```
+
 ### 4.11 Embedded Driver Discovery (Informative)
 
 When the driver is embedded, deployments SHOULD still expose a well-known control-plane endpoint (channel + stream ID) so external tools (supervisors, diagnostics) can attach. If the control-plane endpoint is dynamic, deployments SHOULD publish it via service discovery or out-of-band configuration.
@@ -281,6 +300,7 @@ These references are informative; this specification defines its own normative b
     <enum name="Bool" encodingType="uint8">
       <validValue name="FALSE">0</validValue>
       <validValue name="TRUE">1</validValue>
+      <validValue name="NULL">255</validValue>
     </enum>
 
     <enum name="ResponseCode" encodingType="int32">
@@ -299,6 +319,7 @@ These references are informative; this specification defines its own normative b
     <enum name="PublishMode" encodingType="uint8">
       <validValue name="REQUIRE_EXISTING">1</validValue>
       <validValue name="EXISTING_OR_CREATE">2</validValue>
+      <validValue name="NULL">255</validValue>
     </enum>
 
     <enum name="LeaseRevokeReason" encodingType="uint8">
