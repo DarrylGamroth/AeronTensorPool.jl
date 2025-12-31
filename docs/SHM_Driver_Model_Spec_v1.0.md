@@ -82,6 +82,13 @@ For `code != OK`, the response MUST include `correlationId` and `code`, and SHOU
 
 The driver SHOULD require periodic `ShmLeaseKeepalive` messages for active leases. If `leaseExpiryTimestampNs` is provided in the attach response, the client MUST ensure keepalives arrive before that timestamp. On each valid keepalive, the driver MUST extend the lease expiry (duration is implementation-defined and MAY be documented out-of-band). If a lease expires, the driver MUST invalidate it and enforce the epoch rules in §6 and §7.
 
+For interoperability, a deployment SHOULD configure a default keepalive interval and expiry grace. A recommended baseline is:
+
+- Client keepalive interval: 1 second.
+- Lease expiry grace: 3 consecutive missed keepalives (3 seconds).
+
+Drivers MAY use different values but MUST make them discoverable out-of-band (configuration or operational documentation). Clients SHOULD treat a keepalive send failure as a fatal condition and reattach.
+
 ### 4.5 Control-Plane Transport (Normative)
 
 `ShmAttachRequest`, `ShmAttachResponse`, `ShmDetachRequest`, `ShmDetachResponse`, and `ShmLeaseKeepalive` MUST be carried on the control-plane Aeron stream defined by the Wire Specification unless an alternative is explicitly configured and documented for the deployment.
@@ -107,6 +114,32 @@ Leases follow this lifecycle:
 - `REVOKED`: Lease is invalidated by the driver for administrative or safety reasons.
 
 Once a lease reaches `DETACHED`, `EXPIRED`, or `REVOKED`, the client MUST stop using all SHM regions from that lease and MUST reattach to continue.
+
+### 4.8 Control-Plane Sequences (Informative)
+
+Attach / keepalive / detach sequence (single stream, success path):
+
+```
+Client                        Driver
+  | --- ShmAttachRequest --->   |
+  | <--- ShmAttachResponse ---  |
+  |                             |
+  | --- ShmLeaseKeepalive --->  |
+  | --- ShmLeaseKeepalive --->  |
+  | --- ShmLeaseKeepalive --->  |
+  |                             |
+  | --- ShmDetachRequest --->   |
+  | <--- ShmDetachResponse ---  |
+```
+
+Attach failure sequence (example: reject due to exclusive producer):
+
+```
+Client                        Driver
+  | --- ShmAttachRequest --->   |
+  | <--- ShmAttachResponse ---  |
+        (code=REJECTED)
+```
 
 ---
 
