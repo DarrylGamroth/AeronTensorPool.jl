@@ -58,7 +58,6 @@ mutable struct ConsumerState
 end
 
 function init_consumer(config::ConsumerConfig)
-    ensure_little_endian()
     clock = Clocks.CachedEpochClock(Clocks.MonotonicClock())
     fetch!(clock)
 
