@@ -59,10 +59,6 @@ function parse_payload_pools(tbl::Dict, env::AbstractDict)
     return pools
 end
 
-function build_epoch_dir(shm_base_dir::String, shm_namespace::String, producer_instance_id::String, epoch::UInt64)
-    return joinpath(shm_base_dir, shm_namespace, producer_instance_id, "epoch-$(epoch)")
-end
-
 function resolve_producer_paths(
     header_uri::String,
     payload_pools::Vector{PayloadPoolConfig},
@@ -75,7 +71,7 @@ function resolve_producer_paths(
     isempty(shm_namespace) && return header_uri, payload_pools
     isempty(producer_instance_id) && return header_uri, payload_pools
 
-    epoch_dir = build_epoch_dir(shm_base_dir, shm_namespace, producer_instance_id, epoch)
+    epoch_dir = canonical_epoch_dir(shm_base_dir, shm_namespace, producer_instance_id, epoch)
     resolved_header_uri = header_uri
     if isempty(resolved_header_uri)
         resolved_header_uri = "shm:file?path=$(joinpath(epoch_dir, "header.ring"))"
