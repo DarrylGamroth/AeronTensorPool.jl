@@ -201,6 +201,8 @@ The driver MAY support an administrative termination mechanism. If implemented, 
 
 On graceful shutdown, the driver SHOULD publish a `ShmDriverShutdown` notice on the control-plane stream before exiting. Clients MUST treat this notice as immediate lease invalidation, stop using mapped regions, and reattach after restart.
 
+If a shutdown notice is not observed, clients MUST still rely on lease expiry and epoch changes via `ShmPoolAnnounce` to detect driver loss and MUST fail closed on stale mappings.
+
 ---
 
 ## 5. Exclusive Producer Rule (Normative)
