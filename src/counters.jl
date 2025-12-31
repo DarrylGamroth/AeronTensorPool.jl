@@ -26,7 +26,59 @@ function Counters(client::Aeron.Client, agent_id, agent_name)
     )
 end
 
+struct ProducerCounters
+    base::Counters
+    frames_published::Aeron.Counter
+end
+
+struct ConsumerCounters
+    base::Counters
+    drops_gap::Aeron.Counter
+    drops_late::Aeron.Counter
+    remaps::Aeron.Counter
+end
+
+struct SupervisorCounters
+    base::Counters
+end
+
+function ProducerCounters(client::Aeron.Client, agent_id, agent_name)
+    ProducerCounters(
+        Counters(client, agent_id, agent_name),
+        add_counter(client, agent_id, agent_name, 3, "FramesPublished"),
+    )
+end
+
+function ConsumerCounters(client::Aeron.Client, agent_id, agent_name)
+    ConsumerCounters(
+        Counters(client, agent_id, agent_name),
+        add_counter(client, agent_id, agent_name, 4, "DropsGap"),
+        add_counter(client, agent_id, agent_name, 5, "DropsLate"),
+        add_counter(client, agent_id, agent_name, 6, "Remaps"),
+    )
+end
+
+function SupervisorCounters(client::Aeron.Client, agent_id, agent_name)
+    SupervisorCounters(Counters(client, agent_id, agent_name))
+end
+
 function Base.close(counters::Counters)
     close(counters.total_duty_cycles)
     close(counters.total_work_done)
+end
+
+function Base.close(counters::ProducerCounters)
+    close(counters.frames_published)
+    close(counters.base)
+end
+
+function Base.close(counters::ConsumerCounters)
+    close(counters.drops_gap)
+    close(counters.drops_late)
+    close(counters.remaps)
+    close(counters.base)
+end
+
+function Base.close(counters::SupervisorCounters)
+    close(counters.base)
 end

@@ -191,7 +191,7 @@ aeron_dir = "/dev/shm/aeron-${USER}"
 - NUMA: place SHM on the producer node and co-locate the producer agent on the same NUMA node.
 - GC: consider a longer GC interval for long-running processes; keep hot paths allocation-free.
 - Aeron counters: optionally wire Aeron counters for publications/subscriptions to a metrics backend.
-- Performance counters: agent wrappers register Aeron counters for duty cycles and work done; use AeronStat or CountersReader to observe.
+- Performance counters: agent wrappers register Aeron counters for duty cycles, work done, frames published, drops (gap/late), and remaps; use AeronStat or CountersReader to observe.
 
 ## 21. Testing matrix (tie to §15.13)
 - Superblock validation: good vs bad magic/version/layout/endianness.

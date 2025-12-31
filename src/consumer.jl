@@ -47,6 +47,7 @@ mutable struct ConsumerState
     seen_any::Bool
     drops_gap::UInt64
     drops_late::UInt64
+    remap_count::UInt64
     timer_set::TimerSet{Tuple{PolledTimer, PolledTimer}, Tuple{ConsumerHelloHandler, ConsumerQosHandler}}
     hello_buf::Vector{UInt8}
     qos_buf::Vector{UInt8}
@@ -99,6 +100,7 @@ function init_consumer(config::ConsumerConfig)
         UInt64[],
         UInt64(0),
         false,
+        UInt64(0),
         UInt64(0),
         UInt64(0),
         timer_set,
@@ -253,6 +255,7 @@ function map_from_announce!(state::ConsumerState, msg::ShmPoolAnnounce.Decoder)
     state.mapped_epoch = ShmPoolAnnounce.epoch(msg)
     state.last_seq_seen = UInt64(0)
     state.seen_any = false
+    state.remap_count += 1
     return true
 end
 
