@@ -53,8 +53,8 @@ mutable struct ConsumerState
     drops_header_invalid::UInt64
     drops_payload_invalid::UInt64
     remap_count::UInt64
-    hello_emits::UInt64
-    qos_emits::UInt64
+    hello_count::UInt64
+    qos_count::UInt64
     timer_set::TimerSet{Tuple{PolledTimer, PolledTimer}, Tuple{ConsumerHelloHandler, ConsumerQosHandler}}
     hello_buf::Vector{UInt8}
     qos_buf::Vector{UInt8}
@@ -115,8 +115,8 @@ function init_consumer(config::ConsumerConfig)
         UInt64(0), # drops_header_invalid
         UInt64(0), # drops_payload_invalid
         UInt64(0), # remap_count
-        UInt64(0), # hello_emits
-        UInt64(0), # qos_emits
+        UInt64(0), # hello_count
+        UInt64(0), # qos_count
         timer_set,
         Vector{UInt8}(undef, 512),
         Vector{UInt8}(undef, 512),
@@ -477,7 +477,7 @@ function emit_consumer_hello!(state::ConsumerState)
             view(state.hello_buf, 1:sbe_message_length(state.hello_encoder)),
         )
     end
-    state.hello_emits += 1
+    state.hello_count += 1
     return nothing
 end
 
@@ -506,7 +506,7 @@ function emit_qos!(state::ConsumerState)
             view(state.qos_buf, 1:sbe_message_length(state.qos_encoder)),
         )
     end
-    state.qos_emits += 1
+    state.qos_count += 1
     return nothing
 end
 

@@ -19,8 +19,8 @@ mutable struct ProducerState
     progress_bytes_delta::UInt64
     last_progress_ns::UInt64
     last_progress_bytes::UInt64
-    announce_emits::UInt64
-    qos_emits::UInt64
+    announce_count::UInt64
+    qos_count::UInt64
     timer_set::TimerSet{Tuple{PolledTimer, PolledTimer}, Tuple{ProducerAnnounceHandler, ProducerQosHandler}}
     descriptor_buf::Vector{UInt8}
     progress_buf::Vector{UInt8}
@@ -551,7 +551,7 @@ function emit_announce!(state::ProducerState)
         state.pub_control,
         view(state.announce_buf, 1:sbe_message_length(state.announce_encoder)),
     )
-    state.announce_emits += 1
+    state.announce_count += 1
     return nothing
 end
 
@@ -571,7 +571,7 @@ function emit_qos!(state::ProducerState)
         QosProducer.currentSeq!(state.qos_encoder, state.seq)
         Aeron.offer(state.pub_qos, view(state.qos_buf, 1:sbe_message_length(state.qos_encoder)))
     end
-    state.qos_emits += 1
+    state.qos_count += 1
     return nothing
 end
 

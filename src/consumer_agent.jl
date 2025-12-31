@@ -29,8 +29,8 @@ function Agent.do_work(agent::ConsumerAgent)
     agent.counters.drops_header_invalid[] = Int64(agent.state.drops_header_invalid)
     agent.counters.drops_payload_invalid[] = Int64(agent.state.drops_payload_invalid)
     agent.counters.remaps[] = Int64(agent.state.remap_count)
-    agent.counters.hello_published[] = Int64(agent.state.hello_emits)
-    agent.counters.qos_published[] = Int64(agent.state.qos_emits)
+    agent.counters.hello_published[] = Int64(agent.state.hello_count)
+    agent.counters.qos_published[] = Int64(agent.state.qos_count)
     return work_done
 end
 
