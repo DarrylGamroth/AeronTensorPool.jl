@@ -53,7 +53,9 @@ Notes
 - In v1.1, `payload_slot == header_index` is required; use `next_header_index` before handing the buffer to the device.
 - If you need multiple in-flight DMA buffers, reserve the next slot in order and publish in the same order to avoid seq gaps.
 
-## Reservation helper (multiple in-flight buffers)
+## Extras
+
+### Reservation helper (multiple in-flight buffers)
 
 Use a reservation to keep the slot/seq pairing explicit:
 
@@ -75,6 +77,8 @@ publish_reservation!(
     meta_version,
 )
 ```
+
+### In-flight queue helper
 
 If you want to track multiple in-flight reservations:
 
