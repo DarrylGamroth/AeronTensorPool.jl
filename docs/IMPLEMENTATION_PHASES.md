@@ -81,6 +81,7 @@ Goals
 
 Deliverables
 - On ShmPoolAnnounce: validate + mmap regions, cache epoch.
+- Path containment validation per spec §15.21a before mmap (allowed_base_dir + realpath checks).
 - Descriptor handler: seqlock read and payload extraction.
 - Drop accounting: drops_gap and drops_late tracking.
 - Mode handling: STREAM / LATEST / DECIMATED.
