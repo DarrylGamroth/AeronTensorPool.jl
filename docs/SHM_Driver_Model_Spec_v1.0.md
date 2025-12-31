@@ -92,6 +92,7 @@ All URIs returned by the driver MUST satisfy the Wire Specification URI validati
 - `publishMode`: `REQUIRE_EXISTING` means the driver MUST reject if the stream is not already provisioned. `EXISTING_OR_CREATE` allows the driver to create or initialize SHM regions on demand.
 - `requireHugepages`: If present and TRUE, the driver MUST reject the request with `code=REJECTED` if it cannot provide hugepage-backed regions that satisfy Wire Specification validation rules. If FALSE or absent, hugepages are optional per deployment policy.
 - `poolNslots`: For each pool returned in the response, `poolNslots` MUST equal `headerNslots`; otherwise the driver MUST reject the attach with `code=INVALID_PARAMS`.
+- Streams with zero payload pools are invalid in v1.0; the driver MUST reject attach requests for such streams with `code=INVALID_PARAMS`.
 
 ### 4.4 Lease Keepalive (Normative)
 
@@ -103,6 +104,8 @@ For interoperability, a deployment SHOULD configure a default keepalive interval
 - Lease expiry grace: 3 consecutive missed keepalives (3 seconds).
 
 Drivers MAY use different values but MUST make them discoverable out-of-band (configuration or operational documentation). Clients SHOULD treat a keepalive send failure as a fatal condition and reattach.
+
+NOTE: Keepalives are one-way; clients infer lease validity from the absence of `ShmLeaseRevoked` and continued successful operations. This trades acknowledgment latency for reduced control-plane traffic.
 
 ### 4.5 Control-Plane Transport (Normative)
 
@@ -141,6 +144,7 @@ When a producer lease transitions to `EXPIRED` or `REVOKED`, the driver MUST inc
 - `leaseId` MUST be unique per driver instance for the lifetime of the process and MUST NOT be reused after expiry or detach.
 - `leaseId` scope is local to a single driver instance and MUST NOT be assumed stable across driver restarts.
 - `clientId` MUST be unique per client process. If the driver observes two active leases with the same `clientId`, it MUST reject the newer attach with `code=REJECTED`.
+- Clients MUST NOT issue concurrent attach requests for the same `streamId` and role. Drivers MAY reject subsequent requests with `code=REJECTED` or treat them as retries (ignoring duplicates by `correlationId`).
 
 ### 4.9 Detach Semantics (Normative)
 
@@ -153,7 +157,15 @@ Clients MUST handle `ShmLeaseRevoked` as follows:
 - If the revoked lease is a producer lease for a stream the client consumes, the client MUST wait for the epoch-bumped `ShmPoolAnnounce` before remapping and resuming.
 - If the revoked lease does not match the client's lease and is not the current producer lease for a stream the client consumes, the client MAY ignore it after verifying the `leaseId`, `streamId`, and `role` do not apply.
 
-`ShmLeaseRevoked.reason` is required; clients MUST reject messages with unknown reason values.
+`ShmLeaseRevoked.reason` is required; clients MUST reject messages with unknown reason values. Clients MUST also reject `ShmLeaseRevoked` messages with unknown `role` values.
+
+The driver SHOULD emit `ShmLeaseRevoked` before the corresponding `ShmPoolAnnounce` to allow consumers to correlate the epoch change with the revocation event.
+
+Consumers SHOULD apply a timeout (recommend 3× the announce period) when waiting for an epoch-bumped `ShmPoolAnnounce`; on timeout, consumers SHOULD unmap and enter a retry/backoff loop.
+
+Consumers SHOULD verify that the `streamId` in `ShmLeaseRevoked` matches the `stream_id` in the subsequent `ShmPoolAnnounce`, and that the announced `epoch` is strictly greater than the previously observed value.
+
+The driver SHOULD NOT send duplicate `ShmLeaseRevoked` messages for the same `leaseId` unless the lease has been reissued and revoked again. Clients MUST tolerate duplicate revocations idempotently.
 
 ### 4.10 Control-Plane Sequences (Informative)
 
