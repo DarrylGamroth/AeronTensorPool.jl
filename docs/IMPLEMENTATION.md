@@ -138,6 +138,15 @@ aeron_dir = "/dev/shm/aeron-${USER}"
   - Consumer agent(s): subscribe to descriptors/progress, mmap SHM, apply mode (STREAM/LATEST/DECIMATED).
   - Supervisor agent: receives announces, issues ConsumerConfig, aggregates QoS, liveness checks.
   - Optional bridge/decimator/tap: republish or downsample while preserving seq/frame_id semantics.
+
+## 17. Operational playbook
+- See `docs/OPERATIONAL_PLAYBOOK.md` for startup order, tuning guidance, and failure playbooks.
+
+## 18. Integration examples
+- See `docs/INTEGRATION_EXAMPLES.md` for BGAPI2 buffer registration and invoker-mode integration.
+
+## 19. Documentation pipeline
+- Plan: add docstrings to all public API functions and generate a Documenter.jl site that references the spec and these examples.
 - Map config → SBE messages: producer fills ShmPoolAnnounce from TOML/env (uris, nslots, stride_bytes, max_dims); supervisor sends ConsumerConfig based on consumer mode/bridge decisions.
 - Consumers refuse SHM if announce values differ from compiled schema (max_dims/layout_version) or backend validation fails.
 

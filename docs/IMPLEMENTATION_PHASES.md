@@ -248,6 +248,21 @@ Goals
 
 Deliverables
 - Ops runbook, tuning matrix, and failure playbook.
+- Health checks and counter-based alerting guidance.
+
+Status
+- In progress (ops playbook drafted).
+
+## Phase 12 - Documentation and API Guide
+
+Goals
+- Provide comprehensive API docs, docstrings, and integration examples.
+
+Deliverables
+- Docstrings for all public functions and types.
+- Documenter.jl configuration for generated docs.
+- Integration guides (BGAPI2 buffer registration, invoker-mode hosting).
+- Public API index and examples referencing the spec.
 
 Status
 - Not started.
