@@ -176,7 +176,7 @@ function publish_frame!(
     payload_offset = SUPERBLOCK_SIZE + Int(payload_slot) * Int(pool.stride_bytes)
 
     header_offset = header_slot_offset(header_index)
-    commit_ptr = Ptr{UInt64}(pointer(state.mappings.header_mmap, header_offset + 1))
+    commit_ptr = header_commit_ptr_from_offset(state.mappings.header_mmap, header_offset)
     seqlock_begin_write!(commit_ptr, frame_id)
 
     copyto!(view(payload_mmap, payload_offset + 1:payload_offset + values_len), payload_data)
@@ -371,7 +371,7 @@ function publish_reservation!(
     frame_id = reservation.seq
 
     header_offset = header_slot_offset(reservation.header_index)
-    commit_ptr = Ptr{UInt64}(pointer(state.mappings.header_mmap, header_offset + 1))
+    commit_ptr = header_commit_ptr_from_offset(state.mappings.header_mmap, header_offset)
     seqlock_begin_write!(commit_ptr, frame_id)
 
     wrap_tensor_header!(state.runtime.header_encoder, state.mappings.header_mmap, header_offset)
@@ -439,7 +439,7 @@ function publish_frame_from_slot!(
     values_len <= Int(pool.stride_bytes) || return false
 
     header_offset = header_slot_offset(header_index)
-    commit_ptr = Ptr{UInt64}(pointer(state.mappings.header_mmap, header_offset + 1))
+    commit_ptr = header_commit_ptr_from_offset(state.mappings.header_mmap, header_offset)
     seqlock_begin_write!(commit_ptr, frame_id)
 
     wrap_tensor_header!(state.runtime.header_encoder, state.mappings.header_mmap, header_offset)

@@ -42,6 +42,21 @@ Return the frame_id encoded in a seqlock commit_word.
     return word >> 1
 end
 
+"""
+Return a pointer to the commit_word for a header slot index.
+"""
+@inline function header_commit_ptr(header_mmap::AbstractVector{UInt8}, header_index::UInt32)
+    header_offset = header_slot_offset(header_index)
+    return Ptr{UInt64}(pointer(header_mmap, header_offset + 1))
+end
+
+"""
+Return a pointer to the commit_word for a header slot offset in bytes.
+"""
+@inline function header_commit_ptr_from_offset(header_mmap::AbstractVector{UInt8}, header_offset::Integer)
+    return Ptr{UInt64}(pointer(header_mmap, header_offset + 1))
+end
+
 @inline function page_size_bytes()
     return Int(ccall(:getpagesize, Cint, ()))
 end

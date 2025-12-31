@@ -533,7 +533,7 @@ function try_read_frame!(
     header_offset = header_slot_offset(header_index)
     header_mmap = state.mappings.header_mmap::Vector{UInt8}
 
-    commit_ptr = Ptr{UInt64}(pointer(header_mmap, header_offset + 1))
+    commit_ptr = header_commit_ptr_from_offset(header_mmap, header_offset)
     first = seqlock_read_begin(commit_ptr)
     if seqlock_is_write_in_progress(first)
         state.metrics.drops_late += 1

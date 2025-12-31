@@ -142,7 +142,7 @@
                 vcat(Int32(0), zeros(Int32, MAX_DIMS - 1)),
             )
 
-            commit_ptr = Ptr{UInt64}(pointer(header_mmap, header_offset + 1))
+            commit_ptr = header_commit_ptr_from_offset(header_mmap, header_offset)
 
             seqlock_begin_write!(commit_ptr, UInt64(1))
             @test try_read_frame!(state, desc_dec) === nothing
