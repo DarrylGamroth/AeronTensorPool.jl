@@ -94,6 +94,7 @@ This guide maps the normative spec (SHM_Aeron_Tensor_Pool.md) to concrete implem
 - Tooling: `scripts/run_tests.sh` wraps the full test run for CI/local workflows.
 - Control CLI: `scripts/tp_tool.jl send-consumer-config` can push ConsumerConfig on the control stream.
 - Role runner: `scripts/run_role.jl <producer|consumer|supervisor> [config]` starts a single agent with polling loop.
+- Multi-role runner: `scripts/run_all.sh <config>` launches producer/consumer/supervisor in one shell with a shared config.
 - System smoke test: `scripts/run_system_smoke.jl [config] [timeout_s]` runs a full in-process system using an embedded media driver.
 - Optional CI/system test: `TP_RUN_SYSTEM_SMOKE=true julia --project -e 'using Pkg; Pkg.test()'` runs the end-to-end smoke test.
 
@@ -143,6 +144,11 @@ aeron_dir = "/dev/shm/aeron-${USER}"
 - Default: use an AgentRunner-style loop that owns the agent task and calls `*_do_work!` with a single `now_ns` per duty cycle.
 - Invoker mode: allow embedding in another task or event loop by calling `producer_do_work!`, `consumer_do_work!`, or `supervisor_do_work!` directly; the caller is responsible for cadence, backoff, and lifecycle.
 - Decision: keep both options available; choose AgentRunner when agents are standalone processes, use invoker mode when integrating into a larger application.
+
+## 16b. Agent roles and supervisor requirement
+- Typical deployment runs three agents: producer, consumer, supervisor.
+- Invoker mode lets you run one or more agents inside an application loop without AgentRunner; you call `*_do_work!` each duty cycle with a consistent `now_ns`.
+- The supervisor is optional for basic producer/consumer operation (announce + descriptors + QoS can flow without it), but required for dynamic policy (ConsumerConfig), liveness aggregation, and multi-consumer coordination.
 
 ## 17. Validation, logging, and errors
 - Backend checks before mmap: scheme==shm:file, require_hugepages honored, stride_bytes power-of-two and page/hugepage aligned; log and reject before mapping.
