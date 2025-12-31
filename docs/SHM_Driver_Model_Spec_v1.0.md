@@ -159,6 +159,12 @@ Client                        Driver
 
 When the driver is embedded, deployments SHOULD still expose a well-known control-plane endpoint (channel + stream ID) so external tools (supervisors, diagnostics) can attach. If the control-plane endpoint is dynamic, deployments SHOULD publish it via service discovery or out-of-band configuration.
 
+### 4.12 Driver Termination (Informative)
+
+The driver MAY support an administrative termination mechanism. If implemented, it SHOULD require an authorization token configured out-of-band and MUST reject unauthenticated requests.
+
+On graceful shutdown, the driver SHOULD publish a `ShmDriverShutdown` notice on the control-plane stream before exiting. Clients SHOULD treat this notice as immediate lease invalidation and reattach after restart.
+
 ---
 
 ## 5. Exclusive Producer Rule (Normative)
@@ -217,7 +223,13 @@ Deployments MAY configure the driver to delete and recreate existing SHM backing
 
 ---
 
-## 14. Aeron Media Driver Reference (Informative)
+## 14. Directory Layout and Namespacing (Informative)
+
+Drivers SHOULD follow the directory layout guidance in the Wire Specification (§15.21a.3). When multiple drivers (embedded or external) can run on the same host, they SHOULD include a stable namespace and driver instance identifier in the path to avoid collisions. Embedded drivers SHOULD use the same `shm_base_dir` layout as external drivers for operational consistency.
+
+---
+
+## 15. Aeron Media Driver Reference (Informative)
 
 This driver model intentionally mirrors the Aeron Media Driver/Client split. The Aeron codebase provides concrete guidance on liveness, identity, and retry behaviors that can inform SHM Driver implementations:
 
@@ -282,6 +294,12 @@ These references are informative; this specification defines its own normative b
       <validValue name="EXISTING_OR_CREATE">2</validValue>
     </enum>
 
+    <enum name="ShutdownReason" encodingType="uint8">
+      <validValue name="NORMAL">0</validValue>
+      <validValue name="ADMIN">1</validValue>
+      <validValue name="ERROR">2</validValue>
+    </enum>
+
     <type name="epoch_t"    primitiveType="uint64"/>
     <type name="version_t"  primitiveType="uint32"/>
     <type name="lease_id_t" primitiveType="uint64"/>
@@ -342,6 +360,12 @@ These references are informative; this specification defines its own normative b
     <field name="clientId"         id="3" type="uint32"/>
     <field name="role"             id="4" type="Role"/>
     <field name="clientTimestampNs" id="5" type="uint64"/>
+  </sbe:message>
+
+  <sbe:message name="ShmDriverShutdown" id="6">
+    <field name="timestampNs" id="1" type="uint64"/>
+    <field name="reason"      id="2" type="ShutdownReason"/>
+    <data  name="errorMessage" id="3" type="varAsciiEncoding" presence="optional"/>
   </sbe:message>
 
 </sbe:messageSchema>
