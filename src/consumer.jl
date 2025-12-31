@@ -132,6 +132,7 @@ end
 function validate_superblock_fields(
     fields::SuperblockFields;
     expected_layout_version::UInt32,
+    expected_epoch::UInt64,
     expected_stream_id::UInt32,
     expected_nslots::UInt32,
     expected_slot_bytes::UInt32,
@@ -140,6 +141,7 @@ function validate_superblock_fields(
 )
     fields.magic == MAGIC_TPOLSHM1 || return false
     fields.layout_version == expected_layout_version || return false
+    fields.epoch == expected_epoch || return false
     fields.stream_id == expected_stream_id || return false
     fields.region_type == expected_region_type || return false
     fields.pool_id == expected_pool_id || return false
@@ -171,6 +173,7 @@ function map_from_announce!(state::ConsumerState, msg::ShmPoolAnnounce.Decoder)
     header_ok = validate_superblock_fields(
         header_fields;
         expected_layout_version = ShmPoolAnnounce.layoutVersion(msg),
+        expected_epoch = ShmPoolAnnounce.epoch(msg),
         expected_stream_id = ShmPoolAnnounce.streamId(msg),
         expected_nslots = header_expected_nslots,
         expected_slot_bytes = UInt32(HEADER_SLOT_BYTES),
@@ -211,6 +214,7 @@ function map_from_announce!(state::ConsumerState, msg::ShmPoolAnnounce.Decoder)
         pool_ok = validate_superblock_fields(
             pool_fields;
             expected_layout_version = ShmPoolAnnounce.layoutVersion(msg),
+            expected_epoch = ShmPoolAnnounce.epoch(msg),
             expected_stream_id = ShmPoolAnnounce.streamId(msg),
             expected_nslots = pool_nslots,
             expected_slot_bytes = pool_stride,
@@ -507,6 +511,12 @@ function try_read_frame!(
 
     second = atomic_load_u64(commit_ptr)
     if first != second || isodd(second)
+        state.drops_late += 1
+        return nothing
+    end
+
+    commit_frame = second >> 1
+    if commit_frame != header.frame_id
         state.drops_late += 1
         return nothing
     end

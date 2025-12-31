@@ -94,7 +94,7 @@ Spec refs
 - 10.2.1, 11, 15.19, 15.21
 
 Status
-- Complete (mapping, seqlock read, mode handling, drops accounting, header validation including nslots power-of-two, fallback handling).
+- Complete (mapping, seqlock read, mode handling, drops accounting, header validation including nslots power-of-two and epoch checks, commit_word frame_id consistency, fallback handling).
 
 ## Phase 4 - Control Plane and QoS
 

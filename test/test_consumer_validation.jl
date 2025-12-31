@@ -20,6 +20,7 @@
     @test validate_superblock_fields(
         fields;
         expected_layout_version = UInt32(1),
+        expected_epoch = UInt64(2),
         expected_stream_id = UInt32(3),
         expected_nslots = UInt32(8),
         expected_slot_bytes = UInt32(HEADER_SLOT_BYTES),
@@ -29,6 +30,18 @@
     @test !validate_superblock_fields(
         fields;
         expected_layout_version = UInt32(2),
+        expected_epoch = UInt64(2),
+        expected_stream_id = UInt32(3),
+        expected_nslots = UInt32(8),
+        expected_slot_bytes = UInt32(HEADER_SLOT_BYTES),
+        expected_region_type = RegionType.HEADER_RING,
+        expected_pool_id = UInt16(0),
+    )
+
+    @test !validate_superblock_fields(
+        fields;
+        expected_layout_version = UInt32(1),
+        expected_epoch = UInt64(9),
         expected_stream_id = UInt32(3),
         expected_nslots = UInt32(8),
         expected_slot_bytes = UInt32(HEADER_SLOT_BYTES),
