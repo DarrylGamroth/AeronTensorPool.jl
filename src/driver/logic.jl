@@ -119,12 +119,14 @@ function get_or_create_stream!(state::DriverState, stream_id::UInt32, publish_mo
     if isnothing(stream_config) && !state.config.policies.allow_dynamic_streams
         return nothing
     end
-    if publish_mode != DriverPublishMode.EXISTING_OR_CREATE
-        return nothing
+    if isnothing(stream_config)
+        if publish_mode != DriverPublishMode.EXISTING_OR_CREATE
+            return nothing
+        end
+        profile_name = state.config.policies.default_profile
+    else
+        profile_name = stream_config.profile
     end
-
-    profile_name =
-        isnothing(stream_config) ? state.config.policies.default_profile : stream_config.profile
     profile = get(state.config.profiles, profile_name, nothing)
     isnothing(profile) && return nothing
 
@@ -172,6 +174,18 @@ function handle_attach_request!(state::DriverState, msg::ShmAttachRequest.Decode
         require_hugepages = (requested_hugepages == DriverBool.TRUE)
     end
 
+    for lease in values(state.leases)
+        if lease.client_id == client_id
+            return emit_attach_response!(
+                state,
+                correlation_id,
+                DriverResponseCode.REJECTED,
+                "client_id already attached",
+                nothing,
+            )
+        end
+    end
+
     stream_state = get_or_create_stream!(state, stream_id, publish_mode)
     if isnothing(stream_state)
         return emit_attach_response!(
@@ -201,6 +215,22 @@ function handle_attach_request!(state::DriverState, msg::ShmAttachRequest.Decode
             "max_dims exceeds profile",
             nothing,
         )
+    end
+
+    for lease in values(state.leases)
+        if lease.stream_id == stream_id && lease.client_id == client_id && lease.role == role
+            return emit_attach_response!(
+                state,
+                correlation_id,
+                DriverResponseCode.REJECTED,
+                "duplicate attach",
+                nothing,
+            )
+        end
+    end
+
+    if stream_state.epoch == 0
+        bump_epoch!(state, stream_state)
     end
 
     if role == DriverRole.PRODUCER
@@ -521,4 +551,22 @@ function emit_driver_announce!(state::DriverState, stream_state::DriverStreamSta
         end
         ShmPoolAnnounce.headerRegionUri!(state.runtime.announce_encoder, stream_state.header_uri)
     end && (state.metrics.announces += 1; true)
+end
+
+function emit_driver_shutdown!(
+    state::DriverState,
+    reason::DriverShutdownReason.SbeEnum = DriverShutdownReason.NORMAL,
+    error_message::String = "",
+)
+    msg_len = DRIVER_MESSAGE_HEADER_LEN +
+        Int(ShmDriverShutdown.sbe_block_length(ShmDriverShutdown.Decoder)) +
+        ShmDriverShutdown.errorMessage_header_length +
+        sizeof(error_message)
+    now_ns = UInt64(Clocks.time_nanos(state.clock))
+    return try_claim_sbe!(state.runtime.pub_control, state.runtime.control_claim, msg_len) do buf
+        ShmDriverShutdown.wrap_and_apply_header!(state.runtime.shutdown_encoder, buf, 0)
+        ShmDriverShutdown.timestampNs!(state.runtime.shutdown_encoder, now_ns)
+        ShmDriverShutdown.reason!(state.runtime.shutdown_encoder, reason)
+        ShmDriverShutdown.errorMessage!(state.runtime.shutdown_encoder, error_message)
+    end
 end

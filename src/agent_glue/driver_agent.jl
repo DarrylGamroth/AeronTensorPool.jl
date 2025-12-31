@@ -33,6 +33,7 @@ end
 
 function Agent.on_close(agent::DriverAgent)
     try
+        emit_driver_shutdown!(agent.state)
         close(agent.counters)
         close(agent.state.runtime.pub_control)
         close(agent.state.runtime.pub_announce)
