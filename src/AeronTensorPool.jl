@@ -19,6 +19,7 @@ include("consumer.jl")
 include("supervisor.jl")
 include("bridge.jl")
 include("decimator.jl")
+include("config_loader.jl")
 
 export Dtype,
     MajorOrder,
@@ -49,6 +50,7 @@ export Dtype,
     ShmRegionSuperblock,
     ShmUri,
     SuperblockFields,
+    SystemConfig,
     TensorSlotHeader256,
     TensorSlotHeader,
     Mode,
@@ -118,6 +120,10 @@ export Dtype,
     republish_descriptor!,
     write_superblock!,
     write_tensor_slot_header!,
+    load_producer_config,
+    load_consumer_config,
+    load_supervisor_config,
+    load_system_config,
     try_claim_sbe!,
     sbe_message_length
 

@@ -192,7 +192,7 @@ Spec refs
 - 15.13, 15.14, 15.22
 
 Status
-- Not started.
+- Complete (config loader + env overrides, role runner, and in-process system smoke test harness are implemented).
 
 ## Phase 8 - Perf and Ops Hardening
 

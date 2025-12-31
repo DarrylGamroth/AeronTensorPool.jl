@@ -20,3 +20,6 @@ include("test_payload_slot.jl")
 include("test_slot_reservation.jl")
 include("test_inflight_queue.jl")
 include("test_cli_tool.jl")
+if get(ENV, "TP_RUN_SYSTEM_SMOKE", "false") == "true"
+    include("test_system_smoke.jl")
+end

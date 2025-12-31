@@ -93,6 +93,9 @@ This guide maps the normative spec (SHM_Aeron_Tensor_Pool.md) to concrete implem
 - Optional VS Code task/make target: regenerate codec, then `julia --project -e 'using Pkg; Pkg.test()'` or run agents.
 - Tooling: `scripts/run_tests.sh` wraps the full test run for CI/local workflows.
 - Control CLI: `scripts/tp_tool.jl send-consumer-config` can push ConsumerConfig on the control stream.
+- Role runner: `scripts/run_role.jl <producer|consumer|supervisor> [config]` starts a single agent with polling loop.
+- System smoke test: `scripts/run_system_smoke.jl [config] [timeout_s]` runs a full in-process system using an embedded media driver.
+- Optional CI/system test: `TP_RUN_SYSTEM_SMOKE=true julia --project -e 'using Pkg; Pkg.test()'` runs the end-to-end smoke test.
 
 ## 15. Configuration pattern (TOML + env overrides)
 - Keep a default TOML (e.g., config/defaults.toml) with uri, nslots, stride_bytes, cadences, progress defaults, payload_fallback_uri, and Aeron directory when needed.
