@@ -112,6 +112,8 @@ Drivers MAY use different values but MUST make them discoverable out-of-band (co
 
 NOTE: Keepalives are one-way; clients infer lease validity from the absence of `ShmLeaseRevoked` and continued successful operations. This trades acknowledgment latency for reduced control-plane traffic.
 
+This model mirrors Aeron’s driver liveness approach (heartbeat plus timeout rather than explicit acknowledgments).
+
 ### 4.4a Schema Version Compatibility (Normative)
 
 Clients MUST reject messages with a schema version higher than they support. Drivers SHOULD respond using the highest schema version supported by both client and driver; if no compatible version exists, the driver MUST return `code=UNSUPPORTED`.
