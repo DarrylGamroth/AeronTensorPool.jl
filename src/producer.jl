@@ -1,3 +1,6 @@
+struct ProducerAnnounceHandler end
+struct ProducerQosHandler end
+
 mutable struct ProducerState
     config::ProducerConfig
     clock::Clocks.AbstractClock
@@ -16,8 +19,7 @@ mutable struct ProducerState
     progress_bytes_delta::UInt64
     last_progress_ns::UInt64
     last_progress_bytes::UInt64
-    last_announce_ns::UInt64
-    last_qos_ns::UInt64
+    timer_set::TimerSet{Tuple{PolledTimer, PolledTimer}, Tuple{ProducerAnnounceHandler, ProducerQosHandler}}
     descriptor_buf::Vector{UInt8}
     progress_buf::Vector{UInt8}
     announce_buf::Vector{UInt8}
@@ -114,6 +116,11 @@ function init_producer(config::ProducerConfig)
     pub_metadata = Aeron.add_publication(client, config.aeron_uri, config.metadata_stream_id)
     sub_control = Aeron.add_subscription(client, config.aeron_uri, config.control_stream_id)
 
+    timer_set = TimerSet(
+        (PolledTimer(config.announce_interval_ns), PolledTimer(config.qos_interval_ns)),
+        (ProducerAnnounceHandler(), ProducerQosHandler()),
+    )
+
     state = ProducerState(
         config,
         clock,
@@ -132,8 +139,7 @@ function init_producer(config::ProducerConfig)
         config.progress_bytes_delta,
         UInt64(0),
         UInt64(0),
-        UInt64(0),
-        UInt64(0),
+        timer_set,
         Vector{UInt8}(undef, 512),
         Vector{UInt8}(undef, 512),
         Vector{UInt8}(undef, 1024),
@@ -617,23 +623,19 @@ function refresh_activity_timestamps!(state::ProducerState)
     return nothing
 end
 
+@inline function (handler::ProducerAnnounceHandler)(state::ProducerState, now_ns::UInt64)
+    emit_announce!(state)
+    refresh_activity_timestamps!(state)
+    return true
+end
+
+@inline function (handler::ProducerQosHandler)(state::ProducerState, now_ns::UInt64)
+    emit_qos!(state)
+    return true
+end
+
 function emit_periodic!(state::ProducerState)
     fetch!(state.clock)
     now_ns = UInt64(Clocks.time_nanos(state.clock))
-    work_done = false
-
-    if now_ns - state.last_announce_ns >= state.config.announce_interval_ns
-        emit_announce!(state)
-        refresh_activity_timestamps!(state)
-        state.last_announce_ns = now_ns
-        work_done = true
-    end
-
-    if now_ns - state.last_qos_ns >= state.config.qos_interval_ns
-        emit_qos!(state)
-        state.last_qos_ns = now_ns
-        work_done = true
-    end
-
-    return work_done
+    return poll_timers!(state.timer_set, state, now_ns)
 end

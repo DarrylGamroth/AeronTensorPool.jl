@@ -24,6 +24,9 @@ mutable struct ConsumerConfig
     qos_interval_ns::UInt64
 end
 
+struct ConsumerHelloHandler end
+struct ConsumerQosHandler end
+
 mutable struct ConsumerState
     config::ConsumerConfig
     clock::Clocks.AbstractClock
@@ -44,8 +47,7 @@ mutable struct ConsumerState
     seen_any::Bool
     drops_gap::UInt64
     drops_late::UInt64
-    last_hello_ns::UInt64
-    last_qos_ns::UInt64
+    timer_set::TimerSet{Tuple{PolledTimer, PolledTimer}, Tuple{ConsumerHelloHandler, ConsumerQosHandler}}
     hello_buf::Vector{UInt8}
     qos_buf::Vector{UInt8}
     hello_encoder::ConsumerHello.Encoder{Vector{UInt8}}
@@ -74,6 +76,11 @@ function init_consumer(config::ConsumerConfig)
     sub_control = Aeron.add_subscription(client, config.aeron_uri, config.control_stream_id)
     sub_qos = Aeron.add_subscription(client, config.aeron_uri, config.qos_stream_id)
 
+    timer_set = TimerSet(
+        (PolledTimer(config.hello_interval_ns), PolledTimer(config.qos_interval_ns)),
+        (ConsumerHelloHandler(), ConsumerQosHandler()),
+    )
+
     return ConsumerState(
         config,
         clock,
@@ -94,8 +101,7 @@ function init_consumer(config::ConsumerConfig)
         false,
         UInt64(0),
         UInt64(0),
-        UInt64(0),
-        UInt64(0),
+        timer_set,
         Vector{UInt8}(undef, 512),
         Vector{UInt8}(undef, 512),
         ConsumerHello.Encoder(Vector{UInt8}),
@@ -521,24 +527,20 @@ end
     return Aeron.poll(state.sub_control, assembler, fragment_limit)
 end
 
+@inline function (handler::ConsumerHelloHandler)(state::ConsumerState, now_ns::UInt64)
+    emit_consumer_hello!(state)
+    return true
+end
+
+@inline function (handler::ConsumerQosHandler)(state::ConsumerState, now_ns::UInt64)
+    emit_qos!(state)
+    return true
+end
+
 function emit_periodic!(state::ConsumerState)
     fetch!(state.clock)
     now_ns = UInt64(Clocks.time_nanos(state.clock))
-    work_done = false
-
-    if now_ns - state.last_hello_ns >= state.config.hello_interval_ns
-        emit_consumer_hello!(state)
-        state.last_hello_ns = now_ns
-        work_done = true
-    end
-
-    if now_ns - state.last_qos_ns >= state.config.qos_interval_ns
-        emit_qos!(state)
-        state.last_qos_ns = now_ns
-        work_done = true
-    end
-
-    return work_done
+    return poll_timers!(state.timer_set, state, now_ns)
 end
 
 @inline function valid_dtype(dtype::Dtype.SbeEnum)

@@ -28,6 +28,8 @@ mutable struct SupervisorConfig
     liveness_check_interval_ns::UInt64
 end
 
+struct SupervisorLivenessHandler end
+
 mutable struct SupervisorState
     config::SupervisorConfig
     clock::Clocks.AbstractClock
@@ -37,7 +39,7 @@ mutable struct SupervisorState
     sub_qos::Aeron.Subscription
     producers::Dict{UInt32, ProducerInfo}
     consumers::Dict{UInt32, ConsumerInfo}
-    liveness_timer::PolledTimer
+    timer_set::TimerSet{Tuple{PolledTimer}, Tuple{SupervisorLivenessHandler}}
     config_buf::Vector{UInt8}
     config_encoder::ConsumerConfigMsg.Encoder{Vector{UInt8}}
     config_claim::Aeron.BufferClaim
@@ -59,6 +61,11 @@ function init_supervisor(config::SupervisorConfig)
     sub_control = Aeron.add_subscription(client, config.aeron_uri, config.control_stream_id)
     sub_qos = Aeron.add_subscription(client, config.aeron_uri, config.qos_stream_id)
 
+    timer_set = TimerSet(
+        (PolledTimer(config.liveness_check_interval_ns),),
+        (SupervisorLivenessHandler(),),
+    )
+
     return SupervisorState(
         config,
         clock,
@@ -68,7 +75,7 @@ function init_supervisor(config::SupervisorConfig)
         sub_qos,
         Dict{UInt32, ProducerInfo}(),
         Dict{UInt32, ConsumerInfo}(),
-        PolledTimer(config.liveness_check_interval_ns),
+        timer_set,
         Vector{UInt8}(undef, 512),
         ConsumerConfigMsg.Encoder(Vector{UInt8}),
         Aeron.BufferClaim(),
@@ -204,13 +211,14 @@ function check_liveness!(state::SupervisorState, now_ns::UInt64)
     return true
 end
 
+@inline function (handler::SupervisorLivenessHandler)(state::SupervisorState, now_ns::UInt64)
+    return check_liveness!(state, now_ns)
+end
+
 function emit_periodic!(state::SupervisorState)
     fetch!(state.clock)
     now_ns = UInt64(Clocks.time_nanos(state.clock))
-    if due!(state.liveness_timer, now_ns)
-        return check_liveness!(state, now_ns)
-    end
-    return false
+    return poll_timers!(state.timer_set, state, now_ns)
 end
 
 function emit_consumer_config!(

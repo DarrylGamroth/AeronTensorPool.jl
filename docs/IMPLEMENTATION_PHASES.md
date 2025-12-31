@@ -18,7 +18,7 @@ Goals
 - Define the minimal config surface and shared constants.
 
 Status
-- Complete (constants, configs, timers, and dependency decisions in place).
+- Complete (constants, configs, and TimerSet-based polled timers integrated for periodic work).
 
 Deliverables
 - Shared constants module (superblock size, slot bytes, magic, layout_version, MAX_DIMS).
