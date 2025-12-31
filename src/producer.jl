@@ -634,7 +634,7 @@ end
     return 1
 end
 
-function emit_periodic!(state::ProducerState)
+function poll_timers!(state::ProducerState)
     fetch!(state.clock)
     now_ns = UInt64(Clocks.time_nanos(state.clock))
     return poll_timers!(state.timer_set, state, now_ns)
