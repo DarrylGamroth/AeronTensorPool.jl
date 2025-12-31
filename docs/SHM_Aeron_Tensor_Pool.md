@@ -22,7 +22,7 @@ It is written to be directly consumable by automated code-generation tools
 - Small descriptor and control messages transported via Aeron.
 - All messages are **SBE encoded**.
 - Support many independent producer and consumer services.
-- Define two roles: producers (server/driver; own SHM and publish descriptors/control) and consumers (client; map SHM and subscribe). Packaging of these roles (combined vs split, akin to Aeron driver/client) is an implementation choice, not a protocol requirement. When the Driver Model is used, SHM ownership and `ShmPoolAnnounce` emission move to the SHM Driver while the producer client remains responsible for payload writes and `FrameDescriptor` publishing.
+- Define two roles: producers (server/driver; own SHM and publish descriptors/control) and consumers (client; map SHM and subscribe). Packaging of these roles (combined vs split, akin to Aeron driver/client) is an implementation choice, not a protocol requirement. When the Driver Model is used, SHM ownership and `ShmPoolAnnounce` emission move to the SHM Driver while the producer client remains responsible for payload writes and `FrameDescriptor` publishing. The SHM Driver may be embedded or external; only one authoritative driver instance may manage a given `stream_id` at a time.
 - Lossy overwrite semantics: slow consumers may drop frames.
 - Consumers must never read partially written (“torn”) data.
 - Optional bridge service for remote consumers or recording.

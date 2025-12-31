@@ -32,7 +32,9 @@ This specification does **not** redefine wire formats, shared-memory layouts, co
 
 ### 2.1 SHM Driver (Normative)
 
-The SHM Driver is a long-lived process that owns the lifecycle of all SHM backing files, enforces filesystem and security policy, manages epochs and layout versions, authoritatively assigns SHM region URIs, enforces exclusive producer rules, and emits `ShmPoolAnnounce` messages.
+The SHM Driver is the authoritative entity for SHM lifecycle, epochs, and `ShmPoolAnnounce`. It owns the lifecycle of all SHM backing files, enforces filesystem and security policy, manages epochs and layout versions, authoritatively assigns SHM region URIs, enforces exclusive producer rules, and emits `ShmPoolAnnounce` messages.
+
+The driver MAY be embedded within an application process or run as an external service. A deployment MUST ensure that only one authoritative driver instance manages a given `stream_id` at a time.
 
 ### 2.2 Producer Client (Normative)
 
