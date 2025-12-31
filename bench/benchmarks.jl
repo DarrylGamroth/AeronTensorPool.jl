@@ -44,7 +44,7 @@ function bench_read_header()
         Int32[4, 4],
         Int32[4, 1],
     )
-    decoder = TensorSlotHeader256.Decoder(UnsafeArrays.UnsafeArray{UInt8, 1})
+    decoder = TensorSlotHeader256.Decoder(Vector{UInt8})
     wrap_tensor_header!(decoder, buffer, 0)
     return @benchmark read_tensor_slot_header($decoder)
 end

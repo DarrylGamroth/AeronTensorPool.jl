@@ -36,6 +36,7 @@ Mutable consumer runtime state including SHM mappings and QoS counters.
 mutable struct ConsumerState
     config::ConsumerConfig
     clock::Clocks.AbstractClock
+    ctx::Aeron.Context
     client::Aeron.Client
     pub_control::Aeron.Publication
     pub_qos::Aeron.Publication
@@ -101,6 +102,7 @@ function init_consumer(config::ConsumerConfig)
     return ConsumerState(
         config,
         clock,
+        ctx,
         client,
         pub_control,
         pub_qos,

@@ -7,6 +7,7 @@ Mutable producer runtime state including Aeron resources and SHM mappings.
 mutable struct ProducerState
     config::ProducerConfig
     clock::Clocks.AbstractClock
+    ctx::Aeron.Context
     client::Aeron.Client
     pub_descriptor::Aeron.Publication
     pub_control::Aeron.Publication
@@ -135,6 +136,7 @@ function init_producer(config::ProducerConfig)
     state = ProducerState(
         config,
         clock,
+        ctx,
         client,
         pub_descriptor,
         pub_control,

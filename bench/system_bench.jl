@@ -2,10 +2,10 @@ using Aeron
 using AeronTensorPool
 
 function override_shm_paths(config::ProducerConfig, dir::String)
-    header_uri = "shm:file?path=$(joinpath(dir, \"tp_header\"))"
+    header_uri = "shm:file?path=$(joinpath(dir, "tp_header"))"
     pools = PayloadPoolConfig[]
     for pool in config.payload_pools
-        uri = "shm:file?path=$(joinpath(dir, \"tp_pool_$(pool.pool_id)\"))"
+        uri = "shm:file?path=$(joinpath(dir, "tp_pool_$(pool.pool_id)"))"
         push!(pools, PayloadPoolConfig(pool.pool_id, uri, pool.stride_bytes, pool.nslots))
     end
     return ProducerConfig(
@@ -31,7 +31,7 @@ end
 
 function run_system_bench(config_path::AbstractString, duration_s::Float64)
     Aeron.MediaDriver.launch_embedded() do driver
-        mktempdir() do dir
+        GC.@preserve driver mktempdir() do dir
             env = Dict(ENV)
             env["AERON_DIR"] = Aeron.MediaDriver.aeron_dir(driver)
             system = load_system_config(config_path; env = env)

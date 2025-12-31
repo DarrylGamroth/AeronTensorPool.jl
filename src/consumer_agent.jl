@@ -49,6 +49,7 @@ function Agent.on_close(agent::ConsumerAgent)
         close(agent.state.sub_control)
         close(agent.state.sub_qos)
         close(agent.state.client)
+        close(agent.state.ctx)
     catch
     end
     return nothing

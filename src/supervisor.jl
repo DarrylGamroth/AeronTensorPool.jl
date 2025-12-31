@@ -45,6 +45,7 @@ Mutable supervisor runtime state including liveness tracking.
 mutable struct SupervisorState
     config::SupervisorConfig
     clock::Clocks.AbstractClock
+    ctx::Aeron.Context
     client::Aeron.Client
     pub_control::Aeron.Publication
     sub_control::Aeron.Subscription
@@ -86,6 +87,7 @@ function init_supervisor(config::SupervisorConfig)
     return SupervisorState(
         config,
         clock,
+        ctx,
         client,
         pub_control,
         sub_control,

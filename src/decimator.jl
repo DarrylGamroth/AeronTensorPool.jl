@@ -16,6 +16,7 @@ Decimator runtime state for downsampling descriptor streams.
 mutable struct DecimatorState
     consumer_state::ConsumerState
     config::DecimatorConfig
+    ctx::Aeron.Context
     client::Aeron.Client
     pub_descriptor::Aeron.Publication
     descriptor_buf::Vector{UInt8}
@@ -37,6 +38,7 @@ function init_decimator(consumer_state::ConsumerState, config::DecimatorConfig)
     return DecimatorState(
         consumer_state,
         config,
+        ctx,
         client,
         pub_descriptor,
         Vector{UInt8}(undef, 512),

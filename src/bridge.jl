@@ -16,6 +16,7 @@ Bridge runtime state for republishing payloads and descriptors.
 mutable struct BridgeState
     consumer_state::ConsumerState
     config::BridgeConfig
+    ctx::Aeron.Context
     client::Aeron.Client
     pub_descriptor::Aeron.Publication
     pub_payload::Aeron.Publication
@@ -38,6 +39,7 @@ function init_bridge(consumer_state::ConsumerState, config::BridgeConfig)
     return BridgeState(
         consumer_state,
         config,
+        ctx,
         client,
         pub_descriptor,
         pub_payload,
