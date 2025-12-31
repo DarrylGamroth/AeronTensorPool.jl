@@ -2,6 +2,8 @@
 
 This guide maps the wire spec to concrete implementation steps in Julia using Aeron.jl, SBE.jl, and Agent.jl. It stays implementation-oriented and references the spec for normative rules.
 
+Note: Initial driver and client implementations are in Julia. A C client is planned next, so API and protocol decisions should remain C-friendly. The driver can remain Julia-only.
+
 For a combined wire + driver overview, see `docs/IMPLEMENTATION_GUIDE.md`.
 
 ## 1. Dependencies
@@ -128,34 +130,52 @@ For a combined wire + driver overview, see `docs/IMPLEMENTATION_GUIDE.md`.
 - Optional CI/system test: `TP_RUN_SYSTEM_SMOKE=true julia --project -e 'using Pkg; Pkg.test()'` runs the end-to-end smoke test.
 - Optional GC monitor: `TP_RUN_SYSTEM_SMOKE_GC=true TP_GC_MONITOR_ITERS=2000 TP_GC_ALLOC_LIMIT_BYTES=50000000 julia --project -e 'using Pkg; Pkg.test()'` runs the E2E loop and asserts GC allocation growth stays below the limit.
 
-## 15. Configuration pattern (TOML + env overrides)
-- Keep a default TOML (e.g., config/defaults.toml) with uri, nslots, stride_bytes, cadences, progress defaults, payload_fallback_uri, and Aeron directory when needed.
-- Allow env overrides for deployment specifics: AERON_URI (default `aeron:ipc`), AERON_DIR (default `/dev/shm/aeron-${USER}`), TP_HUGEPAGE_MOUNT, TP_SHM_URI, TP_STREAM_ID, TP_PROGRESS_INTERVAL_US, JULIA_PROJECT.
-- Example (TOML):
+## 15. Configuration pattern (driver-first)
+- Driver config is defined in the driver spec (TOML surface in Driver Spec §16) and owns SHM layout and policy. Use profiles and stream assignments to define pools and slot counts, and let the driver create regions on demand via `publishMode=EXISTING_OR_CREATE`.
+- Driver MAY also accept environment overrides per the driver spec (uppercase keys, dots replaced by underscores).
+- Clients do not use TOML or environment variables; they connect via API parameters supplied by the hosting application (Aeron dir/URI, control stream ID, client_id/role, keepalive cadence).
+- Client API should mirror Aeron/Aeron Archive patterns (proxy/adapter style) for attach/keepalive/detach.
+  - Suggested types (task-based): `AttachRequestProxy`, `KeepaliveProxy`, `DetachRequestProxy`, `DriverResponseAdapter`.
+- Client responses should be polled (Aeron-style), not callback-based.
+- Producers/consumers MUST treat SHM URIs, layout_version, nslots, and pool definitions as authoritative from the driver.
+- Example (driver TOML; see Driver Spec §16 and `docs/examples/driver_camera_example.toml`):
 
 ```toml
-[producer]
-uri = "shm:file?path=/dev/hugepages/tensorpool/example-producer/epoch-1/payload-1.pool|require_hugepages=true"
-nslots = 1024
-stride_bytes = 1048576
-announce_hz = 1.0
-progress_interval_us = 250
-progress_bytes_delta = 65536
-payload_fallback_uri = ""
-
-[consumer]
-mode = "STREAM"
-max_rate_hz = 0
-expected_layout_version = 1
-supports_progress = true
-
-[supervisor]
-aeron_uri = "aeron:ipc"
-descriptor_stream_id = 1100
+[driver]
+instance_id = "driver-01"
+control_channel = "aeron:ipc"
 control_stream_id = 1000
+announce_channel = "aeron:ipc"
+announce_stream_id = 1001
+qos_channel = "aeron:ipc"
 qos_stream_id = 1200
-metadata_stream_id = 1300
-aeron_dir = "/dev/shm/aeron-${USER}"
+
+[shm]
+base_dir = "/dev/shm/tensorpool"
+require_hugepages = false
+page_size_bytes = 4096
+permissions_mode = "660"
+
+[policies]
+allow_dynamic_streams = true
+default_profile = "raw_profile"
+announce_period_ms = 1000
+lease_keepalive_interval_ms = 1000
+lease_expiry_grace_intervals = 3
+
+[profiles.raw_profile]
+header_nslots = 1024
+max_dims = 8
+header_slot_bytes = 256
+
+[[profiles.raw_profile.payload_pools]]
+pool_id = 1
+stride_bytes = 1048576
+
+[streams.cam1]
+stream_id = 1001
+profile = "raw_profile"
+
 ```
 
 ## 16. Runtime wiring

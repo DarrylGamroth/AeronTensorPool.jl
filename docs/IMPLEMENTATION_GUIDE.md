@@ -7,6 +7,8 @@ References:
 - Wire spec: `docs/SHM_Tensor_Pool_Wire_Spec_v1.1.md`
 - Driver model: `docs/SHM_Driver_Model_Spec_v1.0.md`
 
+Note: Initial driver and client implementations are in Julia. A C client is planned next, so API and protocol decisions should remain C-friendly. The driver can remain Julia-only.
+
 ## 1. Scope and Roles
 
 Wire-level roles:
@@ -60,6 +62,7 @@ Driver responsibilities (Driver 3-4):
 - Maintain epochs and layout_version.
 - Enforce exclusive producer per stream.
 - Publish ShmPoolAnnounce.
+ - Apply configured profiles/policies (see Driver Spec §16 and `docs/examples/driver_camera_example.toml`).
 
 Attach protocol (Driver 4.2-4.4):
 - Client sends ShmAttachRequest.
@@ -73,13 +76,14 @@ Lease lifecycle (Driver 4.7-4.9):
 
 ## 4. Deployment Modes
 
-Standalone mode:
-- Producer owns SHM allocation and announces URIs directly.
-- Consumers map SHM using announced URIs.
-
-Driver mode:
+Driver-first model (recommended):
 - SHM Driver owns allocation and announces URIs.
 - Producer/consumer attach with leases and must not create SHM files.
+- Clients do not use TOML or environment variables; they configure only connection info via direct API parameters (Aeron dir/URI, control stream, client_id, role).
+  - Driver MAY accept environment overrides per the driver spec; this is driver-only, not client.
+- Client responses should be polled (Aeron-style), not callback-based.
+- Client API should mirror Aeron/Aeron Archive patterns (proxy/adapter style) for attach/keepalive/detach.
+  - Suggested types (task-based): `AttachRequestProxy`, `KeepaliveProxy`, `DetachRequestProxy`, `DriverResponseAdapter`.
 
 ## 5. Path Layout and Containment (Wire 15.21a)
 
@@ -126,6 +130,7 @@ After initialization:
 Tooling:
 - CLI utilities for attach/detach/keepalive and control messages.
 - Scripts to run producer/consumer/supervisor/driver.
+- Example driver config: `docs/examples/driver_camera_example.toml` and `docs/EXAMPLE_Camera_Pipeline.md`.
 
 Testing:
 - Unit tests for SHM validation, seqlock behavior, URI parsing.

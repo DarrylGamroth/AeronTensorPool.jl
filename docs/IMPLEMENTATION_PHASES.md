@@ -141,6 +141,7 @@ Status
 
 Goals
 - Implement the external SHM Driver and attach protocol.
+ - Keep the client protocol surface C-friendly for the planned C client.
 
 Deliverables
 - Driver agent with exclusive producer enforcement per stream.
@@ -148,6 +149,7 @@ Deliverables
 - ShmLeaseKeepalive processing with expiry.
 - ShmDetachRequest/Response handling.
 - ShmLeaseRevoked publishing and epoch bump rules.
+- Driver TOML/env configuration surface per Driver Spec §16.
 
 Validation
 - Protocol error handling: fail closed on missing fields or null sentinels.
@@ -166,7 +168,7 @@ Goals
 
 Deliverables
 - Producer/consumer attach flows and lease tracking.
-- Config uses driver mode only (no standalone SHM allocation).
+- Client configuration is API-only (no TOML or environment variables).
 - Driver-provided URIs and layout_version overrides.
 
 Validation
