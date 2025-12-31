@@ -525,7 +525,21 @@ end
     return order == MajorOrder.ROW || order == MajorOrder.COLUMN
 end
 
-function validate_strides!(state::ConsumerState, header::TensorSlotHeader)
+@inline function dtype_size_bytes(dtype::Dtype.SbeEnum)
+    if dtype == Dtype.UINT8 || dtype == Dtype.INT8 || dtype == Dtype.BOOLEAN ||
+       dtype == Dtype.BYTES || dtype == Dtype.BIT
+        return Int64(1)
+    elseif dtype == Dtype.UINT16 || dtype == Dtype.INT16
+        return Int64(2)
+    elseif dtype == Dtype.UINT32 || dtype == Dtype.INT32 || dtype == Dtype.FLOAT32
+        return Int64(4)
+    elseif dtype == Dtype.UINT64 || dtype == Dtype.INT64 || dtype == Dtype.FLOAT64
+        return Int64(8)
+    end
+    return Int64(0)
+end
+
+function validate_strides!(state::ConsumerState, header::TensorSlotHeader, elem_size::Int64)
     ndims = Int(header.ndims)
     ndims == 0 && return true
 
@@ -543,7 +557,7 @@ function validate_strides!(state::ConsumerState, header::TensorSlotHeader)
 
     if header.major_order == MajorOrder.ROW
         if state.scratch_strides[ndims] == 0
-            state.scratch_strides[ndims] = 1
+            state.scratch_strides[ndims] = elem_size
         end
         for i in (ndims - 1):-1:1
             required = state.scratch_strides[i + 1] * max(state.scratch_dims[i + 1], 1)
@@ -555,7 +569,7 @@ function validate_strides!(state::ConsumerState, header::TensorSlotHeader)
         return true
     elseif header.major_order == MajorOrder.COLUMN
         if state.scratch_strides[1] == 0
-            state.scratch_strides[1] = 1
+            state.scratch_strides[1] = elem_size
         end
         for i in 2:ndims
             required = state.scratch_strides[i - 1] * max(state.scratch_dims[i - 1], 1)
@@ -631,7 +645,9 @@ function try_read_frame!(
         return nothing
     end
 
-    if header.ndims > state.config.max_dims || !validate_strides!(state, header)
+    elem_size = dtype_size_bytes(header.dtype)
+    if elem_size == 0 || header.ndims > state.config.max_dims ||
+       !validate_strides!(state, header, elem_size)
         state.drops_late += 1
         return nothing
     end
