@@ -1,283 +1,263 @@
-# Implementation Phases (Aeron Tensor Pool, Julia)
+# Implementation Phases (Wire + Driver Specs)
 
-This plan sequences implementation into concrete phases with deliverables, validation, and spec links.
-It assumes SBE codecs are already generated in `src/gen` and favors minimal dependencies.
+This plan sequences implementation work to match the Wire Spec v1.1 and the Driver Model Spec v1.0.
+Each phase has clear deliverables and validation so tasks can be assigned and tracked.
 
-## Dependency Decisions (pre-review)
+References:
+- Wire spec: `docs/SHM_Tensor_Pool_Wire_Spec_v1.1.md`
+- Driver model: `docs/SHM_Driver_Model_Spec_v1.0.md`
 
-These decisions should be made before deeper implementation work begins.
-
-- SBEDomainMapper.jl: Defer for v1.1. We already have SBE.jl codecs, and the initial agents can use direct encoders/decoders for tight control and zero-allocation. Revisit later if we want schema-aligned domain structs, publishing proxies, or standardized adapters.
-- Hsm.jl: Defer unless agent lifecycle becomes complex. Agent.jl + explicit state enums is sufficient for v1.1. Introduce Hsm.jl only if we need hierarchical states, richer transitions, or formalized event handling across roles.
-- RtcFramework.jl: Use as a reference only. Patterns for PollerRegistry usage and FragmentAssembler adapters are valuable, and its PolledTimer is a good model for zero-allocation timeouts, but we should not take a dependency yet. We can mirror its timer and adapter structure inside this repo.
-
-## Phase 0 - Baseline and Alignment
+## Phase 0 - Alignment and Defaults
 
 Goals
-- Confirm constants and layout assumptions match the spec.
-- Define the minimal config surface and shared constants.
-
-Status
-- Complete (constants, configs, and TimerSet-based polled timers integrated for periodic work).
+- Align constants, layout, and codegen with the wire spec.
+- Decide defaults for config and path layout.
 
 Deliverables
-- Shared constants module (superblock size, slot bytes, magic, layout_version, MAX_DIMS).
-- Config structs for Producer/Consumer/Supervisor (URIs, stream IDs, nslots, stride classes, cadences).
-- Timer utility selection (PolledTimer-style scheduler for periodic announces/QoS).
-- Decision log for dependency choices (this document).
+- Shared constants (superblock size, slot bytes, magic, MAX_DIMS).
+- Canonical path layout and containment checks (15.21a).
+- SBE codegen task with fixed MAX_DIMS.
+- Config schema (TOML + env overrides) and default paths.
 
 Validation
-- Static checks for power-of-two nslots and stride alignment.
-- Compile-time assertions for MAX_DIMS matching the generated schema.
+- Unit tests for constants and path containment rules.
+- Schema codegen in CI.
 
 Spec refs
-- `docs/SHM_Tensor_Pool_Wire_Spec_v1.1.md` sections 6-8, 15.1, 15.5, 15.8, 15.22
+- Wire: 6-8, 15.21a
 
-## Phase 1 - SHM Utilities and Superblock IO
+Status
+- Complete (shared constants, canonical path helpers, config defaults, SBE codegen task).
+
+## Phase 1 - SHM Core and Seqlock
 
 Goals
-- Build SHM URI parsing, validation, and mmap helpers.
-- Implement superblock read/write for producers and consumers.
+- Implement mmap helpers and seqlock accessors.
+- Implement ShmRegionSuperblock and TensorSlotHeader256 access in-place.
 
 Deliverables
-- `parse_shm_uri`, `validate_uri`, `mmap_shm` helpers.
-- Superblock write (producer) and validate (consumer) helpers.
-- Atomic commit_word load/store wrappers with acquire/release.
+- SHM URI parsing and validation.
+- mmap helpers for read/write.
+- ShmRegionSuperblock read/write helpers.
+- TensorSlotHeader256 write/read helpers.
+- Seqlock helpers (begin write, commit, read begin/end).
 
 Validation
-- Unit tests for URI parsing and unknown-param rejection.
-- Superblock validation tests (magic/layout/epoch/region_type/stride/nslots).
+- Unit tests for superblock validation and seqlock read rules.
+- Drop cases for odd or unstable commit_word.
 
 Spec refs
-- 7.1, 15.1, 15.22
+- Wire: 7.1, 8.1-8.3, 15.22
 
 Status
-- Complete (helpers + unit tests in place).
+- Complete (SHM IO helpers, superblock/header accessors, seqlock helpers, tests).
 
-## Phase 2 - Producer Core Path (SHM + Descriptor)
+## Phase 2 - Producer Core Path
 
 Goals
-- Implement producer init, SHM allocation, and publish loop.
+- Publish frames per the normative algorithm.
+- Emit descriptors and optional progress.
 
 Deliverables
-- Producer init: allocate header/pool files, write superblocks, open Aeron pubs.
-- Frame publish path: commit_word protocol, payload write, header fill, descriptor publish.
-- Periodic announce, QoS, and activity timestamp refresh.
+- Producer init: create SHM regions, write superblocks, open Aeron pubs.
+- Publish path: commit_word protocol, payload write, header fill, descriptor publish.
+- Periodic announces, QoS, activity timestamp refresh.
+- try_claim-based Aeron sending for small control messages.
 
 Validation
-- Producer publishes descriptors with correct seq/header_index mapping.
-- commit_word transitions: WRITING -> COMMITTED with release semantics.
+- Frame identity (frame_id == seq) enforced.
+- Descriptor/header_index mapping correct.
+- No allocations in hot loop after init.
 
 Spec refs
-- 8.1-8.2, 10.2.1, 15.19
+- Wire: 8.3, 9, 10.2, 15.19
 
 Status
-- Complete (producer init + publish path + announce/QoS cadence).
+- Complete (producer init, publish path, announce/QoS cadence, try_claim for control).
 
-## Phase 3 - Consumer Core Path (Mapping + Seqlock Read)
+## Phase 3 - Consumer Core Path
 
 Goals
-- Implement consumer mapping, frame validation, and seqlock read.
+- Map SHM regions and read frames with seqlock.
+- Implement modes and drop accounting.
 
 Deliverables
-- On ShmPoolAnnounce: validate + mmap regions, cache epoch.
-- Path containment validation per spec §15.21a before mmap (allowed_base_dir + realpath checks).
-- Descriptor handler: seqlock read and payload extraction.
-- Drop accounting: drops_gap and drops_late tracking.
-- Mode handling: STREAM / LATEST / DECIMATED.
+- ShmPoolAnnounce handling and region validation.
+- Descriptor handler with seqlock read, drop rules, and seq tracking.
+- Modes: STREAM, LATEST, DECIMATED.
+- Fallback logic when SHM is invalid or not supported.
 
 Validation
-- Drop on odd/unstable commit_word.
-- Drop on frame_id != descriptor.seq.
-- Remap on epoch/layout mismatch.
+- Unit tests for drops_gap and drops_late.
+- Remap on epoch or layout mismatch.
 
 Spec refs
-- 10.2.1, 11, 15.19, 15.21
+- Wire: 10.1, 10.2, 15.19, 15.21, 15.22
 
 Status
-- Complete (mapping, seqlock read, mode handling, drops accounting with max_outstanding_seq_gap resync, header validation including nslots power-of-two and epoch checks, commit_word frame_id consistency, dtype-aware stride inference with min stride checks, payload_offset validation, enum decode safety, announce-time superblock revalidation with PID change handling, fallback handling).
+- Complete (mapping, seqlock read, mode handling, drops tracking, fallback handling).
 
 ## Phase 4 - Control Plane and QoS
 
 Goals
-- Implement ConsumerHello, QosConsumer, QosProducer, and ShmPoolAnnounce cadence.
+- Implement ConsumerHello, ConsumerConfig, QosProducer, QosConsumer.
+- Apply progress throttling rules.
 
 Deliverables
-- ConsumerHello (supports_progress, progress hints).
-- QosProducer/QosConsumer periodic emissions.
-- Optional ConsumerConfig handling (mode changes, fallback_uri).
+- ConsumerHello publishing with progress hint aggregation.
+- QosProducer/QosConsumer periodic publish.
+- ConsumerConfig handling (mode and fallback URI).
 
 Validation
-- QoS counters updated correctly.
-- Progress hints aggregated at producer without violating floors.
+- Progress emission gated by supports_progress.
+- QoS counters track drops_gap and drops_late.
 
 Spec refs
-- 10.1, 10.4, 15.14, 15.18
+- Wire: 10.1, 10.4, 15.14, 15.18
 
 Status
-- Complete (ConsumerHello with nullValue encoding for absent progress hints, QosProducer/QosConsumer, ConsumerConfig handling, producer progress floors enforced).
+- Complete (ConsumerHello, ConsumerConfig, QosProducer/QosConsumer, progress floors).
 
 ## Phase 5 - Supervisor Agent
 
 Goals
-- Track producer/consumer liveness and issue ConsumerConfig.
+- Track liveness and issue policy changes.
 
 Deliverables
-- Subscriptions to announce/QoS/control streams.
-- Liveness tracking using announce/activity timestamps.
-- ConsumerConfig issuance and logging.
+- Subscriptions to announce and QoS streams.
+- Liveness tracking and stale detection.
+- ConsumerConfig issuance based on policy.
 
 Validation
-- Stale detection using 3-5x announce interval.
-- Correct handling of epoch changes and re-registrations.
+- Stale detection at 3-5x announce cadence.
 
 Spec refs
-- 10.5, 15.14, 15.16
+- Wire: 10.5, 15.14
 
 Status
-- Complete (announce/QoS subscriptions, liveness tracking using announce/QoS/hello timestamps, ConsumerConfig emission, integration test coverage).
+- Complete (announce/QoS subscriptions, liveness tracking, ConsumerConfig emission).
 
-## Phase 6 - Optional Bridge and Decimator
+## Phase 6 - Driver Model Core
 
 Goals
-- Provide fallback and downsampled streams.
+- Implement the external SHM Driver and attach protocol.
 
 Deliverables
-- Bridge: scaffold only; no on-wire format for payload/descriptor defined yet.
-- Decimator: scaffold only; republish subset once a format is defined.
+- Driver agent with exclusive producer enforcement per stream.
+- ShmAttachRequest/Response handling and validation.
+- ShmLeaseKeepalive processing with expiry.
+- ShmDetachRequest/Response handling.
+- ShmLeaseRevoked publishing and epoch bump rules.
 
 Validation
-- Preserve seq/frame_id identity.
-- Only republish committed frames.
+- Protocol error handling: fail closed on missing fields or null sentinels.
+- Lease expiry triggers epoch bump and announce.
 
 Spec refs
-- 12, 15.20
+- Driver: 2-4, 6-7
 
 Status
-- Scaffolded (waiting on bridge/decimator message format).
+- Not started (no driver agent or attach protocol in src).
 
-## Phase 7 - Testing and Tooling
+## Phase 7 - Driver Integration (Producer/Consumer)
 
 Goals
-- Ensure spec compliance and regression safety.
+- Make producer/consumer operate in driver-managed mode.
 
 Deliverables
-- Unit tests for SHM validation, seqlock behavior, epoch remap.
-- Integration test harness for producer/consumer loopback (IPC).
+- Producer/consumer attach flows and lease tracking.
+- Config uses driver mode only (no standalone SHM allocation).
+- Driver-provided URIs and layout_version overrides.
 
 Validation
-- Spec checklist from 15.13 satisfied.
+- Reattach on lease revoke or expiry.
+- No SHM creation outside the driver in driver mode.
 
 Spec refs
-- 15.13
+- Driver: 3-4, 4.7, 4.9
+- Wire: 15.21, 15.21a
 
 Status
-- Complete (unit + Aeron embedded driver integration tests in place, including remap/fallback and seqlock drops; CLI tooling tested and can send ConsumerConfig).
+- Not started (driver-mode flows not implemented).
 
-## Phase 7b - End-to-End System Bring-up
+## Phase 8 - Tooling and Ops
 
 Goals
-- Enable a complete multi-process system test (producer + consumer + supervisor).
+- Provide CLI tools and operational docs.
 
 Deliverables
-- Runner wiring for AgentRunner vs invoker mode in a real process (startup/shutdown, signal handling).
-- Configuration loader (TOML + env overrides) for each role.
-- Launch scripts or CLI tooling to start producer/consumer/supervisor with consistent URIs/stream IDs.
-- E2E smoke test harness: launch embedded or external media driver, create SHM pools, send real frames, verify QoS/liveness.
-- Cleanup/shutdown behavior for SHM files and Aeron directory in test runs.
+- CLI utilities for attach/detach/keepalive and control-plane messages.
+- Run scripts for producer/consumer/supervisor/driver roles.
+- Operational playbook for hugepages, Aeron dir, and GC monitoring.
+  - Standalone mode runs the SHM driver embedded in-process (analogous to embedded Aeron media driver usage).
 
 Validation
-- A full system test can be run from a single command and completes without manual setup.
+- Tooling exercises driver protocol end-to-end.
 
 Spec refs
-- 15.13, 15.14, 15.22
+- Driver: 4.5
+- Wire: 15.13
 
 Status
-- Complete (config loader + env overrides, role runner, and in-process system smoke test harness are implemented).
+- Partial (runner scripts exist; driver tooling pending).
 
-## Phase 8 - Perf and Ops Hardening
+## Phase 9 - Tests and Compliance
 
 Goals
-- Reach steady-state zero-allocation and deployment readiness.
+- Comprehensive spec compliance tests.
 
 Deliverables
-- Preallocation audit and @allocated checks in hot paths.
-- CPU pinning/NUMA guidance (docs).
-- Optional Aeron counters integration for metrics.
+- Unit tests for SHM validation and seqlock rules.
+- Integration tests for producer/consumer/supervisor flow.
+- Driver protocol integration tests with lease expiry.
+- Allocation tests for hot paths.
 
 Validation
-- Perf profile shows zero allocations in steady state.
-- Drops and liveness behave under load.
+- End-to-end test with embedded media driver.
+- Allocation budget stays flat after init.
 
 Spec refs
-- 15.7a, 15.14, 15.17
+- Wire: 15.13
+- Driver: 4.7, 4.7a
 
 Status
-- Complete (allocation load checks plus optional GC monitoring added, perf/ops hardening guidance documented).
+- Partial (wire-spec unit + integration tests exist; driver protocol tests pending).
 
-## Phase 9 - Observability and Error Taxonomy
+## Phase 10 - Documentation and Examples
 
 Goals
-- Add structured error types where helpful and improve operational diagnostics.
+- Provide usage examples and integration guidance.
 
 Deliverables
-- Optional exception hierarchy (e.g., SHM validation errors, Aeron init errors).
-- Structured logging fields and counter documentation.
-- Review and consolidate error handling behavior across agents.
+- Producer/consumer examples (standalone and driver mode).
+- Driver deployment example.
+- BGAPI2-style buffer handoff example.
+- Docstrings for public APIs.
 
 Validation
-- Error paths produce actionable diagnostics without fatal crashes.
+- Documenter build passes with examples.
+
+Spec refs
+- Wire: 1-5 (informative)
+- Driver: 1-2 (informative)
 
 Status
-- Complete (error taxonomy added, logging guidance updated).
+- Partial (wire-focused docs and integration examples present; driver examples pending).
 
-## Phase 10 - Bridge/Decimator Completion
+## Phase 11 - Optional Features
 
 Goals
-- Implement bridge/decimator once on-wire format is defined.
+- Prepare optional bridge and decimator scaffolding.
 
 Deliverables
-- Bridge/decimator message format, full implementation, and tests.
+- Bridge/decimator scaffolds and TODO notes until formats exist.
+- Optional UDP payload format placeholder.
+
+Validation
+- Scaffolds compile; no operational dependency.
+
+Spec refs
+- Wire: 12
 
 Status
-- Deferred (no wire format defined yet; optional UDP format can be added when spec is ready).
-
-## Phase 11 - Operational Playbooks
-
-Goals
-- Provide deployment profiles and troubleshooting guidance.
-
-Deliverables
-- Ops runbook, tuning matrix, and failure playbook.
-- Health checks and counter-based alerting guidance.
-
-Status
-- Complete (ops playbook, health checks, and troubleshooting guidance added).
-
-## Phase 12 - Documentation and API Guide
-
-Goals
-- Provide comprehensive API docs, docstrings, and integration examples.
-
-Deliverables
-- Docstrings for all public functions and types.
-- Documenter.jl configuration for generated docs.
-- Integration guides (BGAPI2 buffer registration, invoker-mode hosting).
-- Public API index and examples referencing the spec.
-
-Status
-- Complete (docstrings added; Documenter site scaffolding added; integration docs linked).
-
-## Phase 13 - Benchmarking and Performance Characterization
-
-Goals
-- Provide repeatable benchmarks for throughput, latency, and allocation behavior.
-
-Deliverables
-- Benchmark suite (e.g., BenchmarkTools) covering producer/consumer/supervisor loops.
-- End-to-end throughput/latency benchmarks with embedded media driver.
-- Allocation regression tests under sustained load.
-- Benchmark reporting scripts and baseline numbers.
-
-Status
-- Complete (benchmark suite and scripts added; system benchmark optional).
+- Partial (bridge/decimator scaffolds present; no on-wire format yet).

@@ -1,6 +1,8 @@
 # Aeron Tensor Pool Implementation Guide (Julia, v1.1)
 
-This guide maps the normative spec (SHM_Tensor_Pool_Wire_Spec_v1.1.md) to concrete implementation steps in Julia using Aeron.jl, SBE.jl, and Agent.jl. It stays implementation-oriented and references the spec for normative rules.
+This guide maps the wire spec to concrete implementation steps in Julia using Aeron.jl, SBE.jl, and Agent.jl. It stays implementation-oriented and references the spec for normative rules.
+
+For a combined wire + driver overview, see `docs/IMPLEMENTATION_GUIDE.md`.
 
 ## 1. Dependencies
 - Aeron driver/runtime: align with Aeron.jl supported version.
