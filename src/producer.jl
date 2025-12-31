@@ -229,7 +229,7 @@ function publish_frame!(
         encode_frame_descriptor!(state.descriptor_encoder, state, seq, header_index, meta_version, now_ns)
         Aeron.offer(
             state.pub_descriptor,
-            view(state.descriptor_buf, 1:sbe_encoded_length(state.descriptor_encoder)),
+            view(state.descriptor_buf, 1:sbe_message_length(state.descriptor_encoder)),
         )
     end
 
@@ -266,7 +266,7 @@ function emit_progress_complete!(
         FrameProgress.state!(state.progress_encoder, FrameProgressState.COMPLETE)
         Aeron.offer(
             state.pub_control,
-            view(state.progress_buf, 1:sbe_encoded_length(state.progress_encoder)),
+            view(state.progress_buf, 1:sbe_message_length(state.progress_encoder)),
         )
     end
     state.last_progress_ns = UInt64(Clocks.time_nanos(state.clock))
@@ -296,7 +296,7 @@ function emit_announce!(state::ProducerState)
 
     Aeron.offer(
         state.pub_control,
-        view(state.announce_buf, 1:sbe_encoded_length(state.announce_encoder)),
+        view(state.announce_buf, 1:sbe_message_length(state.announce_encoder)),
     )
     return nothing
 end
@@ -315,7 +315,7 @@ function emit_qos!(state::ProducerState)
         QosProducer.producerId!(state.qos_encoder, state.config.producer_id)
         QosProducer.epoch!(state.qos_encoder, state.epoch)
         QosProducer.currentSeq!(state.qos_encoder, state.seq)
-        Aeron.offer(state.pub_qos, view(state.qos_buf, 1:sbe_encoded_length(state.qos_encoder)))
+        Aeron.offer(state.pub_qos, view(state.qos_buf, 1:sbe_message_length(state.qos_encoder)))
     end
     return nothing
 end

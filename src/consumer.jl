@@ -315,7 +315,7 @@ function emit_consumer_hello!(state::ConsumerState)
         ConsumerHello.progressRowsDelta!(state.hello_encoder, state.config.progress_rows_delta)
         Aeron.offer(
             state.pub_control,
-            view(state.hello_buf, 1:sbe_encoded_length(state.hello_encoder)),
+            view(state.hello_buf, 1:sbe_message_length(state.hello_encoder)),
         )
     end
     return nothing
@@ -343,7 +343,7 @@ function emit_qos!(state::ConsumerState)
         QosConsumer.mode!(state.qos_encoder, state.config.mode)
         Aeron.offer(
             state.pub_qos,
-            view(state.qos_buf, 1:sbe_encoded_length(state.qos_encoder)),
+            view(state.qos_buf, 1:sbe_message_length(state.qos_encoder)),
         )
     end
     return nothing

@@ -134,7 +134,7 @@ Spec refs
 - 10.5, 15.14, 15.16
 
 Status
-- In progress (scaffold + liveness polling + ConsumerConfig emission; needs integration tests).
+- In progress (scaffold + liveness polling + ConsumerConfig emission; integration test added).
 
 ## Phase 6 - Optional Bridge and Decimator
 
@@ -171,7 +171,7 @@ Spec refs
 - 15.13
 
 Status
-- In progress (unit + Aeron embedded driver integration tests in place).
+- In progress (unit + Aeron embedded driver integration tests in place; `scripts/run_tests.jl` added).
 
 ## Phase 8 - Perf and Ops Hardening
 

@@ -1,5 +1,3 @@
-include("helpers_aeron.jl")
-
 @testset "Aeron integration handlers" begin
     with_embedded_driver() do driver
         control_stream = Int32(12001)

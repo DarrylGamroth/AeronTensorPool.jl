@@ -81,7 +81,7 @@ function republish_descriptor!(
     FrameDescriptor.metaVersion!(state.descriptor_encoder, header.meta_version)
     Aeron.offer(
         state.pub_descriptor,
-        view(state.descriptor_buf, 1:sbe_encoded_length(state.descriptor_encoder)),
+        view(state.descriptor_buf, 1:sbe_message_length(state.descriptor_encoder)),
     )
     return true
 end

@@ -225,19 +225,24 @@ function emit_consumer_config!(
         Int(ConsumerConfigMsg.payloadFallbackUri_header_length) +
         payload_len
 
-    sent = try_claim_sbe!(state.pub_control, state.config_claim, msg_len) do buf
-        buf_view = unsafe_wrap(Vector{UInt8}, pointer(buf), length(buf))
-        ConsumerConfigMsg.wrap_and_apply_header!(state.config_encoder, buf_view, 0)
-        ConsumerConfigMsg.streamId!(state.config_encoder, state.config.stream_id)
-        ConsumerConfigMsg.consumerId!(state.config_encoder, consumer_id)
-        ConsumerConfigMsg.useShm!(
-            state.config_encoder,
-            use_shm ? ShmTensorpoolControl.Bool_.TRUE : ShmTensorpoolControl.Bool_.FALSE,
-        )
-        ConsumerConfigMsg.mode!(state.config_encoder, mode)
-        ConsumerConfigMsg.decimation!(state.config_encoder, decimation)
-        ConsumerConfigMsg.payloadFallbackUri!(state.config_encoder, payload_fallback_uri)
-    end
+    sent = try_claim_sbe!(
+        state.pub_control,
+        state.config_claim,
+        msg_len,
+        buf -> begin
+            buf_view = unsafe_wrap(Vector{UInt8}, pointer(buf), length(buf))
+            ConsumerConfigMsg.wrap_and_apply_header!(state.config_encoder, buf_view, 0)
+            ConsumerConfigMsg.streamId!(state.config_encoder, state.config.stream_id)
+            ConsumerConfigMsg.consumerId!(state.config_encoder, consumer_id)
+            ConsumerConfigMsg.useShm!(
+                state.config_encoder,
+                use_shm ? ShmTensorpoolControl.Bool_.TRUE : ShmTensorpoolControl.Bool_.FALSE,
+            )
+            ConsumerConfigMsg.mode!(state.config_encoder, mode)
+            ConsumerConfigMsg.decimation!(state.config_encoder, decimation)
+            ConsumerConfigMsg.payloadFallbackUri!(state.config_encoder, payload_fallback_uri)
+        end,
+    )
 
     if sent
         return true
@@ -256,7 +261,7 @@ function emit_consumer_config!(
 
     Aeron.offer(
         state.pub_control,
-        view(state.config_buf, 1:sbe_encoded_length(state.config_encoder)),
+        view(state.config_buf, 1:sbe_message_length(state.config_encoder)),
     )
     return true
 end

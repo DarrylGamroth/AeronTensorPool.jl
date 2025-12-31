@@ -8,3 +8,7 @@
     end
     return false
 end
+
+@inline function sbe_message_length(msg::SBE.AbstractSbeMessage)
+    return MESSAGE_HEADER_LEN + sbe_encoded_length(msg)
+end

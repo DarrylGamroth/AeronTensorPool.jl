@@ -99,6 +99,7 @@ export Dtype,
     republish_descriptor!,
     write_superblock!,
     write_tensor_slot_header!,
-    try_claim_sbe!
+    try_claim_sbe!,
+    sbe_message_length
 
 end
