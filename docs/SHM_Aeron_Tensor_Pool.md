@@ -22,7 +22,7 @@ It is written to be directly consumable by automated code-generation tools
 - Small descriptor and control messages transported via Aeron.
 - All messages are **SBE encoded**.
 - Support many independent producer and consumer services.
-- Define two roles: producers (server/driver; own SHM and publish descriptors/control) and consumers (client; map SHM and subscribe). Packaging of these roles (combined vs split, akin to Aeron driver/client) is an implementation choice, not a protocol requirement.
+- Define two roles: producers (server/driver; own SHM and publish descriptors/control) and consumers (client; map SHM and subscribe). Packaging of these roles (combined vs split, akin to Aeron driver/client) is an implementation choice, not a protocol requirement. When the Driver Model is used, SHM ownership and `ShmPoolAnnounce` emission move to the SHM Driver while the producer client remains responsible for payload writes and `FrameDescriptor` publishing.
 - Lossy overwrite semantics: slow consumers may drop frames.
 - Consumers must never read partially written (“torn”) data.
 - Optional bridge service for remote consumers or recording.
@@ -39,7 +39,7 @@ It is written to be directly consumable by automated code-generation tools
 
 ## 3. High-Level Architecture
 
-Roles: producer (server/driver) owns SHM regions and publishes descriptors/control; consumer (client) maps SHM and subscribes to descriptors/control. A deployment may package both roles together (like Aeron driver+client) or split them; packaging is an implementation detail.
+Roles: producer (server/driver) owns SHM regions and publishes descriptors/control; consumer (client) maps SHM and subscribes to descriptors/control. A deployment may package both roles together (like Aeron driver+client) or split them; packaging is an implementation detail. When using the Driver Model, the SHM Driver is the authority that creates SHM regions and emits `ShmPoolAnnounce`.
 
 Each **producer service** owns:
 
@@ -593,7 +593,7 @@ End of specification.
 ### 15.14 Deployment & Liveness (Aeron-inspired)
 - Superblock/mark fields: include `magic`, `layout_version`, `epoch`, `pid`, `start_timestamp`, `activity_timestamp`. Producers update `activity_timestamp` periodically; supervisors treat stale values as dead and require remap.
 - Single-writer rule: producer is sole writer of header/pool regions; if `pid` changes or concurrent writers are detected, consumers MUST unmap and wait for a new `epoch`.
-- Creation/cleanup: on producer start, create/truncate, write superblock, fsync, then publish `ShmPoolAnnounce`. On clean shutdown, optionally unlink or set a clean-close flag. Crashes are inferred by stale `activity_timestamp`.
+- Creation/cleanup: on producer start, create/truncate, write superblock, fsync, then publish `ShmPoolAnnounce`. On clean shutdown, optionally unlink or set a clean-close flag. Crashes are inferred by stale `activity_timestamp`. When the Driver Model is used, the SHM Driver performs create/truncate/unlink and emits `ShmPoolAnnounce` on behalf of the producer.
 - Permissions: create SHM files with restrictive modes (e.g., umask 007, mode 660) and trusted group ownership; align with Aeron’s driver directory practices.
 - Liveness timeouts: supervisors set a timeout (e.g., 3–5× announce period) on `activity_timestamp`; on expiry, unmap and await new `epoch`.
 - Recreation detection: any change to `magic`, `layout_version`, or `epoch` requires remap; treat version mismatch as incompatible.
