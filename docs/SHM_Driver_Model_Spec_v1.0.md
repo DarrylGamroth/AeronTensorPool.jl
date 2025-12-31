@@ -71,6 +71,8 @@ Clients attach to a stream by issuing a ShmAttachRequest to the driver and recei
 
 The driver MAY create new SHM regions on demand when `publishMode=EXISTING_OR_CREATE`; otherwise, it MUST return an error if the stream does not already exist or is not provisioned for the requested role.
 
+`correlationId` is client-supplied; the driver MUST echo it unchanged in `ShmAttachResponse`.
+
 For `code=OK`, the response MUST include: `leaseId`, `streamId`, `epoch`, `layoutVersion`, `headerNslots`, `headerSlotBytes`, `maxDims`, `headerRegionUri`, and a complete `payloadPools` group with each pool's `regionUri`, `poolId`, `poolNslots`, and `strideBytes`. These fields are required even if the SBE schema marks them as optional.
 
 For `code != OK`, the response MUST include `correlationId` and `code`, and SHOULD include `errorMessage` with a diagnostic string.
@@ -85,6 +87,8 @@ For `code=OK`, `headerRegionUri` and every `payloadPools.regionUri` MUST be pres
 
 All URIs returned by the driver MUST satisfy the Wire Specification URI validation rules; clients MUST validate and reject URIs that fail those rules.
 
+If `errorMessage` is present, it MUST be limited to 1024 bytes; drivers SHOULD truncate longer messages.
+
 ### 4.3 Attach Request Semantics (Normative)
 
 - `expectedLayoutVersion`: If present and nonzero, the driver MUST reject the request with `code=REJECTED` if the active layout version for the stream does not match. If absent or zero, the driver uses its configured layout version and returns it in the response.
@@ -93,6 +97,7 @@ All URIs returned by the driver MUST satisfy the Wire Specification URI validati
 - `requireHugepages`: If present and TRUE, the driver MUST reject the request with `code=REJECTED` if it cannot provide hugepage-backed regions that satisfy Wire Specification validation rules. If FALSE or absent, hugepages are optional per deployment policy.
 - `poolNslots`: For each pool returned in the response, `poolNslots` MUST equal `headerNslots`; otherwise the driver MUST reject the attach with `code=INVALID_PARAMS`.
 - Streams with zero payload pools are invalid in v1.0; the driver MUST reject attach requests for such streams with `code=INVALID_PARAMS`.
+- `leaseExpiryTimestampNs`: If present, clients MUST treat it as a hard deadline; if absent, clients MUST still send keepalives at the configured interval and treat lease validity as unknown beyond the absence of `ShmLeaseRevoked`.
 
 ### 4.4 Lease Keepalive (Normative)
 
@@ -106,6 +111,10 @@ For interoperability, a deployment SHOULD configure a default keepalive interval
 Drivers MAY use different values but MUST make them discoverable out-of-band (configuration or operational documentation). Clients SHOULD treat a keepalive send failure as a fatal condition and reattach.
 
 NOTE: Keepalives are one-way; clients infer lease validity from the absence of `ShmLeaseRevoked` and continued successful operations. This trades acknowledgment latency for reduced control-plane traffic.
+
+### 4.4a Schema Version Compatibility (Normative)
+
+Clients MUST reject messages with a schema version higher than they support. Drivers SHOULD respond using the highest schema version supported by both client and driver; if no compatible version exists, the driver MUST return `code=UNSUPPORTED`.
 
 ### 4.5 Control-Plane Transport (Normative)
 
@@ -150,12 +159,15 @@ When a producer lease transitions to `EXPIRED` or `REVOKED`, the driver MUST inc
 
 `ShmDetachRequest` is best-effort and idempotent. If the lease is active and matches the request's `leaseId`, `streamId`, `clientId`, and `role`, the driver MUST invalidate the lease and return `code=OK`. If the lease is unknown or already invalidated, the driver SHOULD return `code=REJECTED` (or `OK` if it treats the request as idempotent success). Detaching a producer lease MUST trigger an epoch increment per §6.
 
+The driver MUST echo `correlationId` unchanged in `ShmDetachResponse`.
+
 For any lease invalidation event (`DETACHED`, `EXPIRED`, or `REVOKED`), the driver MUST publish a `ShmLeaseRevoked` notice on the control-plane stream. This includes consumer leases and producer leases (in addition to any `ShmPoolAnnounce` required for epoch changes).
 
 Clients MUST handle `ShmLeaseRevoked` as follows:
 - If the revoked lease matches the client's active lease, the client MUST immediately stop using mapped regions, DROP any in-flight frames, and reattach.
 - If the revoked lease is a producer lease for a stream the client consumes, the client MUST wait for the epoch-bumped `ShmPoolAnnounce` before remapping and resuming.
 - If the revoked lease does not match the client's lease and is not the current producer lease for a stream the client consumes, the client MAY ignore it after verifying the `leaseId`, `streamId`, and `role` do not apply.
+Clients SHOULD handle revocations on a per-lease basis; revocation of one lease MUST NOT force teardown of unrelated leases.
 
 `ShmLeaseRevoked.reason` is required; clients MUST reject messages with unknown reason values. Clients MUST also reject `ShmLeaseRevoked` messages with unknown `role` values.
 
