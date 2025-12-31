@@ -17,6 +17,8 @@ include("shm.jl")
 include("producer.jl")
 include("consumer.jl")
 include("supervisor.jl")
+include("bridge.jl")
+include("decimator.jl")
 
 export Dtype,
     MajorOrder,
@@ -35,6 +37,10 @@ export Dtype,
     ConsumerInfo,
     SupervisorConfig,
     SupervisorState,
+    BridgeConfig,
+    BridgeState,
+    DecimatorConfig,
+    DecimatorState,
     ConsumerHello,
     FrameDescriptor,
     FrameProgress,
@@ -54,6 +60,8 @@ export Dtype,
     reset!,
     init_consumer,
     init_supervisor,
+    init_bridge,
+    init_decimator,
     map_from_announce!,
     emit_consumer_config!,
     emit_announce!,
@@ -86,6 +94,9 @@ export Dtype,
     poll_control!,
     poll_descriptor!,
     poll_qos!,
+    bridge_frame!,
+    handle_decimated_frame!,
+    republish_descriptor!,
     write_superblock!,
     write_tensor_slot_header!,
     try_claim_sbe!
