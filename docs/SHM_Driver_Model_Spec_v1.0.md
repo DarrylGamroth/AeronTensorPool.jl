@@ -193,6 +193,12 @@ This Driver Model specification is normatively dependent on the Wire Specificati
 
 ---
 
+## 13. Driver Startup Behavior (Informative)
+
+Deployments MAY configure the driver to delete and recreate existing SHM backing files at startup (for example, in controlled or single-tenant environments). When this mode is enabled, the driver MUST still enforce the epoch rules in §6 and §10 before issuing new leases.
+
+---
+
 ## Appendix A. Driver Control-Plane SBE Schema (Normative)
 
 <?xml version="1.0" encoding="UTF-8"?>
