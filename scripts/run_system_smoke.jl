@@ -9,13 +9,22 @@ end
 config_path = length(ARGS) >= 1 ? ARGS[1] : "config/defaults.toml"
 timeout_s = length(ARGS) >= 2 ? parse(Float64, ARGS[2]) : 5.0
 
-function override_shm_paths(config::ProducerConfig, dir::String)
-    header_uri = "shm:file?path=$(joinpath(dir, "tp_header"))"
-    pools = PayloadPoolConfig[]
-    for pool in config.payload_pools
-        uri = "shm:file?path=$(joinpath(dir, "tp_pool_$(pool.pool_id)"))"
-        push!(pools, PayloadPoolConfig(pool.pool_id, uri, pool.stride_bytes, pool.nslots))
-    end
+function apply_canonical_layout(
+    config::ProducerConfig,
+    base_dir::String;
+    namespace::String = "tensorpool",
+    producer_instance_id::String = "smoke-producer",
+    epoch::UInt64 = UInt64(1),
+)
+    pools = [PayloadPoolConfig(pool.pool_id, "", pool.stride_bytes, pool.nslots) for pool in config.payload_pools]
+    header_uri, resolved_pools = AeronTensorPool.resolve_producer_paths(
+        "",
+        pools,
+        base_dir,
+        namespace,
+        producer_instance_id,
+        epoch,
+    )
     return ProducerConfig(
         config.aeron_dir,
         config.aeron_uri,
@@ -27,11 +36,11 @@ function override_shm_paths(config::ProducerConfig, dir::String)
         config.producer_id,
         config.layout_version,
         config.nslots,
-        config.shm_base_dir,
-        config.shm_namespace,
-        config.producer_instance_id,
+        base_dir,
+        namespace,
+        producer_instance_id,
         header_uri,
-        pools,
+        resolved_pools,
         config.max_dims,
         config.announce_interval_ns,
         config.qos_interval_ns,
@@ -40,13 +49,43 @@ function override_shm_paths(config::ProducerConfig, dir::String)
     )
 end
 
+function apply_canonical_layout(config::ConsumerConfig, base_dir::String)
+    return ConsumerConfig(
+        config.aeron_dir,
+        config.aeron_uri,
+        config.descriptor_stream_id,
+        config.control_stream_id,
+        config.qos_stream_id,
+        config.stream_id,
+        config.consumer_id,
+        config.expected_layout_version,
+        config.max_dims,
+        config.mode,
+        config.decimation,
+        config.max_outstanding_seq_gap,
+        config.use_shm,
+        config.supports_shm,
+        config.supports_progress,
+        config.max_rate_hz,
+        config.payload_fallback_uri,
+        base_dir,
+        [base_dir],
+        config.require_hugepages,
+        config.progress_interval_us,
+        config.progress_bytes_delta,
+        config.progress_rows_delta,
+        config.hello_interval_ns,
+        config.qos_interval_ns,
+    )
+end
+
 Aeron.MediaDriver.launch_embedded() do driver
     GC.@preserve driver mktempdir() do dir
         env = Dict(ENV)
         env["AERON_DIR"] = Aeron.MediaDriver.aeron_dir(driver)
         system = load_system_config(config_path; env = env)
-        producer_cfg = override_shm_paths(system.producer, dir)
-        consumer_cfg = system.consumer
+        producer_cfg = apply_canonical_layout(system.producer, dir)
+        consumer_cfg = apply_canonical_layout(system.consumer, dir)
         supervisor_cfg = system.supervisor
 
         producer = init_producer(producer_cfg)

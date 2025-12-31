@@ -818,7 +818,7 @@ function mmap_shm(uri::String, size::Int; write::Bool=false)
 end
 
 function parse_shm_uri(uri::String)
-    # Simple parser: "shm:file?path=/dev/hugepages/tp_pool|require_hugepages=true"
+    # Simple parser: "shm:file?path=/dev/hugepages/tensorpool/example-producer/epoch-1/payload-1.pool|require_hugepages=true"
     # Extract path parameter
     m = match(r"shm:file\?path=([^|&]+)", uri)
     isnothing(m) && error("Invalid shm:file URI: $uri")

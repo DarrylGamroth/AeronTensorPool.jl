@@ -124,7 +124,7 @@ This guide maps the normative spec (SHM_Aeron_Tensor_Pool.md) to concrete implem
 
 ```toml
 [producer]
-uri = "shm:file?path=/dev/hugepages/tp_pool|require_hugepages=true"
+uri = "shm:file?path=/dev/hugepages/tensorpool/example-producer/epoch-1/payload-1.pool|require_hugepages=true"
 nslots = 1024
 stride_bytes = 1048576
 announce_hz = 1.0
