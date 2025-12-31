@@ -160,6 +160,7 @@ aeron_dir = "/dev/shm/aeron-${USER}"
 - `use_shm`: ConsumerConfig lever to force a consumer to use SHM or fallback (see §10.1.3).
 - `supports_shm`: ConsumerHello capability flag for non-SHM consumers (e.g., remote/bridged); see §10.1.2 in the spec.
 - `aeron_dir`: optional; when empty, the default Aeron directory is used. TOML supports `$USER` or `${USER}` via env expansion.
+- Counter IDs: Aeron counters encode agent_id in 16 bits; keep `producer_id`/`consumer_id`/`stream_id` ≤ 65535 when enabling counters.
 
 ## 17. Validation, logging, and errors
 - Backend checks before mmap: scheme==shm:file, require_hugepages honored, stride_bytes power-of-two and page/hugepage aligned; log and reject before mapping.
@@ -190,6 +191,7 @@ aeron_dir = "/dev/shm/aeron-${USER}"
 - NUMA: place SHM on the producer node and co-locate the producer agent on the same NUMA node.
 - GC: consider a longer GC interval for long-running processes; keep hot paths allocation-free.
 - Aeron counters: optionally wire Aeron counters for publications/subscriptions to a metrics backend.
+- Performance counters: agent wrappers register Aeron counters for duty cycles and work done; use AeronStat or CountersReader to observe.
 
 ## 21. Testing matrix (tie to §15.13)
 - Superblock validation: good vs bad magic/version/layout/endianness.

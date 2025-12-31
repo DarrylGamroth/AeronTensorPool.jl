@@ -13,6 +13,7 @@ using .ShmTensorpoolControl
 include("constants.jl")
 include("aeron_utils.jl")
 include("polled_timer.jl")
+include("counters.jl")
 include("shm.jl")
 include("producer.jl")
 include("consumer.jl")
@@ -61,6 +62,9 @@ export Dtype,
     QosConsumer,
     atomic_load_u64,
     atomic_store_u64!,
+    Counters,
+    add_counter,
+    make_counter_type_id,
     PolledTimer,
     TimerSet,
     due!,
