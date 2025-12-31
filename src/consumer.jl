@@ -47,7 +47,14 @@ mutable struct ConsumerState
     seen_any::Bool
     drops_gap::UInt64
     drops_late::UInt64
+    drops_odd::UInt64
+    drops_changed::UInt64
+    drops_frame_id_mismatch::UInt64
+    drops_header_invalid::UInt64
+    drops_payload_invalid::UInt64
     remap_count::UInt64
+    hello_emits::UInt64
+    qos_emits::UInt64
     timer_set::TimerSet{Tuple{PolledTimer, PolledTimer}, Tuple{ConsumerHelloHandler, ConsumerQosHandler}}
     hello_buf::Vector{UInt8}
     qos_buf::Vector{UInt8}
@@ -102,7 +109,14 @@ function init_consumer(config::ConsumerConfig)
         false,
         UInt64(0),
         UInt64(0),
-        UInt64(0),
+        UInt64(0), # drops_odd
+        UInt64(0), # drops_changed
+        UInt64(0), # drops_frame_id_mismatch
+        UInt64(0), # drops_header_invalid
+        UInt64(0), # drops_payload_invalid
+        UInt64(0), # remap_count
+        UInt64(0), # hello_emits
+        UInt64(0), # qos_emits
         timer_set,
         Vector{UInt8}(undef, 512),
         Vector{UInt8}(undef, 512),
@@ -463,6 +477,7 @@ function emit_consumer_hello!(state::ConsumerState)
             view(state.hello_buf, 1:sbe_message_length(state.hello_encoder)),
         )
     end
+    state.hello_emits += 1
     return nothing
 end
 
@@ -491,6 +506,7 @@ function emit_qos!(state::ConsumerState)
             view(state.qos_buf, 1:sbe_message_length(state.qos_encoder)),
         )
     end
+    state.qos_emits += 1
     return nothing
 end
 
@@ -641,6 +657,7 @@ function try_read_frame!(
     header_index = FrameDescriptor.headerIndex(desc)
     if state.mapped_nslots == 0 || header_index >= state.mapped_nslots
         state.drops_late += 1
+        state.drops_header_invalid += 1
         return nothing
     end
 
@@ -651,6 +668,7 @@ function try_read_frame!(
     first = atomic_load_u64(commit_ptr)
     if isodd(first)
         state.drops_late += 1
+        state.drops_odd += 1
         return nothing
     end
 
@@ -660,44 +678,52 @@ function try_read_frame!(
         read_tensor_slot_header(hdr_dec)
     catch
         state.drops_late += 1
+        state.drops_header_invalid += 1
         return nothing
     end
 
     second = atomic_load_u64(commit_ptr)
     if first != second || isodd(second)
         state.drops_late += 1
+        state.drops_changed += 1
         return nothing
     end
 
     commit_frame = second >> 1
     if commit_frame != header.frame_id
         state.drops_late += 1
+        state.drops_frame_id_mismatch += 1
         return nothing
     end
 
     last_commit = state.last_commit_words[Int(header_index) + 1]
     if second < last_commit
         state.drops_late += 1
+        state.drops_changed += 1
         return nothing
     end
 
     if header.frame_id != seq
         state.drops_late += 1
+        state.drops_frame_id_mismatch += 1
         return nothing
     end
 
     if header.payload_slot != header_index
         state.drops_late += 1
+        state.drops_header_invalid += 1
         return nothing
     end
 
     if header.payload_offset != 0
         state.drops_late += 1
+        state.drops_header_invalid += 1
         return nothing
     end
 
     if !valid_dtype(header.dtype) || !valid_major_order(header.major_order)
         state.drops_late += 1
+        state.drops_header_invalid += 1
         return nothing
     end
 
@@ -705,16 +731,29 @@ function try_read_frame!(
     if elem_size == 0 || header.ndims > state.config.max_dims ||
        !validate_strides!(state, header, elem_size)
         state.drops_late += 1
+        state.drops_header_invalid += 1
         return nothing
     end
 
     pool_stride = get(state.pool_stride_bytes, header.pool_id, UInt32(0))
-    pool_stride == 0 && return nothing
+    if pool_stride == 0
+        state.drops_late += 1
+        state.drops_payload_invalid += 1
+        return nothing
+    end
     payload_mmap = get(state.payload_mmaps, header.pool_id, nothing)
-    payload_mmap === nothing && return nothing
+    if payload_mmap === nothing
+        state.drops_late += 1
+        state.drops_payload_invalid += 1
+        return nothing
+    end
 
     payload_len = Int(header.values_len_bytes)
-    payload_len > Int(pool_stride) && return nothing
+    if payload_len > Int(pool_stride)
+        state.drops_late += 1
+        state.drops_payload_invalid += 1
+        return nothing
+    end
     payload_offset = SUPERBLOCK_SIZE + Int(header.payload_slot) * Int(pool_stride)
     payload = view(payload_mmap, payload_offset + 1:payload_offset + payload_len)
 

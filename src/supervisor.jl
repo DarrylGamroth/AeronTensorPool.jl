@@ -39,6 +39,8 @@ mutable struct SupervisorState
     sub_qos::Aeron.Subscription
     producers::Dict{UInt32, ProducerInfo}
     consumers::Dict{UInt32, ConsumerInfo}
+    config_emits::UInt64
+    liveness_checks::UInt64
     timer_set::TimerSet{Tuple{PolledTimer}, Tuple{SupervisorLivenessHandler}}
     config_buf::Vector{UInt8}
     config_encoder::ConsumerConfigMsg.Encoder{Vector{UInt8}}
@@ -75,6 +77,8 @@ function init_supervisor(config::SupervisorConfig)
         sub_qos,
         Dict{UInt32, ProducerInfo}(),
         Dict{UInt32, ConsumerInfo}(),
+        UInt64(0),
+        UInt64(0),
         timer_set,
         Vector{UInt8}(undef, 512),
         ConsumerConfigMsg.Encoder(Vector{UInt8}),
@@ -192,6 +196,7 @@ function handle_qos_consumer!(state::SupervisorState, msg::QosConsumer.Decoder)
 end
 
 function check_liveness!(state::SupervisorState, now_ns::UInt64)
+    state.liveness_checks += 1
     timeout = state.config.liveness_timeout_ns
     for (pid, info) in state.producers
         last_seen = max(info.last_announce_ns, info.last_qos_ns)
@@ -253,6 +258,7 @@ function emit_consumer_config!(
     )
 
     if sent
+        state.config_emits += 1
         return true
     end
 
@@ -271,6 +277,7 @@ function emit_consumer_config!(
         state.pub_control,
         view(state.config_buf, 1:sbe_message_length(state.config_encoder)),
     )
+    state.config_emits += 1
     return true
 end
 

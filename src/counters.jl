@@ -29,37 +29,61 @@ end
 struct ProducerCounters
     base::Counters
     frames_published::Aeron.Counter
+    announces::Aeron.Counter
+    qos_published::Aeron.Counter
 end
 
 struct ConsumerCounters
     base::Counters
     drops_gap::Aeron.Counter
     drops_late::Aeron.Counter
+    drops_odd::Aeron.Counter
+    drops_changed::Aeron.Counter
+    drops_frame_id_mismatch::Aeron.Counter
+    drops_header_invalid::Aeron.Counter
+    drops_payload_invalid::Aeron.Counter
     remaps::Aeron.Counter
+    hello_published::Aeron.Counter
+    qos_published::Aeron.Counter
 end
 
 struct SupervisorCounters
     base::Counters
+    config_published::Aeron.Counter
+    liveness_checks::Aeron.Counter
 end
 
 function ProducerCounters(client::Aeron.Client, agent_id, agent_name)
     ProducerCounters(
         Counters(client, agent_id, agent_name),
         add_counter(client, agent_id, agent_name, 3, "FramesPublished"),
+        add_counter(client, agent_id, agent_name, 4, "AnnouncesPublished"),
+        add_counter(client, agent_id, agent_name, 5, "QosPublished"),
     )
 end
 
 function ConsumerCounters(client::Aeron.Client, agent_id, agent_name)
     ConsumerCounters(
         Counters(client, agent_id, agent_name),
-        add_counter(client, agent_id, agent_name, 4, "DropsGap"),
-        add_counter(client, agent_id, agent_name, 5, "DropsLate"),
-        add_counter(client, agent_id, agent_name, 6, "Remaps"),
+        add_counter(client, agent_id, agent_name, 3, "DropsGap"),
+        add_counter(client, agent_id, agent_name, 4, "DropsLate"),
+        add_counter(client, agent_id, agent_name, 5, "DropsOdd"),
+        add_counter(client, agent_id, agent_name, 6, "DropsChanged"),
+        add_counter(client, agent_id, agent_name, 7, "DropsFrameIdMismatch"),
+        add_counter(client, agent_id, agent_name, 8, "DropsHeaderInvalid"),
+        add_counter(client, agent_id, agent_name, 9, "DropsPayloadInvalid"),
+        add_counter(client, agent_id, agent_name, 10, "Remaps"),
+        add_counter(client, agent_id, agent_name, 11, "HelloPublished"),
+        add_counter(client, agent_id, agent_name, 12, "QosPublished"),
     )
 end
 
 function SupervisorCounters(client::Aeron.Client, agent_id, agent_name)
-    SupervisorCounters(Counters(client, agent_id, agent_name))
+    SupervisorCounters(
+        Counters(client, agent_id, agent_name),
+        add_counter(client, agent_id, agent_name, 3, "ConfigPublished"),
+        add_counter(client, agent_id, agent_name, 4, "LivenessChecks"),
+    )
 end
 
 function Base.close(counters::Counters)
@@ -69,16 +93,27 @@ end
 
 function Base.close(counters::ProducerCounters)
     close(counters.frames_published)
+    close(counters.announces)
+    close(counters.qos_published)
     close(counters.base)
 end
 
 function Base.close(counters::ConsumerCounters)
     close(counters.drops_gap)
     close(counters.drops_late)
+    close(counters.drops_odd)
+    close(counters.drops_changed)
+    close(counters.drops_frame_id_mismatch)
+    close(counters.drops_header_invalid)
+    close(counters.drops_payload_invalid)
     close(counters.remaps)
+    close(counters.hello_published)
+    close(counters.qos_published)
     close(counters.base)
 end
 
 function Base.close(counters::SupervisorCounters)
+    close(counters.config_published)
+    close(counters.liveness_checks)
     close(counters.base)
 end
