@@ -75,12 +75,15 @@ For `code=OK`, the response MUST include: `leaseId`, `streamId`, `epoch`, `layou
 
 For `code != OK`, the response MUST include `correlationId` and `code`, and SHOULD include `errorMessage` with a diagnostic string.
 
+Optional primitive fields in the SBE schema MUST use explicit `nullValue` sentinels. For `code=OK`, all required fields MUST be non-null; for `code != OK`, optional response fields SHOULD be set to their `nullValue`.
+
 ### 4.3 Attach Request Semantics (Normative)
 
 - `expectedLayoutVersion`: If present and nonzero, the driver MUST reject the request with `code=REJECTED` if the active layout version for the stream does not match. If absent or zero, the driver uses its configured layout version and returns it in the response.
 - `maxDims`: If present and nonzero, the driver MUST reject with `code=INVALID_PARAMS` if the requested value exceeds the configured `maxDims` for the stream. If it is less than or equal to the configured value, the driver MAY accept but MUST return the configured `maxDims` in the response.
 - `publishMode`: `REQUIRE_EXISTING` means the driver MUST reject if the stream is not already provisioned. `EXISTING_OR_CREATE` allows the driver to create or initialize SHM regions on demand.
 - `requireHugepages`: If present and TRUE, the driver MUST reject the request with `code=REJECTED` if it cannot provide hugepage-backed regions that satisfy Wire Specification validation rules. If FALSE or absent, hugepages are optional per deployment policy.
+- `poolNslots`: For each pool returned in the response, `poolNslots` MUST equal `headerNslots`; otherwise the driver MUST reject the attach with `code=INVALID_PARAMS`.
 
 ### 4.4 Lease Keepalive (Normative)
 
@@ -119,6 +122,8 @@ Leases follow this lifecycle:
 
 Once a lease reaches `DETACHED`, `EXPIRED`, or `REVOKED`, the client MUST stop using all SHM regions from that lease and MUST reattach to continue.
 
+When a producer lease transitions to `EXPIRED` or `REVOKED`, the driver MUST increment `epoch` and MUST emit a fresh `ShmPoolAnnounce` promptly so consumers can fail closed and remap.
+
 ### 4.8 Lease Identity and Client Identity (Normative)
 
 - `leaseId` MUST be unique per driver instance for the lifetime of the process and MUST NOT be reused after expiry or detach.
@@ -128,6 +133,8 @@ Once a lease reaches `DETACHED`, `EXPIRED`, or `REVOKED`, the client MUST stop u
 ### 4.9 Detach Semantics (Normative)
 
 `ShmDetachRequest` is best-effort and idempotent. If the lease is active and matches the request's `leaseId`, `streamId`, `clientId`, and `role`, the driver MUST invalidate the lease and return `code=OK`. If the lease is unknown or already invalidated, the driver SHOULD return `code=REJECTED` (or `OK` if it treats the request as idempotent success). Detaching a producer lease MUST trigger an epoch increment per §6.
+
+For any lease invalidation event (`DETACHED`, `EXPIRED`, or `REVOKED`), the driver MUST publish a `ShmLeaseRevoked` notice on the control-plane stream. This includes consumer leases and producer leases (in addition to any `ShmPoolAnnounce` required for epoch changes).
 
 ### 4.10 Control-Plane Sequences (Informative)
 
@@ -294,6 +301,12 @@ These references are informative; this specification defines its own normative b
       <validValue name="EXISTING_OR_CREATE">2</validValue>
     </enum>
 
+    <enum name="LeaseRevokeReason" encodingType="uint8">
+      <validValue name="DETACHED">1</validValue>
+      <validValue name="EXPIRED">2</validValue>
+      <validValue name="REVOKED">3</validValue>
+    </enum>
+
     <enum name="ShutdownReason" encodingType="uint8">
       <validValue name="NORMAL">0</validValue>
       <validValue name="ADMIN">1</validValue>
@@ -315,21 +328,21 @@ These references are informative; this specification defines its own normative b
     <field name="role"                 id="4" type="Role"/>
     <field name="expectedLayoutVersion" id="5" type="version_t"/>
     <field name="maxDims"              id="6" type="uint8"/>
-    <field name="publishMode"          id="7" type="PublishMode" presence="optional"/>
-    <field name="requireHugepages"     id="8" type="Bool" presence="optional"/>
+    <field name="publishMode"          id="7" type="PublishMode" presence="optional" nullValue="255"/>
+    <field name="requireHugepages"     id="8" type="Bool" presence="optional" nullValue="255"/>
   </sbe:message>
 
   <sbe:message name="ShmAttachResponse" id="2">
     <field name="correlationId"         id="1" type="int64"/>
     <field name="code"                  id="2" type="ResponseCode"/>
-    <field name="leaseId"               id="3" type="lease_id_t" presence="optional"/>
-    <field name="leaseExpiryTimestampNs" id="4" type="uint64" presence="optional"/>
-    <field name="streamId"              id="5" type="uint32" presence="optional"/>
-    <field name="epoch"                 id="6" type="epoch_t" presence="optional"/>
-    <field name="layoutVersion"         id="7" type="version_t" presence="optional"/>
-    <field name="headerNslots"          id="8" type="uint32" presence="optional"/>
-    <field name="headerSlotBytes"       id="9" type="uint16" presence="optional"/>
-    <field name="maxDims"               id="10" type="uint8" presence="optional"/>
+    <field name="leaseId"               id="3" type="lease_id_t" presence="optional" nullValue="18446744073709551615"/>
+    <field name="leaseExpiryTimestampNs" id="4" type="uint64" presence="optional" nullValue="18446744073709551615"/>
+    <field name="streamId"              id="5" type="uint32" presence="optional" nullValue="4294967295"/>
+    <field name="epoch"                 id="6" type="epoch_t" presence="optional" nullValue="18446744073709551615"/>
+    <field name="layoutVersion"         id="7" type="version_t" presence="optional" nullValue="4294967295"/>
+    <field name="headerNslots"          id="8" type="uint32" presence="optional" nullValue="4294967295"/>
+    <field name="headerSlotBytes"       id="9" type="uint16" presence="optional" nullValue="65535"/>
+    <field name="maxDims"               id="10" type="uint8" presence="optional" nullValue="255"/>
     <group name="payloadPools"          id="20" dimensionType="groupSizeEncoding">
       <field name="poolId"      id="1" type="uint16"/>
       <field name="poolNslots"  id="2" type="uint32"/>
@@ -366,6 +379,16 @@ These references are informative; this specification defines its own normative b
     <field name="timestampNs" id="1" type="uint64"/>
     <field name="reason"      id="2" type="ShutdownReason"/>
     <data  name="errorMessage" id="3" type="varAsciiEncoding" presence="optional"/>
+  </sbe:message>
+
+  <sbe:message name="ShmLeaseRevoked" id="7">
+    <field name="timestampNs" id="1" type="uint64"/>
+    <field name="leaseId"     id="2" type="lease_id_t"/>
+    <field name="streamId"    id="3" type="uint32"/>
+    <field name="clientId"    id="4" type="uint32"/>
+    <field name="role"        id="5" type="Role"/>
+    <field name="reason"      id="6" type="LeaseRevokeReason"/>
+    <data  name="errorMessage" id="7" type="varAsciiEncoding" presence="optional"/>
   </sbe:message>
 
 </sbe:messageSchema>
