@@ -1,8 +1,6 @@
 @testset "System smoke GC monitoring" begin
     with_embedded_driver() do driver
-        mktempdir() do dir
-            header_path = joinpath(dir, "tp_header")
-            pool_path = joinpath(dir, "tp_pool")
+        mktempdir("/dev/shm") do dir
             config_path = joinpath(dir, "config.toml")
             open(config_path, "w") do io
                 write(
@@ -19,7 +17,10 @@ stream_id = 1
 producer_id = 7
 layout_version = 1
 nslots = 8
-header_uri = "shm:file?path=$(header_path)"
+shm_base_dir = "$(dir)"
+shm_namespace = "tensorpool"
+producer_instance_id = "test-producer"
+header_uri = ""
 max_dims = 8
 announce_interval_ns = 1000000000
 qos_interval_ns = 1000000000
@@ -28,7 +29,7 @@ progress_bytes_delta = 65536
 
 [[producer.payload_pools]]
 pool_id = 1
-uri = "shm:file?path=$(pool_path)"
+uri = ""
 stride_bytes = 4096
 nslots = 8
 
@@ -49,6 +50,8 @@ supports_shm = true
 supports_progress = false
 max_rate_hz = 0
 payload_fallback_uri = ""
+shm_base_dir = "$(dir)"
+allowed_base_dirs = ["$(dir)"]
 require_hugepages = false
 progress_interval_us = 250
 progress_bytes_delta = 65536

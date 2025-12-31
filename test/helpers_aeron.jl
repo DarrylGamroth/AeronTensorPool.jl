@@ -23,6 +23,37 @@ function wait_for(predicate::Function; timeout::Float64=TEST_TIMEOUT_SEC, sleep_
     end
 end
 
+function canonical_shm_paths(
+    base_dir::AbstractString;
+    namespace::AbstractString = "tensorpool",
+    producer_instance_id::AbstractString = "test-producer",
+    epoch::Integer = 1,
+    pool_id::Integer = 1,
+)
+    epoch_dir = joinpath(base_dir, namespace, producer_instance_id, "epoch-$(epoch)")
+    header_path = joinpath(epoch_dir, "header.ring")
+    pool_path = joinpath(epoch_dir, "payload-$(pool_id).pool")
+    return epoch_dir, header_path, pool_path
+end
+
+function prepare_canonical_shm_layout(
+    base_dir::AbstractString;
+    namespace::AbstractString = "tensorpool",
+    producer_instance_id::AbstractString = "test-producer",
+    epoch::Integer = 1,
+    pool_id::Integer = 1,
+)
+    epoch_dir, header_path, pool_path = canonical_shm_paths(
+        base_dir;
+        namespace = namespace,
+        producer_instance_id = producer_instance_id,
+        epoch = epoch,
+        pool_id = pool_id,
+    )
+    mkpath(epoch_dir)
+    return epoch_dir, header_path, pool_path
+end
+
 function with_embedded_driver(f::Function)
     Aeron.MediaDriver.launch_embedded() do driver
         f(driver)

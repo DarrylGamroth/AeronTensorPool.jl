@@ -1,5 +1,5 @@
 @testset "CLI tool" begin
-    uri = "shm:file?path=/dev/shm/tp_cli_test"
+    uri = "shm:file?path=/dev/shm/tensorpool/test-producer/epoch-1/tp_cli_test"
     root = normpath(joinpath(@__DIR__, ".."))
     tool = joinpath(root, "scripts", "tp_tool.jl")
     cmd = `julia --project=$root $tool validate-uri $uri`

@@ -1,18 +1,36 @@
 @testset "Consumer remap and fallback handling" begin
     with_embedded_driver() do driver
-        mktempdir() do dir
+        mktempdir("/dev/shm") do dir
             nslots = UInt32(8)
             stride = UInt32(4096)
             layout_version = UInt32(1)
             stream_id = UInt32(77)
 
-            header_path = joinpath(dir, "tp_header")
-            pool_path = joinpath(dir, "tp_pool")
-            header_uri = "shm:file?path=$(header_path)"
-            pool_uri = "shm:file?path=$(pool_path)"
+            epoch1 = UInt64(1)
+            epoch2 = UInt64(2)
+            _, header_path1, pool_path1 = prepare_canonical_shm_layout(
+                dir;
+                namespace = "tensorpool",
+                producer_instance_id = "test-producer",
+                epoch = Int(epoch1),
+                pool_id = 1,
+            )
+            _, header_path2, pool_path2 = prepare_canonical_shm_layout(
+                dir;
+                namespace = "tensorpool",
+                producer_instance_id = "test-producer",
+                epoch = Int(epoch2),
+                pool_id = 1,
+            )
+            header_uri1 = "shm:file?path=$(header_path1)"
+            pool_uri1 = "shm:file?path=$(pool_path1)"
+            header_uri2 = "shm:file?path=$(header_path2)"
+            pool_uri2 = "shm:file?path=$(pool_path2)"
 
-            header_mmap = mmap_shm(header_uri, SUPERBLOCK_SIZE + Int(nslots) * HEADER_SLOT_BYTES; write = true)
-            pool_mmap = mmap_shm(pool_uri, SUPERBLOCK_SIZE + Int(nslots) * Int(stride); write = true)
+            header_mmap1 = mmap_shm(header_uri1, SUPERBLOCK_SIZE + Int(nslots) * HEADER_SLOT_BYTES; write = true)
+            pool_mmap1 = mmap_shm(pool_uri1, SUPERBLOCK_SIZE + Int(nslots) * Int(stride); write = true)
+            header_mmap2 = mmap_shm(header_uri2, SUPERBLOCK_SIZE + Int(nslots) * HEADER_SLOT_BYTES; write = true)
+            pool_mmap2 = mmap_shm(pool_uri2, SUPERBLOCK_SIZE + Int(nslots) * Int(stride); write = true)
 
             sb_enc = ShmRegionSuperblock.Encoder(Vector{UInt8})
 
@@ -48,7 +66,7 @@
             maxdims_state = nothing
             try
 
-            function build_announce(epoch::UInt64, pool_region_uri::String)
+            function build_announce(epoch::UInt64, header_region_uri::String, pool_region_uri::String)
                 buf = Vector{UInt8}(undef, 2048)
                 enc = AeronTensorPool.ShmPoolAnnounce.Encoder(Vector{UInt8})
                 AeronTensorPool.ShmPoolAnnounce.wrap_and_apply_header!(enc, buf, 0)
@@ -65,7 +83,7 @@
                 AeronTensorPool.ShmPoolAnnounce.PayloadPools.regionUri!(pool, pool_region_uri)
                 AeronTensorPool.ShmPoolAnnounce.PayloadPools.poolNslots!(pool, nslots)
                 AeronTensorPool.ShmPoolAnnounce.PayloadPools.strideBytes!(pool, stride)
-                AeronTensorPool.ShmPoolAnnounce.headerRegionUri!(enc, header_uri)
+                AeronTensorPool.ShmPoolAnnounce.headerRegionUri!(enc, header_region_uri)
 
                 header = MessageHeader.Decoder(buf, 0)
                 dec = AeronTensorPool.ShmPoolAnnounce.Decoder(Vector{UInt8})
@@ -73,8 +91,7 @@
                 return buf, dec
             end
 
-            epoch1 = UInt64(1)
-            wrap_superblock!(sb_enc, header_mmap, 0)
+            wrap_superblock!(sb_enc, header_mmap1, 0)
             write_superblock!(
                 sb_enc,
                 SuperblockFields(
@@ -92,7 +109,7 @@
                     UInt64(0),
                 ),
             )
-            wrap_superblock!(sb_enc, pool_mmap, 0)
+            wrap_superblock!(sb_enc, pool_mmap1, 0)
             write_superblock!(
                 sb_enc,
                 SuperblockFields(
@@ -111,12 +128,11 @@
                 ),
             )
 
-            (_, announce_dec1) = build_announce(epoch1, pool_uri)
+            (_, announce_dec1) = build_announce(epoch1, header_uri1, pool_uri1)
             @test handle_shm_pool_announce!(state, announce_dec1)
             @test state.mapped_epoch == epoch1
 
-            epoch2 = UInt64(2)
-            wrap_superblock!(sb_enc, header_mmap, 0)
+            wrap_superblock!(sb_enc, header_mmap2, 0)
             write_superblock!(
                 sb_enc,
                 SuperblockFields(
@@ -134,7 +150,7 @@
                     UInt64(0),
                 ),
             )
-            wrap_superblock!(sb_enc, pool_mmap, 0)
+            wrap_superblock!(sb_enc, pool_mmap2, 0)
             write_superblock!(
                 sb_enc,
                 SuperblockFields(
@@ -153,11 +169,11 @@
                 ),
             )
 
-            (_, announce_dec2) = build_announce(epoch2, pool_uri)
+            (_, announce_dec2) = build_announce(epoch2, header_uri2, pool_uri2)
             @test handle_shm_pool_announce!(state, announce_dec2)
             @test state.mapped_epoch == epoch2
 
-            bad_pool_uri = "shm:file?path=$(pool_path)|require_hugepages=true"
+            bad_pool_uri = "shm:file?path=$(pool_path2)|require_hugepages=true"
 
             fallback_cfg = ConsumerConfig(
                 Aeron.MediaDriver.aeron_dir(driver),
@@ -187,7 +203,7 @@
                 UInt64(1_000_000_000),
             )
             fallback_state = init_consumer(fallback_cfg)
-            (_, announce_dec_bad) = build_announce(epoch2, bad_pool_uri)
+            (_, announce_dec_bad) = build_announce(epoch2, header_uri2, bad_pool_uri)
             @test handle_shm_pool_announce!(fallback_state, announce_dec_bad)
             @test fallback_state.config.use_shm == false
             @test fallback_state.header_mmap === nothing
@@ -220,7 +236,7 @@
                 UInt64(1_000_000_000),
             )
             maxdims_state = init_consumer(maxdims_cfg)
-            (_, announce_dec_good) = build_announce(epoch2, pool_uri)
+            (_, announce_dec_good) = build_announce(epoch2, header_uri2, pool_uri2)
             @test handle_shm_pool_announce!(maxdims_state, announce_dec_good)
             @test maxdims_state.config.use_shm == false
             @test maxdims_state.header_mmap === nothing

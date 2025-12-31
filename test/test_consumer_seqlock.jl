@@ -1,14 +1,19 @@
 @testset "Consumer seqlock drops" begin
     with_embedded_driver() do driver
-        mktempdir() do dir
+        mktempdir("/dev/shm") do dir
             nslots = UInt32(8)
             stride = UInt32(4096)
             layout_version = UInt32(1)
             stream_id = UInt32(101)
             epoch = UInt64(1)
 
-            header_path = joinpath(dir, "tp_header")
-            pool_path = joinpath(dir, "tp_pool")
+            _, header_path, pool_path = prepare_canonical_shm_layout(
+                dir;
+                namespace = "tensorpool",
+                producer_instance_id = "test-producer",
+                epoch = Int(epoch),
+                pool_id = 1,
+            )
             header_uri = "shm:file?path=$(header_path)"
             pool_uri = "shm:file?path=$(pool_path)"
 
