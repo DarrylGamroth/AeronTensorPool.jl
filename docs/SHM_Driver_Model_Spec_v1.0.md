@@ -195,11 +195,11 @@ Clients                       Driver
 
 When the driver is embedded, deployments SHOULD still expose a well-known control-plane endpoint (channel + stream ID) so external tools (supervisors, diagnostics) can attach. If the control-plane endpoint is dynamic, deployments SHOULD publish it via service discovery or out-of-band configuration.
 
-### 4.12 Driver Termination (Informative)
+### 4.12 Driver Termination (Normative)
 
 The driver MAY support an administrative termination mechanism. If implemented, it SHOULD require an authorization token configured out-of-band and MUST reject unauthenticated requests.
 
-On graceful shutdown, the driver SHOULD publish a `ShmDriverShutdown` notice on the control-plane stream before exiting. Clients SHOULD treat this notice as immediate lease invalidation and reattach after restart.
+On graceful shutdown, the driver SHOULD publish a `ShmDriverShutdown` notice on the control-plane stream before exiting. Clients MUST treat this notice as immediate lease invalidation, stop using mapped regions, and reattach after restart.
 
 ---
 
