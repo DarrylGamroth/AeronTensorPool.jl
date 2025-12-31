@@ -130,10 +130,10 @@ function load_driver_config(path::AbstractString; env::AbstractDict = ENV)
     allowed_base_dirs = get(shm_tbl, "allowed_base_dirs", Any[])
     allowed_dirs = String[]
     if isempty(allowed_base_dirs)
-        push!(allowed_dirs, base_dir)
+        push!(allowed_dirs, abspath(base_dir))
     else
         for dir in allowed_base_dirs
-            push!(allowed_dirs, String(dir))
+            push!(allowed_dirs, abspath(String(dir)))
         end
     end
 
@@ -183,11 +183,22 @@ function load_driver_config(path::AbstractString; env::AbstractDict = ENV)
         default_profile = first(keys(profiles))
     end
 
+    if !allow_dynamic_streams && isempty(streams)
+        throw(ArgumentError("streams must be defined when allow_dynamic_streams=false"))
+    end
+
     for (name, profile) in profiles
         ispow2(profile.header_nslots) || throw(ArgumentError("header_nslots must be power of two for profile $(name)"))
         profile.header_slot_bytes == HEADER_SLOT_BYTES ||
             throw(ArgumentError("header_slot_bytes must be $(HEADER_SLOT_BYTES) for profile $(name)"))
         isempty(profile.payload_pools) && throw(ArgumentError("profile $(name) must define payload_pools"))
+        for pool in profile.payload_pools
+            validate_stride(
+                pool.stride_bytes;
+                require_hugepages = require_hugepages,
+                hugepage_size = require_hugepages ? hugepage_size_bytes() : 0,
+            ) || throw(ArgumentError("invalid stride_bytes for profile $(name)"))
+        end
     end
 
     endpoints = DriverEndpoints(

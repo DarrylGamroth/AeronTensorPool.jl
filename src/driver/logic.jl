@@ -230,7 +230,18 @@ function handle_attach_request!(state::DriverState, msg::ShmAttachRequest.Decode
     end
 
     if stream_state.epoch == 0
-        bump_epoch!(state, stream_state)
+        try
+            bump_epoch!(state, stream_state)
+        catch err
+            msg = sprint(showerror, err)
+            return emit_attach_response!(
+                state,
+                correlation_id,
+                DriverResponseCode.INTERNAL_ERROR,
+                "failed to provision SHM: $(msg)",
+                nothing,
+            )
+        end
     end
 
     if role == DriverRole.PRODUCER
@@ -243,7 +254,18 @@ function handle_attach_request!(state::DriverState, msg::ShmAttachRequest.Decode
                 nothing,
             )
         end
-        bump_epoch!(state, stream_state)
+        try
+            bump_epoch!(state, stream_state)
+        catch err
+            msg = sprint(showerror, err)
+            return emit_attach_response!(
+                state,
+                correlation_id,
+                DriverResponseCode.INTERNAL_ERROR,
+                "failed to provision SHM: $(msg)",
+                nothing,
+            )
+        end
     end
 
     if require_hugepages && !state.config.shm.require_hugepages
@@ -312,6 +334,7 @@ function revoke_lease!(state::DriverState, lease_id::UInt64, reason::DriverLease
     if !isnothing(stream_state)
         if lease.role == DriverRole.PRODUCER
             stream_state.producer_lease_id = 0
+            emit_lease_revoked!(state, lease, reason, now_ns)
             bump_epoch!(state, stream_state)
             emit_driver_announce!(state, stream_state)
         else
@@ -319,7 +342,7 @@ function revoke_lease!(state::DriverState, lease_id::UInt64, reason::DriverLease
         end
     end
 
-    emit_lease_revoked!(state, lease, reason, now_ns)
+    lease.role == DriverRole.PRODUCER || emit_lease_revoked!(state, lease, reason, now_ns)
     delete!(state.leases, lease_id)
     return true
 end
@@ -339,12 +362,18 @@ function provision_stream_epoch!(state::DriverState, stream_state::DriverStreamS
         stream_state.epoch,
         pool_ids,
     )
+    if state.config.shm.require_hugepages
+        header_uri = add_hugepage_flag(header_uri)
+        for (pool_id, uri) in pool_uris
+            pool_uris[pool_id] = add_hugepage_flag(uri)
+        end
+    end
     stream_state.header_uri = header_uri
     stream_state.pool_uris = pool_uris
 
     header_path = parse_shm_uri(header_uri).path
     header_size = SUPERBLOCK_SIZE + Int(stream_state.profile.header_nslots) * HEADER_SLOT_BYTES
-    ensure_shm_file!(header_path, header_size, state.config.shm.permissions_mode)
+    ensure_shm_file!(state, header_path, header_size, state.config.shm.permissions_mode)
     header_mmap = mmap_shm(header_uri, header_size; write = true)
     wrap_superblock!(state.runtime.superblock_encoder, header_mmap, 0)
     now_ns = UInt64(Clocks.time_nanos(state.clock))
@@ -370,7 +399,7 @@ function provision_stream_epoch!(state::DriverState, stream_state::DriverStreamS
         pool_uri = stream_state.pool_uris[pool.pool_id]
         pool_path = parse_shm_uri(pool_uri).path
         pool_size = SUPERBLOCK_SIZE + Int(stream_state.profile.header_nslots) * Int(pool.stride_bytes)
-        ensure_shm_file!(pool_path, pool_size, state.config.shm.permissions_mode)
+        ensure_shm_file!(state, pool_path, pool_size, state.config.shm.permissions_mode)
         pool_mmap = mmap_shm(pool_uri, pool_size; write = true)
         wrap_superblock!(state.runtime.superblock_encoder, pool_mmap, 0)
         write_superblock!(
@@ -398,13 +427,40 @@ end
     return parse(UInt32, mode_str; base = 8)
 end
 
-function ensure_shm_file!(path::String, size::Int, mode_str::String)
+function ensure_shm_file!(state::DriverState, path::String, size::Int, mode_str::String)
+    isabspath(path) || throw(ArgumentError("SHM path must be absolute"))
+    path_allowed(path, state.config.shm.allowed_base_dirs) ||
+        throw(ArgumentError("SHM path not within allowed_base_dirs"))
+    if state.config.shm.require_hugepages && !is_hugetlbfs_path(path)
+        throw(ArgumentError("SHM path not on hugetlbfs"))
+    end
     mkpath(dirname(path))
+    if ispath(path) && !isfile(path)
+        throw(ArgumentError("SHM path must be a regular file"))
+    end
     open(path, "w+") do io
         truncate(io, size)
     end
+    isfile(path) || throw(ArgumentError("SHM path not a regular file"))
     chmod(path, parse_mode(mode_str))
     return nothing
+end
+
+@inline function add_hugepage_flag(uri::String)
+    return "$(uri)|require_hugepages=true"
+end
+
+function path_allowed(path::String, allowed_dirs::Vector{String})
+    abs_path = abspath(path)
+    abs_path = ispath(abs_path) ? realpath(abs_path) : abs_path
+    for dir in allowed_dirs
+        abs_dir = abspath(dir)
+        abs_dir = ispath(abs_dir) ? realpath(abs_dir) : abs_dir
+        if abs_path == abs_dir || startswith(abs_path, abs_dir * "/")
+            return true
+        end
+    end
+    return false
 end
 
 function emit_attach_response!(

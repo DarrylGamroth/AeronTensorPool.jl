@@ -160,7 +160,7 @@ Spec refs
 - Driver: 2-4, 6-7
 
 Status
-- In progress (driver config, attach/detach/keepalive, lease revoke, announces, and basic tests added; shutdown/QoS and policy edge cases remain).
+- Complete (driver config, attach/detach/keepalive, lease revoke, announces, shutdown notice, policy edge cases, and basic tests).
 
 ## Phase 7 - Driver Integration (Producer/Consumer)
 
