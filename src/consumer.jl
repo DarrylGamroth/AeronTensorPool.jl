@@ -537,9 +537,7 @@ end
     return 1
 end
 
-function poll_timers!(state::ConsumerState)
-    fetch!(state.clock)
-    now_ns = UInt64(Clocks.time_nanos(state.clock))
+function poll_timers!(state::ConsumerState, now_ns::UInt64)
     return poll_timers!(state.timer_set, state, now_ns)
 end
 

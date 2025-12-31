@@ -215,9 +215,7 @@ end
     return check_liveness!(state, now_ns) ? 1 : 0
 end
 
-function poll_timers!(state::SupervisorState)
-    fetch!(state.clock)
-    now_ns = UInt64(Clocks.time_nanos(state.clock))
+function poll_timers!(state::SupervisorState, now_ns::UInt64)
     return poll_timers!(state.timer_set, state, now_ns)
 end
 
@@ -333,6 +331,8 @@ function supervisor_step!(
     work_count = 0
     work_count += poll_control!(state, control_assembler, fragment_limit)
     work_count += poll_qos!(state, qos_assembler, fragment_limit)
-    work_count += poll_timers!(state)
+    fetch!(state.clock)
+    now_ns = UInt64(Clocks.time_nanos(state.clock))
+    work_count += poll_timers!(state, now_ns)
     return work_count
 end
