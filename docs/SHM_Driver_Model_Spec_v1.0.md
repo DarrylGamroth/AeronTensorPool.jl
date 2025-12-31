@@ -79,6 +79,8 @@ Optional primitive fields in the SBE schema MUST use explicit `nullValue` sentin
 
 For optional enum fields, `UNKNOWN` (value 255) is the null sentinel and MUST be used when the field is absent.
 
+If `code=OK` and any required field is set to its `nullValue`, the client MUST treat the response as a protocol error, DROP the attach, and reattach.
+
 ### 4.3 Attach Request Semantics (Normative)
 
 - `expectedLayoutVersion`: If present and nonzero, the driver MUST reject the request with `code=REJECTED` if the active layout version for the stream does not match. If absent or zero, the driver uses its configured layout version and returns it in the response.
@@ -137,6 +139,12 @@ When a producer lease transitions to `EXPIRED` or `REVOKED`, the driver MUST inc
 `ShmDetachRequest` is best-effort and idempotent. If the lease is active and matches the request's `leaseId`, `streamId`, `clientId`, and `role`, the driver MUST invalidate the lease and return `code=OK`. If the lease is unknown or already invalidated, the driver SHOULD return `code=REJECTED` (or `OK` if it treats the request as idempotent success). Detaching a producer lease MUST trigger an epoch increment per §6.
 
 For any lease invalidation event (`DETACHED`, `EXPIRED`, or `REVOKED`), the driver MUST publish a `ShmLeaseRevoked` notice on the control-plane stream. This includes consumer leases and producer leases (in addition to any `ShmPoolAnnounce` required for epoch changes).
+
+Clients MUST handle `ShmLeaseRevoked` as follows:
+- If the revoked lease matches the client's active lease, the client MUST immediately stop using mapped regions, DROP any in-flight frames, and reattach.
+- If the revoked lease is a producer lease for a stream the client consumes, the client MUST wait for the epoch-bumped `ShmPoolAnnounce` before remapping and resuming.
+
+`ShmLeaseRevoked.reason` is required; clients MUST reject messages with unknown reason values.
 
 ### 4.10 Control-Plane Sequences (Informative)
 
