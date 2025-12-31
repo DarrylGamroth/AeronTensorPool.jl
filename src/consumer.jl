@@ -558,6 +558,8 @@ function validate_strides!(state::ConsumerState, header::TensorSlotHeader, elem_
     if header.major_order == MajorOrder.ROW
         if state.scratch_strides[ndims] == 0
             state.scratch_strides[ndims] = elem_size
+        elseif state.scratch_strides[ndims] < elem_size
+            return false
         end
         for i in (ndims - 1):-1:1
             required = state.scratch_strides[i + 1] * max(state.scratch_dims[i + 1], 1)
@@ -570,6 +572,8 @@ function validate_strides!(state::ConsumerState, header::TensorSlotHeader, elem_
     elseif header.major_order == MajorOrder.COLUMN
         if state.scratch_strides[1] == 0
             state.scratch_strides[1] = elem_size
+        elseif state.scratch_strides[1] < elem_size
+            return false
         end
         for i in 2:ndims
             required = state.scratch_strides[i - 1] * max(state.scratch_dims[i - 1], 1)
@@ -636,6 +640,11 @@ function try_read_frame!(
     end
 
     if header.payload_slot != header_index
+        state.drops_late += 1
+        return nothing
+    end
+
+    if header.payload_offset != 0
         state.drops_late += 1
         return nothing
     end

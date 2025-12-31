@@ -94,7 +94,7 @@ Spec refs
 - 10.2.1, 11, 15.19, 15.21
 
 Status
-- Complete (mapping, seqlock read, mode handling, drops accounting with max_outstanding_seq_gap resync, header validation including nslots power-of-two and epoch checks, commit_word frame_id consistency, dtype-aware stride inference, announce-time superblock revalidation with PID change handling, fallback handling).
+- Complete (mapping, seqlock read, mode handling, drops accounting with max_outstanding_seq_gap resync, header validation including nslots power-of-two and epoch checks, commit_word frame_id consistency, dtype-aware stride inference with min stride checks, payload_offset validation, announce-time superblock revalidation with PID change handling, fallback handling).
 
 ## Phase 4 - Control Plane and QoS
 
