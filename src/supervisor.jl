@@ -48,6 +48,7 @@ mutable struct SupervisorState
 end
 
 function init_supervisor(config::SupervisorConfig)
+    ensure_little_endian()
     clock = Clocks.CachedEpochClock(Clocks.MonotonicClock())
     fetch!(clock)
 

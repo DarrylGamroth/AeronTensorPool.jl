@@ -47,6 +47,7 @@ end
 end
 
 function init_producer(config::ProducerConfig)
+    ensure_little_endian()
     ispow2(config.nslots) || throw(ArgumentError("header nslots must be power of two"))
     for pool in config.payload_pools
         pool.nslots == config.nslots || throw(ArgumentError("payload nslots must match header nslots"))

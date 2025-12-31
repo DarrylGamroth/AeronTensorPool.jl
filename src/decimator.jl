@@ -19,6 +19,7 @@ mutable struct DecimatorState
 end
 
 function init_decimator(consumer_state::ConsumerState, config::DecimatorConfig)
+    ensure_little_endian()
     ctx = Aeron.Context()
     Aeron.aeron_dir!(ctx, config.aeron_dir)
     client = Aeron.Client(ctx)

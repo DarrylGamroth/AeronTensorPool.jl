@@ -19,6 +19,7 @@ mutable struct BridgeState
 end
 
 function init_bridge(consumer_state::ConsumerState, config::BridgeConfig)
+    ensure_little_endian()
     ctx = Aeron.Context()
     Aeron.aeron_dir!(ctx, config.aeron_dir)
     client = Aeron.Client(ctx)

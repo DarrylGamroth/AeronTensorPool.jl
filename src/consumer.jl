@@ -58,6 +58,7 @@ mutable struct ConsumerState
 end
 
 function init_consumer(config::ConsumerConfig)
+    ensure_little_endian()
     clock = Clocks.CachedEpochClock(Clocks.MonotonicClock())
     fetch!(clock)
 
@@ -238,6 +239,58 @@ function map_from_announce!(state::ConsumerState, msg::ShmPoolAnnounce.Decoder)
     return true
 end
 
+function validate_mapped_superblocks!(state::ConsumerState, msg::ShmPoolAnnounce.Decoder)
+    header_mmap = state.header_mmap
+    header_mmap === nothing && return false
+
+    expected_epoch = ShmPoolAnnounce.epoch(msg)
+    sb_dec = ShmRegionSuperblock.Decoder(Vector{UInt8})
+    wrap_superblock!(sb_dec, header_mmap, 0)
+    header_fields = read_superblock(sb_dec)
+
+    header_expected_nslots = ShmPoolAnnounce.headerNslots(msg)
+    header_ok = validate_superblock_fields(
+        header_fields;
+        expected_layout_version = ShmPoolAnnounce.layoutVersion(msg),
+        expected_epoch = expected_epoch,
+        expected_stream_id = ShmPoolAnnounce.streamId(msg),
+        expected_nslots = header_expected_nslots,
+        expected_slot_bytes = UInt32(HEADER_SLOT_BYTES),
+        expected_region_type = RegionType.HEADER_RING,
+        expected_pool_id = UInt16(0),
+    )
+    header_ok || return false
+
+    pools = ShmPoolAnnounce.payloadPools(msg)
+    pool_count = 0
+    for pool in pools
+        pool_count += 1
+        pool_id = ShmPoolAnnounce.PayloadPools.poolId(pool)
+        pool_nslots = ShmPoolAnnounce.PayloadPools.poolNslots(pool)
+        pool_stride = ShmPoolAnnounce.PayloadPools.strideBytes(pool)
+        pool_mmap = get(state.payload_mmaps, pool_id, nothing)
+        pool_mmap === nothing && return false
+
+        wrap_superblock!(sb_dec, pool_mmap, 0)
+        pool_fields = read_superblock(sb_dec)
+
+        pool_ok = validate_superblock_fields(
+            pool_fields;
+            expected_layout_version = ShmPoolAnnounce.layoutVersion(msg),
+            expected_epoch = expected_epoch,
+            expected_stream_id = ShmPoolAnnounce.streamId(msg),
+            expected_nslots = pool_nslots,
+            expected_slot_bytes = pool_stride,
+            expected_region_type = RegionType.PAYLOAD_POOL,
+            expected_pool_id = pool_id,
+        )
+        pool_ok || return false
+    end
+
+    pool_count == length(state.payload_mmaps) || return false
+    return true
+end
+
 function reset_mappings!(state::ConsumerState)
     state.header_mmap = nothing
     empty!(state.payload_mmaps)
@@ -260,6 +313,17 @@ function handle_shm_pool_announce!(state::ConsumerState, msg::ShmPoolAnnounce.De
     end
 
     if state.header_mmap === nothing
+        ok = map_from_announce!(state, msg)
+        if !ok && !isempty(state.config.payload_fallback_uri)
+            state.config.use_shm = false
+            reset_mappings!(state)
+            return true
+        end
+        return ok
+    end
+
+    if !validate_mapped_superblocks!(state, msg)
+        reset_mappings!(state)
         ok = map_from_announce!(state, msg)
         if !ok && !isempty(state.config.payload_fallback_uri)
             state.config.use_shm = false

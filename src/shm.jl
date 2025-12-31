@@ -7,6 +7,11 @@ end
     return nothing
 end
 
+@inline function ensure_little_endian()
+    Base.ENDIAN_BOM == 0x04030201 || error("AeronTensorPool requires a little-endian host")
+    return nothing
+end
+
 @inline function page_size_bytes()
     return Int(ccall(:getpagesize, Cint, ()))
 end
