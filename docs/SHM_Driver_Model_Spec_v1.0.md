@@ -315,6 +315,55 @@ These references are informative; this specification defines its own normative b
 
 ---
 
+## 16. Canonical Driver Configuration (Informative)
+
+The driver is typically configured via a TOML file. The following keys are the canonical configuration surface. Implementations MAY add additional keys, but SHOULD preserve these names and defaults for interoperability.
+
+Required keys (unless stated otherwise):
+
+- `driver.instance_id` (string): identifier for logging/diagnostics. Default: `"driver-01"`.
+- `driver.control_channel` (string): Aeron channel for control-plane messages. Default: `"aeron:ipc"`.
+- `driver.control_stream_id` (uint32): control-plane stream ID. Default: `1000`.
+- `shm.base_dir` (string): root directory for SHM backing files. Default: `"/dev/shm/tensorpool"`.
+- `profiles.*` (table): at least one profile must be defined.
+- `profiles.<name>.payload_pools` (array): must contain at least one pool entry.
+- `streams.*` (table): if `policies.allow_dynamic_streams=false`, each stream MUST be explicitly defined.
+
+Optional keys and defaults:
+
+- `driver.aeron_dir` (string): Aeron media driver directory. Default: Aeron library default.
+- `driver.announce_channel` (string): channel for `ShmPoolAnnounce`. Default: `driver.control_channel`.
+- `driver.announce_stream_id` (uint32): stream ID for `ShmPoolAnnounce`. Default: `driver.control_stream_id`.
+- `driver.qos_channel` (string): channel for QoS messages. Default: `"aeron:ipc"`.
+- `driver.qos_stream_id` (uint32): QoS stream ID. Default: `1200`.
+- `shm.require_hugepages` (bool): require hugepage-backed SHM. Default: `false`.
+- `shm.page_size_bytes` (uint32): backing page size for validation. Default: `4096`.
+- `shm.permissions_mode` (string): POSIX mode for created files. Default: `"660"`.
+- `shm.allowed_base_dirs` (array of string): allowlist for URIs. Default: `[shm.base_dir]`.
+- `policies.allow_dynamic_streams` (bool): allow on-demand stream creation. Default: `false`.
+- `policies.default_profile` (string): profile used for dynamic streams. Default: first defined profile.
+- `policies.announce_period_ms` (uint32): `ShmPoolAnnounce` cadence. Default: `1000`.
+- `policies.lease_keepalive_interval_ms` (uint32): client keepalive interval. Default: `1000`.
+- `policies.lease_expiry_grace_intervals` (uint32): missed keepalives before expiry. Default: `3`.
+- `admin.termination_token` (string): optional token required to request driver shutdown. Default: unset (termination disabled).
+
+Profile fields:
+
+- `profiles.<name>.header_nslots` (uint32): power-of-two slot count. Default: `1024`.
+- `profiles.<name>.header_slot_bytes` (uint16): must be `256`. Default: `256`.
+- `profiles.<name>.max_dims` (uint8): max tensor dims. Default: `8`.
+- `profiles.<name>.payload_pools[].pool_id` (uint16): pool identifier (unique per profile).
+- `profiles.<name>.payload_pools[].stride_bytes` (uint32): stride size in bytes.
+
+Stream fields:
+
+- `streams.<name>.stream_id` (uint32): stream identifier.
+- `streams.<name>.profile` (string): profile name.
+
+See `docs/examples/driver_camera_example.toml` for a concrete example.
+
+---
+
 ## Appendix A. Driver Control-Plane SBE Schema (Normative)
 
 <?xml version="1.0" encoding="UTF-8"?>

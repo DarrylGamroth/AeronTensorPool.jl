@@ -2,6 +2,7 @@
 
 [driver]
 instance_id = "driver-01"
+aeron_dir = "/dev/shm/aeron"
 control_channel = "aeron:ipc"
 control_stream_id = 1000
 announce_channel = "aeron:ipc"
@@ -14,6 +15,7 @@ base_dir = "/dev/shm/tensorpool"
 require_hugepages = false
 page_size_bytes = 4096
 permissions_mode = "660"
+allowed_base_dirs = ["/dev/shm/tensorpool"]
 
 [policies]
 allow_dynamic_streams = true
@@ -21,6 +23,9 @@ default_profile = "raw_profile"
 announce_period_ms = 1000
 lease_keepalive_interval_ms = 1000
 lease_expiry_grace_intervals = 3
+
+[admin]
+termination_token = ""
 
 [profiles.raw_profile]
 header_nslots = 1024
