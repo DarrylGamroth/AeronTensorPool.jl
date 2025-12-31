@@ -147,6 +147,11 @@ aeron_dir = "/dev/shm/aeron-${USER}"
 
 ## 19. Documentation pipeline
 - Plan: add docstrings to all public API functions and generate a Documenter.jl site that references the spec and these examples.
+
+## 20. Benchmarking
+- Microbenchmarks: `julia --project scripts/run_benchmarks.jl`.
+- System benchmark: `julia --project scripts/run_benchmarks.jl --system --duration 5 --config config/defaults.toml`.
+- Results should include publish/consume rates and allocation behavior under load.
 - Map config → SBE messages: producer fills ShmPoolAnnounce from TOML/env (uris, nslots, stride_bytes, max_dims); supervisor sends ConsumerConfig based on consumer mode/bridge decisions.
 - Consumers refuse SHM if announce values differ from compiled schema (max_dims/layout_version) or backend validation fails.
 

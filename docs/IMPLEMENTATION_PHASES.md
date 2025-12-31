@@ -265,7 +265,7 @@ Deliverables
 - Public API index and examples referencing the spec.
 
 Status
-- Not started.
+- Complete (docstrings added; Documenter site scaffolding added; integration docs linked).
 
 ## Phase 13 - Benchmarking and Performance Characterization
 
@@ -279,4 +279,4 @@ Deliverables
 - Benchmark reporting scripts and baseline numbers.
 
 Status
-- Not started.
+- Complete (benchmark suite and scripts added; system benchmark optional).
