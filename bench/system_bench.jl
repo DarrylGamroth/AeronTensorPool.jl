@@ -29,7 +29,7 @@ function override_shm_paths(config::ProducerConfig, dir::String)
     )
 end
 
-function run_system_bench(config_path::AbstractString, duration_s::Float64)
+function run_system_bench(config_path::AbstractString, duration_s::Float64; payload_bytes::Int = 1024)
     Aeron.MediaDriver.launch_embedded() do driver
         GC.@preserve driver mktempdir() do dir
             env = Dict(ENV)
@@ -59,8 +59,9 @@ function run_system_bench(config_path::AbstractString, duration_s::Float64)
                 nothing
             end)
 
-            payload = fill(UInt8(1), 1024)
-            shape = Int32[1024]
+            payload_bytes > 0 || error("payload_bytes must be > 0")
+            payload = fill(UInt8(1), payload_bytes)
+            shape = Int32[payload_bytes]
             strides = Int32[1]
             published = 0
             start = time()

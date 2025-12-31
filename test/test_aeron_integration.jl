@@ -1,3 +1,5 @@
+using UnsafeArrays
+
 @testset "Aeron integration handlers" begin
     with_embedded_driver() do driver
         control_stream = Int32(12001)
@@ -41,22 +43,16 @@
         cfg_len = AeronTensorPool.MESSAGE_HEADER_LEN +
             Int(ConsumerConfigMsg.sbe_block_length(ConsumerConfigMsg.Decoder)) +
             Int(ConsumerConfigMsg.payloadFallbackUri_header_length)
-        sent_cfg = AeronTensorPool.try_claim_sbe!(
-            pub_control,
-            claim,
-            cfg_len,
-            buf -> begin
-                buf_view = unsafe_wrap(Vector{UInt8}, pointer(buf), length(buf))
-                enc = ConsumerConfigMsg.Encoder(Vector{UInt8})
-                ConsumerConfigMsg.wrap_and_apply_header!(enc, buf_view, 0)
-                ConsumerConfigMsg.streamId!(enc, consumer_state.config.stream_id)
-                ConsumerConfigMsg.consumerId!(enc, consumer_state.config.consumer_id)
-                ConsumerConfigMsg.useShm!(enc, AeronTensorPool.ShmTensorpoolControl.Bool_.TRUE)
-                ConsumerConfigMsg.mode!(enc, Mode.LATEST)
-                ConsumerConfigMsg.decimation!(enc, UInt16(1))
-                ConsumerConfigMsg.payloadFallbackUri_length!(enc, 0)
-            end,
-        )
+        sent_cfg = AeronTensorPool.try_claim_sbe!(pub_control, claim, cfg_len) do buf
+            enc = ConsumerConfigMsg.Encoder(UnsafeArrays.UnsafeArray{UInt8, 1})
+            ConsumerConfigMsg.wrap_and_apply_header!(enc, buf, 0)
+            ConsumerConfigMsg.streamId!(enc, consumer_state.config.stream_id)
+            ConsumerConfigMsg.consumerId!(enc, consumer_state.config.consumer_id)
+            ConsumerConfigMsg.useShm!(enc, AeronTensorPool.ShmTensorpoolControl.Bool_.TRUE)
+            ConsumerConfigMsg.mode!(enc, Mode.LATEST)
+            ConsumerConfigMsg.decimation!(enc, UInt16(1))
+            ConsumerConfigMsg.payloadFallbackUri_length!(enc, 0)
+        end
         @test sent_cfg
 
         ok = wait_for() do
@@ -66,22 +62,16 @@
         @test consumer_state.config.use_shm == true
         @test consumer_state.config.mode == Mode.LATEST
 
-        sent_desc = AeronTensorPool.try_claim_sbe!(
-            pub_descriptor,
-            claim,
-            AeronTensorPool.FRAME_DESCRIPTOR_LEN,
-            buf -> begin
-                buf_view = unsafe_wrap(Vector{UInt8}, pointer(buf), length(buf))
-                enc = FrameDescriptor.Encoder(Vector{UInt8})
-                FrameDescriptor.wrap_and_apply_header!(enc, buf_view, 0)
-                FrameDescriptor.streamId!(enc, consumer_state.config.stream_id)
-                FrameDescriptor.epoch!(enc, UInt64(1))
-                FrameDescriptor.seq!(enc, UInt64(1))
-                FrameDescriptor.headerIndex!(enc, UInt32(0))
-                FrameDescriptor.timestampNs!(enc, UInt64(0))
-                FrameDescriptor.metaVersion!(enc, UInt32(1))
-            end,
-        )
+        sent_desc = AeronTensorPool.try_claim_sbe!(pub_descriptor, claim, AeronTensorPool.FRAME_DESCRIPTOR_LEN) do buf
+            enc = FrameDescriptor.Encoder(UnsafeArrays.UnsafeArray{UInt8, 1})
+            FrameDescriptor.wrap_and_apply_header!(enc, buf, 0)
+            FrameDescriptor.streamId!(enc, consumer_state.config.stream_id)
+            FrameDescriptor.epoch!(enc, UInt64(1))
+            FrameDescriptor.seq!(enc, UInt64(1))
+            FrameDescriptor.headerIndex!(enc, UInt32(0))
+            FrameDescriptor.timestampNs!(enc, UInt64(0))
+            FrameDescriptor.metaVersion!(enc, UInt32(1))
+        end
         @test sent_desc
         ok_desc = wait_for() do
             Aeron.poll(consumer_state.sub_descriptor, desc_asm, AeronTensorPool.DEFAULT_FRAGMENT_LIMIT) > 0

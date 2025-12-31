@@ -1,7 +1,7 @@
 """
-Try to claim an Aeron buffer and fill it with an SBE message.
+Try to claim an Aeron buffer using do-block syntax and fill it with an SBE message.
 """
-@inline function try_claim_sbe!(pub::Aeron.Publication, claim::Aeron.BufferClaim, length::Int, fill_fn::Function)
+@inline function try_claim_sbe!(fill_fn::Function, pub::Aeron.Publication, claim::Aeron.BufferClaim, length::Int)
     position = Aeron.try_claim(pub, length, claim)
     if position > 0
         buf = Aeron.buffer(claim)
@@ -10,13 +10,6 @@ Try to claim an Aeron buffer and fill it with an SBE message.
         return true
     end
     return false
-end
-
-"""
-Try to claim an Aeron buffer using do-block syntax.
-"""
-@inline function try_claim_sbe!(fill_fn::Function, pub::Aeron.Publication, claim::Aeron.BufferClaim, length::Int)
-    return try_claim_sbe!(pub, claim, length, fill_fn)
 end
 
 """
