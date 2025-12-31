@@ -1,14 +1,14 @@
 # Aeron Tensor Pool Implementation Guide (Julia, v1.1)
 
-This guide maps the normative spec (SHM_Aeron_Tensor_Pool.md) to concrete implementation steps in Julia using Aeron.jl, SBE.jl, and Agent.jl. It stays implementation-oriented and references the spec for normative rules.
+This guide maps the normative spec (SHM_Tensor_Pool_Wire_Spec_v1.1.md) to concrete implementation steps in Julia using Aeron.jl, SBE.jl, and Agent.jl. It stays implementation-oriented and references the spec for normative rules.
 
 ## 1. Dependencies
 - Aeron driver/runtime: align with Aeron.jl supported version.
 - Julia packages: Aeron.jl, SBE.jl, Agent.jl, Mmap stdlib.
-- SBE.jl alone can generate codecs from the schema in SHM_Aeron_Tensor_Pool.md §16 (see sbe-schema.xml); no external sbe-tool needed.
+- SBE.jl alone can generate codecs from the schema in SHM_Tensor_Pool_Wire_Spec_v1.1.md §16 (see sbe-schema.xml); no external sbe-tool needed.
 
 ## 2. Code Generation (SBE)
-- Source schema: SHM_Aeron_Tensor_Pool.md §16 (also extracted to sbe-schema.xml). MAX_DIMS is 8; if you change it, update the schema and regenerate.
+- Source schema: SHM_Tensor_Pool_Wire_Spec_v1.1.md §16 (also extracted to sbe-schema.xml). MAX_DIMS is 8; if you change it, update the schema and regenerate.
 - Generate control-plane codecs and SHM composites (TensorSlotHeader256, ShmRegionSuperblock) directly with SBE.jl (no java tool required).
 - Enums use SBE numeric bodies (see Spiders schema style); if you edit enum values, keep the body text numeric and regenerate.
 - Julia codegen example (adjust paths):

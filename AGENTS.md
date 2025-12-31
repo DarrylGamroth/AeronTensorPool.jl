@@ -14,7 +14,7 @@
 - Mmap (stdlib) + Base atomics: mmap SHM and commit_word atomics
 - Hsm.jl: (/home/dgamroth/workspaces/codex/Hsm.jl) hierarchical state machine patterns (if you want explicit agent state machines)
 
-Code generation and implementation templates for the agents in the SHM Tensor Pool spec (v1.1). This guide is optimized for LLM-assisted codegen and human implementers building agents with Julia (Aeron.jl, SBE.jl, Agent.jl). See normative spec: [SHM_Aeron_Tensor_Pool.md](docs/SHM_Aeron_Tensor_Pool.md). For deployment/config/testing, see [IMPLEMENTATION.md](docs/IMPLEMENTATION.md).
+Code generation and implementation templates for the agents in the SHM Tensor Pool spec (v1.1). This guide is optimized for LLM-assisted codegen and human implementers building agents with Julia (Aeron.jl, SBE.jl, Agent.jl). See normative spec: [SHM_Tensor_Pool_Wire_Spec_v1.1.md](docs/SHM_Tensor_Pool_Wire_Spec_v1.1.md). For deployment/config/testing, see [IMPLEMENTATION.md](docs/IMPLEMENTATION.md).
 
 ## Agent Roles and Responsibilities
 

@@ -22,7 +22,7 @@ It is written to be directly consumable by automated code-generation tools
 - Small descriptor and control messages transported via Aeron.
 - All messages are **SBE encoded**.
 - Support many independent producer and consumer services.
-- Define two roles: producers (server/driver; own SHM and publish descriptors/control) and consumers (client; map SHM and subscribe). Packaging of these roles (combined vs split, akin to Aeron driver/client) is an implementation choice, not a protocol requirement. When the Driver Model is used, SHM ownership and `ShmPoolAnnounce` emission move to the SHM Driver while the producer client remains responsible for payload writes and `FrameDescriptor` publishing. The SHM Driver may be embedded or external; only one authoritative driver instance may manage a given `stream_id` at a time.
+- Define two roles: producers (server/driver; own SHM and publish descriptors/control) and consumers (client; map SHM and subscribe). Packaging of these roles (combined vs split, akin to Aeron driver/client) is an implementation choice, not a protocol requirement.
 - Lossy overwrite semantics: slow consumers may drop frames.
 - Consumers must never read partially written (“torn”) data.
 - Optional bridge service for remote consumers or recording.
@@ -39,9 +39,9 @@ It is written to be directly consumable by automated code-generation tools
 
 ## 3. High-Level Architecture
 
-Roles: producer (server/driver) owns SHM regions and publishes descriptors/control; consumer (client) maps SHM and subscribes to descriptors/control. A deployment may package both roles together (like Aeron driver+client) or split them; packaging is an implementation detail. When using the Driver Model, the SHM Driver is the authority that creates SHM regions and emits `ShmPoolAnnounce`.
+Roles: producer (server/driver) owns SHM regions and publishes descriptors/control; consumer (client) maps SHM and subscribes to descriptors/control. A deployment may package both roles together (like Aeron driver+client) or split them; packaging is an implementation detail.
 
-Each **producer service** owns (or is granted access to, when using the Driver Model):
+Each **producer service** owns:
 
 1. **Header Ring (SHM)**
    - Fixed-size header slots (256 bytes each).
@@ -103,7 +103,6 @@ Per `stream_id` (data source), define these logical streams (how you map to Aero
 
 - **Descriptor Stream**: producer → all consumers (`FrameDescriptor`)
 - **Control Stream**: bi-directional management and discovery messages
-  - When the Driver Model is used, driver attach/detach/keepalive messages are also carried on this stream (or a deployment-defined alternative).
 - **QoS Stream**: producer and consumers → supervisor/console (or shared bus)
 - **Metadata Stream**: producer → all (`DataSourceAnnounce`, `DataSourceMeta`, optional blobs)
 
@@ -151,9 +150,9 @@ Stored at offset 0 of every SHM region.
 - padding
 
 **Rules**
-- Written once by producer at initialization; when the Driver Model is used, the SHM Driver initializes the superblock.
+- Written once by producer at initialization.
 - Consumers MUST validate against announced parameters.
-- Producer refreshes `activity_timestamp_ns` periodically (e.g., at announce cadence); when the Driver Model is used, the driver MAY perform this refresh or delegate it to the producer. Stale timestamps imply producer/driver death and force remap.
+- Producer refreshes `activity_timestamp_ns` periodically (e.g., at announce cadence); stale timestamps imply producer death and force remap.
 - Encoding is little-endian. Superblock layout is SBE-defined (see schema appendix) so existing SBE parsers can `wrap!` directly over the mapped memory. v1.1 magic MUST be ASCII `TPOLSHM1` (`0x544F504C53484D31` as u64, little-endian); treat mismatches as invalid.
 - Field order is cacheline-oriented: first cache line carries validation fields (`magic`, `layout_version`, `epoch`, `stream_id`, `region_type`, `pool_id`, `nslots`, `slot_bytes`, `stride_bytes`); second cache line carries liveness/identity (`pid`, `start_timestamp_ns`, `activity_timestamp_ns`). Total size is 64 bytes.
 - Keep `layout_version` even though SBE `version` exists: `layout_version` governs SHM layout compatibility; SBE `version`/`schemaId` governs control-plane messages.
@@ -266,7 +265,7 @@ All messages below are SBE encoded and transported over Aeron.
 - Producers MUST encode “absent” optional primitives using the nullValue; consumers MUST interpret those null values as “not provided”.
 - Implementations MAY instead choose to always populate fields and omit `presence="optional"`; keep schema and prose aligned.
 
-#### 10.1.1 ShmPoolAnnounce (producer or driver → all)
+#### 10.1.1 ShmPoolAnnounce (producer → all)
 
 Sent periodically (e.g. 1 Hz) and on change.
 
@@ -522,7 +521,7 @@ End of specification.
 - Host endianness: implementation is little-endian only; big-endian hosts MUST reject or byte-swap consistently (out of scope in v1.1).
 
 ### 15.2 Epoch Lifecycle
-- Increment `epoch` on any producer restart or layout change (superblock size change, `nslots`, pool size classes, or slot size change). When the Driver Model is used, the driver is responsible for performing this increment.
+- Increment `epoch` on any producer restart or layout change (superblock size change, `nslots`, pool size classes, or slot size change).
 - On `epoch` change, producer SHOULD reset `seq`/`frame_id` to 0; consumers MUST drop stale frames, unmap, and remap regions.
 - Consumers treat any regression of `epoch` or `seq` as a remap requirement.
 
@@ -592,16 +591,16 @@ End of specification.
 - QoS counters: `drops_gap` vs `drops_late` reported correctly.
 
 ### 15.14 Deployment & Liveness (Aeron-inspired)
-- Superblock/mark fields: include `magic`, `layout_version`, `epoch`, `pid`, `start_timestamp`, `activity_timestamp`. Producers update `activity_timestamp` periodically; when the Driver Model is used, the driver MAY perform this refresh or delegate it to the producer. Supervisors treat stale values as dead and require remap.
-- Single-writer rule: producer is sole writer of header/pool regions; the driver may write superblock fields when managing epochs or activity timestamps. If `pid` changes or concurrent writers are detected, consumers MUST unmap and wait for a new `epoch`.
-- Creation/cleanup: on producer start, create/truncate, write superblock, fsync, then publish `ShmPoolAnnounce`. On clean shutdown, optionally unlink or set a clean-close flag. Crashes are inferred by stale `activity_timestamp`. When the Driver Model is used, the SHM Driver performs create/truncate/unlink and emits `ShmPoolAnnounce` on behalf of the producer.
+- Superblock/mark fields: include `magic`, `layout_version`, `epoch`, `pid`, `start_timestamp`, `activity_timestamp`. Producers update `activity_timestamp` periodically; supervisors treat stale values as dead and require remap.
+- Single-writer rule: producer is sole writer of header/pool regions; if `pid` changes or concurrent writers are detected, consumers MUST unmap and wait for a new `epoch`.
+- Creation/cleanup: on producer start, create/truncate, write superblock, fsync, then publish `ShmPoolAnnounce`. On clean shutdown, optionally unlink or set a clean-close flag. Crashes are inferred by stale `activity_timestamp`.
 - Permissions: create SHM files with restrictive modes (e.g., umask 007, mode 660) and trusted group ownership; align with Aeron’s driver directory practices.
 - Liveness timeouts: supervisors set a timeout (e.g., 3–5× announce period) on `activity_timestamp`; on expiry, unmap and await new `epoch`.
 - Recreation detection: any change to `magic`, `layout_version`, or `epoch` requires remap; treat version mismatch as incompatible.
 - Optional error log: add a small fixed-size error ring (timestamp, pid, code) in SHM for postmortem without stdout scraping.
 
 ### 15.15 Aeron Terminology Mapping
-- Producer service ≈ Aeron driver for this data source in simple deployments (owns SHM, publishes descriptors/QoS/meta over Aeron). When the Driver Model is used, the SHM Driver assumes ownership of SHM resources while the producer client publishes descriptors/QoS/meta.
+- Producer service ≈ Aeron driver for this data source (owns SHM, publishes descriptors/QoS/meta over Aeron).
 - Supervisor/consumer coordination layer ≈ client conductor (tracks announces, epochs, remaps, issues configs, observes QoS).
 - Bridge/tap/decimator agents follow the Agent.jl pattern analogous to Agrona agents used by Aeron.
 
@@ -746,7 +745,7 @@ implementation concern.
 
 #### 15.21a.3 Recommended Directory Layout (Informative)
 
-When creating shared-memory regions, producers (or the SHM Driver when used) SHOULD organize backing files
+When creating shared-memory regions, producers SHOULD organize backing files
 under `shm_base_dir` using the following canonical layout:
 
 ```

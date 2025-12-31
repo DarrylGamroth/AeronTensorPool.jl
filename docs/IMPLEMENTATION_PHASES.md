@@ -31,7 +31,7 @@ Validation
 - Compile-time assertions for MAX_DIMS matching the generated schema.
 
 Spec refs
-- `docs/SHM_Aeron_Tensor_Pool.md` sections 6-8, 15.1, 15.5, 15.8, 15.22
+- `docs/SHM_Tensor_Pool_Wire_Spec_v1.1.md` sections 6-8, 15.1, 15.5, 15.8, 15.22
 
 ## Phase 1 - SHM Utilities and Superblock IO
 
