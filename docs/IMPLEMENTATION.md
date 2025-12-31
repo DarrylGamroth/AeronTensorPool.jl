@@ -43,6 +43,24 @@ This guide maps the normative spec (SHM_Aeron_Tensor_Pool.md) to concrete implem
 - States: UNMAPPED → MAPPED(epoch). Remap on epoch change or validation failure; drop in-flight frames.
 - On producer restart/layout change: bump epoch; reset seq/frame_id to 0; republish announce.
 
+## 6a. Filesystem layout and path containment (spec §15.21a)
+- Producers MUST announce explicit absolute paths for all SHM regions; do not derive/synthesize paths on the consumer side.
+- Consumers MUST NOT scan directories or infer filenames; use only the announced paths.
+- Implementations SHOULD expose `shm_base_dir` and MAY expose `allowed_base_dirs` for path containment checks.
+- Path containment procedure before mmap:
+  1) Ensure the announced path is absolute.
+  2) Canonicalize the announced path (realpath).
+  3) Canonicalize each configured allowed_base_dir once at startup; use only canonical forms.
+  4) Verify the canonical announced path is contained within one of the canonical allowed_base_dirs.
+  5) Perform a filesystem metadata check: reject unless the path is a regular file (hugetlbfs regular files allowed); reject block/char devices, FIFOs, and sockets.
+  6) On any failure, reject and do not map; optionally fall back to payload_fallback_uri.
+- Recommended layout (informative):
+  - `<shm_base_dir>/<namespace>/<producer_instance_id>/epoch-<E>/`
+  - `header.ring` and `payload-<pool_id>.pool` within the epoch directory.
+- Permissions (informative):
+  - Private: directories `0700`, files `0600`.
+  - Shared-group: directories `2770` (setgid), files `0660`.
+
 ## 7. Backend Validation (spec §15.22)
 - URI scheme: only shm:file; reject unknown parameters. Separator is '|'.
 - Hugepages: if require_hugepages=true, verify hugepage-backed mapping; reject if not.
