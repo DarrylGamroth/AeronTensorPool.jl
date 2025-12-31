@@ -134,7 +134,7 @@ Spec refs
 - 10.5, 15.14, 15.16
 
 Status
-- In progress (scaffold + liveness polling + ConsumerConfig emission; integration test added).
+- Complete (announce/QoS subscriptions, liveness tracking using announce/QoS/hello timestamps, ConsumerConfig emission, integration test coverage).
 
 ## Phase 6 - Optional Bridge and Decimator
 

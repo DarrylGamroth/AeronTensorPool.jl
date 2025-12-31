@@ -187,12 +187,14 @@ end
 function check_liveness!(state::SupervisorState, now_ns::UInt64)
     timeout = state.config.liveness_timeout_ns
     for (pid, info) in state.producers
-        if now_ns - info.last_announce_ns > timeout
+        last_seen = max(info.last_announce_ns, info.last_qos_ns)
+        if last_seen > 0 && now_ns - last_seen > timeout
             @warn "Producer stale" producer_id = pid epoch = info.epoch
         end
     end
     for (cid, info) in state.consumers
-        if now_ns - info.last_qos_ns > timeout
+        last_seen = max(info.last_qos_ns, info.last_hello_ns)
+        if last_seen > 0 && now_ns - last_seen > timeout
             @warn "Consumer stale" consumer_id = cid epoch = info.epoch
         end
         if info.drops_gap > 0 || info.drops_late > 0
