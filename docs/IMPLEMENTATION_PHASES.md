@@ -212,4 +212,4 @@ Spec refs
 - 15.7a, 15.14, 15.17
 
 Status
-- Not started.
+- In progress (allocation checks expanded and perf/ops hardening guidance added).

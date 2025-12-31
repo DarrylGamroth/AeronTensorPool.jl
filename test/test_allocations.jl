@@ -54,4 +54,26 @@
         dims,
         strides,
     )) == 0
+
+    hdr_dec = TensorSlotHeader256.Decoder(Vector{UInt8})
+    wrap_tensor_header!(hdr_dec, hdr_buf, 0)
+    @test @allocated(read_tensor_slot_header(hdr_dec)) == 0
+
+    desc_buf = Vector{UInt8}(undef, 128)
+    desc_enc = FrameDescriptor.Encoder(Vector{UInt8})
+    FrameDescriptor.wrap_and_apply_header!(desc_enc, desc_buf, 0)
+    FrameDescriptor.streamId!(desc_enc, UInt32(1))
+    FrameDescriptor.epoch!(desc_enc, UInt64(2))
+    FrameDescriptor.seq!(desc_enc, UInt64(3))
+    FrameDescriptor.headerIndex!(desc_enc, UInt32(0))
+    FrameDescriptor.timestampNs!(desc_enc, UInt64(4))
+    FrameDescriptor.metaVersion!(desc_enc, UInt32(1))
+    @test @allocated(begin
+        FrameDescriptor.streamId!(desc_enc, UInt32(1))
+        FrameDescriptor.epoch!(desc_enc, UInt64(2))
+        FrameDescriptor.seq!(desc_enc, UInt64(3))
+        FrameDescriptor.headerIndex!(desc_enc, UInt32(0))
+        FrameDescriptor.timestampNs!(desc_enc, UInt64(4))
+        FrameDescriptor.metaVersion!(desc_enc, UInt32(1))
+    end) == 0
 end

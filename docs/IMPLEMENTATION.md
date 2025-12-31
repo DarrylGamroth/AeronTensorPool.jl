@@ -184,6 +184,12 @@ aeron_dir = "/dev/shm/aeron-${USER}"
 - Liveness: set announce cadence ~1 Hz; timeout 3–5x cadence; refresh activity_timestamp_ns accordingly.
 - Cleanup: on clean shutdown optionally unlink SHM; on crash rely on epoch bump and new superblocks.
 
+## 20a. Perf and ops hardening
+- CPU pinning: pin producer/consumer/supervisor to dedicated cores (e.g., `taskset` or cgroup cpusets).
+- NUMA: place SHM on the producer node and co-locate the producer agent on the same NUMA node.
+- GC: consider a longer GC interval for long-running processes; keep hot paths allocation-free.
+- Aeron counters: optionally wire Aeron counters for publications/subscriptions to a metrics backend.
+
 ## 21. Testing matrix (tie to §15.13)
 - Superblock validation: good vs bad magic/version/layout/endianness.
 - Backend validation: reject bad scheme, bad stride alignment, missing hugepages when required.
