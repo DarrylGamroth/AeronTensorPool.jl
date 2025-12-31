@@ -413,31 +413,9 @@ function emit_consumer_hello!(state::ConsumerState)
         ConsumerHello.progressBytesDelta!(state.runtime.hello_encoder, progress_bytes)
         ConsumerHello.progressRowsDelta!(state.runtime.hello_encoder, progress_rows)
     end
-    if !sent
-        ConsumerHello.wrap_and_apply_header!(state.runtime.hello_encoder, unsafe_array_view(state.runtime.hello_buf), 0)
-        ConsumerHello.streamId!(state.runtime.hello_encoder, state.config.stream_id)
-        ConsumerHello.consumerId!(state.runtime.hello_encoder, state.config.consumer_id)
-        ConsumerHello.supportsShm!(
-            state.runtime.hello_encoder,
-            state.config.supports_shm ? ShmTensorpoolControl.Bool_.TRUE : ShmTensorpoolControl.Bool_.FALSE,
-        )
-        ConsumerHello.supportsProgress!(
-            state.runtime.hello_encoder,
-            state.config.supports_progress ? ShmTensorpoolControl.Bool_.TRUE : ShmTensorpoolControl.Bool_.FALSE,
-        )
-        ConsumerHello.mode!(state.runtime.hello_encoder, state.config.mode)
-        ConsumerHello.maxRateHz!(state.runtime.hello_encoder, state.config.max_rate_hz)
-        ConsumerHello.expectedLayoutVersion!(state.runtime.hello_encoder, state.config.expected_layout_version)
-        ConsumerHello.progressIntervalUs!(state.runtime.hello_encoder, progress_interval)
-        ConsumerHello.progressBytesDelta!(state.runtime.hello_encoder, progress_bytes)
-        ConsumerHello.progressRowsDelta!(state.runtime.hello_encoder, progress_rows)
-        Aeron.offer(
-            state.runtime.pub_control,
-            view(state.runtime.hello_buf, 1:sbe_message_length(state.runtime.hello_encoder)),
-        )
-    end
+    sent || return false
     state.metrics.hello_count += 1
-    return nothing
+    return true
 end
 
 """
@@ -454,22 +432,9 @@ function emit_qos!(state::ConsumerState)
         QosConsumer.dropsLate!(state.runtime.qos_encoder, state.metrics.drops_late)
         QosConsumer.mode!(state.runtime.qos_encoder, state.config.mode)
     end
-    if !sent
-        QosConsumer.wrap_and_apply_header!(state.runtime.qos_encoder, unsafe_array_view(state.runtime.qos_buf), 0)
-        QosConsumer.streamId!(state.runtime.qos_encoder, state.config.stream_id)
-        QosConsumer.consumerId!(state.runtime.qos_encoder, state.config.consumer_id)
-        QosConsumer.epoch!(state.runtime.qos_encoder, state.mappings.mapped_epoch)
-        QosConsumer.lastSeqSeen!(state.runtime.qos_encoder, state.metrics.last_seq_seen)
-        QosConsumer.dropsGap!(state.runtime.qos_encoder, state.metrics.drops_gap)
-        QosConsumer.dropsLate!(state.runtime.qos_encoder, state.metrics.drops_late)
-        QosConsumer.mode!(state.runtime.qos_encoder, state.config.mode)
-        Aeron.offer(
-            state.runtime.pub_qos,
-            view(state.runtime.qos_buf, 1:sbe_message_length(state.runtime.qos_encoder)),
-        )
-    end
+    sent || return false
     state.metrics.qos_count += 1
-    return nothing
+    return true
 end
 
 @inline function valid_dtype(dtype::Dtype.SbeEnum)

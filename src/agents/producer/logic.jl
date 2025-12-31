@@ -205,14 +205,7 @@ function publish_frame!(
         FrameDescriptor.wrap_and_apply_header!(state.runtime.descriptor_encoder, buf, 0)
         encode_frame_descriptor!(state.runtime.descriptor_encoder, state, seq, header_index, meta_version, now_ns)
     end
-    if !sent
-        FrameDescriptor.wrap_and_apply_header!(state.runtime.descriptor_encoder, unsafe_array_view(state.runtime.descriptor_buf), 0)
-        encode_frame_descriptor!(state.runtime.descriptor_encoder, state, seq, header_index, meta_version, now_ns)
-        Aeron.offer(
-            state.runtime.pub_descriptor,
-            view(state.runtime.descriptor_buf, 1:sbe_message_length(state.runtime.descriptor_encoder)),
-        )
-    end
+    sent || return false
 
     if state.supports_progress && should_emit_progress!(state, UInt64(values_len), true)
         emit_progress_complete!(state, frame_id, header_index, UInt64(values_len))
@@ -412,21 +405,7 @@ function publish_reservation!(
             now_ns,
         )
     end
-    if !sent
-        FrameDescriptor.wrap_and_apply_header!(state.runtime.descriptor_encoder, unsafe_array_view(state.runtime.descriptor_buf), 0)
-        encode_frame_descriptor!(
-            state.runtime.descriptor_encoder,
-            state,
-            reservation.seq,
-            reservation.header_index,
-            meta_version,
-            now_ns,
-        )
-        Aeron.offer(
-            state.runtime.pub_descriptor,
-            view(state.runtime.descriptor_buf, 1:sbe_message_length(state.runtime.descriptor_encoder)),
-        )
-    end
+    sent || return false
 
     if state.supports_progress && should_emit_progress!(state, UInt64(values_len), true)
         emit_progress_complete!(state, frame_id, reservation.header_index, UInt64(values_len))
@@ -487,14 +466,7 @@ function publish_frame_from_slot!(
         FrameDescriptor.wrap_and_apply_header!(state.runtime.descriptor_encoder, buf, 0)
         encode_frame_descriptor!(state.runtime.descriptor_encoder, state, seq, header_index, meta_version, now_ns)
     end
-    if !sent
-        FrameDescriptor.wrap_and_apply_header!(state.runtime.descriptor_encoder, unsafe_array_view(state.runtime.descriptor_buf), 0)
-        encode_frame_descriptor!(state.runtime.descriptor_encoder, state, seq, header_index, meta_version, now_ns)
-        Aeron.offer(
-            state.runtime.pub_descriptor,
-            view(state.runtime.descriptor_buf, 1:sbe_message_length(state.runtime.descriptor_encoder)),
-        )
-    end
+    sent || return false
 
     if state.supports_progress && should_emit_progress!(state, UInt64(values_len), true)
         emit_progress_complete!(state, frame_id, header_index, UInt64(values_len))
@@ -522,53 +494,50 @@ function emit_progress_complete!(
         FrameProgress.payloadBytesFilled!(state.runtime.progress_encoder, bytes_filled)
         FrameProgress.state!(state.runtime.progress_encoder, FrameProgressState.COMPLETE)
     end
-    if !sent
-        FrameProgress.wrap_and_apply_header!(state.runtime.progress_encoder, unsafe_array_view(state.runtime.progress_buf), 0)
-        FrameProgress.streamId!(state.runtime.progress_encoder, state.config.stream_id)
-        FrameProgress.epoch!(state.runtime.progress_encoder, state.epoch)
-        FrameProgress.frameId!(state.runtime.progress_encoder, frame_id)
-        FrameProgress.headerIndex!(state.runtime.progress_encoder, header_index)
-        FrameProgress.payloadBytesFilled!(state.runtime.progress_encoder, bytes_filled)
-        FrameProgress.state!(state.runtime.progress_encoder, FrameProgressState.COMPLETE)
-        Aeron.offer(
-            state.runtime.pub_control,
-            view(state.runtime.progress_buf, 1:sbe_message_length(state.runtime.progress_encoder)),
-        )
-    end
+    sent || return false
     state.metrics.last_progress_ns = UInt64(Clocks.time_nanos(state.clock))
     state.metrics.last_progress_bytes = bytes_filled
-    return nothing
+    return true
 end
 
 """
 Emit a ShmPoolAnnounce for this producer.
 """
 function emit_announce!(state::ProducerState)
-    ShmPoolAnnounce.wrap_and_apply_header!(state.runtime.announce_encoder, unsafe_array_view(state.runtime.announce_buf), 0)
-    ShmPoolAnnounce.streamId!(state.runtime.announce_encoder, state.config.stream_id)
-    ShmPoolAnnounce.producerId!(state.runtime.announce_encoder, state.config.producer_id)
-    ShmPoolAnnounce.epoch!(state.runtime.announce_encoder, state.epoch)
-    ShmPoolAnnounce.layoutVersion!(state.runtime.announce_encoder, state.config.layout_version)
-    ShmPoolAnnounce.headerNslots!(state.runtime.announce_encoder, state.config.nslots)
-    ShmPoolAnnounce.headerSlotBytes!(state.runtime.announce_encoder, UInt16(HEADER_SLOT_BYTES))
-    ShmPoolAnnounce.maxDims!(state.runtime.announce_encoder, state.config.max_dims)
+    payload_count = length(state.config.payload_pools)
+    msg_len = MESSAGE_HEADER_LEN +
+        Int(ShmPoolAnnounce.sbe_block_length(ShmPoolAnnounce.Decoder)) +
+        4 +
+        sum(
+            10 + ShmPoolAnnounce.PayloadPools.regionUri_header_length + sizeof(pool.uri)
+            for pool in state.config.payload_pools
+        ) +
+        ShmPoolAnnounce.headerRegionUri_header_length +
+        sizeof(state.config.header_uri)
 
-    pools_group = ShmPoolAnnounce.payloadPools!(state.runtime.announce_encoder, length(state.config.payload_pools))
-    for pool in state.config.payload_pools
-        entry = ShmPoolAnnounce.PayloadPools.next!(pools_group)
-        ShmPoolAnnounce.PayloadPools.poolId!(entry, pool.pool_id)
-        ShmPoolAnnounce.PayloadPools.poolNslots!(entry, pool.nslots)
-        ShmPoolAnnounce.PayloadPools.strideBytes!(entry, pool.stride_bytes)
-        ShmPoolAnnounce.PayloadPools.regionUri!(entry, pool.uri)
+    sent = try_claim_sbe!(state.runtime.pub_control, state.runtime.progress_claim, msg_len) do buf
+        ShmPoolAnnounce.wrap_and_apply_header!(state.runtime.announce_encoder, buf, 0)
+        ShmPoolAnnounce.streamId!(state.runtime.announce_encoder, state.config.stream_id)
+        ShmPoolAnnounce.producerId!(state.runtime.announce_encoder, state.config.producer_id)
+        ShmPoolAnnounce.epoch!(state.runtime.announce_encoder, state.epoch)
+        ShmPoolAnnounce.layoutVersion!(state.runtime.announce_encoder, state.config.layout_version)
+        ShmPoolAnnounce.headerNslots!(state.runtime.announce_encoder, state.config.nslots)
+        ShmPoolAnnounce.headerSlotBytes!(state.runtime.announce_encoder, UInt16(HEADER_SLOT_BYTES))
+        ShmPoolAnnounce.maxDims!(state.runtime.announce_encoder, state.config.max_dims)
+
+        pools_group = ShmPoolAnnounce.payloadPools!(state.runtime.announce_encoder, payload_count)
+        for pool in state.config.payload_pools
+            entry = ShmPoolAnnounce.PayloadPools.next!(pools_group)
+            ShmPoolAnnounce.PayloadPools.poolId!(entry, pool.pool_id)
+            ShmPoolAnnounce.PayloadPools.poolNslots!(entry, pool.nslots)
+            ShmPoolAnnounce.PayloadPools.strideBytes!(entry, pool.stride_bytes)
+            ShmPoolAnnounce.PayloadPools.regionUri!(entry, pool.uri)
+        end
+        ShmPoolAnnounce.headerRegionUri!(state.runtime.announce_encoder, state.config.header_uri)
     end
-    ShmPoolAnnounce.headerRegionUri!(state.runtime.announce_encoder, state.config.header_uri)
-
-    Aeron.offer(
-        state.runtime.pub_control,
-        view(state.runtime.announce_buf, 1:sbe_message_length(state.runtime.announce_encoder)),
-    )
+    sent || return false
     state.metrics.announce_count += 1
-    return nothing
+    return true
 end
 
 """
@@ -582,16 +551,9 @@ function emit_qos!(state::ProducerState)
         QosProducer.epoch!(state.runtime.qos_encoder, state.epoch)
         QosProducer.currentSeq!(state.runtime.qos_encoder, state.seq)
     end
-    if !sent
-        QosProducer.wrap_and_apply_header!(state.runtime.qos_encoder, unsafe_array_view(state.runtime.qos_buf), 0)
-        QosProducer.streamId!(state.runtime.qos_encoder, state.config.stream_id)
-        QosProducer.producerId!(state.runtime.qos_encoder, state.config.producer_id)
-        QosProducer.epoch!(state.runtime.qos_encoder, state.epoch)
-        QosProducer.currentSeq!(state.runtime.qos_encoder, state.seq)
-        Aeron.offer(state.runtime.pub_qos, view(state.runtime.qos_buf, 1:sbe_message_length(state.runtime.qos_encoder)))
-    end
+    sent || return false
     state.metrics.qos_count += 1
-    return nothing
+    return true
 end
 
 """

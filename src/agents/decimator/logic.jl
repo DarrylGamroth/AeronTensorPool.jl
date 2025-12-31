@@ -56,21 +56,5 @@ function republish_descriptor!(
         FrameDescriptor.timestampNs!(state.descriptor_encoder, header.timestamp_ns)
         FrameDescriptor.metaVersion!(state.descriptor_encoder, header.meta_version)
     end
-
-    if sent
-        return true
-    end
-
-    FrameDescriptor.wrap_and_apply_header!(state.descriptor_encoder, unsafe_array_view(state.descriptor_buf), 0)
-    FrameDescriptor.streamId!(state.descriptor_encoder, state.config.stream_id)
-    FrameDescriptor.epoch!(state.descriptor_encoder, state.config.epoch)
-    FrameDescriptor.seq!(state.descriptor_encoder, header.frame_id)
-    FrameDescriptor.headerIndex!(state.descriptor_encoder, UInt32(header.payload_slot))
-    FrameDescriptor.timestampNs!(state.descriptor_encoder, header.timestamp_ns)
-    FrameDescriptor.metaVersion!(state.descriptor_encoder, header.meta_version)
-    Aeron.offer(
-        state.pub_descriptor,
-        view(state.descriptor_buf, 1:sbe_message_length(state.descriptor_encoder)),
-    )
-    return true
+    return sent
 end

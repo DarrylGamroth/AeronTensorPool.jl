@@ -212,26 +212,7 @@ function emit_consumer_config!(
         ConsumerConfigMsg.payloadFallbackUri!(state.runtime.config_encoder, payload_fallback_uri)
     end
 
-    if sent
-        state.tracking.config_count += 1
-        return true
-    end
-
-    ConsumerConfigMsg.wrap_and_apply_header!(state.runtime.config_encoder, unsafe_array_view(state.runtime.config_buf), 0)
-    ConsumerConfigMsg.streamId!(state.runtime.config_encoder, state.config.stream_id)
-    ConsumerConfigMsg.consumerId!(state.runtime.config_encoder, consumer_id)
-    ConsumerConfigMsg.useShm!(
-        state.runtime.config_encoder,
-        use_shm ? ShmTensorpoolControl.Bool_.TRUE : ShmTensorpoolControl.Bool_.FALSE,
-    )
-    ConsumerConfigMsg.mode!(state.runtime.config_encoder, mode)
-    ConsumerConfigMsg.decimation!(state.runtime.config_encoder, decimation)
-    ConsumerConfigMsg.payloadFallbackUri!(state.runtime.config_encoder, payload_fallback_uri)
-
-    Aeron.offer(
-        state.runtime.pub_control,
-        view(state.runtime.config_buf, 1:sbe_message_length(state.runtime.config_encoder)),
-    )
+    sent || return false
     state.tracking.config_count += 1
     return true
 end

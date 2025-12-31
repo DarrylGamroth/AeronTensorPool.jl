@@ -23,4 +23,5 @@ mutable struct BridgeState
     descriptor_buf::Vector{UInt8}
     descriptor_encoder::FrameDescriptor.Encoder{UnsafeArrays.UnsafeArray{UInt8, 1}}
     descriptor_claim::Aeron.BufferClaim
+    payload_claim::Aeron.BufferClaim
 end

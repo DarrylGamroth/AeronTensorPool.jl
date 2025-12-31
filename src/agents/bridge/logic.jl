@@ -19,6 +19,7 @@ function init_bridge(consumer_state::ConsumerState, config::BridgeConfig)
         Vector{UInt8}(undef, 512),
         FrameDescriptor.Encoder(UnsafeArrays.UnsafeArray{UInt8, 1}),
         Aeron.BufferClaim(),
+        Aeron.BufferClaim(),
     )
 end
 
@@ -26,7 +27,8 @@ end
 Republish a frame payload and descriptor on the bridge channel.
 """
 function bridge_frame!(state::BridgeState, header::TensorSlotHeader, payload::AbstractVector{UInt8})
-    Aeron.offer(state.pub_payload, payload)
+    sent_payload = try_claim_payload!(state.pub_payload, state.payload_claim, payload)
+    sent_payload || return false
 
     sent = try_claim_sbe!(state.pub_descriptor, state.descriptor_claim, FRAME_DESCRIPTOR_LEN) do buf
         FrameDescriptor.wrap_and_apply_header!(state.descriptor_encoder, buf, 0)
@@ -37,21 +39,5 @@ function bridge_frame!(state::BridgeState, header::TensorSlotHeader, payload::Ab
         FrameDescriptor.timestampNs!(state.descriptor_encoder, header.timestamp_ns)
         FrameDescriptor.metaVersion!(state.descriptor_encoder, header.meta_version)
     end
-
-    if sent
-        return true
-    end
-
-    FrameDescriptor.wrap_and_apply_header!(state.descriptor_encoder, unsafe_array_view(state.descriptor_buf), 0)
-    FrameDescriptor.streamId!(state.descriptor_encoder, state.config.stream_id)
-    FrameDescriptor.epoch!(state.descriptor_encoder, state.config.bridge_epoch)
-    FrameDescriptor.seq!(state.descriptor_encoder, header.frame_id)
-    FrameDescriptor.headerIndex!(state.descriptor_encoder, UInt32(header.payload_slot))
-    FrameDescriptor.timestampNs!(state.descriptor_encoder, header.timestamp_ns)
-    FrameDescriptor.metaVersion!(state.descriptor_encoder, header.meta_version)
-    Aeron.offer(
-        state.pub_descriptor,
-        view(state.descriptor_buf, 1:sbe_message_length(state.descriptor_encoder)),
-    )
-    return true
+    return sent
 end
