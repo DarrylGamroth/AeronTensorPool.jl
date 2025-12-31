@@ -17,6 +17,7 @@
             UInt8(MAX_DIMS),
             Mode.STREAM,
             UInt16(1),
+            UInt32(256),
             false,
             true,
             false,

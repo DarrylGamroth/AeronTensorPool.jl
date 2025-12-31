@@ -10,6 +10,7 @@ mutable struct ConsumerConfig
     max_dims::UInt8
     mode::Mode.SbeEnum
     decimation::UInt16
+    max_outstanding_seq_gap::UInt32
     use_shm::Bool
     supports_shm::Bool
     supports_progress::Bool
@@ -355,7 +356,14 @@ end
 function maybe_track_gap!(state::ConsumerState, seq::UInt64)
     if state.seen_any
         if seq > state.last_seq_seen + 1
-            state.drops_gap += seq - state.last_seq_seen - 1
+            gap = seq - state.last_seq_seen - 1
+            state.drops_gap += gap
+            if state.config.max_outstanding_seq_gap > 0 &&
+               gap > state.config.max_outstanding_seq_gap
+                state.last_seq_seen = seq
+                state.seen_any = false
+                return nothing
+            end
         end
     else
         state.seen_any = true
