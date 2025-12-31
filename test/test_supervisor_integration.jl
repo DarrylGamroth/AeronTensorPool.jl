@@ -36,10 +36,16 @@
             pools = AeronTensorPool.ShmPoolAnnounce.payloadPools!(announce_enc, 1)
             pool = AeronTensorPool.ShmPoolAnnounce.PayloadPools.next!(pools)
             AeronTensorPool.ShmPoolAnnounce.PayloadPools.poolId!(pool, UInt16(1))
-            AeronTensorPool.ShmPoolAnnounce.PayloadPools.regionUri!(pool, "shm:file?path=/dev/shm/tp_pool")
+            AeronTensorPool.ShmPoolAnnounce.PayloadPools.regionUri!(
+                pool,
+                "shm:file?path=/dev/shm/tensorpool/test-producer/epoch-3/payload-1.pool",
+            )
             AeronTensorPool.ShmPoolAnnounce.PayloadPools.poolNslots!(pool, UInt32(8))
             AeronTensorPool.ShmPoolAnnounce.PayloadPools.strideBytes!(pool, UInt32(4096))
-            AeronTensorPool.ShmPoolAnnounce.headerRegionUri!(announce_enc, "shm:file?path=/dev/shm/tp_header")
+            AeronTensorPool.ShmPoolAnnounce.headerRegionUri!(
+                announce_enc,
+                "shm:file?path=/dev/shm/tensorpool/test-producer/epoch-3/header.ring",
+            )
             Aeron.offer(pub_control, view(announce_buf, 1:sbe_message_length(announce_enc)))
 
         hello_buf = Vector{UInt8}(undef, 256)
