@@ -41,10 +41,3 @@ Set Aeron directory if non-empty.
     isempty(aeron_dir) || Aeron.aeron_dir!(ctx, aeron_dir)
     return nothing
 end
-
-"""
-Create an UnsafeArray view over a Vector{UInt8} buffer.
-"""
-@inline function unsafe_array_view(buffer::Vector{UInt8})
-    return UnsafeArrays.UnsafeArray(pointer(buffer), (length(buffer),))
-end
