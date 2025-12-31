@@ -59,7 +59,7 @@ src/
 ## Progress Checklist
 
 - [x] Phase 1: Move files into new folders without changing logic.
-- [ ] Phase 2: Split agents into `state/handlers/logic` files.
+- [x] Phase 2: Split agents into `state/handlers/logic` files.
 - [ ] Phase 3: Introduce `Runtime`, `Mappings`, `Metrics` sub-structs for agent state.
 - [ ] Phase 4: Update exports and include order in `src/AeronTensorPool.jl`.
 - [ ] Phase 5: Update tests/benchmarks to new module paths (no behavior changes).

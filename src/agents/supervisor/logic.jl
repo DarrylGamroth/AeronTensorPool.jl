@@ -1,70 +1,4 @@
 """
-Supervisor tracking info for a producer.
-"""
-struct ProducerInfo
-    stream_id::UInt32
-    epoch::UInt64
-    last_announce_ns::UInt64
-    last_qos_ns::UInt64
-    current_seq::UInt64
-end
-
-"""
-Supervisor tracking info for a consumer.
-"""
-struct ConsumerInfo
-    stream_id::UInt32
-    consumer_id::UInt32
-    epoch::UInt64
-    mode::Mode.SbeEnum
-    last_hello_ns::UInt64
-    last_qos_ns::UInt64
-    last_seq_seen::UInt64
-    drops_gap::UInt64
-    drops_late::UInt64
-end
-
-"""
-Static configuration for the supervisor role.
-"""
-mutable struct SupervisorConfig
-    aeron_dir::String
-    aeron_uri::String
-    control_stream_id::Int32
-    qos_stream_id::Int32
-    stream_id::UInt32
-    liveness_timeout_ns::UInt64
-    liveness_check_interval_ns::UInt64
-end
-
-struct SupervisorLivenessHandler end
-
-"""
-Mutable supervisor runtime state including liveness tracking.
-"""
-mutable struct SupervisorState
-    config::SupervisorConfig
-    clock::Clocks.AbstractClock
-    ctx::Aeron.Context
-    client::Aeron.Client
-    pub_control::Aeron.Publication
-    sub_control::Aeron.Subscription
-    sub_qos::Aeron.Subscription
-    producers::Dict{UInt32, ProducerInfo}
-    consumers::Dict{UInt32, ConsumerInfo}
-    config_count::UInt64
-    liveness_count::UInt64
-    timer_set::TimerSet{Tuple{PolledTimer}, Tuple{SupervisorLivenessHandler}}
-    config_buf::Vector{UInt8}
-    config_encoder::ConsumerConfigMsg.Encoder{UnsafeArrays.UnsafeArray{UInt8, 1}}
-    config_claim::Aeron.BufferClaim
-    announce_decoder::ShmPoolAnnounce.Decoder{UnsafeArrays.UnsafeArray{UInt8, 1}}
-    hello_decoder::ConsumerHello.Decoder{UnsafeArrays.UnsafeArray{UInt8, 1}}
-    qos_producer_decoder::QosProducer.Decoder{UnsafeArrays.UnsafeArray{UInt8, 1}}
-    qos_consumer_decoder::QosConsumer.Decoder{UnsafeArrays.UnsafeArray{UInt8, 1}}
-end
-
-"""
 Initialize a supervisor: create Aeron resources and timers.
 """
 function init_supervisor(config::SupervisorConfig)
@@ -248,14 +182,6 @@ function check_liveness!(state::SupervisorState, now_ns::UInt64)
     return true
 end
 
-@inline function (handler::SupervisorLivenessHandler)(state::SupervisorState, now_ns::UInt64)
-    return check_liveness!(state, now_ns) ? 1 : 0
-end
-
-function poll_timers!(state::SupervisorState, now_ns::UInt64)
-    return poll_timers!(state.timer_set, state, now_ns)
-end
-
 """
 Emit a ConsumerConfig message for a specific consumer.
 """
@@ -308,82 +234,4 @@ function emit_consumer_config!(
     )
     state.config_count += 1
     return true
-end
-
-"""
-Create a FragmentAssembler for control stream messages.
-"""
-function make_control_assembler(state::SupervisorState)
-    handler = Aeron.FragmentHandler(state) do st, buffer, _
-        header = MessageHeader.Decoder(buffer, 0)
-        template_id = MessageHeader.templateId(header)
-        if template_id == TEMPLATE_SHM_POOL_ANNOUNCE
-            ShmPoolAnnounce.wrap!(st.announce_decoder, buffer, 0; header = header)
-            handle_shm_pool_announce!(st, st.announce_decoder)
-        elseif template_id == TEMPLATE_CONSUMER_HELLO
-            ConsumerHello.wrap!(st.hello_decoder, buffer, 0; header = header)
-            handle_consumer_hello!(st, st.hello_decoder)
-        end
-        nothing
-    end
-    return Aeron.FragmentAssembler(handler)
-end
-
-"""
-Create a FragmentAssembler for QoS stream messages.
-"""
-function make_qos_assembler(state::SupervisorState)
-    handler = Aeron.FragmentHandler(state) do st, buffer, _
-        header = MessageHeader.Decoder(buffer, 0)
-        template_id = MessageHeader.templateId(header)
-        if template_id == TEMPLATE_QOS_PRODUCER
-            QosProducer.wrap!(st.qos_producer_decoder, buffer, 0; header = header)
-            handle_qos_producer!(st, st.qos_producer_decoder)
-        elseif template_id == TEMPLATE_QOS_CONSUMER
-            QosConsumer.wrap!(st.qos_consumer_decoder, buffer, 0; header = header)
-            handle_qos_consumer!(st, st.qos_consumer_decoder)
-        end
-        nothing
-    end
-    return Aeron.FragmentAssembler(handler)
-end
-
-"""
-Poll the supervisor control subscription.
-"""
-@inline function poll_control!(
-    state::SupervisorState,
-    assembler::Aeron.FragmentAssembler,
-    fragment_limit::Int32 = DEFAULT_FRAGMENT_LIMIT,
-)
-    return Aeron.poll(state.sub_control, assembler, fragment_limit)
-end
-
-"""
-Poll the supervisor QoS subscription.
-"""
-@inline function poll_qos!(
-    state::SupervisorState,
-    assembler::Aeron.FragmentAssembler,
-    fragment_limit::Int32 = DEFAULT_FRAGMENT_LIMIT,
-)
-    return Aeron.poll(state.sub_qos, assembler, fragment_limit)
-end
-
-"""
-Supervisor duty cycle: poll control/QoS and check liveness.
-"""
-function supervisor_do_work!(
-    state::SupervisorState,
-    control_assembler::Aeron.FragmentAssembler,
-    qos_assembler::Aeron.FragmentAssembler;
-    fragment_limit::Int32 = DEFAULT_FRAGMENT_LIMIT,
-)
-    fetch!(state.clock)
-    now_ns = UInt64(Clocks.time_nanos(state.clock))
-    work_count = 0
-    work_count += poll_control!(state, control_assembler, fragment_limit)
-    work_count += poll_qos!(state, qos_assembler, fragment_limit)
-    work_count += poll_timers!(state, now_ns)
-    return work_count
 end
