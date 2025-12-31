@@ -17,6 +17,9 @@ Goals
 - Confirm constants and layout assumptions match the spec.
 - Define the minimal config surface and shared constants.
 
+Status
+- Complete (constants, configs, timers, and dependency decisions in place).
+
 Deliverables
 - Shared constants module (superblock size, slot bytes, magic, layout_version, MAX_DIMS).
 - Config structs for Producer/Consumer/Supervisor (URIs, stream IDs, nslots, stride classes, cadences).
@@ -48,6 +51,9 @@ Validation
 Spec refs
 - 7.1, 15.1, 15.22
 
+Status
+- Complete (helpers + unit tests in place).
+
 ## Phase 2 - Producer Core Path (SHM + Descriptor)
 
 Goals
@@ -64,6 +70,9 @@ Validation
 
 Spec refs
 - 8.1-8.2, 10.2.1, 15.19
+
+Status
+- Complete (producer init + publish path + announce/QoS cadence).
 
 ## Phase 3 - Consumer Core Path (Mapping + Seqlock Read)
 
@@ -84,6 +93,9 @@ Validation
 Spec refs
 - 10.2.1, 11, 15.19, 15.21
 
+Status
+- Complete (mapping, seqlock read, mode handling, drops accounting).
+
 ## Phase 4 - Control Plane and QoS
 
 Goals
@@ -100,6 +112,9 @@ Validation
 
 Spec refs
 - 10.1, 10.4, 15.14, 15.18
+
+Status
+- Complete (ConsumerHello, QosProducer/QosConsumer, ConsumerConfig handling).
 
 ## Phase 5 - Supervisor Agent
 
@@ -118,14 +133,17 @@ Validation
 Spec refs
 - 10.5, 15.14, 15.16
 
+Status
+- In progress (scaffold + liveness polling + ConsumerConfig emission; needs integration tests).
+
 ## Phase 6 - Optional Bridge and Decimator
 
 Goals
 - Provide fallback and downsampled streams.
 
 Deliverables
-- Bridge: re-read SHM, republish payload + descriptor.
-- Decimator: apply ratio, republish subset.
+- Bridge: scaffold only; no on-wire format for payload/descriptor defined yet.
+- Decimator: scaffold only; republish subset once a format is defined.
 
 Validation
 - Preserve seq/frame_id identity.
@@ -133,6 +151,9 @@ Validation
 
 Spec refs
 - 12, 15.20
+
+Status
+- Scaffolded (waiting on bridge/decimator message format).
 
 ## Phase 7 - Testing and Tooling
 
@@ -148,6 +169,9 @@ Validation
 
 Spec refs
 - 15.13
+
+Status
+- In progress (unit + Aeron embedded driver integration tests in place).
 
 ## Phase 8 - Perf and Ops Hardening
 
@@ -165,3 +189,6 @@ Validation
 
 Spec refs
 - 15.7a, 15.14, 15.17
+
+Status
+- Not started.
