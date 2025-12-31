@@ -75,3 +75,14 @@ publish_reservation!(
     meta_version,
 )
 ```
+
+If you want to track multiple in-flight reservations:
+
+```julia
+queue = InflightQueue(64)
+reservation = reserve_slot!(state, pool_id)
+inflight_push!(queue, reservation)
+
+done = inflight_pop!(queue)
+publish_reservation!(state, done, values_len, shape, strides, Dtype.UINT8, meta_version)
+```

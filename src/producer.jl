@@ -285,6 +285,47 @@ struct SlotReservation
     stride_bytes::Int
 end
 
+mutable struct InflightQueue
+    items::Vector{SlotReservation}
+    head::Int
+    tail::Int
+    count::Int
+end
+
+function InflightQueue(capacity::Integer)
+    capacity > 0 || throw(ArgumentError("capacity must be > 0"))
+    return InflightQueue(Vector{SlotReservation}(undef, capacity), 1, 1, 0)
+end
+
+@inline function inflight_empty(q::InflightQueue)
+    return q.count == 0
+end
+
+@inline function inflight_full(q::InflightQueue)
+    return q.count == length(q.items)
+end
+
+function inflight_push!(q::InflightQueue, reservation::SlotReservation)
+    inflight_full(q) && return false
+    q.items[q.tail] = reservation
+    q.tail = q.tail == length(q.items) ? 1 : q.tail + 1
+    q.count += 1
+    return true
+end
+
+function inflight_peek(q::InflightQueue)
+    inflight_empty(q) && return nothing
+    return q.items[q.head]
+end
+
+function inflight_pop!(q::InflightQueue)
+    inflight_empty(q) && return nothing
+    item = q.items[q.head]
+    q.head = q.head == length(q.items) ? 1 : q.head + 1
+    q.count -= 1
+    return item
+end
+
 function reserve_slot!(state::ProducerState, pool_id::UInt16)
     pool = payload_pool_config(state, pool_id)
     pool === nothing && error("Unknown pool_id: $pool_id")
