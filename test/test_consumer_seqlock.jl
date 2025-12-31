@@ -81,6 +81,7 @@
                 UInt64(1_000_000_000),
             )
             state = init_consumer(consumer_cfg)
+            try
 
             announce_buf = Vector{UInt8}(undef, 1024)
             announce_enc = AeronTensorPool.ShmPoolAnnounce.Encoder(Vector{UInt8})
@@ -92,13 +93,13 @@
             AeronTensorPool.ShmPoolAnnounce.headerNslots!(announce_enc, nslots)
             AeronTensorPool.ShmPoolAnnounce.headerSlotBytes!(announce_enc, UInt16(HEADER_SLOT_BYTES))
             AeronTensorPool.ShmPoolAnnounce.maxDims!(announce_enc, UInt8(MAX_DIMS))
-            AeronTensorPool.ShmPoolAnnounce.headerRegionUri!(announce_enc, header_uri)
             pools = AeronTensorPool.ShmPoolAnnounce.payloadPools!(announce_enc, 1)
             pool = AeronTensorPool.ShmPoolAnnounce.PayloadPools.next!(pools)
             AeronTensorPool.ShmPoolAnnounce.PayloadPools.poolId!(pool, UInt16(1))
             AeronTensorPool.ShmPoolAnnounce.PayloadPools.regionUri!(pool, pool_uri)
             AeronTensorPool.ShmPoolAnnounce.PayloadPools.poolNslots!(pool, nslots)
             AeronTensorPool.ShmPoolAnnounce.PayloadPools.strideBytes!(pool, stride)
+            AeronTensorPool.ShmPoolAnnounce.headerRegionUri!(announce_enc, header_uri)
             header = MessageHeader.Decoder(announce_buf, 0)
             announce_dec = AeronTensorPool.ShmPoolAnnounce.Decoder(Vector{UInt8})
             AeronTensorPool.ShmPoolAnnounce.wrap!(announce_dec, announce_buf, 0; header = header)
@@ -181,6 +182,9 @@
             )
             atomic_store_u64!(commit_ptr, UInt64(1) << 1)
             @test try_read_frame!(state, desc_dec) === nothing
+            finally
+                close_consumer_state!(state)
+            end
         end
     end
 end

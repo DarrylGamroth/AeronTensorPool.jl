@@ -75,6 +75,7 @@ liveness_check_interval_ns = 1000000000
             producer = init_producer(system.producer)
             consumer = init_consumer(system.consumer)
             supervisor = init_supervisor(system.supervisor)
+            try
 
             prod_ctrl = make_control_assembler(producer)
             cons_ctrl = make_control_assembler(consumer)
@@ -121,6 +122,11 @@ liveness_check_interval_ns = 1000000000
             end
 
             @test ok
+            finally
+                close_producer_state!(producer)
+                close_consumer_state!(consumer)
+                close_supervisor_state!(supervisor)
+            end
         end
     end
 end

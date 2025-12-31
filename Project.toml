@@ -14,6 +14,7 @@ SBE = "b5db94cf-04c1-4db7-9b05-47f582871ea8"
 StringViews = "354b36f9-a18e-4713-926e-db85100087ba"
 TOML = "fa267f1f-6049-4f14-aa54-33bafae1ed76"
 UnsafeArrays = "c4a57d5a-5b31-53a6-b365-19f8c011fbd6"
+UUIDs = "cf7118a7-6976-5b1a-9a39-7adc72f591a4"
 
 [compat]
 Aeron = "0.18"

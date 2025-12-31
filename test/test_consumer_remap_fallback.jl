@@ -44,6 +44,9 @@
                 UInt64(1_000_000_000),
             )
             state = init_consumer(consumer_cfg)
+            fallback_state = nothing
+            maxdims_state = nothing
+            try
 
             function build_announce(epoch::UInt64, pool_region_uri::String)
                 buf = Vector{UInt8}(undef, 2048)
@@ -56,14 +59,13 @@
                 AeronTensorPool.ShmPoolAnnounce.headerNslots!(enc, nslots)
                 AeronTensorPool.ShmPoolAnnounce.headerSlotBytes!(enc, UInt16(HEADER_SLOT_BYTES))
                 AeronTensorPool.ShmPoolAnnounce.maxDims!(enc, UInt8(MAX_DIMS))
-                AeronTensorPool.ShmPoolAnnounce.headerRegionUri!(enc, header_uri)
-
                 pools = AeronTensorPool.ShmPoolAnnounce.payloadPools!(enc, 1)
                 pool = AeronTensorPool.ShmPoolAnnounce.PayloadPools.next!(pools)
                 AeronTensorPool.ShmPoolAnnounce.PayloadPools.poolId!(pool, UInt16(1))
                 AeronTensorPool.ShmPoolAnnounce.PayloadPools.regionUri!(pool, pool_region_uri)
                 AeronTensorPool.ShmPoolAnnounce.PayloadPools.poolNslots!(pool, nslots)
                 AeronTensorPool.ShmPoolAnnounce.PayloadPools.strideBytes!(pool, stride)
+                AeronTensorPool.ShmPoolAnnounce.headerRegionUri!(enc, header_uri)
 
                 header = MessageHeader.Decoder(buf, 0)
                 dec = AeronTensorPool.ShmPoolAnnounce.Decoder(Vector{UInt8})
@@ -222,6 +224,15 @@
             @test handle_shm_pool_announce!(maxdims_state, announce_dec_good)
             @test maxdims_state.config.use_shm == false
             @test maxdims_state.header_mmap === nothing
+            finally
+                if maxdims_state !== nothing
+                    close_consumer_state!(maxdims_state)
+                end
+                if fallback_state !== nothing
+                    close_consumer_state!(fallback_state)
+                end
+                close_consumer_state!(state)
+            end
         end
     end
 end

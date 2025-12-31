@@ -1,6 +1,4 @@
 @testset "Supervisor integration handlers" begin
-    using UnsafeArrays
-
     with_embedded_driver() do driver
         control_stream = Int32(12101)
         qos_stream = Int32(12102)
@@ -22,25 +20,27 @@
 
         pub_control = Aeron.add_publication(supervisor_state.client, uri, control_stream)
         pub_qos = Aeron.add_publication(supervisor_state.client, uri, qos_stream)
+        sub_cfg = nothing
 
-        announce_buf = Vector{UInt8}(undef, 1024)
-        announce_enc = AeronTensorPool.ShmPoolAnnounce.Encoder(Vector{UInt8})
-        AeronTensorPool.ShmPoolAnnounce.wrap_and_apply_header!(announce_enc, announce_buf, 0)
-        AeronTensorPool.ShmPoolAnnounce.streamId!(announce_enc, stream_id)
-        AeronTensorPool.ShmPoolAnnounce.producerId!(announce_enc, UInt32(11))
-        AeronTensorPool.ShmPoolAnnounce.epoch!(announce_enc, UInt64(3))
-        AeronTensorPool.ShmPoolAnnounce.layoutVersion!(announce_enc, UInt32(1))
-        AeronTensorPool.ShmPoolAnnounce.headerNslots!(announce_enc, UInt32(8))
-        AeronTensorPool.ShmPoolAnnounce.headerSlotBytes!(announce_enc, UInt16(HEADER_SLOT_BYTES))
-        AeronTensorPool.ShmPoolAnnounce.maxDims!(announce_enc, UInt8(MAX_DIMS))
-        pools = AeronTensorPool.ShmPoolAnnounce.payloadPools!(announce_enc, 1)
-        pool = AeronTensorPool.ShmPoolAnnounce.PayloadPools.next!(pools)
-        AeronTensorPool.ShmPoolAnnounce.PayloadPools.poolId!(pool, UInt16(1))
-        AeronTensorPool.ShmPoolAnnounce.PayloadPools.regionUri!(pool, "shm:file?path=/dev/shm/tp_pool")
-        AeronTensorPool.ShmPoolAnnounce.PayloadPools.poolNslots!(pool, UInt32(8))
-        AeronTensorPool.ShmPoolAnnounce.PayloadPools.strideBytes!(pool, UInt32(4096))
-        AeronTensorPool.ShmPoolAnnounce.headerRegionUri!(announce_enc, "shm:file?path=/dev/shm/tp_header")
-        Aeron.offer(pub_control, view(announce_buf, 1:sbe_message_length(announce_enc)))
+        try
+            announce_buf = Vector{UInt8}(undef, 1024)
+            announce_enc = AeronTensorPool.ShmPoolAnnounce.Encoder(Vector{UInt8})
+            AeronTensorPool.ShmPoolAnnounce.wrap_and_apply_header!(announce_enc, announce_buf, 0)
+            AeronTensorPool.ShmPoolAnnounce.streamId!(announce_enc, stream_id)
+            AeronTensorPool.ShmPoolAnnounce.producerId!(announce_enc, UInt32(11))
+            AeronTensorPool.ShmPoolAnnounce.epoch!(announce_enc, UInt64(3))
+            AeronTensorPool.ShmPoolAnnounce.layoutVersion!(announce_enc, UInt32(1))
+            AeronTensorPool.ShmPoolAnnounce.headerNslots!(announce_enc, UInt32(8))
+            AeronTensorPool.ShmPoolAnnounce.headerSlotBytes!(announce_enc, UInt16(HEADER_SLOT_BYTES))
+            AeronTensorPool.ShmPoolAnnounce.maxDims!(announce_enc, UInt8(MAX_DIMS))
+            pools = AeronTensorPool.ShmPoolAnnounce.payloadPools!(announce_enc, 1)
+            pool = AeronTensorPool.ShmPoolAnnounce.PayloadPools.next!(pools)
+            AeronTensorPool.ShmPoolAnnounce.PayloadPools.poolId!(pool, UInt16(1))
+            AeronTensorPool.ShmPoolAnnounce.PayloadPools.regionUri!(pool, "shm:file?path=/dev/shm/tp_pool")
+            AeronTensorPool.ShmPoolAnnounce.PayloadPools.poolNslots!(pool, UInt32(8))
+            AeronTensorPool.ShmPoolAnnounce.PayloadPools.strideBytes!(pool, UInt32(4096))
+            AeronTensorPool.ShmPoolAnnounce.headerRegionUri!(announce_enc, "shm:file?path=/dev/shm/tp_header")
+            Aeron.offer(pub_control, view(announce_buf, 1:sbe_message_length(announce_enc)))
 
         hello_buf = Vector{UInt8}(undef, 256)
         hello_enc = ConsumerHello.Encoder(Vector{UInt8})
@@ -96,11 +96,16 @@
         @test ok_step
 
         got_cfg = Ref(false)
-        cfg_decoder = ConsumerConfigMsg.Decoder(UnsafeArrays.UnsafeArray{UInt8, 1})
-        cfg_handler = Aeron.FragmentHandler(cfg_decoder) do dec, buffer, _
-            header = MessageHeader.Decoder(buffer, 0)
+        cfg_decoder = ConsumerConfigMsg.Decoder(Vector{UInt8})
+        cfg_scratch = Vector{UInt8}(undef, 256)
+        cfg_handler = Aeron.FragmentHandler((cfg_decoder, cfg_scratch)) do st, buffer, _
+            dec, scratch = st
+            msg_len = length(buffer)
+            msg_len <= length(scratch) || return nothing
+            copyto!(scratch, 1, buffer, 1, msg_len)
+            header = MessageHeader.Decoder(scratch, 0)
             if MessageHeader.templateId(header) == AeronTensorPool.TEMPLATE_CONSUMER_CONFIG
-                ConsumerConfigMsg.wrap!(dec, buffer, 0; header = header)
+                ConsumerConfigMsg.wrap!(dec, scratch, 0; header = header)
                 got_cfg[] = (ConsumerConfigMsg.consumerId(dec) == UInt32(21))
             end
             nothing
@@ -115,5 +120,19 @@
         end
         @test ok_cfg
         @test got_cfg[]
+        finally
+            if sub_cfg !== nothing
+                try
+                    close(sub_cfg)
+                catch
+                end
+            end
+            try
+                close(pub_control)
+                close(pub_qos)
+            catch
+            end
+            close_supervisor_state!(supervisor_state)
+        end
     end
 end

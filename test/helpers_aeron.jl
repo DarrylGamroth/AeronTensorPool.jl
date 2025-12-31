@@ -1,6 +1,12 @@
 using Aeron
+using UnsafeArrays
 
 const TEST_TIMEOUT_SEC = get(ENV, "AERON_TEST_TIMEOUT_SEC", "5.0") |> x -> parse(Float64, x)
+
+import Base: show
+function show(io::IO, a::UnsafeArrays.UnsafeArray{T, N}) where {T, N}
+    print(io, "UnsafeArray{$(T),$(N)}(pointer=", pointer(a), ", size=", size(a), ")")
+end
 
 function wait_for(predicate::Function; timeout::Float64=TEST_TIMEOUT_SEC, sleep_s::Float64=0.0)
     start_time = time()
@@ -30,4 +36,44 @@ function with_client(f::Function; driver)
             f(client)
         end
     end
+end
+
+function close_consumer_state!(state::ConsumerState)
+    try
+        close(state.pub_control)
+        close(state.pub_qos)
+        close(state.sub_descriptor)
+        close(state.sub_control)
+        close(state.sub_qos)
+        close(state.client)
+        close(state.ctx)
+    catch
+    end
+    return nothing
+end
+
+function close_producer_state!(state::ProducerState)
+    try
+        close(state.pub_descriptor)
+        close(state.pub_control)
+        close(state.pub_qos)
+        close(state.pub_metadata)
+        close(state.sub_control)
+        close(state.client)
+        close(state.ctx)
+    catch
+    end
+    return nothing
+end
+
+function close_supervisor_state!(state::SupervisorState)
+    try
+        close(state.pub_control)
+        close(state.sub_control)
+        close(state.sub_qos)
+        close(state.client)
+        close(state.ctx)
+    catch
+    end
+    return nothing
 end

@@ -40,6 +40,7 @@ using UnsafeArrays
 
         pub_control = Aeron.add_publication(consumer_state.client, uri, control_stream)
         pub_descriptor = Aeron.add_publication(consumer_state.client, uri, descriptor_stream)
+        try
 
         claim = Aeron.BufferClaim()
         cfg_len = AeronTensorPool.MESSAGE_HEADER_LEN +
@@ -79,5 +80,13 @@ using UnsafeArrays
             Aeron.poll(consumer_state.sub_descriptor, desc_asm, AeronTensorPool.DEFAULT_FRAGMENT_LIMIT) > 0
         end
         @test ok_desc
+        finally
+            try
+                close(pub_control)
+                close(pub_descriptor)
+            catch
+            end
+            close_consumer_state!(consumer_state)
+        end
     end
 end

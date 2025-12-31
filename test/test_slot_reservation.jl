@@ -24,11 +24,15 @@
         )
 
         state = init_producer(cfg)
-        res = reserve_slot!(state, UInt16(1))
-        @test res.seq == UInt64(0)
-        @test res.header_index == UInt32(0)
-        @test res.payload_slot == UInt32(0)
-        @test res.stride_bytes == 64
-        @test state.seq == UInt64(1)
+        try
+            res = reserve_slot!(state, UInt16(1))
+            @test res.seq == UInt64(0)
+            @test res.header_index == UInt32(0)
+            @test res.payload_slot == UInt32(0)
+            @test res.stride_bytes == 64
+            @test state.seq == UInt64(1)
+        finally
+            close_producer_state!(state)
+        end
     end
 end

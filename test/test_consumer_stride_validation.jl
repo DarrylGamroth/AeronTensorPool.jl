@@ -28,45 +28,48 @@
             UInt64(1_000_000_000),
         )
         state = init_consumer(consumer_cfg)
+        try
+            dims = (Int32(2), Int32(2), Int32(0), Int32(0), Int32(0), Int32(0), Int32(0), Int32(0))
+            ok_strides = (Int32(0), Int32(0), Int32(0), Int32(0), Int32(0), Int32(0), Int32(0), Int32(0))
+            bad_strides = (Int32(4), Int32(2), Int32(0), Int32(0), Int32(0), Int32(0), Int32(0), Int32(0))
 
-        dims = (Int32(2), Int32(2), Int32(0), Int32(0), Int32(0), Int32(0), Int32(0), Int32(0))
-        ok_strides = (Int32(0), Int32(0), Int32(0), Int32(0), Int32(0), Int32(0), Int32(0), Int32(0))
-        bad_strides = (Int32(4), Int32(2), Int32(0), Int32(0), Int32(0), Int32(0), Int32(0), Int32(0))
+            header_ok = TensorSlotHeader(
+                UInt64(0),
+                UInt64(1),
+                UInt64(0),
+                UInt32(1),
+                UInt32(16),
+                UInt32(0),
+                UInt32(0),
+                UInt16(1),
+                Dtype.FLOAT32,
+                MajorOrder.ROW,
+                UInt8(2),
+                UInt8(0),
+                dims,
+                ok_strides,
+            )
+            header_bad = TensorSlotHeader(
+                UInt64(0),
+                UInt64(1),
+                UInt64(0),
+                UInt32(1),
+                UInt32(16),
+                UInt32(0),
+                UInt32(0),
+                UInt16(1),
+                Dtype.FLOAT32,
+                MajorOrder.ROW,
+                UInt8(2),
+                UInt8(0),
+                dims,
+                bad_strides,
+            )
 
-        header_ok = TensorSlotHeader(
-            UInt64(0),
-            UInt64(1),
-            UInt64(0),
-            UInt32(1),
-            UInt32(16),
-            UInt32(0),
-            UInt32(0),
-            UInt16(1),
-            Dtype.FLOAT32,
-            MajorOrder.ROW,
-            UInt8(2),
-            UInt8(0),
-            dims,
-            ok_strides,
-        )
-        header_bad = TensorSlotHeader(
-            UInt64(0),
-            UInt64(1),
-            UInt64(0),
-            UInt32(1),
-            UInt32(16),
-            UInt32(0),
-            UInt32(0),
-            UInt16(1),
-            Dtype.FLOAT32,
-            MajorOrder.ROW,
-            UInt8(2),
-            UInt8(0),
-            dims,
-            bad_strides,
-        )
-
-        @test AeronTensorPool.validate_strides!(state, header_ok, Int64(4))
-        @test !AeronTensorPool.validate_strides!(state, header_bad, Int64(4))
+            @test AeronTensorPool.validate_strides!(state, header_ok, Int64(4))
+            @test !AeronTensorPool.validate_strides!(state, header_bad, Int64(4))
+        finally
+            close_consumer_state!(state)
+        end
     end
 end
