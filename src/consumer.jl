@@ -170,7 +170,11 @@ function map_from_announce!(state::ConsumerState, msg::ShmPoolAnnounce.Decoder)
 
     sb_dec = ShmRegionSuperblock.Decoder(Vector{UInt8})
     wrap_superblock!(sb_dec, header_mmap, 0)
-    header_fields = read_superblock(sb_dec)
+    header_fields = try
+        read_superblock(sb_dec)
+    catch
+        return false
+    end
 
     header_expected_nslots = ShmPoolAnnounce.headerNslots(msg)
     header_ok = validate_superblock_fields(
@@ -212,7 +216,11 @@ function map_from_announce!(state::ConsumerState, msg::ShmPoolAnnounce.Decoder)
 
         pool_mmap = mmap_shm(pool_uri, SUPERBLOCK_SIZE + Int(pool_nslots) * Int(pool_stride))
         wrap_superblock!(sb_dec, pool_mmap, 0)
-        pool_fields = read_superblock(sb_dec)
+        pool_fields = try
+            read_superblock(sb_dec)
+        catch
+            return false
+        end
 
         pool_ok = validate_superblock_fields(
             pool_fields;
@@ -249,7 +257,11 @@ function validate_mapped_superblocks!(state::ConsumerState, msg::ShmPoolAnnounce
     expected_epoch = ShmPoolAnnounce.epoch(msg)
     sb_dec = ShmRegionSuperblock.Decoder(Vector{UInt8})
     wrap_superblock!(sb_dec, header_mmap, 0)
-    header_fields = read_superblock(sb_dec)
+    header_fields = try
+        read_superblock(sb_dec)
+    catch
+        return :mismatch
+    end
 
     header_expected_nslots = ShmPoolAnnounce.headerNslots(msg)
     header_ok = validate_superblock_fields(
@@ -278,7 +290,11 @@ function validate_mapped_superblocks!(state::ConsumerState, msg::ShmPoolAnnounce
         pool_mmap === nothing && return :mismatch
 
         wrap_superblock!(sb_dec, pool_mmap, 0)
-        pool_fields = read_superblock(sb_dec)
+        pool_fields = try
+            read_superblock(sb_dec)
+        catch
+            return :mismatch
+        end
 
         pool_ok = validate_superblock_fields(
             pool_fields;
@@ -621,8 +637,13 @@ function try_read_frame!(
     end
 
     hdr_dec = TensorSlotHeader256.Decoder(Vector{UInt8})
-    wrap_tensor_header!(hdr_dec, header_mmap, header_offset)
-    header = read_tensor_slot_header(hdr_dec)
+    header = try
+        wrap_tensor_header!(hdr_dec, header_mmap, header_offset)
+        read_tensor_slot_header(hdr_dec)
+    catch
+        state.drops_late += 1
+        return nothing
+    end
 
     second = atomic_load_u64(commit_ptr)
     if first != second || isodd(second)
