@@ -65,7 +65,24 @@ function init_consumer(config::ConsumerConfig)
         UInt64(0),
         UInt64(0),
     )
-    return ConsumerState(config, clock, runtime, mappings, metrics, timer_set)
+    return ConsumerState(config, clock, runtime, mappings, metrics, nothing, timer_set)
+end
+
+"""
+Initialize a consumer using driver-provisioned SHM regions.
+"""
+function init_consumer_from_attach(
+    config::ConsumerConfig,
+    attach::AttachResponseInfo;
+    driver_client::Union{DriverClientState, Nothing} = nothing,
+)
+    attach.code == DriverResponseCode.OK || throw(ArgumentError("attach failed"))
+    attach.stream_id == config.stream_id || throw(ArgumentError("stream_id mismatch"))
+    state = init_consumer(config)
+    ok = map_from_attach_response!(state, attach)
+    ok || throw(ArgumentError("failed to map SHM from attach"))
+    state.driver_client = driver_client
+    return state
 end
 
 @inline function should_process(state::ConsumerState, seq::UInt64)
@@ -218,6 +235,101 @@ function map_from_announce!(state::ConsumerState, msg::ShmPoolAnnounce.Decoder)
     state.metrics.last_seq_seen = UInt64(0)
     state.metrics.seen_any = false
     state.metrics.remap_count += 1
+    return true
+end
+
+"""
+Map SHM regions from a driver attach response.
+"""
+function map_from_attach_response!(state::ConsumerState, attach::AttachResponseInfo)
+    attach.code == DriverResponseCode.OK || return false
+    attach.header_slot_bytes == UInt16(HEADER_SLOT_BYTES) || return false
+    header_nslots = attach.header_nslots
+
+    payload_mmaps = Dict{UInt16, Vector{UInt8}}()
+    stride_bytes = Dict{UInt16, UInt32}()
+
+    header_uri = attach.header_region_uri
+    validate_uri(header_uri) || return false
+    header_parsed = parse_shm_uri(header_uri)
+    require_hugepages = state.config.require_hugepages
+    if require_hugepages && !is_hugetlbfs_path(header_parsed.path)
+        return false
+    end
+    hugepage_size = require_hugepages ? hugepage_size_bytes() : 0
+    require_hugepages && hugepage_size == 0 && return false
+
+    header_mmap = mmap_shm(header_uri, SUPERBLOCK_SIZE + HEADER_SLOT_BYTES * Int(header_nslots))
+    sb_dec = ShmRegionSuperblock.Decoder(Vector{UInt8})
+    wrap_superblock!(sb_dec, header_mmap, 0)
+    header_fields = try
+        read_superblock(sb_dec)
+    catch
+        return false
+    end
+
+    header_ok = validate_superblock_fields(
+        header_fields;
+        expected_layout_version = attach.layout_version,
+        expected_epoch = attach.epoch,
+        expected_stream_id = attach.stream_id,
+        expected_nslots = header_nslots,
+        expected_slot_bytes = UInt32(HEADER_SLOT_BYTES),
+        expected_region_type = RegionType.HEADER_RING,
+        expected_pool_id = UInt16(0),
+    )
+    header_ok || return false
+
+    for pool in attach.pools
+        pool.pool_nslots == header_nslots || return false
+        validate_uri(pool.region_uri) || return false
+        pool_parsed = parse_shm_uri(pool.region_uri)
+        pool_require_hugepages = pool_parsed.require_hugepages || require_hugepages
+        if pool_require_hugepages && !is_hugetlbfs_path(pool_parsed.path)
+            return false
+        end
+        validate_stride(
+            pool.stride_bytes;
+            require_hugepages = pool_require_hugepages,
+            hugepage_size = hugepage_size,
+        ) || return false
+
+        pool_mmap =
+            mmap_shm(pool.region_uri, SUPERBLOCK_SIZE + Int(pool.pool_nslots) * Int(pool.stride_bytes))
+        wrap_superblock!(sb_dec, pool_mmap, 0)
+        pool_fields = try
+            read_superblock(sb_dec)
+        catch
+            return false
+        end
+        pool_ok = validate_superblock_fields(
+            pool_fields;
+            expected_layout_version = attach.layout_version,
+            expected_epoch = attach.epoch,
+            expected_stream_id = attach.stream_id,
+            expected_nslots = pool.pool_nslots,
+            expected_slot_bytes = pool.stride_bytes,
+            expected_region_type = RegionType.PAYLOAD_POOL,
+            expected_pool_id = pool.pool_id,
+        )
+        pool_ok || return false
+
+        payload_mmaps[pool.pool_id] = pool_mmap
+        stride_bytes[pool.pool_id] = pool.stride_bytes
+    end
+
+    state.mappings.header_mmap = header_mmap
+    state.mappings.payload_mmaps = payload_mmaps
+    state.mappings.pool_stride_bytes = stride_bytes
+    state.mappings.mapped_nslots = header_nslots
+    state.mappings.mapped_pid = header_fields.pid
+    state.mappings.last_commit_words = fill(UInt64(0), Int(header_nslots))
+    state.mappings.mapped_epoch = attach.epoch
+    state.metrics.last_seq_seen = UInt64(0)
+    state.metrics.seen_any = false
+    state.metrics.remap_count += 1
+    state.config.expected_layout_version = attach.layout_version
+    state.config.max_dims = attach.max_dims
     return true
 end
 

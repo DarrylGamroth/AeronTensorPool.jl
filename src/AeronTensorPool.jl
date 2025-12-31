@@ -24,6 +24,7 @@ include("driver/handlers.jl")
 include("driver/logic.jl")
 include("client/driver_proxies.jl")
 include("client/driver_poller.jl")
+include("client/driver_client.jl")
 include("agents/producer/state.jl")
 include("agents/producer/handlers.jl")
 include("agents/producer/logic.jl")
@@ -128,10 +129,14 @@ export Dtype,
     reset!,
     poll_timers!,
     init_consumer,
+    init_producer_from_attach,
+    producer_config_from_attach,
+    init_consumer_from_attach,
     init_supervisor,
     init_bridge,
     init_decimator,
     map_from_announce!,
+    map_from_attach_response!,
     emit_consumer_config!,
     emit_announce!,
     emit_consumer_hello!,
@@ -212,6 +217,11 @@ export Dtype,
     LeaseRevokedInfo,
     DriverShutdownInfo,
     DriverResponsePoller,
-    poll_driver_responses!
+    poll_driver_responses!,
+    DriverClientState,
+    init_driver_client,
+    send_attach_request!,
+    driver_client_do_work!,
+    await_attach!
 
 end

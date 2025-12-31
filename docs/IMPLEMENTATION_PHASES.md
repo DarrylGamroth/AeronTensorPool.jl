@@ -182,7 +182,7 @@ Spec refs
 - Wire: 15.21, 15.21a
 
 Status
-- Not started (driver-mode flows not implemented).
+- In progress (driver client API, attach mapping helpers, and keepalive polling integrated).
 
 ## Phase 8 - Tooling and Ops
 

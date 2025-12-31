@@ -97,5 +97,6 @@ mutable struct ConsumerState
     runtime::ConsumerRuntime
     mappings::ConsumerMappings
     metrics::ConsumerMetrics
+    driver_client::Union{DriverClientState, Nothing}
     timer_set::TimerSet{Tuple{PolledTimer, PolledTimer}, Tuple{ConsumerHelloHandler, ConsumerQosHandler}}
 end

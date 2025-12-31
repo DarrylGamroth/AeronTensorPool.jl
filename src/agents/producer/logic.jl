@@ -125,11 +125,164 @@ function init_producer(config::ProducerConfig)
         false,
         config.progress_interval_ns,
         config.progress_bytes_delta,
+        true,
+        nothing,
         timer_set,
     )
 
     emit_announce!(state)
 
+    return state
+end
+
+"""
+Build a ProducerConfig from a driver attach response.
+"""
+function producer_config_from_attach(config::ProducerConfig, attach::AttachResponseInfo)
+    pools = PayloadPoolConfig[]
+    for pool in attach.pools
+        push!(
+            pools,
+            PayloadPoolConfig(pool.pool_id, pool.region_uri, pool.stride_bytes, pool.pool_nslots),
+        )
+    end
+    return ProducerConfig(
+        config.aeron_dir,
+        config.aeron_uri,
+        config.descriptor_stream_id,
+        config.control_stream_id,
+        config.qos_stream_id,
+        config.metadata_stream_id,
+        attach.stream_id,
+        config.producer_id,
+        attach.layout_version,
+        attach.header_nslots,
+        config.shm_base_dir,
+        config.shm_namespace,
+        config.producer_instance_id,
+        attach.header_region_uri,
+        pools,
+        attach.max_dims,
+        config.announce_interval_ns,
+        config.qos_interval_ns,
+        config.progress_interval_ns,
+        config.progress_bytes_delta,
+    )
+end
+
+"""
+Initialize a producer using driver-provisioned SHM regions.
+"""
+function init_producer_from_attach(
+    config::ProducerConfig,
+    attach::AttachResponseInfo;
+    driver_client::Union{DriverClientState, Nothing} = nothing,
+)
+    attach.code == DriverResponseCode.OK || throw(ArgumentError("attach failed"))
+    attach.header_slot_bytes == UInt16(HEADER_SLOT_BYTES) || throw(ArgumentError("header_slot_bytes mismatch"))
+
+    driver_config = producer_config_from_attach(config, attach)
+    ispow2(driver_config.nslots) || throw(ArgumentError("header nslots must be power of two"))
+    for pool in driver_config.payload_pools
+        pool.nslots == driver_config.nslots || throw(ArgumentError("payload nslots must match header nslots"))
+    end
+
+    clock = Clocks.CachedEpochClock(Clocks.MonotonicClock())
+    fetch!(clock)
+
+    header_size = SUPERBLOCK_SIZE + Int(driver_config.nslots) * HEADER_SLOT_BYTES
+    header_mmap = mmap_shm(driver_config.header_uri, header_size; write = true)
+
+    sb_dec = ShmRegionSuperblock.Decoder(Vector{UInt8})
+    wrap_superblock!(sb_dec, header_mmap, 0)
+    header_fields = read_superblock(sb_dec)
+    header_ok = validate_superblock_fields(
+        header_fields;
+        expected_layout_version = driver_config.layout_version,
+        expected_epoch = attach.epoch,
+        expected_stream_id = driver_config.stream_id,
+        expected_nslots = driver_config.nslots,
+        expected_slot_bytes = UInt32(HEADER_SLOT_BYTES),
+        expected_region_type = RegionType.HEADER_RING,
+        expected_pool_id = UInt16(0),
+    )
+    header_ok || throw(ArgumentError("header superblock validation failed"))
+
+    payload_mmaps = Dict{UInt16, Vector{UInt8}}()
+    for pool in driver_config.payload_pools
+        pool_size = SUPERBLOCK_SIZE + Int(pool.nslots) * Int(pool.stride_bytes)
+        pmmap = mmap_shm(pool.uri, pool_size; write = true)
+        wrap_superblock!(sb_dec, pmmap, 0)
+        pool_fields = read_superblock(sb_dec)
+        pool_ok = validate_superblock_fields(
+            pool_fields;
+            expected_layout_version = driver_config.layout_version,
+            expected_epoch = attach.epoch,
+            expected_stream_id = driver_config.stream_id,
+            expected_nslots = pool.nslots,
+            expected_slot_bytes = pool.stride_bytes,
+            expected_region_type = RegionType.PAYLOAD_POOL,
+            expected_pool_id = pool.pool_id,
+        )
+        pool_ok || throw(ArgumentError("payload superblock validation failed"))
+        payload_mmaps[pool.pool_id] = pmmap
+    end
+
+    ctx = Aeron.Context()
+    set_aeron_dir!(ctx, driver_config.aeron_dir)
+    client = Aeron.Client(ctx)
+
+    pub_descriptor = Aeron.add_publication(client, driver_config.aeron_uri, driver_config.descriptor_stream_id)
+    pub_control = Aeron.add_publication(client, driver_config.aeron_uri, driver_config.control_stream_id)
+    pub_qos = Aeron.add_publication(client, driver_config.aeron_uri, driver_config.qos_stream_id)
+    pub_metadata = Aeron.add_publication(client, driver_config.aeron_uri, driver_config.metadata_stream_id)
+    sub_control = Aeron.add_subscription(client, driver_config.aeron_uri, driver_config.control_stream_id)
+
+    timer_set = TimerSet(
+        (PolledTimer(driver_config.announce_interval_ns), PolledTimer(driver_config.qos_interval_ns)),
+        (ProducerAnnounceHandler(), ProducerQosHandler()),
+    )
+
+    runtime = ProducerRuntime(
+        ctx,
+        client,
+        pub_descriptor,
+        pub_control,
+        pub_qos,
+        pub_metadata,
+        sub_control,
+        Vector{UInt8}(undef, CONTROL_BUF_BYTES),
+        Vector{UInt8}(undef, CONTROL_BUF_BYTES),
+        Vector{UInt8}(undef, ANNOUNCE_BUF_BYTES),
+        Vector{UInt8}(undef, CONTROL_BUF_BYTES),
+        ShmRegionSuperblock.Encoder(Vector{UInt8}),
+        TensorSlotHeader256.Encoder(Vector{UInt8}),
+        FrameDescriptor.Encoder(UnsafeArrays.UnsafeArray{UInt8, 1}),
+        FrameProgress.Encoder(UnsafeArrays.UnsafeArray{UInt8, 1}),
+        ShmPoolAnnounce.Encoder(UnsafeArrays.UnsafeArray{UInt8, 1}),
+        QosProducer.Encoder(UnsafeArrays.UnsafeArray{UInt8, 1}),
+        Aeron.BufferClaim(),
+        Aeron.BufferClaim(),
+        Aeron.BufferClaim(),
+        ConsumerHello.Decoder(UnsafeArrays.UnsafeArray{UInt8, 1}),
+    )
+    mappings = ProducerMappings(header_mmap, payload_mmaps)
+    metrics = ProducerMetrics(UInt64(0), UInt64(0), UInt64(0), UInt64(0))
+    state = ProducerState(
+        driver_config,
+        clock,
+        runtime,
+        mappings,
+        metrics,
+        attach.epoch,
+        UInt64(0),
+        false,
+        driver_config.progress_interval_ns,
+        driver_config.progress_bytes_delta,
+        false,
+        driver_client,
+        timer_set,
+    )
     return state
 end
 

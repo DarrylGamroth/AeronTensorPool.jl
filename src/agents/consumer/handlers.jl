@@ -83,5 +83,8 @@ function consumer_do_work!(
     work_count += poll_descriptor!(state, descriptor_assembler, fragment_limit)
     work_count += poll_control!(state, control_assembler, fragment_limit)
     work_count += poll_timers!(state, now_ns)
+    if !isnothing(state.driver_client)
+        work_count += driver_client_do_work!(state.driver_client, now_ns)
+    end
     return work_count
 end

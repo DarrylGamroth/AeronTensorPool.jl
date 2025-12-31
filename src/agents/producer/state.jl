@@ -60,5 +60,7 @@ mutable struct ProducerState
     supports_progress::Bool
     progress_interval_ns::UInt64
     progress_bytes_delta::UInt64
+    emit_announce::Bool
+    driver_client::Union{DriverClientState, Nothing}
     timer_set::TimerSet{Tuple{PolledTimer, PolledTimer}, Tuple{ProducerAnnounceHandler, ProducerQosHandler}}
 end

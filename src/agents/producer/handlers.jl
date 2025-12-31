@@ -42,7 +42,9 @@ function refresh_activity_timestamps!(state::ProducerState)
 end
 
 @inline function (handler::ProducerAnnounceHandler)(state::ProducerState, now_ns::UInt64)
-    emit_announce!(state)
+    if state.emit_announce
+        emit_announce!(state)
+    end
     refresh_activity_timestamps!(state)
     return 1
 end
@@ -69,5 +71,8 @@ function producer_do_work!(
     work_count = 0
     work_count += poll_control!(state, control_assembler, fragment_limit)
     work_count += poll_timers!(state, now_ns)
+    if !isnothing(state.driver_client)
+        work_count += driver_client_do_work!(state.driver_client, now_ns)
+    end
     return work_count
 end
