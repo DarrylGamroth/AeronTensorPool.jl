@@ -313,3 +313,16 @@ end
 )
     return Aeron.poll(state.sub_qos, assembler, fragment_limit)
 end
+
+function supervisor_step!(
+    state::SupervisorState,
+    control_assembler::Aeron.FragmentAssembler,
+    qos_assembler::Aeron.FragmentAssembler;
+    fragment_limit::Int32 = DEFAULT_FRAGMENT_LIMIT,
+)
+    work_done = false
+    work_done |= poll_control!(state, control_assembler, fragment_limit) > 0
+    work_done |= poll_qos!(state, qos_assembler, fragment_limit) > 0
+    work_done |= emit_periodic!(state)
+    return work_done
+end

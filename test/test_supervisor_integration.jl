@@ -90,6 +90,11 @@
         @test supervisor_state.consumers[UInt32(21)].drops_gap == UInt64(2)
         @test supervisor_state.consumers[UInt32(21)].drops_late == UInt64(1)
 
+        ok_step = wait_for() do
+            supervisor_step!(supervisor_state, ctrl_asm, qos_asm)
+        end
+        @test ok_step
+
         got_cfg = Ref(false)
         cfg_decoder = ConsumerConfigMsg.Decoder(UnsafeArrays.UnsafeArray{UInt8, 1})
         cfg_handler = Aeron.FragmentHandler(cfg_decoder) do dec, buffer, _
