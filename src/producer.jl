@@ -626,12 +626,12 @@ end
 @inline function (handler::ProducerAnnounceHandler)(state::ProducerState, now_ns::UInt64)
     emit_announce!(state)
     refresh_activity_timestamps!(state)
-    return true
+    return 1
 end
 
 @inline function (handler::ProducerQosHandler)(state::ProducerState, now_ns::UInt64)
     emit_qos!(state)
-    return true
+    return 1
 end
 
 function emit_periodic!(state::ProducerState)

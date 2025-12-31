@@ -529,12 +529,12 @@ end
 
 @inline function (handler::ConsumerHelloHandler)(state::ConsumerState, now_ns::UInt64)
     emit_consumer_hello!(state)
-    return true
+    return 1
 end
 
 @inline function (handler::ConsumerQosHandler)(state::ConsumerState, now_ns::UInt64)
     emit_qos!(state)
-    return true
+    return 1
 end
 
 function emit_periodic!(state::ConsumerState)

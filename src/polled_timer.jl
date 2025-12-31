@@ -40,13 +40,13 @@ end
         exprs[i] = quote
             if expired(set.timers[$i], now_ns)
                 reset!(set.timers[$i], now_ns)
-                work_done |= set.handlers[$i](state, now_ns)
+                work_count += set.handlers[$i](state, now_ns)
             end
         end
     end
     return quote
-        work_done = false
+        work_count = 0
         $(Expr(:block, exprs...))
-        return work_done
+        return work_count
     end
 end

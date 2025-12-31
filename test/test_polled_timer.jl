@@ -20,12 +20,12 @@ struct TestHandler2 end
 
 @inline function (handler::TestHandler1)(state::Base.RefValue{Int}, now_ns::UInt64)
     state[] += 1
-    return true
+    return 1
 end
 
 @inline function (handler::TestHandler2)(state::Base.RefValue{Int}, now_ns::UInt64)
     state[] += 10
-    return false
+    return 0
 end
 
 @testset "TimerSet" begin
@@ -35,12 +35,12 @@ end
     )
     state = Ref(0)
 
-    @test poll_timers!(timer_set, state, UInt64(4)) == false
+    @test poll_timers!(timer_set, state, UInt64(4)) == 0
     @test state[] == 0
 
-    @test poll_timers!(timer_set, state, UInt64(5)) == true
+    @test poll_timers!(timer_set, state, UInt64(5)) == 1
     @test state[] == 1
 
-    @test poll_timers!(timer_set, state, UInt64(10)) == true
+    @test poll_timers!(timer_set, state, UInt64(10)) == 1
     @test state[] == 12
 end

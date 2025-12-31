@@ -212,7 +212,7 @@ function check_liveness!(state::SupervisorState, now_ns::UInt64)
 end
 
 @inline function (handler::SupervisorLivenessHandler)(state::SupervisorState, now_ns::UInt64)
-    return check_liveness!(state, now_ns)
+    return check_liveness!(state, now_ns) ? 1 : 0
 end
 
 function emit_periodic!(state::SupervisorState)
@@ -330,9 +330,9 @@ function supervisor_step!(
     qos_assembler::Aeron.FragmentAssembler;
     fragment_limit::Int32 = DEFAULT_FRAGMENT_LIMIT,
 )
-    work_done = false
-    work_done |= poll_control!(state, control_assembler, fragment_limit) > 0
-    work_done |= poll_qos!(state, qos_assembler, fragment_limit) > 0
-    work_done |= emit_periodic!(state)
-    return work_done
+    work_count = 0
+    work_count += poll_control!(state, control_assembler, fragment_limit)
+    work_count += poll_qos!(state, qos_assembler, fragment_limit)
+    work_count += emit_periodic!(state)
+    return work_count
 end
