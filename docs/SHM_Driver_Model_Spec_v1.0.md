@@ -83,6 +83,8 @@ If `code=OK` and any required field is set to its `nullValue`, the client MUST t
 
 For `code=OK`, `headerRegionUri` and every `payloadPools.regionUri` MUST be present, non-empty, and not blank. If any required URI is absent or empty, the client MUST treat the response as a protocol error, DROP the attach, and reattach.
 
+All URIs returned by the driver MUST satisfy the Wire Specification URI validation rules; clients MUST validate and reject URIs that fail those rules.
+
 ### 4.3 Attach Request Semantics (Normative)
 
 - `expectedLayoutVersion`: If present and nonzero, the driver MUST reject the request with `code=REJECTED` if the active layout version for the stream does not match. If absent or zero, the driver uses its configured layout version and returns it in the response.
@@ -127,6 +129,10 @@ Leases follow this lifecycle:
 - `REVOKED`: Lease is invalidated by the driver for administrative or safety reasons.
 
 Once a lease reaches `DETACHED`, `EXPIRED`, or `REVOKED`, the client MUST stop using all SHM regions from that lease and MUST reattach to continue.
+
+### 4.7a Protocol Errors (Normative)
+
+On any detected protocol error (e.g., required fields missing or set to null on `code=OK`, malformed responses, unknown enums where disallowed), clients MUST fail closed: drop the attach, stop using any mapped regions derived from the response, and reattach.
 
 When a producer lease transitions to `EXPIRED` or `REVOKED`, the driver MUST increment `epoch` and MUST emit a fresh `ShmPoolAnnounce` promptly so consumers can fail closed and remap.
 
