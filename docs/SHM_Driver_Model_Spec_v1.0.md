@@ -53,6 +53,8 @@ When the Driver Model is used:
 3. Producer and consumer clients MUST treat all SHM region URIs received from the driver as authoritative.
 4. All SHM regions MUST conform to the Wire Specification.
 
+The driver MAY update `activity_timestamp_ns` in superblocks directly or delegate that responsibility to the attached producer, but it remains responsible for ensuring liveness semantics in the Wire Specification are met.
+
 ---
 
 ## 4. Attachment Model
