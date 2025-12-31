@@ -33,11 +33,9 @@ struct ConsumerHelloHandler end
 struct ConsumerQosHandler end
 
 """
-Mutable consumer runtime state including SHM mappings and QoS counters.
+Mutable consumer runtime resources (Aeron publications/subscriptions and codecs).
 """
-mutable struct ConsumerState
-    config::ConsumerConfig
-    clock::Clocks.AbstractClock
+mutable struct ConsumerRuntime
     ctx::Aeron.Context
     client::Aeron.Client
     pub_control::Aeron.Publication
@@ -45,6 +43,23 @@ mutable struct ConsumerState
     sub_descriptor::Aeron.Subscription
     sub_control::Aeron.Subscription
     sub_qos::Aeron.Subscription
+    hello_buf::Vector{UInt8}
+    qos_buf::Vector{UInt8}
+    hello_encoder::ConsumerHello.Encoder{UnsafeArrays.UnsafeArray{UInt8, 1}}
+    qos_encoder::QosConsumer.Encoder{UnsafeArrays.UnsafeArray{UInt8, 1}}
+    hello_claim::Aeron.BufferClaim
+    qos_claim::Aeron.BufferClaim
+    desc_decoder::FrameDescriptor.Decoder{UnsafeArrays.UnsafeArray{UInt8, 1}}
+    announce_decoder::ShmPoolAnnounce.Decoder{UnsafeArrays.UnsafeArray{UInt8, 1}}
+    config_decoder::ConsumerConfigMsg.Decoder{UnsafeArrays.UnsafeArray{UInt8, 1}}
+    scratch_dims::Vector{Int64}
+    scratch_strides::Vector{Int64}
+end
+
+"""
+Mutable consumer SHM mappings.
+"""
+mutable struct ConsumerMappings
     mapped_epoch::UInt64
     header_mmap::Union{Nothing, Vector{UInt8}}
     payload_mmaps::Dict{UInt16, Vector{UInt8}}
@@ -52,6 +67,12 @@ mutable struct ConsumerState
     mapped_nslots::UInt32
     mapped_pid::UInt64
     last_commit_words::Vector{UInt64}
+end
+
+"""
+Mutable consumer counters and QoS metrics.
+"""
+mutable struct ConsumerMetrics
     last_seq_seen::UInt64
     seen_any::Bool
     drops_gap::UInt64
@@ -64,16 +85,16 @@ mutable struct ConsumerState
     remap_count::UInt64
     hello_count::UInt64
     qos_count::UInt64
+end
+
+"""
+Mutable consumer runtime state including SHM mappings and QoS counters.
+"""
+mutable struct ConsumerState
+    config::ConsumerConfig
+    clock::Clocks.AbstractClock
+    runtime::ConsumerRuntime
+    mappings::ConsumerMappings
+    metrics::ConsumerMetrics
     timer_set::TimerSet{Tuple{PolledTimer, PolledTimer}, Tuple{ConsumerHelloHandler, ConsumerQosHandler}}
-    hello_buf::Vector{UInt8}
-    qos_buf::Vector{UInt8}
-    hello_encoder::ConsumerHello.Encoder{UnsafeArrays.UnsafeArray{UInt8, 1}}
-    qos_encoder::QosConsumer.Encoder{UnsafeArrays.UnsafeArray{UInt8, 1}}
-    hello_claim::Aeron.BufferClaim
-    qos_claim::Aeron.BufferClaim
-    desc_decoder::FrameDescriptor.Decoder{UnsafeArrays.UnsafeArray{UInt8, 1}}
-    announce_decoder::ShmPoolAnnounce.Decoder{UnsafeArrays.UnsafeArray{UInt8, 1}}
-    config_decoder::ConsumerConfigMsg.Decoder{UnsafeArrays.UnsafeArray{UInt8, 1}}
-    scratch_dims::Vector{Int64}
-    scratch_strides::Vector{Int64}
 end

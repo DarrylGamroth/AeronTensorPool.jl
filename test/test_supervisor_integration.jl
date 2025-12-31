@@ -18,8 +18,8 @@
         ctrl_asm = make_control_assembler(supervisor_state)
         qos_asm = AeronTensorPool.make_qos_assembler(supervisor_state)
 
-        pub_control = Aeron.add_publication(supervisor_state.client, uri, control_stream)
-        pub_qos = Aeron.add_publication(supervisor_state.client, uri, qos_stream)
+        pub_control = Aeron.add_publication(supervisor_state.runtime.client, uri, control_stream)
+        pub_qos = Aeron.add_publication(supervisor_state.runtime.client, uri, qos_stream)
         sub_cfg = nothing
 
         try
@@ -61,11 +61,11 @@
         Aeron.offer(pub_control, view(hello_buf, 1:sbe_message_length(hello_enc)))
 
         ok = wait_for() do
-            Aeron.poll(supervisor_state.sub_control, ctrl_asm, AeronTensorPool.DEFAULT_FRAGMENT_LIMIT) > 0
+            Aeron.poll(supervisor_state.runtime.sub_control, ctrl_asm, AeronTensorPool.DEFAULT_FRAGMENT_LIMIT) > 0
         end
         @test ok
-        @test haskey(supervisor_state.producers, UInt32(11))
-        @test haskey(supervisor_state.consumers, UInt32(21))
+        @test haskey(supervisor_state.tracking.producers, UInt32(11))
+        @test haskey(supervisor_state.tracking.consumers, UInt32(21))
 
         qos_p_buf = Vector{UInt8}(undef, 256)
         qos_p_enc = QosProducer.Encoder(Vector{UInt8})
@@ -89,12 +89,12 @@
         Aeron.offer(pub_qos, view(qos_c_buf, 1:sbe_message_length(qos_c_enc)))
 
         ok_qos = wait_for() do
-            Aeron.poll(supervisor_state.sub_qos, qos_asm, AeronTensorPool.DEFAULT_FRAGMENT_LIMIT) > 0
+            Aeron.poll(supervisor_state.runtime.sub_qos, qos_asm, AeronTensorPool.DEFAULT_FRAGMENT_LIMIT) > 0
         end
         @test ok_qos
-        @test supervisor_state.producers[UInt32(11)].current_seq == UInt64(42)
-        @test supervisor_state.consumers[UInt32(21)].drops_gap == UInt64(2)
-        @test supervisor_state.consumers[UInt32(21)].drops_late == UInt64(1)
+        @test supervisor_state.tracking.producers[UInt32(11)].current_seq == UInt64(42)
+        @test supervisor_state.tracking.consumers[UInt32(21)].drops_gap == UInt64(2)
+        @test supervisor_state.tracking.consumers[UInt32(21)].drops_late == UInt64(1)
 
         ok_step = wait_for() do
             supervisor_do_work!(supervisor_state, ctrl_asm, qos_asm) > 0
@@ -117,7 +117,7 @@
             nothing
         end
         cfg_asm = Aeron.FragmentAssembler(cfg_handler)
-        sub_cfg = Aeron.add_subscription(supervisor_state.client, uri, control_stream)
+        sub_cfg = Aeron.add_subscription(supervisor_state.runtime.client, uri, control_stream)
 
         emit_consumer_config!(supervisor_state, UInt32(21); use_shm = false, mode = Mode.LATEST)
 

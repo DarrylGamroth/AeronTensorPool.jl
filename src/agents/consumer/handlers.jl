@@ -5,8 +5,8 @@ function make_descriptor_assembler(state::ConsumerState)
     handler = Aeron.FragmentHandler(state) do st, buffer, _
         header = MessageHeader.Decoder(buffer, 0)
         if MessageHeader.templateId(header) == TEMPLATE_FRAME_DESCRIPTOR
-            FrameDescriptor.wrap!(st.desc_decoder, buffer, 0; header = header)
-            try_read_frame!(st, st.desc_decoder)
+            FrameDescriptor.wrap!(st.runtime.desc_decoder, buffer, 0; header = header)
+            try_read_frame!(st, st.runtime.desc_decoder)
         end
         nothing
     end
@@ -21,11 +21,11 @@ function make_control_assembler(state::ConsumerState)
         header = MessageHeader.Decoder(buffer, 0)
         template_id = MessageHeader.templateId(header)
         if template_id == TEMPLATE_SHM_POOL_ANNOUNCE
-            ShmPoolAnnounce.wrap!(st.announce_decoder, buffer, 0; header = header)
-            handle_shm_pool_announce!(st, st.announce_decoder)
+            ShmPoolAnnounce.wrap!(st.runtime.announce_decoder, buffer, 0; header = header)
+            handle_shm_pool_announce!(st, st.runtime.announce_decoder)
         elseif template_id == TEMPLATE_CONSUMER_CONFIG
-            ConsumerConfigMsg.wrap!(st.config_decoder, buffer, 0; header = header)
-            apply_consumer_config!(st, st.config_decoder)
+            ConsumerConfigMsg.wrap!(st.runtime.config_decoder, buffer, 0; header = header)
+            apply_consumer_config!(st, st.runtime.config_decoder)
         end
         nothing
     end
@@ -40,7 +40,7 @@ Poll the descriptor subscription and process frames.
     assembler::Aeron.FragmentAssembler,
     fragment_limit::Int32 = DEFAULT_FRAGMENT_LIMIT,
 )
-    return Aeron.poll(state.sub_descriptor, assembler, fragment_limit)
+    return Aeron.poll(state.runtime.sub_descriptor, assembler, fragment_limit)
 end
 
 """
@@ -51,7 +51,7 @@ Poll the control subscription and apply mapping/config updates.
     assembler::Aeron.FragmentAssembler,
     fragment_limit::Int32 = DEFAULT_FRAGMENT_LIMIT,
 )
-    return Aeron.poll(state.sub_control, assembler, fragment_limit)
+    return Aeron.poll(state.runtime.sub_control, assembler, fragment_limit)
 end
 
 @inline function (handler::ConsumerHelloHandler)(state::ConsumerState, now_ns::UInt64)

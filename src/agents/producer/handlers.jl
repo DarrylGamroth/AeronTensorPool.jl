@@ -5,8 +5,8 @@ function make_control_assembler(state::ProducerState)
     handler = Aeron.FragmentHandler(state) do st, buffer, _
         header = MessageHeader.Decoder(buffer, 0)
         if MessageHeader.templateId(header) == TEMPLATE_CONSUMER_HELLO
-            ConsumerHello.wrap!(st.hello_decoder, buffer, 0; header = header)
-            handle_consumer_hello!(st, st.hello_decoder)
+            ConsumerHello.wrap!(st.runtime.hello_decoder, buffer, 0; header = header)
+            handle_consumer_hello!(st, st.runtime.hello_decoder)
         end
         nothing
     end
@@ -21,7 +21,7 @@ Poll the control subscription for ConsumerHello messages.
     assembler::Aeron.FragmentAssembler,
     fragment_limit::Int32 = DEFAULT_FRAGMENT_LIMIT,
 )
-    return Aeron.poll(state.sub_control, assembler, fragment_limit)
+    return Aeron.poll(state.runtime.sub_control, assembler, fragment_limit)
 end
 
 """
@@ -31,12 +31,12 @@ function refresh_activity_timestamps!(state::ProducerState)
     fetch!(state.clock)
     now_ns = UInt64(Clocks.time_nanos(state.clock))
 
-    wrap_superblock!(state.superblock_encoder, state.header_mmap, 0)
-    ShmRegionSuperblock.activityTimestampNs!(state.superblock_encoder, now_ns)
+    wrap_superblock!(state.runtime.superblock_encoder, state.mappings.header_mmap, 0)
+    ShmRegionSuperblock.activityTimestampNs!(state.runtime.superblock_encoder, now_ns)
 
-    for pmmap in values(state.payload_mmaps)
-        wrap_superblock!(state.superblock_encoder, pmmap, 0)
-        ShmRegionSuperblock.activityTimestampNs!(state.superblock_encoder, now_ns)
+    for pmmap in values(state.mappings.payload_mmaps)
+        wrap_superblock!(state.runtime.superblock_encoder, pmmap, 0)
+        ShmRegionSuperblock.activityTimestampNs!(state.runtime.superblock_encoder, now_ns)
     end
     return nothing
 end

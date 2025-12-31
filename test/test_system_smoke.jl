@@ -117,7 +117,7 @@ liveness_check_interval_ns = 1000000000
                 consumer_do_work!(consumer, cons_desc, cons_ctrl)
                 supervisor_do_work!(supervisor, sup_ctrl, sup_qos)
 
-                if !published && consumer.header_mmap !== nothing
+                if !published && consumer.mappings.header_mmap !== nothing
                     publish_frame!(producer, payload, shape, strides, Dtype.UINT8, UInt32(0))
                     published = true
                 end

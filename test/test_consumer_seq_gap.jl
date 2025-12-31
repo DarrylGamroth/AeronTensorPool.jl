@@ -30,19 +30,19 @@
         state = init_consumer(consumer_cfg)
         try
             AeronTensorPool.maybe_track_gap!(state, UInt64(1))
-            @test state.drops_gap == 0
-            @test state.last_seq_seen == 1
-            @test state.seen_any == true
+            @test state.metrics.drops_gap == 0
+            @test state.metrics.last_seq_seen == 1
+            @test state.metrics.seen_any == true
 
             AeronTensorPool.maybe_track_gap!(state, UInt64(5))
-            @test state.drops_gap == 3
-            @test state.last_seq_seen == 5
-            @test state.seen_any == false
+            @test state.metrics.drops_gap == 3
+            @test state.metrics.last_seq_seen == 5
+            @test state.metrics.seen_any == false
 
             AeronTensorPool.maybe_track_gap!(state, UInt64(6))
-            @test state.drops_gap == 3
-            @test state.last_seq_seen == 6
-            @test state.seen_any == true
+            @test state.metrics.drops_gap == 3
+            @test state.metrics.last_seq_seen == 6
+            @test state.metrics.seen_any == true
         finally
             close_consumer_state!(state)
         end

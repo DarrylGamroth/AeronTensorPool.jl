@@ -38,8 +38,8 @@ using UnsafeArrays
         ctrl_asm = make_control_assembler(consumer_state)
         desc_asm = make_descriptor_assembler(consumer_state)
 
-        pub_control = Aeron.add_publication(consumer_state.client, uri, control_stream)
-        pub_descriptor = Aeron.add_publication(consumer_state.client, uri, descriptor_stream)
+        pub_control = Aeron.add_publication(consumer_state.runtime.client, uri, control_stream)
+        pub_descriptor = Aeron.add_publication(consumer_state.runtime.client, uri, descriptor_stream)
         try
 
         claim = Aeron.BufferClaim()
@@ -59,7 +59,7 @@ using UnsafeArrays
         @test sent_cfg
 
         ok = wait_for() do
-            Aeron.poll(consumer_state.sub_control, ctrl_asm, AeronTensorPool.DEFAULT_FRAGMENT_LIMIT) > 0
+            Aeron.poll(consumer_state.runtime.sub_control, ctrl_asm, AeronTensorPool.DEFAULT_FRAGMENT_LIMIT) > 0
         end
         @test ok
         @test consumer_state.config.use_shm == true
@@ -77,7 +77,7 @@ using UnsafeArrays
         end
         @test sent_desc
         ok_desc = wait_for() do
-            Aeron.poll(consumer_state.sub_descriptor, desc_asm, AeronTensorPool.DEFAULT_FRAGMENT_LIMIT) > 0
+            Aeron.poll(consumer_state.runtime.sub_descriptor, desc_asm, AeronTensorPool.DEFAULT_FRAGMENT_LIMIT) > 0
         end
         @test ok_desc
         finally

@@ -21,9 +21,7 @@ function init_consumer(config::ConsumerConfig)
         (ConsumerHelloHandler(), ConsumerQosHandler()),
     )
 
-    return ConsumerState(
-        config,
-        clock,
+    runtime = ConsumerRuntime(
         ctx,
         client,
         pub_control,
@@ -31,26 +29,6 @@ function init_consumer(config::ConsumerConfig)
         sub_descriptor,
         sub_control,
         sub_qos,
-        UInt64(0),
-        nothing,
-        Dict{UInt16, Vector{UInt8}}(),
-        Dict{UInt16, UInt32}(),
-        UInt32(0),
-        UInt64(0),
-        UInt64[],
-        UInt64(0),
-        false,
-        UInt64(0),
-        UInt64(0),
-        UInt64(0), # drops_odd
-        UInt64(0), # drops_changed
-        UInt64(0), # drops_frame_id_mismatch
-        UInt64(0), # drops_header_invalid
-        UInt64(0), # drops_payload_invalid
-        UInt64(0), # remap_count
-        UInt64(0), # hello_count
-        UInt64(0), # qos_count
-        timer_set,
         Vector{UInt8}(undef, 512),
         Vector{UInt8}(undef, 512),
         ConsumerHello.Encoder(UnsafeArrays.UnsafeArray{UInt8, 1}),
@@ -63,6 +41,30 @@ function init_consumer(config::ConsumerConfig)
         Vector{Int64}(undef, MAX_DIMS),
         Vector{Int64}(undef, MAX_DIMS),
     )
+    mappings = ConsumerMappings(
+        UInt64(0),
+        nothing,
+        Dict{UInt16, Vector{UInt8}}(),
+        Dict{UInt16, UInt32}(),
+        UInt32(0),
+        UInt64(0),
+        UInt64[],
+    )
+    metrics = ConsumerMetrics(
+        UInt64(0),
+        false,
+        UInt64(0),
+        UInt64(0),
+        UInt64(0),
+        UInt64(0),
+        UInt64(0),
+        UInt64(0),
+        UInt64(0),
+        UInt64(0),
+        UInt64(0),
+        UInt64(0),
+    )
+    return ConsumerState(config, clock, runtime, mappings, metrics, timer_set)
 end
 
 @inline function should_process(state::ConsumerState, seq::UInt64)
@@ -205,21 +207,21 @@ function map_from_announce!(state::ConsumerState, msg::ShmPoolAnnounce.Decoder)
         stride_bytes[pool.pool_id] = pool.stride_bytes
     end
 
-    state.header_mmap = header_mmap
-    state.payload_mmaps = payload_mmaps
-    state.pool_stride_bytes = stride_bytes
-    state.mapped_nslots = header_nslots
-    state.mapped_pid = header_fields.pid
-    state.last_commit_words = fill(UInt64(0), Int(header_nslots))
-    state.mapped_epoch = ShmPoolAnnounce.epoch(msg)
-    state.last_seq_seen = UInt64(0)
-    state.seen_any = false
-    state.remap_count += 1
+    state.mappings.header_mmap = header_mmap
+    state.mappings.payload_mmaps = payload_mmaps
+    state.mappings.pool_stride_bytes = stride_bytes
+    state.mappings.mapped_nslots = header_nslots
+    state.mappings.mapped_pid = header_fields.pid
+    state.mappings.last_commit_words = fill(UInt64(0), Int(header_nslots))
+    state.mappings.mapped_epoch = ShmPoolAnnounce.epoch(msg)
+    state.metrics.last_seq_seen = UInt64(0)
+    state.metrics.seen_any = false
+    state.metrics.remap_count += 1
     return true
 end
 
 function validate_mapped_superblocks!(state::ConsumerState, msg::ShmPoolAnnounce.Decoder)
-    header_mmap = state.header_mmap
+    header_mmap = state.mappings.header_mmap
     header_mmap === nothing && return :mismatch
 
     expected_epoch = ShmPoolAnnounce.epoch(msg)
@@ -243,7 +245,7 @@ function validate_mapped_superblocks!(state::ConsumerState, msg::ShmPoolAnnounce
         expected_pool_id = UInt16(0),
     )
     header_ok || return :mismatch
-    if state.mapped_pid != 0 && header_fields.pid != state.mapped_pid
+    if state.mappings.mapped_pid != 0 && header_fields.pid != state.mappings.mapped_pid
         return :pid_changed
     end
 
@@ -254,7 +256,7 @@ function validate_mapped_superblocks!(state::ConsumerState, msg::ShmPoolAnnounce
         pool_id = ShmPoolAnnounce.PayloadPools.poolId(pool)
         pool_nslots = ShmPoolAnnounce.PayloadPools.poolNslots(pool)
         pool_stride = ShmPoolAnnounce.PayloadPools.strideBytes(pool)
-        pool_mmap = get(state.payload_mmaps, pool_id, nothing)
+        pool_mmap = get(state.mappings.payload_mmaps, pool_id, nothing)
         pool_mmap === nothing && return :mismatch
 
         wrap_superblock!(sb_dec, pool_mmap, 0)
@@ -277,7 +279,7 @@ function validate_mapped_superblocks!(state::ConsumerState, msg::ShmPoolAnnounce
         pool_ok || return :mismatch
     end
 
-    pool_count == length(state.payload_mmaps) || return :mismatch
+    pool_count == length(state.mappings.payload_mmaps) || return :mismatch
     return :ok
 end
 
@@ -285,15 +287,15 @@ end
 Drop all SHM mappings and reset mapping state.
 """
 function reset_mappings!(state::ConsumerState)
-    state.header_mmap = nothing
-    empty!(state.payload_mmaps)
-    empty!(state.pool_stride_bytes)
-    state.mapped_nslots = UInt32(0)
-    state.mapped_pid = UInt64(0)
-    empty!(state.last_commit_words)
-    state.mapped_epoch = UInt64(0)
-    state.last_seq_seen = UInt64(0)
-    state.seen_any = false
+    state.mappings.header_mmap = nothing
+    empty!(state.mappings.payload_mmaps)
+    empty!(state.mappings.pool_stride_bytes)
+    state.mappings.mapped_nslots = UInt32(0)
+    state.mappings.mapped_pid = UInt64(0)
+    empty!(state.mappings.last_commit_words)
+    state.mappings.mapped_epoch = UInt64(0)
+    state.metrics.last_seq_seen = UInt64(0)
+    state.metrics.seen_any = false
     return nothing
 end
 
@@ -312,11 +314,11 @@ function handle_shm_pool_announce!(state::ConsumerState, msg::ShmPoolAnnounce.De
         return false
     end
 
-    if state.mapped_epoch != 0 && ShmPoolAnnounce.epoch(msg) != state.mapped_epoch
+    if state.mappings.mapped_epoch != 0 && ShmPoolAnnounce.epoch(msg) != state.mappings.mapped_epoch
         reset_mappings!(state)
     end
 
-    if state.header_mmap === nothing
+    if state.mappings.header_mmap === nothing
         ok = map_from_announce!(state, msg)
         if !ok && !isempty(state.config.payload_fallback_uri)
             state.config.use_shm = false
@@ -344,21 +346,21 @@ function handle_shm_pool_announce!(state::ConsumerState, msg::ShmPoolAnnounce.De
 end
 
 function maybe_track_gap!(state::ConsumerState, seq::UInt64)
-    if state.seen_any
-        if seq > state.last_seq_seen + 1
-            gap = seq - state.last_seq_seen - 1
-            state.drops_gap += gap
+    if state.metrics.seen_any
+        if seq > state.metrics.last_seq_seen + 1
+            gap = seq - state.metrics.last_seq_seen - 1
+            state.metrics.drops_gap += gap
             if state.config.max_outstanding_seq_gap > 0 &&
                gap > state.config.max_outstanding_seq_gap
-                state.last_seq_seen = seq
-                state.seen_any = false
+                state.metrics.last_seq_seen = seq
+                state.metrics.seen_any = false
                 return nothing
             end
         end
     else
-        state.seen_any = true
+        state.metrics.seen_any = true
     end
-    state.last_seq_seen = seq
+    state.metrics.last_seq_seen = seq
     return nothing
 end
 
@@ -392,49 +394,49 @@ function emit_consumer_hello!(state::ConsumerState)
         progress_bytes = typemax(UInt32)
         progress_rows = typemax(UInt32)
     end
-    sent = try_claim_sbe!(state.pub_control, state.hello_claim, CONSUMER_HELLO_LEN) do buf
-        ConsumerHello.wrap_and_apply_header!(state.hello_encoder, buf, 0)
-        ConsumerHello.streamId!(state.hello_encoder, state.config.stream_id)
-        ConsumerHello.consumerId!(state.hello_encoder, state.config.consumer_id)
+    sent = try_claim_sbe!(state.runtime.pub_control, state.runtime.hello_claim, CONSUMER_HELLO_LEN) do buf
+        ConsumerHello.wrap_and_apply_header!(state.runtime.hello_encoder, buf, 0)
+        ConsumerHello.streamId!(state.runtime.hello_encoder, state.config.stream_id)
+        ConsumerHello.consumerId!(state.runtime.hello_encoder, state.config.consumer_id)
         ConsumerHello.supportsShm!(
-            state.hello_encoder,
+            state.runtime.hello_encoder,
             state.config.supports_shm ? ShmTensorpoolControl.Bool_.TRUE : ShmTensorpoolControl.Bool_.FALSE,
         )
         ConsumerHello.supportsProgress!(
-            state.hello_encoder,
+            state.runtime.hello_encoder,
             state.config.supports_progress ? ShmTensorpoolControl.Bool_.TRUE : ShmTensorpoolControl.Bool_.FALSE,
         )
-        ConsumerHello.mode!(state.hello_encoder, state.config.mode)
-        ConsumerHello.maxRateHz!(state.hello_encoder, state.config.max_rate_hz)
-        ConsumerHello.expectedLayoutVersion!(state.hello_encoder, state.config.expected_layout_version)
-        ConsumerHello.progressIntervalUs!(state.hello_encoder, progress_interval)
-        ConsumerHello.progressBytesDelta!(state.hello_encoder, progress_bytes)
-        ConsumerHello.progressRowsDelta!(state.hello_encoder, progress_rows)
+        ConsumerHello.mode!(state.runtime.hello_encoder, state.config.mode)
+        ConsumerHello.maxRateHz!(state.runtime.hello_encoder, state.config.max_rate_hz)
+        ConsumerHello.expectedLayoutVersion!(state.runtime.hello_encoder, state.config.expected_layout_version)
+        ConsumerHello.progressIntervalUs!(state.runtime.hello_encoder, progress_interval)
+        ConsumerHello.progressBytesDelta!(state.runtime.hello_encoder, progress_bytes)
+        ConsumerHello.progressRowsDelta!(state.runtime.hello_encoder, progress_rows)
     end
     if !sent
-        ConsumerHello.wrap_and_apply_header!(state.hello_encoder, unsafe_array_view(state.hello_buf), 0)
-        ConsumerHello.streamId!(state.hello_encoder, state.config.stream_id)
-        ConsumerHello.consumerId!(state.hello_encoder, state.config.consumer_id)
+        ConsumerHello.wrap_and_apply_header!(state.runtime.hello_encoder, unsafe_array_view(state.runtime.hello_buf), 0)
+        ConsumerHello.streamId!(state.runtime.hello_encoder, state.config.stream_id)
+        ConsumerHello.consumerId!(state.runtime.hello_encoder, state.config.consumer_id)
         ConsumerHello.supportsShm!(
-            state.hello_encoder,
+            state.runtime.hello_encoder,
             state.config.supports_shm ? ShmTensorpoolControl.Bool_.TRUE : ShmTensorpoolControl.Bool_.FALSE,
         )
         ConsumerHello.supportsProgress!(
-            state.hello_encoder,
+            state.runtime.hello_encoder,
             state.config.supports_progress ? ShmTensorpoolControl.Bool_.TRUE : ShmTensorpoolControl.Bool_.FALSE,
         )
-        ConsumerHello.mode!(state.hello_encoder, state.config.mode)
-        ConsumerHello.maxRateHz!(state.hello_encoder, state.config.max_rate_hz)
-        ConsumerHello.expectedLayoutVersion!(state.hello_encoder, state.config.expected_layout_version)
-        ConsumerHello.progressIntervalUs!(state.hello_encoder, progress_interval)
-        ConsumerHello.progressBytesDelta!(state.hello_encoder, progress_bytes)
-        ConsumerHello.progressRowsDelta!(state.hello_encoder, progress_rows)
+        ConsumerHello.mode!(state.runtime.hello_encoder, state.config.mode)
+        ConsumerHello.maxRateHz!(state.runtime.hello_encoder, state.config.max_rate_hz)
+        ConsumerHello.expectedLayoutVersion!(state.runtime.hello_encoder, state.config.expected_layout_version)
+        ConsumerHello.progressIntervalUs!(state.runtime.hello_encoder, progress_interval)
+        ConsumerHello.progressBytesDelta!(state.runtime.hello_encoder, progress_bytes)
+        ConsumerHello.progressRowsDelta!(state.runtime.hello_encoder, progress_rows)
         Aeron.offer(
-            state.pub_control,
-            view(state.hello_buf, 1:sbe_message_length(state.hello_encoder)),
+            state.runtime.pub_control,
+            view(state.runtime.hello_buf, 1:sbe_message_length(state.runtime.hello_encoder)),
         )
     end
-    state.hello_count += 1
+    state.metrics.hello_count += 1
     return nothing
 end
 
@@ -442,31 +444,31 @@ end
 Emit a QosConsumer message with drop counters and last_seq_seen.
 """
 function emit_qos!(state::ConsumerState)
-    sent = try_claim_sbe!(state.pub_qos, state.qos_claim, QOS_CONSUMER_LEN) do buf
-        QosConsumer.wrap_and_apply_header!(state.qos_encoder, buf, 0)
-        QosConsumer.streamId!(state.qos_encoder, state.config.stream_id)
-        QosConsumer.consumerId!(state.qos_encoder, state.config.consumer_id)
-        QosConsumer.epoch!(state.qos_encoder, state.mapped_epoch)
-        QosConsumer.lastSeqSeen!(state.qos_encoder, state.last_seq_seen)
-        QosConsumer.dropsGap!(state.qos_encoder, state.drops_gap)
-        QosConsumer.dropsLate!(state.qos_encoder, state.drops_late)
-        QosConsumer.mode!(state.qos_encoder, state.config.mode)
+    sent = try_claim_sbe!(state.runtime.pub_qos, state.runtime.qos_claim, QOS_CONSUMER_LEN) do buf
+        QosConsumer.wrap_and_apply_header!(state.runtime.qos_encoder, buf, 0)
+        QosConsumer.streamId!(state.runtime.qos_encoder, state.config.stream_id)
+        QosConsumer.consumerId!(state.runtime.qos_encoder, state.config.consumer_id)
+        QosConsumer.epoch!(state.runtime.qos_encoder, state.mappings.mapped_epoch)
+        QosConsumer.lastSeqSeen!(state.runtime.qos_encoder, state.metrics.last_seq_seen)
+        QosConsumer.dropsGap!(state.runtime.qos_encoder, state.metrics.drops_gap)
+        QosConsumer.dropsLate!(state.runtime.qos_encoder, state.metrics.drops_late)
+        QosConsumer.mode!(state.runtime.qos_encoder, state.config.mode)
     end
     if !sent
-        QosConsumer.wrap_and_apply_header!(state.qos_encoder, unsafe_array_view(state.qos_buf), 0)
-        QosConsumer.streamId!(state.qos_encoder, state.config.stream_id)
-        QosConsumer.consumerId!(state.qos_encoder, state.config.consumer_id)
-        QosConsumer.epoch!(state.qos_encoder, state.mapped_epoch)
-        QosConsumer.lastSeqSeen!(state.qos_encoder, state.last_seq_seen)
-        QosConsumer.dropsGap!(state.qos_encoder, state.drops_gap)
-        QosConsumer.dropsLate!(state.qos_encoder, state.drops_late)
-        QosConsumer.mode!(state.qos_encoder, state.config.mode)
+        QosConsumer.wrap_and_apply_header!(state.runtime.qos_encoder, unsafe_array_view(state.runtime.qos_buf), 0)
+        QosConsumer.streamId!(state.runtime.qos_encoder, state.config.stream_id)
+        QosConsumer.consumerId!(state.runtime.qos_encoder, state.config.consumer_id)
+        QosConsumer.epoch!(state.runtime.qos_encoder, state.mappings.mapped_epoch)
+        QosConsumer.lastSeqSeen!(state.runtime.qos_encoder, state.metrics.last_seq_seen)
+        QosConsumer.dropsGap!(state.runtime.qos_encoder, state.metrics.drops_gap)
+        QosConsumer.dropsLate!(state.runtime.qos_encoder, state.metrics.drops_late)
+        QosConsumer.mode!(state.runtime.qos_encoder, state.config.mode)
         Aeron.offer(
-            state.pub_qos,
-            view(state.qos_buf, 1:sbe_message_length(state.qos_encoder)),
+            state.runtime.pub_qos,
+            view(state.runtime.qos_buf, 1:sbe_message_length(state.runtime.qos_encoder)),
         )
     end
-    state.qos_count += 1
+    state.metrics.qos_count += 1
     return nothing
 end
 
@@ -502,41 +504,41 @@ function validate_strides!(state::ConsumerState, header::TensorSlotHeader, elem_
     for i in 1:ndims
         dim = header.dims[i]
         dim < 0 && return false
-        state.scratch_dims[i] = Int64(dim)
+        state.runtime.scratch_dims[i] = Int64(dim)
     end
 
     for i in 1:ndims
         stride = header.strides[i]
         stride < 0 && return false
-        state.scratch_strides[i] = Int64(stride)
+        state.runtime.scratch_strides[i] = Int64(stride)
     end
 
     if header.major_order == MajorOrder.ROW
-        if state.scratch_strides[ndims] == 0
-            state.scratch_strides[ndims] = elem_size
-        elseif state.scratch_strides[ndims] < elem_size
+        if state.runtime.scratch_strides[ndims] == 0
+            state.runtime.scratch_strides[ndims] = elem_size
+        elseif state.runtime.scratch_strides[ndims] < elem_size
             return false
         end
         for i in (ndims - 1):-1:1
-            required = state.scratch_strides[i + 1] * max(state.scratch_dims[i + 1], 1)
-            if state.scratch_strides[i] == 0
-                state.scratch_strides[i] = required
+            required = state.runtime.scratch_strides[i + 1] * max(state.runtime.scratch_dims[i + 1], 1)
+            if state.runtime.scratch_strides[i] == 0
+                state.runtime.scratch_strides[i] = required
             end
-            state.scratch_strides[i] < required && return false
+            state.runtime.scratch_strides[i] < required && return false
         end
         return true
     elseif header.major_order == MajorOrder.COLUMN
-        if state.scratch_strides[1] == 0
-            state.scratch_strides[1] = elem_size
-        elseif state.scratch_strides[1] < elem_size
+        if state.runtime.scratch_strides[1] == 0
+            state.runtime.scratch_strides[1] = elem_size
+        elseif state.runtime.scratch_strides[1] < elem_size
             return false
         end
         for i in 2:ndims
-            required = state.scratch_strides[i - 1] * max(state.scratch_dims[i - 1], 1)
-            if state.scratch_strides[i] == 0
-                state.scratch_strides[i] = required
+            required = state.runtime.scratch_strides[i - 1] * max(state.runtime.scratch_dims[i - 1], 1)
+            if state.runtime.scratch_strides[i] == 0
+                state.runtime.scratch_strides[i] = required
             end
-            state.scratch_strides[i] < required && return false
+            state.runtime.scratch_strides[i] < required && return false
         end
         return true
     end
@@ -550,26 +552,26 @@ function try_read_frame!(
     state::ConsumerState,
     desc::FrameDescriptor.Decoder,
 )
-    state.header_mmap === nothing && return nothing
-    FrameDescriptor.epoch(desc) == state.mapped_epoch || return nothing
+    state.mappings.header_mmap === nothing && return nothing
+    FrameDescriptor.epoch(desc) == state.mappings.mapped_epoch || return nothing
     seq = FrameDescriptor.seq(desc)
     should_process(state, seq) || return nothing
 
     header_index = FrameDescriptor.headerIndex(desc)
-    if state.mapped_nslots == 0 || header_index >= state.mapped_nslots
-        state.drops_late += 1
-        state.drops_header_invalid += 1
+    if state.mappings.mapped_nslots == 0 || header_index >= state.mappings.mapped_nslots
+        state.metrics.drops_late += 1
+        state.metrics.drops_header_invalid += 1
         return nothing
     end
 
     header_offset = header_slot_offset(header_index)
-    header_mmap = state.header_mmap::Vector{UInt8}
+    header_mmap = state.mappings.header_mmap::Vector{UInt8}
 
     commit_ptr = Ptr{UInt64}(pointer(header_mmap, header_offset + 1))
     first = atomic_load_u64(commit_ptr)
     if isodd(first)
-        state.drops_late += 1
-        state.drops_odd += 1
+        state.metrics.drops_late += 1
+        state.metrics.drops_odd += 1
         return nothing
     end
 
@@ -578,87 +580,87 @@ function try_read_frame!(
         wrap_tensor_header!(hdr_dec, header_mmap, header_offset)
         read_tensor_slot_header(hdr_dec)
     catch
-        state.drops_late += 1
-        state.drops_header_invalid += 1
+        state.metrics.drops_late += 1
+        state.metrics.drops_header_invalid += 1
         return nothing
     end
 
     second = atomic_load_u64(commit_ptr)
     if first != second || isodd(second)
-        state.drops_late += 1
-        state.drops_changed += 1
+        state.metrics.drops_late += 1
+        state.metrics.drops_changed += 1
         return nothing
     end
 
     commit_frame = second >> 1
     if commit_frame != header.frame_id
-        state.drops_late += 1
-        state.drops_frame_id_mismatch += 1
+        state.metrics.drops_late += 1
+        state.metrics.drops_frame_id_mismatch += 1
         return nothing
     end
 
-    last_commit = state.last_commit_words[Int(header_index) + 1]
+    last_commit = state.mappings.last_commit_words[Int(header_index) + 1]
     if second < last_commit
-        state.drops_late += 1
-        state.drops_changed += 1
+        state.metrics.drops_late += 1
+        state.metrics.drops_changed += 1
         return nothing
     end
 
     if header.frame_id != seq
-        state.drops_late += 1
-        state.drops_frame_id_mismatch += 1
+        state.metrics.drops_late += 1
+        state.metrics.drops_frame_id_mismatch += 1
         return nothing
     end
 
     if header.payload_slot != header_index
-        state.drops_late += 1
-        state.drops_header_invalid += 1
+        state.metrics.drops_late += 1
+        state.metrics.drops_header_invalid += 1
         return nothing
     end
 
     if header.payload_offset != 0
-        state.drops_late += 1
-        state.drops_header_invalid += 1
+        state.metrics.drops_late += 1
+        state.metrics.drops_header_invalid += 1
         return nothing
     end
 
     if !valid_dtype(header.dtype) || !valid_major_order(header.major_order)
-        state.drops_late += 1
-        state.drops_header_invalid += 1
+        state.metrics.drops_late += 1
+        state.metrics.drops_header_invalid += 1
         return nothing
     end
 
     elem_size = dtype_size_bytes(header.dtype)
     if elem_size == 0 || header.ndims > state.config.max_dims ||
        !validate_strides!(state, header, elem_size)
-        state.drops_late += 1
-        state.drops_header_invalid += 1
+        state.metrics.drops_late += 1
+        state.metrics.drops_header_invalid += 1
         return nothing
     end
 
-    pool_stride = get(state.pool_stride_bytes, header.pool_id, UInt32(0))
+    pool_stride = get(state.mappings.pool_stride_bytes, header.pool_id, UInt32(0))
     if pool_stride == 0
-        state.drops_late += 1
-        state.drops_payload_invalid += 1
+        state.metrics.drops_late += 1
+        state.metrics.drops_payload_invalid += 1
         return nothing
     end
-    payload_mmap = get(state.payload_mmaps, header.pool_id, nothing)
+    payload_mmap = get(state.mappings.payload_mmaps, header.pool_id, nothing)
     if payload_mmap === nothing
-        state.drops_late += 1
-        state.drops_payload_invalid += 1
+        state.metrics.drops_late += 1
+        state.metrics.drops_payload_invalid += 1
         return nothing
     end
 
     payload_len = Int(header.values_len_bytes)
     if payload_len > Int(pool_stride)
-        state.drops_late += 1
-        state.drops_payload_invalid += 1
+        state.metrics.drops_late += 1
+        state.metrics.drops_payload_invalid += 1
         return nothing
     end
     payload_offset = SUPERBLOCK_SIZE + Int(header.payload_slot) * Int(pool_stride)
     payload = view(payload_mmap, payload_offset + 1:payload_offset + payload_len)
 
     maybe_track_gap!(state, seq)
-    state.last_commit_words[Int(header_index) + 1] = second
+    state.mappings.last_commit_words[Int(header_index) + 1] = second
     return (header, payload)
 end

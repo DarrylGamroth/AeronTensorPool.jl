@@ -40,21 +40,14 @@ end
 struct SupervisorLivenessHandler end
 
 """
-Mutable supervisor runtime state including liveness tracking.
+Mutable supervisor runtime resources (Aeron publications/subscriptions and codecs).
 """
-mutable struct SupervisorState
-    config::SupervisorConfig
-    clock::Clocks.AbstractClock
+mutable struct SupervisorRuntime
     ctx::Aeron.Context
     client::Aeron.Client
     pub_control::Aeron.Publication
     sub_control::Aeron.Subscription
     sub_qos::Aeron.Subscription
-    producers::Dict{UInt32, ProducerInfo}
-    consumers::Dict{UInt32, ConsumerInfo}
-    config_count::UInt64
-    liveness_count::UInt64
-    timer_set::TimerSet{Tuple{PolledTimer}, Tuple{SupervisorLivenessHandler}}
     config_buf::Vector{UInt8}
     config_encoder::ConsumerConfigMsg.Encoder{UnsafeArrays.UnsafeArray{UInt8, 1}}
     config_claim::Aeron.BufferClaim
@@ -62,4 +55,25 @@ mutable struct SupervisorState
     hello_decoder::ConsumerHello.Decoder{UnsafeArrays.UnsafeArray{UInt8, 1}}
     qos_producer_decoder::QosProducer.Decoder{UnsafeArrays.UnsafeArray{UInt8, 1}}
     qos_consumer_decoder::QosConsumer.Decoder{UnsafeArrays.UnsafeArray{UInt8, 1}}
+end
+
+"""
+Mutable supervisor tracking state and counters.
+"""
+mutable struct SupervisorTracking
+    producers::Dict{UInt32, ProducerInfo}
+    consumers::Dict{UInt32, ConsumerInfo}
+    config_count::UInt64
+    liveness_count::UInt64
+end
+
+"""
+Mutable supervisor runtime state including liveness tracking.
+"""
+mutable struct SupervisorState
+    config::SupervisorConfig
+    clock::Clocks.AbstractClock
+    runtime::SupervisorRuntime
+    tracking::SupervisorTracking
+    timer_set::TimerSet{Tuple{PolledTimer}, Tuple{SupervisorLivenessHandler}}
 end

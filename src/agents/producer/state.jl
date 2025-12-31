@@ -2,11 +2,9 @@ struct ProducerAnnounceHandler end
 struct ProducerQosHandler end
 
 """
-Mutable producer runtime state including Aeron resources and SHM mappings.
+Mutable producer runtime resources (Aeron publications/subscriptions and codecs).
 """
-mutable struct ProducerState
-    config::ProducerConfig
-    clock::Clocks.AbstractClock
+mutable struct ProducerRuntime
     ctx::Aeron.Context
     client::Aeron.Client
     pub_descriptor::Aeron.Publication
@@ -14,18 +12,6 @@ mutable struct ProducerState
     pub_qos::Aeron.Publication
     pub_metadata::Aeron.Publication
     sub_control::Aeron.Subscription
-    header_mmap::Vector{UInt8}
-    payload_mmaps::Dict{UInt16, Vector{UInt8}}
-    epoch::UInt64
-    seq::UInt64
-    supports_progress::Bool
-    progress_interval_ns::UInt64
-    progress_bytes_delta::UInt64
-    last_progress_ns::UInt64
-    last_progress_bytes::UInt64
-    announce_count::UInt64
-    qos_count::UInt64
-    timer_set::TimerSet{Tuple{PolledTimer, PolledTimer}, Tuple{ProducerAnnounceHandler, ProducerQosHandler}}
     descriptor_buf::Vector{UInt8}
     progress_buf::Vector{UInt8}
     announce_buf::Vector{UInt8}
@@ -40,4 +26,39 @@ mutable struct ProducerState
     progress_claim::Aeron.BufferClaim
     qos_claim::Aeron.BufferClaim
     hello_decoder::ConsumerHello.Decoder{UnsafeArrays.UnsafeArray{UInt8, 1}}
+end
+
+"""
+Mutable producer SHM mappings.
+"""
+mutable struct ProducerMappings
+    header_mmap::Vector{UInt8}
+    payload_mmaps::Dict{UInt16, Vector{UInt8}}
+end
+
+"""
+Mutable producer counters and progress tracking.
+"""
+mutable struct ProducerMetrics
+    last_progress_ns::UInt64
+    last_progress_bytes::UInt64
+    announce_count::UInt64
+    qos_count::UInt64
+end
+
+"""
+Mutable producer runtime state including Aeron resources and SHM mappings.
+"""
+mutable struct ProducerState
+    config::ProducerConfig
+    clock::Clocks.AbstractClock
+    runtime::ProducerRuntime
+    mappings::ProducerMappings
+    metrics::ProducerMetrics
+    epoch::UInt64
+    seq::UInt64
+    supports_progress::Bool
+    progress_interval_ns::UInt64
+    progress_bytes_delta::UInt64
+    timer_set::TimerSet{Tuple{PolledTimer, PolledTimer}, Tuple{ProducerAnnounceHandler, ProducerQosHandler}}
 end

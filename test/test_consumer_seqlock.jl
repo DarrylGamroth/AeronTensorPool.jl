@@ -148,9 +148,9 @@
             @test try_read_frame!(state, desc_dec) === nothing
 
             atomic_store_u64!(commit_ptr, UInt64(1) << 1)
-            state.last_commit_words[1] = UInt64(4) << 1
+            state.mappings.last_commit_words[1] = UInt64(4) << 1
             @test try_read_frame!(state, desc_dec) === nothing
-            state.last_commit_words[1] = UInt64(0)
+            state.mappings.last_commit_words[1] = UInt64(0)
 
             write_tensor_slot_header!(
                 hdr_enc,

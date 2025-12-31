@@ -112,14 +112,14 @@
             AeronTensorPool.ShmPoolAnnounce.wrap!(announce_dec, announce_buf, 0; header = header)
 
             @test map_from_announce!(state, announce_dec)
-            @test state.mapped_pid == UInt64(1234)
+            @test state.mappings.mapped_pid == UInt64(1234)
 
             wrap_superblock!(sb_enc, header_mmap, 0)
             ShmRegionSuperblock.pid!(sb_enc, UInt64(5678))
 
             @test AeronTensorPool.validate_mapped_superblocks!(state, announce_dec) == :pid_changed
             @test !handle_shm_pool_announce!(state, announce_dec)
-            @test state.header_mmap === nothing
+            @test state.mappings.header_mmap === nothing
             finally
                 close_consumer_state!(state)
             end

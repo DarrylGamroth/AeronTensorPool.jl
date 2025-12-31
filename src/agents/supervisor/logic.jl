@@ -18,19 +18,12 @@ function init_supervisor(config::SupervisorConfig)
         (SupervisorLivenessHandler(),),
     )
 
-    return SupervisorState(
-        config,
-        clock,
+    runtime = SupervisorRuntime(
         ctx,
         client,
         pub_control,
         sub_control,
         sub_qos,
-        Dict{UInt32, ProducerInfo}(),
-        Dict{UInt32, ConsumerInfo}(),
-        UInt64(0),
-        UInt64(0),
-        timer_set,
         Vector{UInt8}(undef, 512),
         ConsumerConfigMsg.Encoder(UnsafeArrays.UnsafeArray{UInt8, 1}),
         Aeron.BufferClaim(),
@@ -39,6 +32,13 @@ function init_supervisor(config::SupervisorConfig)
         QosProducer.Decoder(UnsafeArrays.UnsafeArray{UInt8, 1}),
         QosConsumer.Decoder(UnsafeArrays.UnsafeArray{UInt8, 1}),
     )
+    tracking = SupervisorTracking(
+        Dict{UInt32, ProducerInfo}(),
+        Dict{UInt32, ConsumerInfo}(),
+        UInt64(0),
+        UInt64(0),
+    )
+    return SupervisorState(config, clock, runtime, tracking, timer_set)
 end
 
 """
@@ -50,11 +50,11 @@ function handle_shm_pool_announce!(state::SupervisorState, msg::ShmPoolAnnounce.
 
     pid = ShmPoolAnnounce.producerId(msg)
     ep = ShmPoolAnnounce.epoch(msg)
-    info = get(state.producers, pid, nothing)
+    info = get(state.tracking.producers, pid, nothing)
     last_qos = isnothing(info) ? UInt64(0) : info.last_qos_ns
     current_seq = isnothing(info) ? UInt64(0) : info.current_seq
 
-    state.producers[pid] = ProducerInfo(
+    state.tracking.producers[pid] = ProducerInfo(
         ShmPoolAnnounce.streamId(msg),
         ep,
         now_ns,
@@ -72,9 +72,9 @@ function handle_qos_producer!(state::SupervisorState, msg::QosProducer.Decoder)
     now_ns = UInt64(Clocks.time_nanos(state.clock))
 
     pid = QosProducer.producerId(msg)
-    info = get(state.producers, pid, nothing)
+    info = get(state.tracking.producers, pid, nothing)
     if isnothing(info)
-        state.producers[pid] = ProducerInfo(
+        state.tracking.producers[pid] = ProducerInfo(
             QosProducer.streamId(msg),
             QosProducer.epoch(msg),
             UInt64(0),
@@ -82,7 +82,7 @@ function handle_qos_producer!(state::SupervisorState, msg::QosProducer.Decoder)
             QosProducer.currentSeq(msg),
         )
     else
-        state.producers[pid] = ProducerInfo(
+        state.tracking.producers[pid] = ProducerInfo(
             info.stream_id,
             QosProducer.epoch(msg),
             info.last_announce_ns,
@@ -101,13 +101,13 @@ function handle_consumer_hello!(state::SupervisorState, msg::ConsumerHello.Decod
     now_ns = UInt64(Clocks.time_nanos(state.clock))
 
     cid = ConsumerHello.consumerId(msg)
-    info = get(state.consumers, cid, nothing)
+    info = get(state.tracking.consumers, cid, nothing)
     last_qos = isnothing(info) ? UInt64(0) : info.last_qos_ns
     last_seq = isnothing(info) ? UInt64(0) : info.last_seq_seen
     drops_gap = isnothing(info) ? UInt64(0) : info.drops_gap
     drops_late = isnothing(info) ? UInt64(0) : info.drops_late
 
-    state.consumers[cid] = ConsumerInfo(
+    state.tracking.consumers[cid] = ConsumerInfo(
         ConsumerHello.streamId(msg),
         cid,
         UInt64(0),
@@ -129,9 +129,9 @@ function handle_qos_consumer!(state::SupervisorState, msg::QosConsumer.Decoder)
     now_ns = UInt64(Clocks.time_nanos(state.clock))
 
     cid = QosConsumer.consumerId(msg)
-    info = get(state.consumers, cid, nothing)
+    info = get(state.tracking.consumers, cid, nothing)
     if isnothing(info)
-        state.consumers[cid] = ConsumerInfo(
+        state.tracking.consumers[cid] = ConsumerInfo(
             QosConsumer.streamId(msg),
             cid,
             QosConsumer.epoch(msg),
@@ -143,7 +143,7 @@ function handle_qos_consumer!(state::SupervisorState, msg::QosConsumer.Decoder)
             QosConsumer.dropsLate(msg),
         )
     else
-        state.consumers[cid] = ConsumerInfo(
+        state.tracking.consumers[cid] = ConsumerInfo(
             info.stream_id,
             cid,
             QosConsumer.epoch(msg),
@@ -162,15 +162,15 @@ end
 Check liveness and return true if any action was taken.
 """
 function check_liveness!(state::SupervisorState, now_ns::UInt64)
-    state.liveness_count += 1
+    state.tracking.liveness_count += 1
     timeout = state.config.liveness_timeout_ns
-    for (pid, info) in state.producers
+    for (pid, info) in state.tracking.producers
         last_seen = max(info.last_announce_ns, info.last_qos_ns)
         if last_seen > 0 && now_ns - last_seen > timeout
             @warn "Producer stale" producer_id = pid epoch = info.epoch
         end
     end
-    for (cid, info) in state.consumers
+    for (cid, info) in state.tracking.consumers
         last_seen = max(info.last_qos_ns, info.last_hello_ns)
         if last_seen > 0 && now_ns - last_seen > timeout
             @warn "Consumer stale" consumer_id = cid epoch = info.epoch
@@ -199,39 +199,39 @@ function emit_consumer_config!(
         Int(ConsumerConfigMsg.payloadFallbackUri_header_length) +
         payload_len
 
-    sent = try_claim_sbe!(state.pub_control, state.config_claim, msg_len) do buf
-        ConsumerConfigMsg.wrap_and_apply_header!(state.config_encoder, buf, 0)
-        ConsumerConfigMsg.streamId!(state.config_encoder, state.config.stream_id)
-        ConsumerConfigMsg.consumerId!(state.config_encoder, consumer_id)
+    sent = try_claim_sbe!(state.runtime.pub_control, state.runtime.config_claim, msg_len) do buf
+        ConsumerConfigMsg.wrap_and_apply_header!(state.runtime.config_encoder, buf, 0)
+        ConsumerConfigMsg.streamId!(state.runtime.config_encoder, state.config.stream_id)
+        ConsumerConfigMsg.consumerId!(state.runtime.config_encoder, consumer_id)
         ConsumerConfigMsg.useShm!(
-            state.config_encoder,
+            state.runtime.config_encoder,
             use_shm ? ShmTensorpoolControl.Bool_.TRUE : ShmTensorpoolControl.Bool_.FALSE,
         )
-        ConsumerConfigMsg.mode!(state.config_encoder, mode)
-        ConsumerConfigMsg.decimation!(state.config_encoder, decimation)
-        ConsumerConfigMsg.payloadFallbackUri!(state.config_encoder, payload_fallback_uri)
+        ConsumerConfigMsg.mode!(state.runtime.config_encoder, mode)
+        ConsumerConfigMsg.decimation!(state.runtime.config_encoder, decimation)
+        ConsumerConfigMsg.payloadFallbackUri!(state.runtime.config_encoder, payload_fallback_uri)
     end
 
     if sent
-        state.config_count += 1
+        state.tracking.config_count += 1
         return true
     end
 
-    ConsumerConfigMsg.wrap_and_apply_header!(state.config_encoder, unsafe_array_view(state.config_buf), 0)
-    ConsumerConfigMsg.streamId!(state.config_encoder, state.config.stream_id)
-    ConsumerConfigMsg.consumerId!(state.config_encoder, consumer_id)
+    ConsumerConfigMsg.wrap_and_apply_header!(state.runtime.config_encoder, unsafe_array_view(state.runtime.config_buf), 0)
+    ConsumerConfigMsg.streamId!(state.runtime.config_encoder, state.config.stream_id)
+    ConsumerConfigMsg.consumerId!(state.runtime.config_encoder, consumer_id)
     ConsumerConfigMsg.useShm!(
-        state.config_encoder,
+        state.runtime.config_encoder,
         use_shm ? ShmTensorpoolControl.Bool_.TRUE : ShmTensorpoolControl.Bool_.FALSE,
     )
-    ConsumerConfigMsg.mode!(state.config_encoder, mode)
-    ConsumerConfigMsg.decimation!(state.config_encoder, decimation)
-    ConsumerConfigMsg.payloadFallbackUri!(state.config_encoder, payload_fallback_uri)
+    ConsumerConfigMsg.mode!(state.runtime.config_encoder, mode)
+    ConsumerConfigMsg.decimation!(state.runtime.config_encoder, decimation)
+    ConsumerConfigMsg.payloadFallbackUri!(state.runtime.config_encoder, payload_fallback_uri)
 
     Aeron.offer(
-        state.pub_control,
-        view(state.config_buf, 1:sbe_message_length(state.config_encoder)),
+        state.runtime.pub_control,
+        view(state.runtime.config_buf, 1:sbe_message_length(state.runtime.config_encoder)),
     )
-    state.config_count += 1
+    state.tracking.config_count += 1
     return true
 end

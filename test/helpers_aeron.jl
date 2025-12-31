@@ -71,13 +71,13 @@ end
 
 function close_consumer_state!(state::ConsumerState)
     try
-        close(state.pub_control)
-        close(state.pub_qos)
-        close(state.sub_descriptor)
-        close(state.sub_control)
-        close(state.sub_qos)
-        close(state.client)
-        close(state.ctx)
+        close(state.runtime.pub_control)
+        close(state.runtime.pub_qos)
+        close(state.runtime.sub_descriptor)
+        close(state.runtime.sub_control)
+        close(state.runtime.sub_qos)
+        close(state.runtime.client)
+        close(state.runtime.ctx)
     catch
     end
     return nothing
@@ -85,13 +85,13 @@ end
 
 function close_producer_state!(state::ProducerState)
     try
-        close(state.pub_descriptor)
-        close(state.pub_control)
-        close(state.pub_qos)
-        close(state.pub_metadata)
-        close(state.sub_control)
-        close(state.client)
-        close(state.ctx)
+        close(state.runtime.pub_descriptor)
+        close(state.runtime.pub_control)
+        close(state.runtime.pub_qos)
+        close(state.runtime.pub_metadata)
+        close(state.runtime.sub_control)
+        close(state.runtime.client)
+        close(state.runtime.ctx)
     catch
     end
     return nothing
@@ -99,11 +99,11 @@ end
 
 function close_supervisor_state!(state::SupervisorState)
     try
-        close(state.pub_control)
-        close(state.sub_control)
-        close(state.sub_qos)
-        close(state.client)
-        close(state.ctx)
+        close(state.runtime.pub_control)
+        close(state.runtime.sub_control)
+        close(state.runtime.sub_qos)
+        close(state.runtime.client)
+        close(state.runtime.ctx)
     catch
     end
     return nothing

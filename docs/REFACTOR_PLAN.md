@@ -60,10 +60,10 @@ src/
 
 - [x] Phase 1: Move files into new folders without changing logic.
 - [x] Phase 2: Split agents into `state/handlers/logic` files.
-- [ ] Phase 3: Introduce `Runtime`, `Mappings`, `Metrics` sub-structs for agent state.
-- [ ] Phase 4: Update exports and include order in `src/AeronTensorPool.jl`.
-- [ ] Phase 5: Update tests/benchmarks to new module paths (no behavior changes).
-- [ ] Phase 6: Document the new layout in `docs/IMPLEMENTATION.md`.
+- [x] Phase 3: Introduce `Runtime`, `Mappings`, `Metrics` sub-structs for agent state.
+- [x] Phase 4: Update exports and include order in `src/AeronTensorPool.jl`.
+- [x] Phase 5: Update tests/benchmarks to new module paths (no behavior changes).
+- [x] Phase 6: Document the new layout in `docs/IMPLEMENTATION.md`.
 
 ## Notes
 

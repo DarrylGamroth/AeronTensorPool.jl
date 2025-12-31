@@ -13,7 +13,7 @@ Construct a ProducerAgent from a ProducerConfig.
 function ProducerAgent(config::ProducerConfig)
     state = init_producer(config)
     control_assembler = make_control_assembler(state)
-    counters = ProducerCounters(state.client, Int(config.producer_id), "Producer")
+    counters = ProducerCounters(state.runtime.client, Int(config.producer_id), "Producer")
     return ProducerAgent(state, control_assembler, counters)
 end
 
@@ -26,21 +26,21 @@ function Agent.do_work(agent::ProducerAgent)
         Aeron.add!(agent.counters.base.total_work_done, Int64(work_done))
     end
     agent.counters.frames_published[] = Int64(agent.state.seq)
-    agent.counters.announces[] = Int64(agent.state.announce_count)
-    agent.counters.qos_published[] = Int64(agent.state.qos_count)
+    agent.counters.announces[] = Int64(agent.state.metrics.announce_count)
+    agent.counters.qos_published[] = Int64(agent.state.metrics.qos_count)
     return work_done
 end
 
 function Agent.on_close(agent::ProducerAgent)
     try
         close(agent.counters)
-        close(agent.state.pub_descriptor)
-        close(agent.state.pub_control)
-        close(agent.state.pub_qos)
-        close(agent.state.pub_metadata)
-        close(agent.state.sub_control)
-        close(agent.state.client)
-        close(agent.state.ctx)
+        close(agent.state.runtime.pub_descriptor)
+        close(agent.state.runtime.pub_control)
+        close(agent.state.runtime.pub_qos)
+        close(agent.state.runtime.pub_metadata)
+        close(agent.state.runtime.sub_control)
+        close(agent.state.runtime.client)
+        close(agent.state.runtime.ctx)
     catch
     end
     return nothing

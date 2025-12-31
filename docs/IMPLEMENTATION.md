@@ -16,6 +16,15 @@ This guide maps the normative spec (SHM_Aeron_Tensor_Pool.md) to concrete implem
   - File generation: `SBE.generate("sbe-schema.xml", "gen/TensorPool.jl")`; then `include("gen/TensorPool.jl"); using .TensorPool`.
 - Regenerate codecs whenever the schema or layout_version changes.
 
+## 2a. Source Layout (Aeron-style, Julian)
+- `src/core`: shared constants and error types.
+- `src/shm`: shared-memory helpers (canonical paths, mmap, superblocks, headers).
+- `src/aeron`: Aeron helpers (try_claim, fragment assemblers, counters).
+- `src/timers`: polled timers and timer sets.
+- `src/config`: TOML/env config loading and path resolution.
+- `src/agents/<role>`: role implementation split into `state.jl`, `handlers.jl`, and `logic.jl`.
+- `src/agent_glue`: Agent.jl integration for each role.
+
 ## 3. Shared Constants (must match spec)
 - superblock_size = 64
 - header_slot_bytes = 256

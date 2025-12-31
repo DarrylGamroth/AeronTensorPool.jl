@@ -14,11 +14,11 @@ function make_control_assembler(state::SupervisorState)
         header = MessageHeader.Decoder(buffer, 0)
         template_id = MessageHeader.templateId(header)
         if template_id == TEMPLATE_SHM_POOL_ANNOUNCE
-            ShmPoolAnnounce.wrap!(st.announce_decoder, buffer, 0; header = header)
-            handle_shm_pool_announce!(st, st.announce_decoder)
+            ShmPoolAnnounce.wrap!(st.runtime.announce_decoder, buffer, 0; header = header)
+            handle_shm_pool_announce!(st, st.runtime.announce_decoder)
         elseif template_id == TEMPLATE_CONSUMER_HELLO
-            ConsumerHello.wrap!(st.hello_decoder, buffer, 0; header = header)
-            handle_consumer_hello!(st, st.hello_decoder)
+            ConsumerHello.wrap!(st.runtime.hello_decoder, buffer, 0; header = header)
+            handle_consumer_hello!(st, st.runtime.hello_decoder)
         end
         nothing
     end
@@ -33,11 +33,11 @@ function make_qos_assembler(state::SupervisorState)
         header = MessageHeader.Decoder(buffer, 0)
         template_id = MessageHeader.templateId(header)
         if template_id == TEMPLATE_QOS_PRODUCER
-            QosProducer.wrap!(st.qos_producer_decoder, buffer, 0; header = header)
-            handle_qos_producer!(st, st.qos_producer_decoder)
+            QosProducer.wrap!(st.runtime.qos_producer_decoder, buffer, 0; header = header)
+            handle_qos_producer!(st, st.runtime.qos_producer_decoder)
         elseif template_id == TEMPLATE_QOS_CONSUMER
-            QosConsumer.wrap!(st.qos_consumer_decoder, buffer, 0; header = header)
-            handle_qos_consumer!(st, st.qos_consumer_decoder)
+            QosConsumer.wrap!(st.runtime.qos_consumer_decoder, buffer, 0; header = header)
+            handle_qos_consumer!(st, st.runtime.qos_consumer_decoder)
         end
         nothing
     end
@@ -49,7 +49,7 @@ end
     assembler::Aeron.FragmentAssembler,
     fragment_limit::Int32 = DEFAULT_FRAGMENT_LIMIT,
 )
-    return Aeron.poll(state.sub_control, assembler, fragment_limit)
+    return Aeron.poll(state.runtime.sub_control, assembler, fragment_limit)
 end
 
 @inline function poll_qos!(
@@ -57,7 +57,7 @@ end
     assembler::Aeron.FragmentAssembler,
     fragment_limit::Int32 = DEFAULT_FRAGMENT_LIMIT,
 )
-    return Aeron.poll(state.sub_qos, assembler, fragment_limit)
+    return Aeron.poll(state.runtime.sub_qos, assembler, fragment_limit)
 end
 
 """
