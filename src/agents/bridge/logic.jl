@@ -16,7 +16,7 @@ function init_bridge(consumer_state::ConsumerState, config::BridgeConfig)
         client,
         pub_descriptor,
         pub_payload,
-        Vector{UInt8}(undef, 512),
+        Vector{UInt8}(undef, CONTROL_BUF_BYTES),
         FrameDescriptor.Encoder(UnsafeArrays.UnsafeArray{UInt8, 1}),
         Aeron.BufferClaim(),
         Aeron.BufferClaim(),

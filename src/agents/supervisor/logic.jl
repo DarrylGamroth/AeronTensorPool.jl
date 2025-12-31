@@ -24,7 +24,7 @@ function init_supervisor(config::SupervisorConfig)
         pub_control,
         sub_control,
         sub_qos,
-        Vector{UInt8}(undef, 512),
+        Vector{UInt8}(undef, CONTROL_BUF_BYTES),
         ConsumerConfigMsg.Encoder(UnsafeArrays.UnsafeArray{UInt8, 1}),
         Aeron.BufferClaim(),
         ShmPoolAnnounce.Decoder(UnsafeArrays.UnsafeArray{UInt8, 1}),

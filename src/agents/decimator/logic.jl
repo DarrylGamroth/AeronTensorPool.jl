@@ -14,7 +14,7 @@ function init_decimator(consumer_state::ConsumerState, config::DecimatorConfig)
         ctx,
         client,
         pub_descriptor,
-        Vector{UInt8}(undef, 512),
+        Vector{UInt8}(undef, CONTROL_BUF_BYTES),
         FrameDescriptor.Encoder(UnsafeArrays.UnsafeArray{UInt8, 1}),
         Aeron.BufferClaim(),
         UInt64(0),

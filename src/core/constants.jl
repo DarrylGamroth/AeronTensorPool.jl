@@ -4,6 +4,9 @@ const MAGIC_TPOLSHM1 = 0x544F504C53484D31
 const MAX_DIMS = 8
 const DEFAULT_FRAGMENT_LIMIT = Int32(10)
 
+const CONTROL_BUF_BYTES = 512
+const ANNOUNCE_BUF_BYTES = 1024
+
 const RegionType = ShmTensorpoolControl.RegionType
 const Dtype = ShmTensorpoolControl.Dtype
 const MajorOrder = ShmTensorpoolControl.MajorOrder
