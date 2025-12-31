@@ -178,14 +178,15 @@ end
     TensorSlotHeader256.padAlign!(m, UInt8(0))
 
     dims_len = length(dims)
-    strides_len = length(strides)
-    dims_offset = TensorSlotHeader256.dims_encoding_offset(m)
-    strides_offset = TensorSlotHeader256.strides_encoding_offset(m)
+    dims_view = TensorSlotHeader256.dims!(m)
     for i in 1:MAX_DIMS
-        dim_val = i <= dims_len ? dims[i] : Int32(0)
-        stride_val = i <= strides_len ? strides[i] : Int32(0)
-        store_int32_le!(m.buffer, m.offset + dims_offset + (i - 1) * 4, dim_val)
-        store_int32_le!(m.buffer, m.offset + strides_offset + (i - 1) * 4, stride_val)
+        dims_view[i] = i <= dims_len ? dims[i] : Int32(0)
+    end
+
+    strides_len = length(strides)
+    strides_view = TensorSlotHeader256.strides!(m)
+    for i in 1:MAX_DIMS
+        strides_view[i] = i <= strides_len ? strides[i] : Int32(0)
     end
     return nothing
 end
