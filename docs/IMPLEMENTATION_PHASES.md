@@ -239,7 +239,7 @@ Deliverables
 - Bridge/decimator message format, full implementation, and tests.
 
 Status
-- Not started.
+- Deferred (no wire format defined yet; optional UDP format can be added when spec is ready).
 
 ## Phase 11 - Operational Playbooks
 
