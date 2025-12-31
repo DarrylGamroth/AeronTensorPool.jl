@@ -57,6 +57,15 @@ function parse_payload_pools(tbl::Dict, env::AbstractDict)
     return pools
 end
 
+function parse_allowed_base_dirs(tbl::Dict, env::AbstractDict)
+    dirs_tbl = get(tbl, "allowed_base_dirs", Any[])
+    dirs = String[]
+    for dir in dirs_tbl
+        push!(dirs, expand_vars(String(dir), env))
+    end
+    return dirs
+end
+
 """
 Load ProducerConfig from a TOML file with optional environment overrides.
 """
@@ -128,6 +137,11 @@ function load_consumer_config(path::AbstractString; env::AbstractDict = ENV)
     supports_progress = Bool(get(cons, "supports_progress", false))
     max_rate_hz = UInt16(get(cons, "max_rate_hz", 0))
     payload_fallback_uri = expand_vars(String(get(cons, "payload_fallback_uri", "")), env)
+    shm_base_dir = expand_vars(String(get(cons, "shm_base_dir", "")), env)
+    allowed_base_dirs = parse_allowed_base_dirs(cons, env)
+    if isempty(allowed_base_dirs) && !isempty(shm_base_dir)
+        push!(allowed_base_dirs, shm_base_dir)
+    end
     require_hugepages = Bool(get(cons, "require_hugepages", false))
     progress_interval_us = UInt32(get(cons, "progress_interval_us", 250))
     progress_bytes_delta = UInt32(get(cons, "progress_bytes_delta", 65536))
@@ -153,6 +167,8 @@ function load_consumer_config(path::AbstractString; env::AbstractDict = ENV)
         supports_progress,
         max_rate_hz,
         payload_fallback_uri,
+        shm_base_dir,
+        allowed_base_dirs,
         require_hugepages,
         progress_interval_us,
         progress_bytes_delta,

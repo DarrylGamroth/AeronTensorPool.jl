@@ -19,6 +19,8 @@ mutable struct ConsumerConfig
     supports_progress::Bool
     max_rate_hz::UInt16
     payload_fallback_uri::String
+    shm_base_dir::String
+    allowed_base_dirs::Vector{String}
     require_hugepages::Bool
     progress_interval_us::UInt32
     progress_bytes_delta::UInt32
