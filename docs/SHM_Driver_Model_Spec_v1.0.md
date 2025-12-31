@@ -115,7 +115,17 @@ Leases follow this lifecycle:
 
 Once a lease reaches `DETACHED`, `EXPIRED`, or `REVOKED`, the client MUST stop using all SHM regions from that lease and MUST reattach to continue.
 
-### 4.8 Control-Plane Sequences (Informative)
+### 4.8 Lease Identity and Client Identity (Normative)
+
+- `leaseId` MUST be unique per driver instance for the lifetime of the process and MUST NOT be reused after expiry or detach.
+- `leaseId` scope is local to a single driver instance and MUST NOT be assumed stable across driver restarts.
+- `clientId` MUST be unique per client process. If the driver observes two active leases with the same `clientId`, it MUST reject the newer attach with `code=REJECTED`.
+
+### 4.9 Detach Semantics (Normative)
+
+`ShmDetachRequest` is best-effort and idempotent. If the lease is active and matches the request's `leaseId`, `streamId`, `clientId`, and `role`, the driver MUST invalidate the lease and return `code=OK`. If the lease is unknown or already invalidated, the driver SHOULD return `code=REJECTED` (or `OK` if it treats the request as idempotent success). Detaching a producer lease MUST trigger an epoch increment per §6.
+
+### 4.10 Control-Plane Sequences (Informative)
 
 Attach / keepalive / detach sequence (single stream, success path):
 
