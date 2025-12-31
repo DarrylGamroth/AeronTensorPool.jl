@@ -251,7 +251,7 @@ Deliverables
 - Health checks and counter-based alerting guidance.
 
 Status
-- In progress (ops playbook drafted).
+- Complete (ops playbook, health checks, and troubleshooting guidance added).
 
 ## Phase 12 - Documentation and API Guide
 

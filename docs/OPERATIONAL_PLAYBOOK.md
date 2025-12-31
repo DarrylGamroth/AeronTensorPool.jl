@@ -12,6 +12,7 @@ This playbook complements the spec and implementation guide with deployment and 
 - Producer: ShmPoolAnnounce arriving at 1 Hz; activity_timestamp_ns updated in all superblocks.
 - Consumer: QosConsumer drops_gap/drops_late remain bounded; frame_id matches seq.
 - Supervisor: liveness checks show active producers/consumers; config publishes only when needed.
+- Counters: frames_published increasing; drops counters stable; announce/qos counters non-zero.
 
 ## Common Profiles
 - Low-latency: small nslots, smaller stride classes, IPC transport, pinned CPU for producer/consumer.
@@ -28,12 +29,26 @@ This playbook complements the spec and implementation guide with deployment and 
 - Consumer remap loop: verify superblock magic/layout/epoch and URI validation (hugepages).
 - drops_gap increasing: producer/consumer scheduling delays; increase nslots or reduce consumer work.
 - drops_late increasing: seqlock contention; verify single writer and avoid long payload writes.
+- QosConsumer missing: verify consumer has QoS publication and supervisor subscription stream IDs match.
+- FrameDescriptor received but payload invalid: verify payload pool URI, stride_bytes, and pool_id mapping.
 
 ## Observability
 - Aeron counters expose: frames_published, drops_gap, drops_late, announces, qos_published.
 - Use counters for alerting thresholds before QoS messages are processed.
 
+Suggested thresholds (tune per deployment)
+- drops_gap sustained > 0.1% of frames: increase nslots or reduce consumer load.
+- drops_late sustained > 0.1% of frames: reduce payload write time or check scheduler jitter.
+- No announces for > 5 seconds: consider producer down or Aeron connectivity issue.
+
 ## Hugepages Checklist
 - Mount hugetlbfs (example): `mount -t hugetlbfs none /dev/hugepages`.
 - Ensure SHM URIs use `require_hugepages=true` only when hugepages are available.
 - Verify stride_bytes is multiple of hugepage size.
+
+## Troubleshooting Checklist
+- Verify SHM file paths exist and permissions are correct.
+- Confirm layout_version/epoch match between announce and superblock.
+- Confirm descriptor/control/QoS stream IDs align across roles.
+- Check that consumers remap after epoch changes and drop in-flight frames.
+- Verify that payload_slot == header_index for v1.1 mapping.
