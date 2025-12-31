@@ -20,7 +20,7 @@ mutable struct DecimatorState
     client::Aeron.Client
     pub_descriptor::Aeron.Publication
     descriptor_buf::Vector{UInt8}
-    descriptor_encoder::FrameDescriptor.Encoder{Vector{UInt8}}
+    descriptor_encoder::FrameDescriptor.Encoder{UnsafeArrays.UnsafeArray{UInt8, 1}}
     descriptor_claim::Aeron.BufferClaim
     frame_counter::UInt64
 end
@@ -42,7 +42,7 @@ function init_decimator(consumer_state::ConsumerState, config::DecimatorConfig)
         client,
         pub_descriptor,
         Vector{UInt8}(undef, 512),
-        FrameDescriptor.Encoder(Vector{UInt8}),
+        FrameDescriptor.Encoder(UnsafeArrays.UnsafeArray{UInt8, 1}),
         Aeron.BufferClaim(),
         UInt64(0),
     )
@@ -75,8 +75,7 @@ function republish_descriptor!(
     _payload::AbstractVector{UInt8},
 )
     sent = try_claim_sbe!(state.pub_descriptor, state.descriptor_claim, FRAME_DESCRIPTOR_LEN) do buf
-        buf_view = unsafe_wrap(Vector{UInt8}, pointer(buf), length(buf))
-        FrameDescriptor.wrap_and_apply_header!(state.descriptor_encoder, buf_view, 0)
+        FrameDescriptor.wrap_and_apply_header!(state.descriptor_encoder, buf, 0)
         FrameDescriptor.streamId!(state.descriptor_encoder, state.config.stream_id)
         FrameDescriptor.epoch!(state.descriptor_encoder, state.config.epoch)
         FrameDescriptor.seq!(state.descriptor_encoder, header.frame_id)
@@ -89,7 +88,7 @@ function republish_descriptor!(
         return true
     end
 
-    FrameDescriptor.wrap_and_apply_header!(state.descriptor_encoder, state.descriptor_buf, 0)
+    FrameDescriptor.wrap_and_apply_header!(state.descriptor_encoder, unsafe_array_view(state.descriptor_buf), 0)
     FrameDescriptor.streamId!(state.descriptor_encoder, state.config.stream_id)
     FrameDescriptor.epoch!(state.descriptor_encoder, state.config.epoch)
     FrameDescriptor.seq!(state.descriptor_encoder, header.frame_id)

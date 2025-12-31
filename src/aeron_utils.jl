@@ -13,6 +13,13 @@ Try to claim an Aeron buffer and fill it with an SBE message.
 end
 
 """
+Try to claim an Aeron buffer using do-block syntax.
+"""
+@inline function try_claim_sbe!(fill_fn::Function, pub::Aeron.Publication, claim::Aeron.BufferClaim, length::Int)
+    return try_claim_sbe!(pub, claim, length, fill_fn)
+end
+
+"""
 Return full SBE message length (header + body) for an encoder/decoder.
 """
 @inline function sbe_message_length(msg::SBE.AbstractSbeMessage)
@@ -25,4 +32,11 @@ Set Aeron directory if non-empty.
 @inline function set_aeron_dir!(ctx::Aeron.Context, aeron_dir::AbstractString)
     isempty(aeron_dir) || Aeron.aeron_dir!(ctx, aeron_dir)
     return nothing
+end
+
+"""
+Create an UnsafeArray view over a Vector{UInt8} buffer.
+"""
+@inline function unsafe_array_view(buffer::Vector{UInt8})
+    return UnsafeArrays.UnsafeArray(pointer(buffer), (length(buffer),))
 end

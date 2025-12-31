@@ -65,8 +65,8 @@ mutable struct ConsumerState
     timer_set::TimerSet{Tuple{PolledTimer, PolledTimer}, Tuple{ConsumerHelloHandler, ConsumerQosHandler}}
     hello_buf::Vector{UInt8}
     qos_buf::Vector{UInt8}
-    hello_encoder::ConsumerHello.Encoder{Vector{UInt8}}
-    qos_encoder::QosConsumer.Encoder{Vector{UInt8}}
+    hello_encoder::ConsumerHello.Encoder{UnsafeArrays.UnsafeArray{UInt8, 1}}
+    qos_encoder::QosConsumer.Encoder{UnsafeArrays.UnsafeArray{UInt8, 1}}
     hello_claim::Aeron.BufferClaim
     qos_claim::Aeron.BufferClaim
     desc_decoder::FrameDescriptor.Decoder{UnsafeArrays.UnsafeArray{UInt8, 1}}
@@ -131,8 +131,8 @@ function init_consumer(config::ConsumerConfig)
         timer_set,
         Vector{UInt8}(undef, 512),
         Vector{UInt8}(undef, 512),
-        ConsumerHello.Encoder(Vector{UInt8}),
-        QosConsumer.Encoder(Vector{UInt8}),
+        ConsumerHello.Encoder(UnsafeArrays.UnsafeArray{UInt8, 1}),
+        QosConsumer.Encoder(UnsafeArrays.UnsafeArray{UInt8, 1}),
         Aeron.BufferClaim(),
         Aeron.BufferClaim(),
         FrameDescriptor.Decoder(UnsafeArrays.UnsafeArray{UInt8, 1}),
@@ -198,9 +198,24 @@ Map SHM regions from a ShmPoolAnnounce message.
 """
 function map_from_announce!(state::ConsumerState, msg::ShmPoolAnnounce.Decoder)
     state.config.use_shm || return false
+    ShmPoolAnnounce.headerSlotBytes(msg) == UInt16(HEADER_SLOT_BYTES) || return false
+    header_nslots = ShmPoolAnnounce.headerNslots(msg)
+
+    payload_mmaps = Dict{UInt16, Vector{UInt8}}()
+    stride_bytes = Dict{UInt16, UInt32}()
+    pool_specs = Vector{PayloadPoolConfig}()
+
+    pools = ShmPoolAnnounce.payloadPools(msg)
+    for pool in pools
+        pool_id = ShmPoolAnnounce.PayloadPools.poolId(pool)
+        pool_nslots = ShmPoolAnnounce.PayloadPools.poolNslots(pool)
+        pool_stride = ShmPoolAnnounce.PayloadPools.strideBytes(pool)
+        pool_uri = String(ShmPoolAnnounce.PayloadPools.regionUri(pool))
+        push!(pool_specs, PayloadPoolConfig(pool_id, pool_uri, pool_stride, pool_nslots))
+    end
+
     header_uri = String(ShmPoolAnnounce.headerRegionUri(msg))
     validate_uri(header_uri) || return false
-    ShmPoolAnnounce.headerSlotBytes(msg) == UInt16(HEADER_SLOT_BYTES) || return false
     header_parsed = parse_shm_uri(header_uri)
     require_hugepages = header_parsed.require_hugepages || state.config.require_hugepages
     if require_hugepages && !is_hugetlbfs_path(header_parsed.path)
@@ -208,7 +223,7 @@ function map_from_announce!(state::ConsumerState, msg::ShmPoolAnnounce.Decoder)
     end
     hugepage_size = require_hugepages ? hugepage_size_bytes() : 0
     require_hugepages && hugepage_size == 0 && return false
-    header_mmap = mmap_shm(header_uri, SUPERBLOCK_SIZE + HEADER_SLOT_BYTES * Int(ShmPoolAnnounce.headerNslots(msg)))
+    header_mmap = mmap_shm(header_uri, SUPERBLOCK_SIZE + HEADER_SLOT_BYTES * Int(header_nslots))
 
     sb_dec = ShmRegionSuperblock.Decoder(Vector{UInt8})
     wrap_superblock!(sb_dec, header_mmap, 0)
@@ -218,45 +233,33 @@ function map_from_announce!(state::ConsumerState, msg::ShmPoolAnnounce.Decoder)
         return false
     end
 
-    header_expected_nslots = ShmPoolAnnounce.headerNslots(msg)
     header_ok = validate_superblock_fields(
         header_fields;
         expected_layout_version = ShmPoolAnnounce.layoutVersion(msg),
         expected_epoch = ShmPoolAnnounce.epoch(msg),
         expected_stream_id = ShmPoolAnnounce.streamId(msg),
-        expected_nslots = header_expected_nslots,
+        expected_nslots = header_nslots,
         expected_slot_bytes = UInt32(HEADER_SLOT_BYTES),
         expected_region_type = RegionType.HEADER_RING,
         expected_pool_id = UInt16(0),
     )
     header_ok || return false
 
-    payload_mmaps = Dict{UInt16, Vector{UInt8}}()
-    stride_bytes = Dict{UInt16, UInt32}()
-
-    pools = ShmPoolAnnounce.payloadPools(msg)
-    for pool in pools
-        pool_id = ShmPoolAnnounce.PayloadPools.poolId(pool)
-        pool_nslots = ShmPoolAnnounce.PayloadPools.poolNslots(pool)
-        pool_stride = ShmPoolAnnounce.PayloadPools.strideBytes(pool)
-        pool_uri = String(ShmPoolAnnounce.PayloadPools.regionUri(pool))
-
-        pool_nslots == header_expected_nslots || return false
-        validate_uri(pool_uri) || return false
-        pool_parsed = parse_shm_uri(pool_uri)
-        pool_require_hugepages = pool_parsed.require_hugepages || state.config.require_hugepages
+    for pool in pool_specs
+        pool.nslots == header_nslots || return false
+        validate_uri(pool.uri) || return false
+        pool_parsed = parse_shm_uri(pool.uri)
+        pool_require_hugepages = pool_parsed.require_hugepages || require_hugepages
         if pool_require_hugepages && !is_hugetlbfs_path(pool_parsed.path)
             return false
         end
-        pool_hugepage_size = pool_require_hugepages ? hugepage_size_bytes() : 0
-        pool_require_hugepages && pool_hugepage_size == 0 && return false
         validate_stride(
-            pool_stride;
+            pool.stride_bytes;
             require_hugepages = pool_require_hugepages,
-            hugepage_size = pool_hugepage_size,
+            hugepage_size = hugepage_size,
         ) || return false
 
-        pool_mmap = mmap_shm(pool_uri, SUPERBLOCK_SIZE + Int(pool_nslots) * Int(pool_stride))
+        pool_mmap = mmap_shm(pool.uri, SUPERBLOCK_SIZE + Int(pool.nslots) * Int(pool.stride_bytes))
         wrap_superblock!(sb_dec, pool_mmap, 0)
         pool_fields = try
             read_superblock(sb_dec)
@@ -269,23 +272,23 @@ function map_from_announce!(state::ConsumerState, msg::ShmPoolAnnounce.Decoder)
             expected_layout_version = ShmPoolAnnounce.layoutVersion(msg),
             expected_epoch = ShmPoolAnnounce.epoch(msg),
             expected_stream_id = ShmPoolAnnounce.streamId(msg),
-            expected_nslots = pool_nslots,
-            expected_slot_bytes = pool_stride,
+            expected_nslots = pool.nslots,
+            expected_slot_bytes = pool.stride_bytes,
             expected_region_type = RegionType.PAYLOAD_POOL,
-            expected_pool_id = pool_id,
+            expected_pool_id = pool.pool_id,
         )
         pool_ok || return false
 
-        payload_mmaps[pool_id] = pool_mmap
-        stride_bytes[pool_id] = pool_stride
+        payload_mmaps[pool.pool_id] = pool_mmap
+        stride_bytes[pool.pool_id] = pool.stride_bytes
     end
 
     state.header_mmap = header_mmap
     state.payload_mmaps = payload_mmaps
     state.pool_stride_bytes = stride_bytes
-    state.mapped_nslots = header_expected_nslots
+    state.mapped_nslots = header_nslots
     state.mapped_pid = header_fields.pid
-    state.last_commit_words = fill(UInt64(0), Int(header_expected_nslots))
+    state.last_commit_words = fill(UInt64(0), Int(header_nslots))
     state.mapped_epoch = ShmPoolAnnounce.epoch(msg)
     state.last_seq_seen = UInt64(0)
     state.seen_any = false
@@ -487,7 +490,7 @@ function emit_consumer_hello!(state::ConsumerState)
         ConsumerHello.progressRowsDelta!(state.hello_encoder, progress_rows)
     end
     if !sent
-        ConsumerHello.wrap_and_apply_header!(state.hello_encoder, state.hello_buf, 0)
+        ConsumerHello.wrap_and_apply_header!(state.hello_encoder, unsafe_array_view(state.hello_buf), 0)
         ConsumerHello.streamId!(state.hello_encoder, state.config.stream_id)
         ConsumerHello.consumerId!(state.hello_encoder, state.config.consumer_id)
         ConsumerHello.supportsShm!(
@@ -528,7 +531,7 @@ function emit_qos!(state::ConsumerState)
         QosConsumer.mode!(state.qos_encoder, state.config.mode)
     end
     if !sent
-        QosConsumer.wrap_and_apply_header!(state.qos_encoder, state.qos_buf, 0)
+        QosConsumer.wrap_and_apply_header!(state.qos_encoder, unsafe_array_view(state.qos_buf), 0)
         QosConsumer.streamId!(state.qos_encoder, state.config.stream_id)
         QosConsumer.consumerId!(state.qos_encoder, state.config.consumer_id)
         QosConsumer.epoch!(state.qos_encoder, state.mapped_epoch)

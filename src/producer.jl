@@ -32,10 +32,10 @@ mutable struct ProducerState
     qos_buf::Vector{UInt8}
     superblock_encoder::ShmRegionSuperblock.Encoder{Vector{UInt8}}
     header_encoder::TensorSlotHeader256.Encoder{Vector{UInt8}}
-    descriptor_encoder::FrameDescriptor.Encoder{Vector{UInt8}}
-    progress_encoder::FrameProgress.Encoder{Vector{UInt8}}
-    announce_encoder::ShmPoolAnnounce.Encoder{Vector{UInt8}}
-    qos_encoder::QosProducer.Encoder{Vector{UInt8}}
+    descriptor_encoder::FrameDescriptor.Encoder{UnsafeArrays.UnsafeArray{UInt8, 1}}
+    progress_encoder::FrameProgress.Encoder{UnsafeArrays.UnsafeArray{UInt8, 1}}
+    announce_encoder::ShmPoolAnnounce.Encoder{UnsafeArrays.UnsafeArray{UInt8, 1}}
+    qos_encoder::QosProducer.Encoder{UnsafeArrays.UnsafeArray{UInt8, 1}}
     descriptor_claim::Aeron.BufferClaim
     progress_claim::Aeron.BufferClaim
     qos_claim::Aeron.BufferClaim
@@ -161,10 +161,10 @@ function init_producer(config::ProducerConfig)
         Vector{UInt8}(undef, 512),
         sb_encoder,
         TensorSlotHeader256.Encoder(Vector{UInt8}),
-        FrameDescriptor.Encoder(Vector{UInt8}),
-        FrameProgress.Encoder(Vector{UInt8}),
-        ShmPoolAnnounce.Encoder(Vector{UInt8}),
-        QosProducer.Encoder(Vector{UInt8}),
+        FrameDescriptor.Encoder(UnsafeArrays.UnsafeArray{UInt8, 1}),
+        FrameProgress.Encoder(UnsafeArrays.UnsafeArray{UInt8, 1}),
+        ShmPoolAnnounce.Encoder(UnsafeArrays.UnsafeArray{UInt8, 1}),
+        QosProducer.Encoder(UnsafeArrays.UnsafeArray{UInt8, 1}),
         Aeron.BufferClaim(),
         Aeron.BufferClaim(),
         Aeron.BufferClaim(),
@@ -249,7 +249,7 @@ function publish_frame!(
         encode_frame_descriptor!(state.descriptor_encoder, state, seq, header_index, meta_version, now_ns)
     end
     if !sent
-        FrameDescriptor.wrap_and_apply_header!(state.descriptor_encoder, state.descriptor_buf, 0)
+        FrameDescriptor.wrap_and_apply_header!(state.descriptor_encoder, unsafe_array_view(state.descriptor_buf), 0)
         encode_frame_descriptor!(state.descriptor_encoder, state, seq, header_index, meta_version, now_ns)
         Aeron.offer(
             state.pub_descriptor,
@@ -456,7 +456,7 @@ function publish_reservation!(
         )
     end
     if !sent
-        FrameDescriptor.wrap_and_apply_header!(state.descriptor_encoder, state.descriptor_buf, 0)
+        FrameDescriptor.wrap_and_apply_header!(state.descriptor_encoder, unsafe_array_view(state.descriptor_buf), 0)
         encode_frame_descriptor!(
             state.descriptor_encoder,
             state,
@@ -531,7 +531,7 @@ function publish_frame_from_slot!(
         encode_frame_descriptor!(state.descriptor_encoder, state, seq, header_index, meta_version, now_ns)
     end
     if !sent
-        FrameDescriptor.wrap_and_apply_header!(state.descriptor_encoder, state.descriptor_buf, 0)
+        FrameDescriptor.wrap_and_apply_header!(state.descriptor_encoder, unsafe_array_view(state.descriptor_buf), 0)
         encode_frame_descriptor!(state.descriptor_encoder, state, seq, header_index, meta_version, now_ns)
         Aeron.offer(
             state.pub_descriptor,
@@ -566,7 +566,7 @@ function emit_progress_complete!(
         FrameProgress.state!(state.progress_encoder, FrameProgressState.COMPLETE)
     end
     if !sent
-        FrameProgress.wrap_and_apply_header!(state.progress_encoder, state.progress_buf, 0)
+        FrameProgress.wrap_and_apply_header!(state.progress_encoder, unsafe_array_view(state.progress_buf), 0)
         FrameProgress.streamId!(state.progress_encoder, state.config.stream_id)
         FrameProgress.epoch!(state.progress_encoder, state.epoch)
         FrameProgress.frameId!(state.progress_encoder, frame_id)
@@ -587,7 +587,7 @@ end
 Emit a ShmPoolAnnounce for this producer.
 """
 function emit_announce!(state::ProducerState)
-    ShmPoolAnnounce.wrap_and_apply_header!(state.announce_encoder, state.announce_buf, 0)
+    ShmPoolAnnounce.wrap_and_apply_header!(state.announce_encoder, unsafe_array_view(state.announce_buf), 0)
     ShmPoolAnnounce.streamId!(state.announce_encoder, state.config.stream_id)
     ShmPoolAnnounce.producerId!(state.announce_encoder, state.config.producer_id)
     ShmPoolAnnounce.epoch!(state.announce_encoder, state.epoch)
@@ -626,7 +626,7 @@ function emit_qos!(state::ProducerState)
         QosProducer.currentSeq!(state.qos_encoder, state.seq)
     end
     if !sent
-        QosProducer.wrap_and_apply_header!(state.qos_encoder, state.qos_buf, 0)
+        QosProducer.wrap_and_apply_header!(state.qos_encoder, unsafe_array_view(state.qos_buf), 0)
         QosProducer.streamId!(state.qos_encoder, state.config.stream_id)
         QosProducer.producerId!(state.qos_encoder, state.config.producer_id)
         QosProducer.epoch!(state.qos_encoder, state.epoch)

@@ -56,7 +56,7 @@ mutable struct SupervisorState
     liveness_count::UInt64
     timer_set::TimerSet{Tuple{PolledTimer}, Tuple{SupervisorLivenessHandler}}
     config_buf::Vector{UInt8}
-    config_encoder::ConsumerConfigMsg.Encoder{Vector{UInt8}}
+    config_encoder::ConsumerConfigMsg.Encoder{UnsafeArrays.UnsafeArray{UInt8, 1}}
     config_claim::Aeron.BufferClaim
     announce_decoder::ShmPoolAnnounce.Decoder{UnsafeArrays.UnsafeArray{UInt8, 1}}
     hello_decoder::ConsumerHello.Decoder{UnsafeArrays.UnsafeArray{UInt8, 1}}
@@ -98,7 +98,7 @@ function init_supervisor(config::SupervisorConfig)
         UInt64(0),
         timer_set,
         Vector{UInt8}(undef, 512),
-        ConsumerConfigMsg.Encoder(Vector{UInt8}),
+        ConsumerConfigMsg.Encoder(UnsafeArrays.UnsafeArray{UInt8, 1}),
         Aeron.BufferClaim(),
         ShmPoolAnnounce.Decoder(UnsafeArrays.UnsafeArray{UInt8, 1}),
         ConsumerHello.Decoder(UnsafeArrays.UnsafeArray{UInt8, 1}),
@@ -278,8 +278,7 @@ function emit_consumer_config!(
         state.config_claim,
         msg_len,
         buf -> begin
-            buf_view = unsafe_wrap(Vector{UInt8}, pointer(buf), length(buf))
-            ConsumerConfigMsg.wrap_and_apply_header!(state.config_encoder, buf_view, 0)
+        ConsumerConfigMsg.wrap_and_apply_header!(state.config_encoder, buf, 0)
             ConsumerConfigMsg.streamId!(state.config_encoder, state.config.stream_id)
             ConsumerConfigMsg.consumerId!(state.config_encoder, consumer_id)
             ConsumerConfigMsg.useShm!(
@@ -297,7 +296,7 @@ function emit_consumer_config!(
         return true
     end
 
-    ConsumerConfigMsg.wrap_and_apply_header!(state.config_encoder, state.config_buf, 0)
+    ConsumerConfigMsg.wrap_and_apply_header!(state.config_encoder, unsafe_array_view(state.config_buf), 0)
     ConsumerConfigMsg.streamId!(state.config_encoder, state.config.stream_id)
     ConsumerConfigMsg.consumerId!(state.config_encoder, consumer_id)
     ConsumerConfigMsg.useShm!(

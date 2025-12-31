@@ -51,7 +51,7 @@ function run_system_bench(config_path::AbstractString, duration_s::Float64)
             consumed = Ref(0)
             cons_desc = Aeron.FragmentAssembler(Aeron.FragmentHandler(consumer) do st, buffer, _
                 header = MessageHeader.Decoder(buffer, 0)
-                if MessageHeader.templateId(header) == TEMPLATE_FRAME_DESCRIPTOR
+                if MessageHeader.templateId(header) == AeronTensorPool.TEMPLATE_FRAME_DESCRIPTOR
                     FrameDescriptor.wrap!(st.desc_decoder, buffer, 0; header = header)
                     result = try_read_frame!(st, st.desc_decoder)
                     result === nothing || (consumed[] += 1)
