@@ -25,10 +25,13 @@ function Agent.do_work(agent::SupervisorAgent)
 end
 
 function Agent.on_close(agent::SupervisorAgent)
-    safe_close(agent.counters)
-    safe_close(agent.state.pub_control)
-    safe_close(agent.state.sub_control)
-    safe_close(agent.state.sub_qos)
-    safe_close(agent.state.client)
+    try
+        close(agent.counters)
+        close(agent.state.pub_control)
+        close(agent.state.sub_control)
+        close(agent.state.sub_qos)
+        close(agent.state.client)
+    catch
+    end
     return nothing
 end

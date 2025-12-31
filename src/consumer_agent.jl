@@ -35,12 +35,15 @@ function Agent.do_work(agent::ConsumerAgent)
 end
 
 function Agent.on_close(agent::ConsumerAgent)
-    safe_close(agent.counters)
-    safe_close(agent.state.pub_control)
-    safe_close(agent.state.pub_qos)
-    safe_close(agent.state.sub_descriptor)
-    safe_close(agent.state.sub_control)
-    safe_close(agent.state.sub_qos)
-    safe_close(agent.state.client)
+    try
+        close(agent.counters)
+        close(agent.state.pub_control)
+        close(agent.state.pub_qos)
+        close(agent.state.sub_descriptor)
+        close(agent.state.sub_control)
+        close(agent.state.sub_qos)
+        close(agent.state.client)
+    catch
+    end
     return nothing
 end
