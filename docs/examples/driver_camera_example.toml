@@ -24,8 +24,6 @@ announce_period_ms = 1000
 lease_keepalive_interval_ms = 1000
 lease_expiry_grace_intervals = 3
 
-[admin]
-termination_token = ""
 
 [profiles.raw_profile]
 header_nslots = 1024

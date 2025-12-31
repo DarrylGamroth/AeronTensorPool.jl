@@ -345,7 +345,6 @@ Optional keys and defaults:
 - `policies.announce_period_ms` (uint32): `ShmPoolAnnounce` cadence. Default: `1000`.
 - `policies.lease_keepalive_interval_ms` (uint32): client keepalive interval. Default: `1000`.
 - `policies.lease_expiry_grace_intervals` (uint32): missed keepalives before expiry. Default: `3`.
-- `admin.termination_token` (string): optional token required to request driver shutdown. Default: unset (termination disabled).
 
 Profile fields:
 
