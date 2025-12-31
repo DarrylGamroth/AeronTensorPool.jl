@@ -35,6 +35,13 @@ Return true if the seqlock indicates an in-progress write.
     return isodd(word)
 end
 
+"""
+Return the frame_id encoded in a seqlock commit_word.
+"""
+@inline function seqlock_frame_id(word::UInt64)
+    return word >> 1
+end
+
 @inline function page_size_bytes()
     return Int(ccall(:getpagesize, Cint, ()))
 end

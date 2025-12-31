@@ -557,7 +557,7 @@ function try_read_frame!(
         return nothing
     end
 
-    commit_frame = second >> 1
+    commit_frame = seqlock_frame_id(second)
     if commit_frame != header.frame_id
         state.metrics.drops_late += 1
         state.metrics.drops_frame_id_mismatch += 1
