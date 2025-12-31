@@ -200,3 +200,20 @@ publish_frame_from_slot!(
     meta_version,
 )
 ```
+
+Reservation helper for multiple in-flight buffers:
+
+```julia
+reservation = reserve_slot!(state, pool_id)
+# Pass reservation.ptr + reservation.stride_bytes to the device SDK.
+
+publish_reservation!(
+    state,
+    reservation,
+    values_len,
+    shape,
+    strides,
+    Dtype.UINT8,
+    meta_version,
+)
+```

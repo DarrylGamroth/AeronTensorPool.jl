@@ -277,7 +277,7 @@ end
 
 function emit_consumer_hello!(state::ConsumerState)
     sent = try_claim_sbe!(state.pub_control, state.hello_claim, CONSUMER_HELLO_LEN) do buf
-        wrap_and_apply_header!(state.hello_encoder, buf, 0)
+        ConsumerHello.wrap_and_apply_header!(state.hello_encoder, buf, 0)
         ConsumerHello.streamId!(state.hello_encoder, state.config.stream_id)
         ConsumerHello.consumerId!(state.hello_encoder, state.config.consumer_id)
         ConsumerHello.supportsShm!(
@@ -296,7 +296,7 @@ function emit_consumer_hello!(state::ConsumerState)
         ConsumerHello.progressRowsDelta!(state.hello_encoder, state.config.progress_rows_delta)
     end
     if !sent
-        wrap_and_apply_header!(state.hello_encoder, state.hello_buf, 0)
+        ConsumerHello.wrap_and_apply_header!(state.hello_encoder, state.hello_buf, 0)
         ConsumerHello.streamId!(state.hello_encoder, state.config.stream_id)
         ConsumerHello.consumerId!(state.hello_encoder, state.config.consumer_id)
         ConsumerHello.supportsShm!(
@@ -323,7 +323,7 @@ end
 
 function emit_qos!(state::ConsumerState)
     sent = try_claim_sbe!(state.pub_qos, state.qos_claim, QOS_CONSUMER_LEN) do buf
-        wrap_and_apply_header!(state.qos_encoder, buf, 0)
+        QosConsumer.wrap_and_apply_header!(state.qos_encoder, buf, 0)
         QosConsumer.streamId!(state.qos_encoder, state.config.stream_id)
         QosConsumer.consumerId!(state.qos_encoder, state.config.consumer_id)
         QosConsumer.epoch!(state.qos_encoder, state.mapped_epoch)
@@ -333,7 +333,7 @@ function emit_qos!(state::ConsumerState)
         QosConsumer.mode!(state.qos_encoder, state.config.mode)
     end
     if !sent
-        wrap_and_apply_header!(state.qos_encoder, state.qos_buf, 0)
+        QosConsumer.wrap_and_apply_header!(state.qos_encoder, state.qos_buf, 0)
         QosConsumer.streamId!(state.qos_encoder, state.config.stream_id)
         QosConsumer.consumerId!(state.qos_encoder, state.config.consumer_id)
         QosConsumer.epoch!(state.qos_encoder, state.mapped_epoch)

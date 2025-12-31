@@ -244,8 +244,7 @@ function mmap_shm(uri::String, size::Integer; write::Bool = false)
         else
             filesize(io) >= size || throw(ArgumentError("shm file smaller than requested size"))
         end
-        prot = write ? (Mmap.PROT_READ | Mmap.PROT_WRITE) : Mmap.PROT_READ
-        return Mmap.mmap(io, Vector{UInt8}, size; prot = prot)
+        return Mmap.mmap(io, Vector{UInt8}, size; grow = write, shared = true)
     end
 end
 

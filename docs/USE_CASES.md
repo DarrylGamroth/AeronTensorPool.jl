@@ -52,3 +52,26 @@ publish_frame_from_slot!(
 Notes
 - In v1.1, `payload_slot == header_index` is required; use `next_header_index` before handing the buffer to the device.
 - If you need multiple in-flight DMA buffers, reserve the next slot in order and publish in the same order to avoid seq gaps.
+
+## Reservation helper (multiple in-flight buffers)
+
+Use a reservation to keep the slot/seq pairing explicit:
+
+```julia
+reservation = reserve_slot!(state, pool_id)
+# Register reservation.ptr with the device. Use reservation.stride_bytes for size.
+```
+
+On completion:
+
+```julia
+publish_reservation!(
+    state,
+    reservation,
+    values_len,
+    shape,
+    strides,
+    Dtype.UINT8,
+    meta_version,
+)
+```
