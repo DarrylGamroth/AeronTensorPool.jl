@@ -705,6 +705,136 @@ Epoch handling rules
 - After detecting an epoch mismatch, the consumer MUST NOT accept subsequent frames until the regions have been remapped for the new epoch.
 - While in M0: UNMAPPED, frames referencing unmapped regions MUST be DROPPED.
 
+### 15.21a Filesystem Layout and Path Containment
+
+This section defines a recommended filesystem layout for shared-memory regions
+and a mandatory path-containment validation rule for consumers. It complements
+the SHM backend validation rules in §15.22 and does not modify URI syntax or
+semantics.
+
+#### 15.21a.1 Overview (Informative)
+
+Shared-memory regions are announced using explicit absolute filesystem paths via
+control-plane messages. While the exact filesystem layout is not
+protocol-significant, a common directory convention greatly improves
+interoperability between independent implementations, simplifies operational
+management, and reduces the risk of accidental or malicious misuse on
+multi-user systems.
+
+Consumers MUST NOT rely on directory scanning or filename derivation for
+correctness. All required paths are conveyed explicitly via protocol messages.
+
+#### 15.21a.2 Shared Memory Base Directory (Informative)
+
+Implementations SHOULD expose a configuration parameter:
+
+```
+shm_base_dir
+```
+
+- Type: absolute filesystem path
+- Meaning: root directory under which shared-memory regions are created and/or
+  accepted by the implementation
+
+Implementations MAY support multiple base directories (e.g.,
+`allowed_base_dirs`) to enable interoperability with multiple producers or
+legacy layouts.
+
+Default values are platform- and deployment-specific and are an
+implementation concern.
+
+#### 15.21a.3 Recommended Directory Layout (Informative)
+
+When creating shared-memory regions, producers SHOULD organize backing files
+under `shm_base_dir` using the following canonical layout:
+
+```
+<shm_base_dir>/<namespace>/<producer_instance_id>/epoch-<E>/
+    header.ring
+    payload-<pool_id>.pool
+```
+
+Where:
+
+- `<namespace>`  
+  A stable application or protocol namespace (e.g., `tensorpool`).
+
+- `<producer_instance_id>`  
+  A unique identifier for the running producer instance (UUID RECOMMENDED).
+
+- `epoch-<E>`  
+  The epoch value announced in `ShmPoolAnnounce`. Epoch-scoped directories
+  enable atomic remapping and simplify cleanup.
+
+- `header.ring`  
+  Backing file for the header ring region.
+
+- `payload-<pool_id>.pool`  
+  Backing files for payload pools, where `<pool_id>` matches the announced pool
+  identifier.
+
+Filenames and extensions are not protocol-significant but SHOULD remain stable
+within an implementation for operational consistency.
+
+#### 15.21a.4 Path Announcement Rule (Normative)
+
+Regardless of filesystem layout:
+
+- Producers MUST announce explicit absolute paths for all shared-memory regions.
+- Consumers MUST NOT infer, derive, or synthesize filesystem paths.
+- Consumers MUST NOT scan directories to discover shared-memory regions.
+
+All required paths are conveyed exclusively via protocol messages.
+
+#### 15.21a.5 Consumer Path Containment Validation (Normative)
+
+Before mapping any announced shared-memory region, a consumer implementation
+MUST:
+
+1. Verify that the announced path is an absolute filesystem path.
+2. Resolve the announced path to its canonical form (e.g., via `realpath()` or
+  equivalent).
+3. Resolve each configured `allowed_base_dir` to its canonical form once (at
+  startup/config-load) and use only those canonical paths for containment
+  checks.
+4. Verify that the canonical announced path is fully contained within one of
+  the canonical `allowed_base_dirs`.
+5. Perform a filesystem metadata check on the canonical announced path and
+  reject unless it is a regular file (hugetlbfs-backed regular files are
+  acceptable); block/char devices, FIFOs, and sockets MUST be rejected.
+
+If any of these checks fail, the consumer MUST reject the region and MUST NOT
+map it.
+
+This requirement applies even in controlled or trusted deployment environments.
+
+#### 15.21a.6 Permissions and Ownership (Informative)
+
+Implementations SHOULD ensure that directory and file permissions prevent
+unintended cross-user access.
+
+Typical recommendations include:
+
+- Private usage:
+  - Directories: `0700`
+  - Files: `0600`
+- Shared-group usage:
+  - Directories: `2770` (setgid)
+  - Files: `0660`
+
+Exact permission models are platform- and deployment-specific.
+
+#### 15.21a.7 Cleanup and Epoch Handling (Informative)
+
+Using epoch-scoped directories allows:
+
+- Immediate abandonment of stale mappings on epoch change
+- Deferred or lazy cleanup of obsolete epochs
+- Robust recovery after producer crashes
+
+Implementations MAY remove epoch directories eagerly on clean shutdown or lazily
+during startup or supervision.
+
 ### 15.22 SHM Backend Validation (v1.1)
 
 - Consumers MUST reject any `region_uri` with an unknown scheme.
