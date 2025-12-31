@@ -212,4 +212,4 @@ Spec refs
 - 15.7a, 15.14, 15.17
 
 Status
-- In progress (allocation checks expanded and perf/ops hardening guidance added).
+- Complete (allocation load checks added, perf/ops hardening guidance documented).
