@@ -1,0 +1,255 @@
+# Shared-Memory Tensor Pool
+## Driver Model Specification (v1.0)
+
+**Abstract**  
+This document defines a normative **Driver Model** for managing shared-memory tensor pools using the wire format and shared-memory layout defined in the *Shared-Memory Tensor Pool Wire Specification*. The Driver Model specifies resource ownership, attachment semantics, lifecycle management, exclusivity rules, and failure handling necessary to ensure safe and interoperable deployment across multiple processes, users, and implementations.
+
+This document is normative for deployments that use an external SHM Driver.
+
+**Key Words**  
+The key words “MUST”, “MUST NOT”, “REQUIRED”, “SHOULD”, “SHOULD NOT”, and “MAY” are to be interpreted as described in RFC 2119.
+
+**Normative References**  
+- Shared-Memory Tensor Pool Wire Specification v1.1
+
+---
+
+## 1. Scope
+
+This specification defines:
+
+- A long-lived SHM Driver process responsible for all shared-memory resource management
+- A lease-based attachment model for producers and consumers
+- Exclusive producer semantics per stream
+- Epoch lifecycle rules and crash recovery behavior
+- Control-plane interactions required to obtain SHM mappings
+
+This specification does **not** redefine wire formats, shared-memory layouts, commit protocols, or payload semantics. All such definitions are imported from the Wire Specification.
+
+---
+
+## 2. Roles
+
+### 2.1 SHM Driver (Normative)
+
+The SHM Driver is a long-lived process that owns the lifecycle of all SHM backing files, enforces filesystem and security policy, manages epochs and layout versions, authoritatively assigns SHM region URIs, enforces exclusive producer rules, and emits `ShmPoolAnnounce` messages.
+
+### 2.2 Producer Client (Normative)
+
+A Producer Client attaches to a stream via the driver, writes headers and payloads into driver-owned SHM regions, publishes `FrameDescriptor` messages as defined in the Wire Specification, and MUST NOT create, truncate, or unlink SHM backing files.
+
+### 2.3 Consumer Client (Normative)
+
+A Consumer Client attaches to a stream via the driver, maps SHM regions using URIs provided by the driver, reads SHM and consumes descriptors per the Wire Specification, and MUST NOT create, truncate, or unlink SHM backing files.
+
+---
+
+## 3. SHM Ownership and Authority (Normative)
+
+When the Driver Model is used:
+
+1. The SHM Driver is the sole authority permitted to create, truncate, or unlink SHM backing files; select filesystem paths; initialize and validate SHM superblocks; and increment `epoch` or change `layout_version`.
+2. Producer and consumer clients MUST NOT create or select SHM filesystem paths.
+3. Producer and consumer clients MUST treat all SHM region URIs received from the driver as authoritative.
+4. All SHM regions MUST conform to the Wire Specification.
+
+---
+
+## 4. Attachment Model
+
+### 4.1 Leases (Normative)
+
+A lease represents authorization for a client to access a specific stream in a specific role. Each lease is associated with exactly one `stream_id`, exactly one role (PRODUCER or CONSUMER), is identified by an opaque `lease_id`, and MAY have a bounded lifetime enforced by the driver. The driver MUST track active leases for liveness and cleanup.
+
+### 4.2 Attach Protocol (Normative)
+
+Clients attach to a stream by issuing a ShmAttachRequest to the driver and receiving a correlated ShmAttachResponse. The attach protocol MUST provide, on success, the current `epoch`, the current `layout_version`, URIs for all SHM regions required by the Wire Specification, and a valid `lease_id`.
+
+The driver MAY create new SHM regions on demand when `publishMode=EXISTING_OR_CREATE`; otherwise, it MUST return an error if the stream does not already exist or is not provisioned for the requested role.
+
+For `code=OK`, the response MUST include: `leaseId`, `streamId`, `epoch`, `layoutVersion`, `headerNslots`, `headerSlotBytes`, `maxDims`, `headerRegionUri`, and a complete `payloadPools` group with each pool's `regionUri`, `poolId`, `poolNslots`, and `strideBytes`. These fields are required even if the SBE schema marks them as optional.
+
+For `code != OK`, the response MUST include `correlationId` and `code`, and SHOULD include `errorMessage` with a diagnostic string.
+
+### 4.3 Attach Request Semantics (Normative)
+
+- `expectedLayoutVersion`: If present and nonzero, the driver MUST reject the request with `code=REJECTED` if the active layout version for the stream does not match. If absent or zero, the driver uses its configured layout version and returns it in the response.
+- `maxDims`: If present and nonzero, the driver MUST reject with `code=INVALID_PARAMS` if the requested value exceeds the configured `maxDims` for the stream. If it is less than or equal to the configured value, the driver MAY accept but MUST return the configured `maxDims` in the response.
+- `publishMode`: `REQUIRE_EXISTING` means the driver MUST reject if the stream is not already provisioned. `EXISTING_OR_CREATE` allows the driver to create or initialize SHM regions on demand.
+- `requireHugepages`: If present and TRUE, the driver MUST reject the request with `code=REJECTED` if it cannot provide hugepage-backed regions that satisfy Wire Specification validation rules. If FALSE or absent, hugepages are optional per deployment policy.
+
+### 4.4 Lease Keepalive (Normative)
+
+The driver SHOULD require periodic `ShmLeaseKeepalive` messages for active leases. If `leaseExpiryTimestampNs` is provided in the attach response, the client MUST ensure keepalives arrive before that timestamp. On each valid keepalive, the driver MUST extend the lease expiry (duration is implementation-defined and MAY be documented out-of-band). If a lease expires, the driver MUST invalidate it and enforce the epoch rules in §6 and §7.
+
+### 4.5 Control-Plane Transport (Normative)
+
+`ShmAttachRequest`, `ShmAttachResponse`, `ShmDetachRequest`, `ShmDetachResponse`, and `ShmLeaseKeepalive` MUST be carried on the control-plane Aeron stream defined by the Wire Specification unless an alternative is explicitly configured and documented for the deployment.
+
+---
+
+## 5. Exclusive Producer Rule (Normative)
+
+For a given `stream_id`, at most one producer lease MAY be active at any time. The SHM Driver MUST reject any attempt to attach a second producer to the same `stream_id`. Multiple consumers MAY attach concurrently without limit, subject to deployment policy.
+
+---
+
+## 6. Epoch Management (Normative)
+
+The SHM Driver MUST increment `epoch` when a producer attaches to a stream with no existing producer lease, when a producer lease is revoked, expires, or is explicitly detached, when SHM layout parameters change, or when SHM backing files are recreated or reinitialized. Consumers MUST treat any `epoch` change as a hard remapping boundary.
+
+---
+
+## 7. Producer Failure and Recovery (Normative)
+
+If a producer terminates unexpectedly, the SHM Driver SHOULD detect failure via lease keepalive expiration, process liveness detection, or stale activity timestamps. The driver MUST invalidate the producer lease and MUST increment `epoch` before granting a new producer lease for the same stream.
+
+---
+
+## 8. Relationship to ShmPoolAnnounce (Normative)
+
+When the Driver Model is used, the SHM Driver MUST be the entity that emits `ShmPoolAnnounce`. ShmPoolAnnounce serves as a broadcast beacon for discovery, supervision, and liveness monitoring. Attach requests provide an on-demand mechanism to obtain the same authoritative information.
+
+If the Wire Specification requires a `producerId`, the driver MUST populate it with the currently attached producer's `clientId` for the stream (or zero if no producer is attached).
+
+---
+
+## 9. Filesystem Safety and Policy (Normative)
+
+The SHM Driver MUST enforce all filesystem validation rules defined in the Wire Specification, including base directory containment, canonical path resolution, regular-file-only backing, and hugepage enforcement. Clients MUST NOT bypass or weaken these rules.
+
+---
+
+## 10. Failure of the SHM Driver (Normative)
+
+If the SHM Driver terminates, all leases are implicitly invalidated. Clients MUST treat all mapped SHM regions as stale and MUST reattach once the driver restarts. The driver MUST increment `epoch` before reissuing leases.
+
+---
+
+## 11. Rationale (Informative)
+
+The Driver Model mirrors the Aeron Media Driver and Archive architecture, eliminates multi-producer contention in v1.x, centralizes filesystem and security policy, enables safe multi-user deployment, and provides a stable foundation for future extensions.
+
+---
+
+## 12. Relationship Between Specifications (Informative)
+
+This Driver Model specification is normatively dependent on the Wire Specification. The Wire Specification defines encoding and layout semantics; the Driver Model defines ownership, lifecycle, and coordination semantics. Deployments that use an external SHM Driver MUST implement this document to ensure interoperability.
+
+---
+
+## Appendix A. Driver Control-Plane SBE Schema (Normative)
+
+<?xml version="1.0" encoding="UTF-8"?>
+<sbe:messageSchema xmlns:sbe="http://fixprotocol.io/2016/sbe"
+                   package="shm.tensorpool.driver"
+                   id="901"
+                   version="1"
+                   semanticVersion="1.0"
+                   byteOrder="littleEndian">
+
+  <types>
+
+    <composite name="messageHeader">
+      <type name="blockLength" primitiveType="uint16"/>
+      <type name="templateId"  primitiveType="uint16"/>
+      <type name="schemaId"    primitiveType="uint16"/>
+      <type name="version"     primitiveType="uint16"/>
+    </composite>
+
+    <composite name="groupSizeEncoding">
+      <type name="blockLength" primitiveType="uint16"/>
+      <type name="numInGroup"  primitiveType="uint16"/>
+    </composite>
+
+    <composite name="varAsciiEncoding">
+      <type name="length"  primitiveType="uint32" maxValue="1073741824"/>
+      <type name="varData" primitiveType="uint8" length="0"/>
+    </composite>
+
+    <enum name="Bool" encodingType="uint8">
+      <validValue name="FALSE">0</validValue>
+      <validValue name="TRUE">1</validValue>
+    </enum>
+
+    <enum name="ResponseCode" encodingType="int32">
+      <validValue name="OK">0</validValue>
+      <validValue name="UNSUPPORTED">1</validValue>
+      <validValue name="INVALID_PARAMS">2</validValue>
+      <validValue name="REJECTED">3</validValue>
+      <validValue name="INTERNAL_ERROR">4</validValue>
+    </enum>
+
+    <enum name="Role" encodingType="uint8">
+      <validValue name="PRODUCER">1</validValue>
+      <validValue name="CONSUMER">2</validValue>
+    </enum>
+
+    <enum name="PublishMode" encodingType="uint8">
+      <validValue name="REQUIRE_EXISTING">1</validValue>
+      <validValue name="EXISTING_OR_CREATE">2</validValue>
+    </enum>
+
+    <type name="epoch_t"    primitiveType="uint64"/>
+    <type name="version_t"  primitiveType="uint32"/>
+    <type name="lease_id_t" primitiveType="uint64"/>
+
+  </types>
+
+  <!-- Driver control-plane messages (normative in the Driver Model specification). -->
+
+  <sbe:message name="ShmAttachRequest" id="1">
+    <field name="correlationId"        id="1" type="int64"/>
+    <field name="streamId"             id="2" type="uint32"/>
+    <field name="clientId"             id="3" type="uint32"/>
+    <field name="role"                 id="4" type="Role"/>
+    <field name="expectedLayoutVersion" id="5" type="version_t"/>
+    <field name="maxDims"              id="6" type="uint8"/>
+    <field name="publishMode"          id="7" type="PublishMode" presence="optional"/>
+    <field name="requireHugepages"     id="8" type="Bool" presence="optional"/>
+  </sbe:message>
+
+  <sbe:message name="ShmAttachResponse" id="2">
+    <field name="correlationId"         id="1" type="int64"/>
+    <field name="code"                  id="2" type="ResponseCode"/>
+    <field name="leaseId"               id="3" type="lease_id_t" presence="optional"/>
+    <field name="leaseExpiryTimestampNs" id="4" type="uint64" presence="optional"/>
+    <field name="streamId"              id="5" type="uint32" presence="optional"/>
+    <field name="epoch"                 id="6" type="epoch_t" presence="optional"/>
+    <field name="layoutVersion"         id="7" type="version_t" presence="optional"/>
+    <field name="headerNslots"          id="8" type="uint32" presence="optional"/>
+    <field name="headerSlotBytes"       id="9" type="uint16" presence="optional"/>
+    <field name="maxDims"               id="10" type="uint8" presence="optional"/>
+    <group name="payloadPools"          id="20" dimensionType="groupSizeEncoding">
+      <field name="poolId"      id="1" type="uint16"/>
+      <field name="poolNslots"  id="2" type="uint32"/>
+      <field name="strideBytes" id="3" type="uint32"/>
+      <data  name="regionUri"   id="4" type="varAsciiEncoding"/>
+    </group>
+    <data  name="headerRegionUri"       id="11" type="varAsciiEncoding" presence="optional"/>
+    <data  name="errorMessage"           id="30" type="varAsciiEncoding" presence="optional"/>
+  </sbe:message>
+
+  <sbe:message name="ShmDetachRequest" id="3">
+    <field name="correlationId" id="1" type="int64"/>
+    <field name="leaseId"       id="2" type="lease_id_t"/>
+    <field name="streamId"      id="3" type="uint32"/>
+    <field name="clientId"      id="4" type="uint32"/>
+    <field name="role"          id="5" type="Role"/>
+  </sbe:message>
+
+  <sbe:message name="ShmDetachResponse" id="4">
+    <field name="correlationId" id="1" type="int64"/>
+    <field name="code"          id="2" type="ResponseCode"/>
+    <data  name="errorMessage"  id="3" type="varAsciiEncoding" presence="optional"/>
+  </sbe:message>
+
+  <sbe:message name="ShmLeaseKeepalive" id="5">
+    <field name="leaseId"          id="1" type="lease_id_t"/>
+    <field name="streamId"         id="2" type="uint32"/>
+    <field name="clientId"         id="3" type="uint32"/>
+    <field name="role"             id="4" type="Role"/>
+    <field name="clientTimestampNs" id="5" type="uint64"/>
+  </sbe:message>
+
+</sbe:messageSchema>
