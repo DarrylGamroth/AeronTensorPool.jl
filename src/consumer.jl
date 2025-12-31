@@ -312,7 +312,14 @@ end
 function handle_shm_pool_announce!(state::ConsumerState, msg::ShmPoolAnnounce.Decoder)
     ShmPoolAnnounce.streamId(msg) == state.config.stream_id || return false
     ShmPoolAnnounce.layoutVersion(msg) == state.config.expected_layout_version || return false
-    ShmPoolAnnounce.maxDims(msg) == state.config.max_dims || return false
+    if ShmPoolAnnounce.maxDims(msg) != state.config.max_dims
+        if !isempty(state.config.payload_fallback_uri)
+            state.config.use_shm = false
+            reset_mappings!(state)
+            return true
+        end
+        return false
+    end
 
     if state.mapped_epoch != 0 && ShmPoolAnnounce.epoch(msg) != state.mapped_epoch
         reset_mappings!(state)
