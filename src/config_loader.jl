@@ -1,4 +1,5 @@
 using TOML
+using UUIDs
 
 """
 Bundled producer/consumer/supervisor configuration.
@@ -44,17 +45,51 @@ function parse_payload_pools(tbl::Dict, env::AbstractDict)
     pools_tbl = get(tbl, "payload_pools", Any[])
     pools = PayloadPoolConfig[]
     for pool in pools_tbl
+        uri = String(get(pool, "uri", ""))
         push!(
             pools,
             PayloadPoolConfig(
                 UInt16(pool["pool_id"]),
-                expand_vars(String(pool["uri"]), env),
+                expand_vars(uri, env),
                 UInt32(pool["stride_bytes"]),
                 UInt32(pool["nslots"]),
             ),
         )
     end
     return pools
+end
+
+function build_epoch_dir(shm_base_dir::String, shm_namespace::String, producer_instance_id::String, epoch::UInt64)
+    return joinpath(shm_base_dir, shm_namespace, producer_instance_id, "epoch-$(epoch)")
+end
+
+function resolve_producer_paths(
+    header_uri::String,
+    payload_pools::Vector{PayloadPoolConfig},
+    shm_base_dir::String,
+    shm_namespace::String,
+    producer_instance_id::String,
+    epoch::UInt64,
+)
+    isempty(shm_base_dir) && return header_uri, payload_pools
+    isempty(shm_namespace) && return header_uri, payload_pools
+    isempty(producer_instance_id) && return header_uri, payload_pools
+
+    epoch_dir = build_epoch_dir(shm_base_dir, shm_namespace, producer_instance_id, epoch)
+    resolved_header_uri = header_uri
+    if isempty(resolved_header_uri)
+        resolved_header_uri = "shm:file?path=$(joinpath(epoch_dir, "header.ring"))"
+    end
+
+    resolved_pools = PayloadPoolConfig[]
+    for pool in payload_pools
+        uri = pool.uri
+        if isempty(uri)
+            uri = "shm:file?path=$(joinpath(epoch_dir, "payload-$(pool.pool_id).pool"))"
+        end
+        push!(resolved_pools, PayloadPoolConfig(pool.pool_id, uri, pool.stride_bytes, pool.nslots))
+    end
+    return resolved_header_uri, resolved_pools
 end
 
 function parse_allowed_base_dirs(tbl::Dict, env::AbstractDict)
@@ -83,6 +118,12 @@ function load_producer_config(path::AbstractString; env::AbstractDict = ENV)
     producer_id = env_default(env, "TP_PRODUCER_ID", UInt32(get(prod, "producer_id", 1)))
     layout_version = env_default(env, "TP_LAYOUT_VERSION", UInt32(get(prod, "layout_version", 1)))
     nslots = env_default(env, "TP_N_SLOTS", UInt32(get(prod, "nslots", 1024)))
+    shm_base_dir = expand_vars(String(get(prod, "shm_base_dir", "")), env)
+    shm_namespace = expand_vars(String(get(prod, "shm_namespace", "tensorpool")), env)
+    producer_instance_id = expand_vars(String(get(prod, "producer_instance_id", "")), env)
+    if isempty(producer_instance_id)
+        producer_instance_id = string(uuid4())
+    end
     header_uri = env_default(env, "TP_HEADER_URI", String(get(prod, "header_uri", "")))
     payload_pools = parse_payload_pools(prod, env)
     max_dims = UInt8(get(prod, "max_dims", MAX_DIMS))
@@ -90,6 +131,15 @@ function load_producer_config(path::AbstractString; env::AbstractDict = ENV)
     qos_interval_ns = UInt64(get(prod, "qos_interval_ns", 1_000_000_000))
     progress_interval_ns = UInt64(get(prod, "progress_interval_ns", 250_000))
     progress_bytes_delta = UInt64(get(prod, "progress_bytes_delta", 65536))
+
+    header_uri, payload_pools = resolve_producer_paths(
+        header_uri,
+        payload_pools,
+        shm_base_dir,
+        shm_namespace,
+        producer_instance_id,
+        UInt64(1),
+    )
 
     return ProducerConfig(
         aeron_dir,
@@ -102,6 +152,9 @@ function load_producer_config(path::AbstractString; env::AbstractDict = ENV)
         producer_id,
         layout_version,
         nslots,
+        shm_base_dir,
+        shm_namespace,
+        producer_instance_id,
         header_uri,
         payload_pools,
         max_dims,

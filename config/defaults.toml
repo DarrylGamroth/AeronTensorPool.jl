@@ -9,7 +9,10 @@ stream_id = 1
 producer_id = 1
 layout_version = 1
 nslots = 1024
-header_uri = "shm:file?path=/dev/shm/tp_header"
+shm_base_dir = "/dev/shm"
+shm_namespace = "tensorpool"
+producer_instance_id = ""
+header_uri = ""
 max_dims = 8
 announce_interval_ns = 1000000000
 qos_interval_ns = 1000000000
@@ -18,7 +21,7 @@ progress_bytes_delta = 65536
 
 [[producer.payload_pools]]
 pool_id = 1
-uri = "shm:file?path=/dev/shm/tp_pool"
+uri = ""
 stride_bytes = 1048576
 nslots = 1024
 

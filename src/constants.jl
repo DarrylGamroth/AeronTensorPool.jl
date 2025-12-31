@@ -57,6 +57,9 @@ struct ProducerConfig
     producer_id::UInt32
     layout_version::UInt32
     nslots::UInt32
+    shm_base_dir::String
+    shm_namespace::String
+    producer_instance_id::String
     header_uri::String
     payload_pools::Vector{PayloadPoolConfig}
     max_dims::UInt8
