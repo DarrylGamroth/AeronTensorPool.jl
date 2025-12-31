@@ -38,6 +38,7 @@ function init_consumer(config::ConsumerConfig)
         FrameDescriptor.Decoder(UnsafeArrays.UnsafeArray{UInt8, 1}),
         ShmPoolAnnounce.Decoder(UnsafeArrays.UnsafeArray{UInt8, 1}),
         ConsumerConfigMsg.Decoder(UnsafeArrays.UnsafeArray{UInt8, 1}),
+        TensorSlotHeader256.Decoder(Vector{UInt8}),
         Vector{Int64}(undef, MAX_DIMS),
         Vector{Int64}(undef, MAX_DIMS),
     )
@@ -540,10 +541,9 @@ function try_read_frame!(
         return nothing
     end
 
-    hdr_dec = TensorSlotHeader256.Decoder(Vector{UInt8})
     header = try
-        wrap_tensor_header!(hdr_dec, header_mmap, header_offset)
-        read_tensor_slot_header(hdr_dec)
+        wrap_tensor_header!(state.runtime.header_decoder, header_mmap, header_offset)
+        read_tensor_slot_header(state.runtime.header_decoder)
     catch
         state.metrics.drops_late += 1
         state.metrics.drops_header_invalid += 1
