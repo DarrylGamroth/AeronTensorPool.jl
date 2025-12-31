@@ -300,7 +300,7 @@ These references are informative; this specification defines its own normative b
     <enum name="Bool" encodingType="uint8">
       <validValue name="FALSE">0</validValue>
       <validValue name="TRUE">1</validValue>
-      <validValue name="NULL">255</validValue>
+      <validValue name="UNKNOWN">255</validValue>
     </enum>
 
     <enum name="ResponseCode" encodingType="int32">
@@ -319,7 +319,7 @@ These references are informative; this specification defines its own normative b
     <enum name="PublishMode" encodingType="uint8">
       <validValue name="REQUIRE_EXISTING">1</validValue>
       <validValue name="EXISTING_OR_CREATE">2</validValue>
-      <validValue name="NULL">255</validValue>
+      <validValue name="UNKNOWN">255</validValue>
     </enum>
 
     <enum name="LeaseRevokeReason" encodingType="uint8">
