@@ -194,6 +194,17 @@ aeron_dir = "/dev/shm/aeron-${USER}"
 - Aeron counters: optionally wire Aeron counters for publications/subscriptions to a metrics backend.
 - Performance counters: agent wrappers register Aeron counters for duty cycles, work done, frames published, announces, QoS publishes, drops (gap/late + seqlock causes), and remaps; use AeronStat or CountersReader to observe.
 
+## 20b. Hugepages (hugetlbfs) setup
+- Hugepages are only used when SHM URIs include `require_hugepages=true` or consumer config requires it.
+- Use a hugetlbfs mount and point SHM URIs at that path, e.g. `/dev/hugepages`.
+- Example commands (run as root):
+  - `sudo sysctl -w vm.nr_hugepages=1024`
+  - `sudo mkdir -p /dev/hugepages`
+  - `sudo mount -t hugetlbfs nodev /dev/hugepages`
+- Verify: `grep Huge /proc/meminfo` or `mount | grep hugetlbfs`.
+- Ensure `stride_bytes` is a multiple of the hugepage size when `require_hugepages=true` (consumer will reject otherwise).
+- When hugepages are not available, either remove `require_hugepages=true` or set a fallback URI for the consumer.
+
 ## 21. Testing matrix (tie to §15.13)
 - Superblock validation: good vs bad magic/version/layout/endianness.
 - Backend validation: reject bad scheme, bad stride alignment, missing hugepages when required.
