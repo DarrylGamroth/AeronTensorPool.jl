@@ -228,7 +228,7 @@ Validation
 - Error paths produce actionable diagnostics without fatal crashes.
 
 Status
-- Not started (tracked in docs/PROJECT_REVIEW.md).
+- Complete (error taxonomy added, logging guidance updated).
 
 ## Phase 10 - Bridge/Decimator Completion
 

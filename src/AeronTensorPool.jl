@@ -14,6 +14,7 @@ include("constants.jl")
 include("aeron_utils.jl")
 include("polled_timer.jl")
 include("counters.jl")
+include("errors.jl")
 include("shm.jl")
 include("producer.jl")
 include("consumer.jl")
@@ -64,6 +65,10 @@ export Dtype,
     QosConsumer,
     atomic_load_u64,
     atomic_store_u64!,
+    TensorPoolError,
+    ShmUriError,
+    ShmValidationError,
+    AeronInitError,
     Counters,
     ProducerCounters,
     ConsumerCounters,

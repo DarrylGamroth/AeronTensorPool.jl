@@ -167,6 +167,7 @@ aeron_dir = "/dev/shm/aeron-${USER}"
 - On epoch mismatch or commit_word regression: drop frame, increment drops_late, log at debug/info.
 - On invalid superblock or failed mmap: log error, attempt fallback_uri if configured; otherwise fail the data source.
 - Log drops_gap/drops_late counts, remap events, progress throttling decisions; export counters (e.g., Prometheus) per stream.
+- Error taxonomy: SHM parsing/validation throws `ShmUriError` or `ShmValidationError` when used in strict contexts; most data-plane errors are handled by drops and counters rather than exceptions.
 
 ## 18. Progress policy
 - Consumer hints: take smallest interval/deltas above producer floors; if none provided, use defaults (250 us, 64 KiB, rows unset).

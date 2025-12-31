@@ -234,9 +234,9 @@ function read_tensor_slot_header(m::TensorSlotHeader256.Decoder)
 end
 
 function parse_shm_uri(uri::String)
-    startswith(uri, "shm:file?") || throw(ArgumentError("unsupported shm uri scheme: $uri"))
+    startswith(uri, "shm:file?") || throw(ShmUriError("unsupported shm uri scheme: $uri"))
     params_str = uri[10:end]
-    isempty(params_str) && throw(ArgumentError("missing shm uri parameters: $uri"))
+    isempty(params_str) && throw(ShmUriError("missing shm uri parameters: $uri"))
 
     params = split(params_str, '|')
     path = ""
@@ -244,20 +244,20 @@ function parse_shm_uri(uri::String)
 
     for param in params
         parts = split(param, '=', limit = 2)
-        length(parts) == 2 || throw(ArgumentError("invalid shm uri parameter: $param"))
+        length(parts) == 2 || throw(ShmUriError("invalid shm uri parameter: $param"))
         key, value = parts[1], parts[2]
         if key == "path"
             path = value
         elseif key == "require_hugepages"
             value == "true" && (require_hugepages = true)
-            value == "false" || value == "true" || throw(ArgumentError("invalid require_hugepages value: $value"))
+            value == "false" || value == "true" || throw(ShmUriError("invalid require_hugepages value: $value"))
         else
-            throw(ArgumentError("unsupported shm uri parameter: $key"))
+            throw(ShmUriError("unsupported shm uri parameter: $key"))
         end
     end
 
-    isempty(path) && throw(ArgumentError("missing path in shm uri: $uri"))
-    startswith(path, "/") || throw(ArgumentError("shm uri path must be absolute: $path"))
+    isempty(path) && throw(ShmUriError("missing path in shm uri: $uri"))
+    startswith(path, "/") || throw(ShmUriError("shm uri path must be absolute: $path"))
 
     return ShmUri(path, require_hugepages)
 end
@@ -277,7 +277,7 @@ function mmap_shm(uri::String, size::Integer; write::Bool = false)
         if write
             truncate(io, size)
         else
-            filesize(io) >= size || throw(ArgumentError("shm file smaller than requested size"))
+            filesize(io) >= size || throw(ShmValidationError("shm file smaller than requested size"))
         end
         return Mmap.mmap(io, Vector{UInt8}, size; grow = write, shared = true)
     end
