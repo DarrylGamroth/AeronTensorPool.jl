@@ -235,6 +235,9 @@ publish_frame_from_slot!(
 )
 ```
 
+## 24. Project Review
+- Review answers and follow-on phases are tracked in `docs/PROJECT_REVIEW.md`.
+
 Reservation helper for multiple in-flight buffers:
 
 ```julia

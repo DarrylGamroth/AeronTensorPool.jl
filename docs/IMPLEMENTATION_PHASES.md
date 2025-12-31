@@ -213,3 +213,41 @@ Spec refs
 
 Status
 - Complete (allocation load checks plus optional GC monitoring added, perf/ops hardening guidance documented).
+
+## Phase 9 - Observability and Error Taxonomy
+
+Goals
+- Add structured error types where helpful and improve operational diagnostics.
+
+Deliverables
+- Optional exception hierarchy (e.g., SHM validation errors, Aeron init errors).
+- Structured logging fields and counter documentation.
+- Review and consolidate error handling behavior across agents.
+
+Validation
+- Error paths produce actionable diagnostics without fatal crashes.
+
+Status
+- Not started (tracked in docs/PROJECT_REVIEW.md).
+
+## Phase 10 - Bridge/Decimator Completion
+
+Goals
+- Implement bridge/decimator once on-wire format is defined.
+
+Deliverables
+- Bridge/decimator message format, full implementation, and tests.
+
+Status
+- Not started.
+
+## Phase 11 - Operational Playbooks
+
+Goals
+- Provide deployment profiles and troubleshooting guidance.
+
+Deliverables
+- Ops runbook, tuning matrix, and failure playbook.
+
+Status
+- Not started.
