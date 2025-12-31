@@ -37,6 +37,7 @@ mutable struct ConsumerState
     payload_mmaps::Dict{UInt16, Vector{UInt8}}
     pool_stride_bytes::Dict{UInt16, UInt32}
     mapped_nslots::UInt32
+    mapped_pid::UInt64
     last_commit_words::Vector{UInt64}
     last_seq_seen::UInt64
     seen_any::Bool
@@ -86,6 +87,7 @@ function init_consumer(config::ConsumerConfig)
         Dict{UInt16, Vector{UInt8}}(),
         Dict{UInt16, UInt32}(),
         UInt32(0),
+        UInt64(0),
         UInt64[],
         UInt64(0),
         false,
@@ -231,6 +233,7 @@ function map_from_announce!(state::ConsumerState, msg::ShmPoolAnnounce.Decoder)
     state.payload_mmaps = payload_mmaps
     state.pool_stride_bytes = stride_bytes
     state.mapped_nslots = header_expected_nslots
+    state.mapped_pid = header_fields.pid
     state.last_commit_words = fill(UInt64(0), Int(header_expected_nslots))
     state.mapped_epoch = ShmPoolAnnounce.epoch(msg)
     state.last_seq_seen = UInt64(0)
@@ -240,7 +243,7 @@ end
 
 function validate_mapped_superblocks!(state::ConsumerState, msg::ShmPoolAnnounce.Decoder)
     header_mmap = state.header_mmap
-    header_mmap === nothing && return false
+    header_mmap === nothing && return :mismatch
 
     expected_epoch = ShmPoolAnnounce.epoch(msg)
     sb_dec = ShmRegionSuperblock.Decoder(Vector{UInt8})
@@ -258,7 +261,10 @@ function validate_mapped_superblocks!(state::ConsumerState, msg::ShmPoolAnnounce
         expected_region_type = RegionType.HEADER_RING,
         expected_pool_id = UInt16(0),
     )
-    header_ok || return false
+    header_ok || return :mismatch
+    if state.mapped_pid != 0 && header_fields.pid != state.mapped_pid
+        return :pid_changed
+    end
 
     pools = ShmPoolAnnounce.payloadPools(msg)
     pool_count = 0
@@ -268,7 +274,7 @@ function validate_mapped_superblocks!(state::ConsumerState, msg::ShmPoolAnnounce
         pool_nslots = ShmPoolAnnounce.PayloadPools.poolNslots(pool)
         pool_stride = ShmPoolAnnounce.PayloadPools.strideBytes(pool)
         pool_mmap = get(state.payload_mmaps, pool_id, nothing)
-        pool_mmap === nothing && return false
+        pool_mmap === nothing && return :mismatch
 
         wrap_superblock!(sb_dec, pool_mmap, 0)
         pool_fields = read_superblock(sb_dec)
@@ -283,11 +289,11 @@ function validate_mapped_superblocks!(state::ConsumerState, msg::ShmPoolAnnounce
             expected_region_type = RegionType.PAYLOAD_POOL,
             expected_pool_id = pool_id,
         )
-        pool_ok || return false
+        pool_ok || return :mismatch
     end
 
-    pool_count == length(state.payload_mmaps) || return false
-    return true
+    pool_count == length(state.payload_mmaps) || return :mismatch
+    return :ok
 end
 
 function reset_mappings!(state::ConsumerState)
@@ -295,6 +301,7 @@ function reset_mappings!(state::ConsumerState)
     empty!(state.payload_mmaps)
     empty!(state.pool_stride_bytes)
     state.mapped_nslots = UInt32(0)
+    state.mapped_pid = UInt64(0)
     empty!(state.last_commit_words)
     state.mapped_epoch = UInt64(0)
     state.last_seq_seen = UInt64(0)
@@ -321,8 +328,12 @@ function handle_shm_pool_announce!(state::ConsumerState, msg::ShmPoolAnnounce.De
         return ok
     end
 
-    if !validate_mapped_superblocks!(state, msg)
+    validation = validate_mapped_superblocks!(state, msg)
+    if validation != :ok
         reset_mappings!(state)
+        if validation == :pid_changed
+            return false
+        end
         ok = map_from_announce!(state, msg)
         if !ok && !isempty(state.config.payload_fallback_uri)
             state.config.use_shm = false
