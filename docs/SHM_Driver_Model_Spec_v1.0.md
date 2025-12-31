@@ -77,6 +77,8 @@ For `code != OK`, the response MUST include `correlationId` and `code`, and SHOU
 
 Optional primitive fields in the SBE schema MUST use explicit `nullValue` sentinels. For `code=OK`, all required fields MUST be non-null; for `code != OK`, optional response fields SHOULD be set to their `nullValue`.
 
+For optional enum fields, `UNKNOWN` (value 255) is the null sentinel and MUST be used when the field is absent.
+
 ### 4.3 Attach Request Semantics (Normative)
 
 - `expectedLayoutVersion`: If present and nonzero, the driver MUST reject the request with `code=REJECTED` if the active layout version for the stream does not match. If absent or zero, the driver uses its configured layout version and returns it in the response.
