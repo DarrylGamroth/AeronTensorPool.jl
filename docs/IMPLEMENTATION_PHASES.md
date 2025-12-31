@@ -266,3 +266,17 @@ Deliverables
 
 Status
 - Not started.
+
+## Phase 13 - Benchmarking and Performance Characterization
+
+Goals
+- Provide repeatable benchmarks for throughput, latency, and allocation behavior.
+
+Deliverables
+- Benchmark suite (e.g., BenchmarkTools) covering producer/consumer/supervisor loops.
+- End-to-end throughput/latency benchmarks with embedded media driver.
+- Allocation regression tests under sustained load.
+- Benchmark reporting scripts and baseline numbers.
+
+Status
+- Not started.
