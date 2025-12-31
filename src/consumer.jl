@@ -388,6 +388,14 @@ function apply_consumer_config!(state::ConsumerState, msg::ConsumerConfigMsg.Dec
 end
 
 function emit_consumer_hello!(state::ConsumerState)
+    progress_interval = state.config.progress_interval_us
+    progress_bytes = state.config.progress_bytes_delta
+    progress_rows = state.config.progress_rows_delta
+    if !state.config.supports_progress
+        progress_interval = typemax(UInt32)
+        progress_bytes = typemax(UInt32)
+        progress_rows = typemax(UInt32)
+    end
     sent = try_claim_sbe!(state.pub_control, state.hello_claim, CONSUMER_HELLO_LEN) do buf
         ConsumerHello.wrap_and_apply_header!(state.hello_encoder, buf, 0)
         ConsumerHello.streamId!(state.hello_encoder, state.config.stream_id)
@@ -403,9 +411,9 @@ function emit_consumer_hello!(state::ConsumerState)
         ConsumerHello.mode!(state.hello_encoder, state.config.mode)
         ConsumerHello.maxRateHz!(state.hello_encoder, state.config.max_rate_hz)
         ConsumerHello.expectedLayoutVersion!(state.hello_encoder, state.config.expected_layout_version)
-        ConsumerHello.progressIntervalUs!(state.hello_encoder, state.config.progress_interval_us)
-        ConsumerHello.progressBytesDelta!(state.hello_encoder, state.config.progress_bytes_delta)
-        ConsumerHello.progressRowsDelta!(state.hello_encoder, state.config.progress_rows_delta)
+        ConsumerHello.progressIntervalUs!(state.hello_encoder, progress_interval)
+        ConsumerHello.progressBytesDelta!(state.hello_encoder, progress_bytes)
+        ConsumerHello.progressRowsDelta!(state.hello_encoder, progress_rows)
     end
     if !sent
         ConsumerHello.wrap_and_apply_header!(state.hello_encoder, state.hello_buf, 0)
@@ -422,9 +430,9 @@ function emit_consumer_hello!(state::ConsumerState)
         ConsumerHello.mode!(state.hello_encoder, state.config.mode)
         ConsumerHello.maxRateHz!(state.hello_encoder, state.config.max_rate_hz)
         ConsumerHello.expectedLayoutVersion!(state.hello_encoder, state.config.expected_layout_version)
-        ConsumerHello.progressIntervalUs!(state.hello_encoder, state.config.progress_interval_us)
-        ConsumerHello.progressBytesDelta!(state.hello_encoder, state.config.progress_bytes_delta)
-        ConsumerHello.progressRowsDelta!(state.hello_encoder, state.config.progress_rows_delta)
+        ConsumerHello.progressIntervalUs!(state.hello_encoder, progress_interval)
+        ConsumerHello.progressBytesDelta!(state.hello_encoder, progress_bytes)
+        ConsumerHello.progressRowsDelta!(state.hello_encoder, progress_rows)
         Aeron.offer(
             state.pub_control,
             view(state.hello_buf, 1:sbe_message_length(state.hello_encoder)),
