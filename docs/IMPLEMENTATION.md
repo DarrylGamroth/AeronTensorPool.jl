@@ -92,6 +92,7 @@ This guide maps the normative spec (SHM_Aeron_Tensor_Pool.md) to concrete implem
 - Keep generated codec at gen/TensorPool.jl; include it from src as needed.
 - Optional VS Code task/make target: regenerate codec, then `julia --project -e 'using Pkg; Pkg.test()'` or run agents.
 - Tooling: `scripts/run_tests.sh` wraps the full test run for CI/local workflows.
+- Control CLI: `scripts/tp_tool.jl send-consumer-config` can push ConsumerConfig on the control stream.
 
 ## 15. Configuration pattern (TOML + env overrides)
 - Keep a default TOML (e.g., config/defaults.toml) with uri, nslots, stride_bytes, cadences, progress defaults, payload_fallback_uri, and Aeron directory when needed.

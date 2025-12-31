@@ -171,7 +171,7 @@ Spec refs
 - 15.13
 
 Status
-- In progress (unit + Aeron embedded driver integration tests in place; `scripts/run_tests.jl` and `scripts/tp_tool.jl` added).
+- In progress (unit + Aeron embedded driver integration tests in place; `scripts/run_tests.jl` and `scripts/tp_tool.jl` added, CLI can send ConsumerConfig).
 
 ## Phase 8 - Perf and Ops Hardening
 
