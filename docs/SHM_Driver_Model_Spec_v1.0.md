@@ -86,6 +86,28 @@ The driver SHOULD require periodic `ShmLeaseKeepalive` messages for active lease
 
 `ShmAttachRequest`, `ShmAttachResponse`, `ShmDetachRequest`, `ShmDetachResponse`, and `ShmLeaseKeepalive` MUST be carried on the control-plane Aeron stream defined by the Wire Specification unless an alternative is explicitly configured and documented for the deployment.
 
+### 4.6 Response Codes (Normative)
+
+The driver MUST use response codes consistently:
+
+- `OK`: The request succeeded and all required fields are present.
+- `UNSUPPORTED`: The request uses a feature the driver does not implement (e.g., unsupported schema version or publish mode).
+- `INVALID_PARAMS`: The request is malformed or violates parameter constraints (e.g., invalid `maxDims`).
+- `REJECTED`: The request is valid but denied by policy or state (e.g., exclusive producer already attached, `requireHugepages=true` not satisfiable, `expectedLayoutVersion` mismatch).
+- `INTERNAL_ERROR`: The driver encountered an unexpected failure while processing a valid request.
+
+### 4.7 Lease Lifecycle (Normative)
+
+Leases follow this lifecycle:
+
+- `ATTACHED`: Lease is issued in a successful `ShmAttachResponse`.
+- `ACTIVE`: Lease remains valid while keepalives arrive before expiry (if enforced).
+- `DETACHED`: Lease is invalidated by a successful `ShmDetachRequest`.
+- `EXPIRED`: Lease is invalidated due to keepalive timeout or driver policy.
+- `REVOKED`: Lease is invalidated by the driver for administrative or safety reasons.
+
+Once a lease reaches `DETACHED`, `EXPIRED`, or `REVOKED`, the client MUST stop using all SHM regions from that lease and MUST reattach to continue.
+
 ---
 
 ## 5. Exclusive Producer Rule (Normative)
