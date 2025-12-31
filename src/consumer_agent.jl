@@ -1,3 +1,6 @@
+"""
+Agent wrapper for running a ConsumerState with Agent.jl.
+"""
 struct ConsumerAgent
     state::ConsumerState
     descriptor_assembler::Aeron.FragmentAssembler
@@ -5,6 +8,9 @@ struct ConsumerAgent
     counters::ConsumerCounters
 end
 
+"""
+Construct a ConsumerAgent from a ConsumerConfig.
+"""
 function ConsumerAgent(config::ConsumerConfig)
     state = init_consumer(config)
     descriptor_assembler = make_descriptor_assembler(state)

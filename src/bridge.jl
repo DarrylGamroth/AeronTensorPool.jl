@@ -1,3 +1,6 @@
+"""
+Configuration for the optional bridge role.
+"""
 mutable struct BridgeConfig
     aeron_dir::String
     aeron_uri::String
@@ -7,6 +10,9 @@ mutable struct BridgeConfig
     bridge_epoch::UInt64
 end
 
+"""
+Bridge runtime state for republishing payloads and descriptors.
+"""
 mutable struct BridgeState
     consumer_state::ConsumerState
     config::BridgeConfig
@@ -18,6 +24,9 @@ mutable struct BridgeState
     descriptor_claim::Aeron.BufferClaim
 end
 
+"""
+Initialize a bridge using an existing consumer mapping.
+"""
 function init_bridge(consumer_state::ConsumerState, config::BridgeConfig)
     ctx = Aeron.Context()
     set_aeron_dir!(ctx, config.aeron_dir)
@@ -38,6 +47,9 @@ function init_bridge(consumer_state::ConsumerState, config::BridgeConfig)
     )
 end
 
+"""
+Republish a frame payload and descriptor on the bridge channel.
+"""
 function bridge_frame!(state::BridgeState, header::TensorSlotHeader, payload::AbstractVector{UInt8})
     Aeron.offer(state.pub_payload, payload)
 

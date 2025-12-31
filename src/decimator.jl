@@ -1,3 +1,6 @@
+"""
+Configuration for the optional decimator role.
+"""
 mutable struct DecimatorConfig
     aeron_dir::String
     aeron_uri::String
@@ -7,6 +10,9 @@ mutable struct DecimatorConfig
     decimation::UInt16
 end
 
+"""
+Decimator runtime state for downsampling descriptor streams.
+"""
 mutable struct DecimatorState
     consumer_state::ConsumerState
     config::DecimatorConfig
@@ -18,6 +24,9 @@ mutable struct DecimatorState
     frame_counter::UInt64
 end
 
+"""
+Initialize a decimator using an existing consumer mapping.
+"""
 function init_decimator(consumer_state::ConsumerState, config::DecimatorConfig)
     ctx = Aeron.Context()
     set_aeron_dir!(ctx, config.aeron_dir)
@@ -37,6 +46,9 @@ function init_decimator(consumer_state::ConsumerState, config::DecimatorConfig)
     )
 end
 
+"""
+Apply decimation and republish a descriptor when the ratio matches.
+"""
 function handle_decimated_frame!(
     state::DecimatorState,
     header::TensorSlotHeader,
@@ -52,6 +64,9 @@ function handle_decimated_frame!(
     return false
 end
 
+"""
+Republish a FrameDescriptor with decimator epoch and stream id.
+"""
 function republish_descriptor!(
     state::DecimatorState,
     header::TensorSlotHeader,

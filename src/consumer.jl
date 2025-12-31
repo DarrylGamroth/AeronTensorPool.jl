@@ -1,3 +1,6 @@
+"""
+Mutable consumer configuration (can be updated by ConsumerConfig messages).
+"""
 mutable struct ConsumerConfig
     aeron_dir::String
     aeron_uri::String
@@ -27,6 +30,9 @@ end
 struct ConsumerHelloHandler end
 struct ConsumerQosHandler end
 
+"""
+Mutable consumer runtime state including SHM mappings and QoS counters.
+"""
 mutable struct ConsumerState
     config::ConsumerConfig
     clock::Clocks.AbstractClock
@@ -69,6 +75,9 @@ mutable struct ConsumerState
     scratch_strides::Vector{Int64}
 end
 
+"""
+Initialize a consumer: create Aeron resources and initial timers.
+"""
 function init_consumer(config::ConsumerConfig)
     clock = Clocks.CachedEpochClock(Clocks.MonotonicClock())
     fetch!(clock)
@@ -139,6 +148,9 @@ end
     return true
 end
 
+"""
+Validate stride_bytes against alignment and hugepage requirements.
+"""
 function validate_stride(
     stride_bytes::UInt32;
     require_hugepages::Bool,
@@ -154,6 +166,9 @@ function validate_stride(
     return true
 end
 
+"""
+Validate superblock fields against expected layout and mapping rules.
+"""
 function validate_superblock_fields(
     fields::SuperblockFields;
     expected_layout_version::UInt32,
@@ -176,6 +191,9 @@ function validate_superblock_fields(
     return true
 end
 
+"""
+Map SHM regions from a ShmPoolAnnounce message.
+"""
 function map_from_announce!(state::ConsumerState, msg::ShmPoolAnnounce.Decoder)
     state.config.use_shm || return false
     header_uri = String(ShmPoolAnnounce.headerRegionUri(msg))
@@ -336,6 +354,9 @@ function validate_mapped_superblocks!(state::ConsumerState, msg::ShmPoolAnnounce
     return :ok
 end
 
+"""
+Drop all SHM mappings and reset mapping state.
+"""
 function reset_mappings!(state::ConsumerState)
     state.header_mmap = nothing
     empty!(state.payload_mmaps)
@@ -349,6 +370,9 @@ function reset_mappings!(state::ConsumerState)
     return nothing
 end
 
+"""
+Handle ShmPoolAnnounce updates, remapping on epoch/layout changes.
+"""
 function handle_shm_pool_announce!(state::ConsumerState, msg::ShmPoolAnnounce.Decoder)
     ShmPoolAnnounce.streamId(msg) == state.config.stream_id || return false
     ShmPoolAnnounce.layoutVersion(msg) == state.config.expected_layout_version || return false
@@ -411,6 +435,9 @@ function maybe_track_gap!(state::ConsumerState, seq::UInt64)
     return nothing
 end
 
+"""
+Apply a ConsumerConfig message to a live consumer.
+"""
 function apply_consumer_config!(state::ConsumerState, msg::ConsumerConfigMsg.Decoder)
     ConsumerConfigMsg.streamId(msg) == state.config.stream_id || return false
     ConsumerConfigMsg.consumerId(msg) == state.config.consumer_id || return false
@@ -426,6 +453,9 @@ function apply_consumer_config!(state::ConsumerState, msg::ConsumerConfigMsg.Dec
     return true
 end
 
+"""
+Emit a ConsumerHello message for capability negotiation.
+"""
 function emit_consumer_hello!(state::ConsumerState)
     progress_interval = state.config.progress_interval_us
     progress_bytes = state.config.progress_bytes_delta
@@ -481,6 +511,9 @@ function emit_consumer_hello!(state::ConsumerState)
     return nothing
 end
 
+"""
+Emit a QosConsumer message with drop counters and last_seq_seen.
+"""
 function emit_qos!(state::ConsumerState)
     sent = try_claim_sbe!(state.pub_qos, state.qos_claim, QOS_CONSUMER_LEN) do buf
         QosConsumer.wrap_and_apply_header!(state.qos_encoder, buf, 0)
@@ -510,6 +543,9 @@ function emit_qos!(state::ConsumerState)
     return nothing
 end
 
+"""
+Create a FragmentAssembler for the descriptor subscription.
+"""
 function make_descriptor_assembler(state::ConsumerState)
     handler = Aeron.FragmentHandler(state) do st, buffer, _
         header = MessageHeader.Decoder(buffer, 0)
@@ -522,6 +558,9 @@ function make_descriptor_assembler(state::ConsumerState)
     return Aeron.FragmentAssembler(handler)
 end
 
+"""
+Create a FragmentAssembler for the control subscription.
+"""
 function make_control_assembler(state::ConsumerState)
     handler = Aeron.FragmentHandler(state) do st, buffer, _
         header = MessageHeader.Decoder(buffer, 0)
@@ -538,10 +577,16 @@ function make_control_assembler(state::ConsumerState)
     return Aeron.FragmentAssembler(handler)
 end
 
+"""
+Poll the descriptor subscription and process frames.
+"""
 @inline function poll_descriptor!(state::ConsumerState, assembler::Aeron.FragmentAssembler, fragment_limit::Int32 = DEFAULT_FRAGMENT_LIMIT)
     return Aeron.poll(state.sub_descriptor, assembler, fragment_limit)
 end
 
+"""
+Poll the control subscription and apply mapping/config updates.
+"""
 @inline function poll_control!(state::ConsumerState, assembler::Aeron.FragmentAssembler, fragment_limit::Int32 = DEFAULT_FRAGMENT_LIMIT)
     return Aeron.poll(state.sub_control, assembler, fragment_limit)
 end
@@ -560,6 +605,9 @@ function poll_timers!(state::ConsumerState, now_ns::UInt64)
     return poll_timers!(state.timer_set, state, now_ns)
 end
 
+"""
+Consumer duty cycle: poll subscriptions, emit periodic messages, and return work count.
+"""
 function consumer_do_work!(
     state::ConsumerState,
     descriptor_assembler::Aeron.FragmentAssembler,
@@ -597,6 +645,9 @@ end
     return Int64(0)
 end
 
+"""
+Validate decoded strides against element size and payload length.
+"""
 function validate_strides!(state::ConsumerState, header::TensorSlotHeader, elem_size::Int64)
     ndims = Int(header.ndims)
     ndims == 0 && return true
@@ -645,6 +696,9 @@ function validate_strides!(state::ConsumerState, header::TensorSlotHeader, elem_
 
     return false
 end
+"""
+Attempt to read a frame from SHM using the seqlock protocol.
+"""
 function try_read_frame!(
     state::ConsumerState,
     desc::FrameDescriptor.Decoder,

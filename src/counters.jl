@@ -1,9 +1,15 @@
+"""
+Compose a 32-bit Aeron counter type id from agent id and counter type.
+"""
 function make_counter_type_id(agent_id, counter_type)
     @assert 0 ≤ agent_id ≤ 65535 "agent_id must be in range 0-65535 (16-bit)"
     @assert 0 ≤ counter_type ≤ 65535 "counter_type must be in range 0-65535 (16-bit)"
     return Int32((Int32(agent_id) << 16) | Int32(counter_type))
 end
 
+"""
+Create a labeled Aeron counter with a standard key buffer.
+"""
 function add_counter(client::Aeron.Client, agent_id, agent_name, counter_type, label)
     type_id = make_counter_type_id(agent_id, counter_type)
     name_bytes = codeunits(agent_name)
@@ -14,11 +20,17 @@ function add_counter(client::Aeron.Client, agent_id, agent_name, counter_type, l
     return Aeron.add_counter(client, type_id, key_buffer, full_label)
 end
 
+"""
+Base counters shared by all agents.
+"""
 struct Counters
     total_duty_cycles::Aeron.Counter
     total_work_done::Aeron.Counter
 end
 
+"""
+Construct base counters for a given agent identity.
+"""
 function Counters(client::Aeron.Client, agent_id, agent_name)
     Counters(
         add_counter(client, agent_id, agent_name, 1, "TotalDutyCycles"),
@@ -26,6 +38,9 @@ function Counters(client::Aeron.Client, agent_id, agent_name)
     )
 end
 
+"""
+Producer-specific counters (frames, announces, QoS).
+"""
 struct ProducerCounters
     base::Counters
     frames_published::Aeron.Counter
@@ -33,6 +48,9 @@ struct ProducerCounters
     qos_published::Aeron.Counter
 end
 
+"""
+Consumer-specific counters (drops, remaps, hello, QoS).
+"""
 struct ConsumerCounters
     base::Counters
     drops_gap::Aeron.Counter
@@ -47,12 +65,18 @@ struct ConsumerCounters
     qos_published::Aeron.Counter
 end
 
+"""
+Supervisor-specific counters (config publishes and liveness checks).
+"""
 struct SupervisorCounters
     base::Counters
     config_published::Aeron.Counter
     liveness_checks::Aeron.Counter
 end
 
+"""
+Construct producer counters for a given agent identity.
+"""
 function ProducerCounters(client::Aeron.Client, agent_id, agent_name)
     ProducerCounters(
         Counters(client, agent_id, agent_name),
@@ -62,6 +86,9 @@ function ProducerCounters(client::Aeron.Client, agent_id, agent_name)
     )
 end
 
+"""
+Construct consumer counters for a given agent identity.
+"""
 function ConsumerCounters(client::Aeron.Client, agent_id, agent_name)
     ConsumerCounters(
         Counters(client, agent_id, agent_name),
@@ -78,6 +105,9 @@ function ConsumerCounters(client::Aeron.Client, agent_id, agent_name)
     )
 end
 
+"""
+Construct supervisor counters for a given agent identity.
+"""
 function SupervisorCounters(client::Aeron.Client, agent_id, agent_name)
     SupervisorCounters(
         Counters(client, agent_id, agent_name),

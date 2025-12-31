@@ -1,7 +1,13 @@
+"""
+Atomic acquire-load for a UInt64 pointer.
+"""
 @inline function atomic_load_u64(ptr::Ptr{UInt64})
     return unsafe_load(ptr, :acquire)
 end
 
+"""
+Atomic release-store for a UInt64 pointer.
+"""
 @inline function atomic_store_u64!(ptr::Ptr{UInt64}, val::UInt64)
     unsafe_store!(ptr, val, :release)
     return nothing
@@ -42,14 +48,23 @@ function is_hugetlbfs_path(path::String)
     return best_fstype == "hugetlbfs"
 end
 
+"""
+Return byte offset for a header slot index.
+"""
 @inline function header_slot_offset(index::Integer)
     return SUPERBLOCK_SIZE + Int(index) * HEADER_SLOT_BYTES
 end
 
+"""
+Return byte offset for a payload slot index in a pool.
+"""
 @inline function payload_slot_offset(stride_bytes::Integer, slot::Integer)
     return SUPERBLOCK_SIZE + Int(slot) * Int(stride_bytes)
 end
 
+"""
+Return a view into a payload slot region.
+"""
 @inline function payload_slot_view(
     buffer::AbstractVector{UInt8},
     stride_bytes::Integer,
@@ -61,17 +76,26 @@ end
     return view(buffer, offset + 1:offset + Int(len))
 end
 
+"""
+Return a pointer and stride_bytes for a payload slot.
+"""
 @inline function payload_slot_ptr(buffer::AbstractVector{UInt8}, stride_bytes::Integer, slot::Integer)
     offset = payload_slot_offset(stride_bytes, slot)
     return Ptr{UInt8}(pointer(buffer, offset + 1)), Int(stride_bytes)
 end
 
+"""
+Wrap a superblock encoder over a buffer without SBE message header.
+"""
 @inline function wrap_superblock!(m::ShmRegionSuperblock.Encoder, buffer::AbstractVector{UInt8}, offset::Integer = 0)
     @boundscheck length(buffer) >= offset + SUPERBLOCK_SIZE || throw(ArgumentError("buffer too small for superblock"))
     ShmRegionSuperblock.wrap!(m, buffer, offset)
     return m
 end
 
+"""
+Wrap a superblock decoder over a buffer without SBE message header.
+"""
 @inline function wrap_superblock!(m::ShmRegionSuperblock.Decoder, buffer::AbstractVector{UInt8}, offset::Integer = 0)
     @boundscheck length(buffer) >= offset + SUPERBLOCK_SIZE || throw(ArgumentError("buffer too small for superblock"))
     ShmRegionSuperblock.wrap!(
@@ -84,12 +108,18 @@ end
     return m
 end
 
+"""
+Wrap a tensor slot header encoder over a buffer without SBE message header.
+"""
 @inline function wrap_tensor_header!(m::TensorSlotHeader256.Encoder, buffer::AbstractVector{UInt8}, offset::Integer)
     @boundscheck length(buffer) >= offset + HEADER_SLOT_BYTES || throw(ArgumentError("buffer too small for header slot"))
     TensorSlotHeader256.wrap!(m, buffer, offset)
     return m
 end
 
+"""
+Wrap a tensor slot header decoder over a buffer without SBE message header.
+"""
 @inline function wrap_tensor_header!(m::TensorSlotHeader256.Decoder, buffer::AbstractVector{UInt8}, offset::Integer)
     @boundscheck length(buffer) >= offset + HEADER_SLOT_BYTES || throw(ArgumentError("buffer too small for header slot"))
     TensorSlotHeader256.wrap!(
@@ -102,6 +132,9 @@ end
     return m
 end
 
+"""
+Write superblock fields into an encoder.
+"""
 function write_superblock!(m::ShmRegionSuperblock.Encoder, fields::SuperblockFields)
     ShmRegionSuperblock.magic!(m, fields.magic)
     ShmRegionSuperblock.layoutVersion!(m, fields.layout_version)
@@ -118,6 +151,9 @@ function write_superblock!(m::ShmRegionSuperblock.Encoder, fields::SuperblockFie
     return nothing
 end
 
+"""
+Decode a superblock into a SuperblockFields struct.
+"""
 function read_superblock(m::ShmRegionSuperblock.Decoder)
     return SuperblockFields(
         ShmRegionSuperblock.magic(m),
@@ -135,6 +171,9 @@ function read_superblock(m::ShmRegionSuperblock.Decoder)
     )
 end
 
+"""
+Write tensor slot header fields to an encoder, padding dims/strides to MAX_DIMS.
+"""
 @inline function write_tensor_slot_header!(
     m::TensorSlotHeader256.Encoder,
     frame_id::UInt64,
@@ -180,6 +219,9 @@ end
     return nothing
 end
 
+"""
+Keyword-based wrapper for write_tensor_slot_header!.
+"""
 @inline function write_tensor_slot_header!(
     m::TensorSlotHeader256.Encoder;
     frame_id::UInt64,
@@ -212,6 +254,9 @@ end
     )
 end
 
+"""
+Decode a tensor slot header into a TensorSlotHeader struct.
+"""
 function read_tensor_slot_header(m::TensorSlotHeader256.Decoder)
     dims = TensorSlotHeader256.dims(m, NTuple{MAX_DIMS, Int32})
     strides = TensorSlotHeader256.strides(m, NTuple{MAX_DIMS, Int32})
@@ -233,6 +278,9 @@ function read_tensor_slot_header(m::TensorSlotHeader256.Decoder)
     )
 end
 
+"""
+Parse a shm:file URI into a ShmUri.
+"""
 function parse_shm_uri(uri::String)
     startswith(uri, "shm:file?") || throw(ShmUriError("unsupported shm uri scheme: $uri"))
     params_str = uri[10:end]
@@ -262,6 +310,9 @@ function parse_shm_uri(uri::String)
     return ShmUri(path, require_hugepages)
 end
 
+"""
+Return true if a shm:file URI is valid and supported.
+"""
 function validate_uri(uri::String)
     try
         parse_shm_uri(uri)
@@ -271,6 +322,9 @@ function validate_uri(uri::String)
     return true
 end
 
+"""
+Memory-map a shm:file URI with optional write access.
+"""
 function mmap_shm(uri::String, size::Integer; write::Bool = false)
     parsed = parse_shm_uri(uri)
     if parsed.require_hugepages
@@ -287,6 +341,9 @@ function mmap_shm(uri::String, size::Integer; write::Bool = false)
     end
 end
 
+"""
+Pick the smallest payload pool that can fit values_len.
+"""
 function select_pool(pools::AbstractVector{PayloadPoolConfig}, values_len::Integer)
     best = nothing
     for pool in pools

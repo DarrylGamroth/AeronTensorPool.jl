@@ -1,6 +1,9 @@
 struct ProducerAnnounceHandler end
 struct ProducerQosHandler end
 
+"""
+Mutable producer runtime state including Aeron resources and SHM mappings.
+"""
 mutable struct ProducerState
     config::ProducerConfig
     clock::Clocks.AbstractClock
@@ -38,6 +41,9 @@ mutable struct ProducerState
     hello_decoder::ConsumerHello.Decoder{UnsafeArrays.UnsafeArray{UInt8, 1}}
 end
 
+"""
+Return true if a progress update should be emitted.
+"""
 @inline function should_emit_progress!(state::ProducerState, bytes_filled::UInt64, final::Bool)
     if final
         return true
@@ -50,6 +56,9 @@ end
     return true
 end
 
+"""
+Initialize a producer: map SHM regions, write superblocks, and create Aeron resources.
+"""
 function init_producer(config::ProducerConfig)
     ispow2(config.nslots) || throw(ArgumentError("header nslots must be power of two"))
     for pool in config.payload_pools
@@ -182,6 +191,9 @@ function encode_frame_descriptor!(
     return nothing
 end
 
+"""
+Write a payload into SHM and publish a FrameDescriptor.
+"""
 function publish_frame!(
     state::ProducerState,
     payload_data::AbstractVector{UInt8},
@@ -251,10 +263,16 @@ function publish_frame!(
     return true
 end
 
+"""
+Compute the next header index for the current seq.
+"""
 @inline function next_header_index(state::ProducerState)
     return UInt32(state.seq & (UInt64(state.config.nslots) - 1))
 end
 
+"""
+Lookup payload pool configuration by pool_id.
+"""
 function payload_pool_config(state::ProducerState, pool_id::UInt16)
     for pool in state.config.payload_pools
         if pool.pool_id == pool_id
@@ -286,6 +304,9 @@ function payload_slot_view(
     return payload_slot_view(payload_mmap, pool.stride_bytes, slot, view_len)
 end
 
+"""
+Reservation handle for a payload slot that will be filled externally.
+"""
 struct SlotReservation
     seq::UInt64
     header_index::UInt32
@@ -295,6 +316,9 @@ struct SlotReservation
     stride_bytes::Int
 end
 
+"""
+Simple ring buffer for SlotReservation tracking.
+"""
 mutable struct InflightQueue
     items::Vector{SlotReservation}
     head::Int
@@ -302,19 +326,31 @@ mutable struct InflightQueue
     count::Int
 end
 
+"""
+Create an InflightQueue with the given capacity.
+"""
 function InflightQueue(capacity::Integer)
     capacity > 0 || throw(ArgumentError("capacity must be > 0"))
     return InflightQueue(Vector{SlotReservation}(undef, capacity), 1, 1, 0)
 end
 
+"""
+Return true if the inflight queue is empty.
+"""
 @inline function inflight_empty(q::InflightQueue)
     return q.count == 0
 end
 
+"""
+Return true if the inflight queue is full.
+"""
 @inline function inflight_full(q::InflightQueue)
     return q.count == length(q.items)
 end
 
+"""
+Push a reservation into the inflight queue.
+"""
 function inflight_push!(q::InflightQueue, reservation::SlotReservation)
     inflight_full(q) && return false
     q.items[q.tail] = reservation
@@ -323,11 +359,17 @@ function inflight_push!(q::InflightQueue, reservation::SlotReservation)
     return true
 end
 
+"""
+Peek at the next reservation without removing it.
+"""
 function inflight_peek(q::InflightQueue)
     inflight_empty(q) && return nothing
     return q.items[q.head]
 end
 
+"""
+Pop the next reservation from the inflight queue.
+"""
 function inflight_pop!(q::InflightQueue)
     inflight_empty(q) && return nothing
     item = q.items[q.head]
@@ -336,6 +378,9 @@ function inflight_pop!(q::InflightQueue)
     return item
 end
 
+"""
+Reserve a payload slot and return a SlotReservation for external filling.
+"""
 function reserve_slot!(state::ProducerState, pool_id::UInt16)
     pool = payload_pool_config(state, pool_id)
     pool === nothing && error("Unknown pool_id: $pool_id")
@@ -351,6 +396,9 @@ function reserve_slot!(state::ProducerState, pool_id::UInt16)
     return SlotReservation(seq, header_index, pool_id, payload_slot, ptr, stride_bytes)
 end
 
+"""
+Publish a SlotReservation after the payload has been filled externally.
+"""
 function publish_reservation!(
     state::ProducerState,
     reservation::SlotReservation,
@@ -428,6 +476,9 @@ function publish_reservation!(
     return true
 end
 
+"""
+Publish a descriptor for an already-filled payload slot.
+"""
 function publish_frame_from_slot!(
     state::ProducerState,
     pool_id::UInt16,
@@ -494,6 +545,9 @@ function publish_frame_from_slot!(
     return true
 end
 
+"""
+Emit a FrameProgress COMPLETE message.
+"""
 function emit_progress_complete!(
     state::ProducerState,
     frame_id::UInt64,
@@ -527,6 +581,9 @@ function emit_progress_complete!(
     return nothing
 end
 
+"""
+Emit a ShmPoolAnnounce for this producer.
+"""
 function emit_announce!(state::ProducerState)
     ShmPoolAnnounce.wrap_and_apply_header!(state.announce_encoder, state.announce_buf, 0)
     ShmPoolAnnounce.streamId!(state.announce_encoder, state.config.stream_id)
@@ -555,6 +612,9 @@ function emit_announce!(state::ProducerState)
     return nothing
 end
 
+"""
+Emit a QosProducer message for this producer.
+"""
 function emit_qos!(state::ProducerState)
     sent = try_claim_sbe!(state.pub_qos, state.qos_claim, QOS_PRODUCER_LEN) do buf
         QosProducer.wrap_and_apply_header!(state.qos_encoder, buf, 0)
@@ -575,6 +635,9 @@ function emit_qos!(state::ProducerState)
     return nothing
 end
 
+"""
+Update progress settings based on a ConsumerHello message.
+"""
 function handle_consumer_hello!(state::ProducerState, msg::ConsumerHello.Decoder)
     if ConsumerHello.supportsProgress(msg) == ShmTensorpoolControl.Bool_.TRUE
         state.supports_progress = true
@@ -599,6 +662,9 @@ function handle_consumer_hello!(state::ProducerState, msg::ConsumerHello.Decoder
     return nothing
 end
 
+"""
+Create a FragmentAssembler for the control subscription.
+"""
 function make_control_assembler(state::ProducerState)
     handler = Aeron.FragmentHandler(state) do st, buffer, _
         header = MessageHeader.Decoder(buffer, 0)
@@ -611,10 +677,16 @@ function make_control_assembler(state::ProducerState)
     return Aeron.FragmentAssembler(handler)
 end
 
+"""
+Poll the control subscription for ConsumerHello messages.
+"""
 @inline function poll_control!(state::ProducerState, assembler::Aeron.FragmentAssembler, fragment_limit::Int32 = DEFAULT_FRAGMENT_LIMIT)
     return Aeron.poll(state.sub_control, assembler, fragment_limit)
 end
 
+"""
+Refresh activity_timestamp_ns in all mapped superblocks.
+"""
 function refresh_activity_timestamps!(state::ProducerState)
     fetch!(state.clock)
     now_ns = UInt64(Clocks.time_nanos(state.clock))
@@ -644,6 +716,9 @@ function poll_timers!(state::ProducerState, now_ns::UInt64)
     return poll_timers!(state.timer_set, state, now_ns)
 end
 
+"""
+Producer duty cycle: poll control, emit periodic messages, and return work count.
+"""
 function producer_do_work!(
     state::ProducerState,
     control_assembler::Aeron.FragmentAssembler;

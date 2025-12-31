@@ -1,9 +1,15 @@
+"""
+Agent wrapper for running a ProducerState with Agent.jl.
+"""
 struct ProducerAgent
     state::ProducerState
     control_assembler::Aeron.FragmentAssembler
     counters::ProducerCounters
 end
 
+"""
+Construct a ProducerAgent from a ProducerConfig.
+"""
 function ProducerAgent(config::ProducerConfig)
     state = init_producer(config)
     control_assembler = make_control_assembler(state)

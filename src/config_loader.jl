@@ -1,5 +1,8 @@
 using TOML
 
+"""
+Bundled producer/consumer/supervisor configuration.
+"""
 struct SystemConfig
     producer::ProducerConfig
     consumer::ConsumerConfig
@@ -54,6 +57,9 @@ function parse_payload_pools(tbl::Dict, env::AbstractDict)
     return pools
 end
 
+"""
+Load ProducerConfig from a TOML file with optional environment overrides.
+"""
 function load_producer_config(path::AbstractString; env::AbstractDict = ENV)
     cfg = TOML.parsefile(path)
     prod = get(cfg, "producer", Dict{String, Any}())
@@ -97,6 +103,9 @@ function load_producer_config(path::AbstractString; env::AbstractDict = ENV)
     )
 end
 
+"""
+Load ConsumerConfig from a TOML file with optional environment overrides.
+"""
 function load_consumer_config(path::AbstractString; env::AbstractDict = ENV)
     cfg = TOML.parsefile(path)
     cons = get(cfg, "consumer", Dict{String, Any}())
@@ -153,6 +162,9 @@ function load_consumer_config(path::AbstractString; env::AbstractDict = ENV)
     )
 end
 
+"""
+Load SupervisorConfig from a TOML file with optional environment overrides.
+"""
 function load_supervisor_config(path::AbstractString; env::AbstractDict = ENV)
     cfg = TOML.parsefile(path)
     sup = get(cfg, "supervisor", Dict{String, Any}())
@@ -176,6 +188,9 @@ function load_supervisor_config(path::AbstractString; env::AbstractDict = ENV)
     )
 end
 
+"""
+Load SystemConfig (producer/consumer/supervisor) from a TOML file.
+"""
 function load_system_config(path::AbstractString; env::AbstractDict = ENV)
     return SystemConfig(
         load_producer_config(path; env = env),

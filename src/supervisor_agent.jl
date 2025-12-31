@@ -1,3 +1,6 @@
+"""
+Agent wrapper for running a SupervisorState with Agent.jl.
+"""
 struct SupervisorAgent
     state::SupervisorState
     control_assembler::Aeron.FragmentAssembler
@@ -5,6 +8,9 @@ struct SupervisorAgent
     counters::SupervisorCounters
 end
 
+"""
+Construct a SupervisorAgent from a SupervisorConfig.
+"""
 function SupervisorAgent(config::SupervisorConfig)
     state = init_supervisor(config)
     control_assembler = make_control_assembler(state)

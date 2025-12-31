@@ -33,6 +33,9 @@ const TEMPLATE_CONSUMER_HELLO = ConsumerHello.sbe_template_id(ConsumerHello.Deco
 const TEMPLATE_QOS_CONSUMER = QosConsumer.sbe_template_id(QosConsumer.Decoder)
 const TEMPLATE_QOS_PRODUCER = QosProducer.sbe_template_id(QosProducer.Decoder)
 
+"""
+Configuration for a payload pool in shared memory.
+"""
 struct PayloadPoolConfig
     pool_id::UInt16
     uri::String
@@ -40,6 +43,9 @@ struct PayloadPoolConfig
     nslots::UInt32
 end
 
+"""
+Static configuration for the producer role.
+"""
 struct ProducerConfig
     aeron_dir::String
     aeron_uri::String
@@ -60,6 +66,9 @@ struct ProducerConfig
     progress_bytes_delta::UInt64
 end
 
+"""
+Decoded superblock fields for SHM validation and diagnostics.
+"""
 struct SuperblockFields
     magic::UInt64
     layout_version::UInt32
@@ -75,6 +84,9 @@ struct SuperblockFields
     activity_timestamp_ns::UInt64
 end
 
+"""
+Decoded slot header fields for consumer-side validation.
+"""
 struct TensorSlotHeader
     commit_word::UInt64
     frame_id::UInt64
@@ -92,6 +104,9 @@ struct TensorSlotHeader
     strides::NTuple{MAX_DIMS, Int32}
 end
 
+"""
+Parsed shm:file URI components.
+"""
 struct ShmUri
     path::String
     require_hugepages::Bool
