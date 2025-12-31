@@ -322,7 +322,7 @@ end
     return Aeron.poll(state.sub_qos, assembler, fragment_limit)
 end
 
-function supervisor_step!(
+function supervisor_do_work!(
     state::SupervisorState,
     control_assembler::Aeron.FragmentAssembler,
     qos_assembler::Aeron.FragmentAssembler;

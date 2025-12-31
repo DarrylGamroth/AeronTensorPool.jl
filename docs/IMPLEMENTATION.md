@@ -136,6 +136,11 @@ aeron_dir = "/dev/shm/aeron-${USER}"
 - Map config → SBE messages: producer fills ShmPoolAnnounce from TOML/env (uris, nslots, stride_bytes, max_dims); supervisor sends ConsumerConfig based on consumer mode/bridge decisions.
 - Consumers refuse SHM if announce values differ from compiled schema (max_dims/layout_version) or backend validation fails.
 
+## 16a. Agent execution model (AgentRunner vs Invoker)
+- Default: use an AgentRunner-style loop that owns the agent task and calls `*_do_work!` with a single `now_ns` per duty cycle.
+- Invoker mode: allow embedding in another task or event loop by calling `producer_do_work!`, `consumer_do_work!`, or `supervisor_do_work!` directly; the caller is responsible for cadence, backoff, and lifecycle.
+- Decision: keep both options available; choose AgentRunner when agents are standalone processes, use invoker mode when integrating into a larger application.
+
 ## 17. Validation, logging, and errors
 - Backend checks before mmap: scheme==shm:file, require_hugepages honored, stride_bytes power-of-two and page/hugepage aligned; log and reject before mapping.
 - On epoch mismatch or commit_word regression: drop frame, increment drops_late, log at debug/info.

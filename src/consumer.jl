@@ -541,6 +541,21 @@ function poll_timers!(state::ConsumerState, now_ns::UInt64)
     return poll_timers!(state.timer_set, state, now_ns)
 end
 
+function consumer_do_work!(
+    state::ConsumerState,
+    descriptor_assembler::Aeron.FragmentAssembler,
+    control_assembler::Aeron.FragmentAssembler;
+    fragment_limit::Int32 = DEFAULT_FRAGMENT_LIMIT,
+)
+    fetch!(state.clock)
+    now_ns = UInt64(Clocks.time_nanos(state.clock))
+    work_count = 0
+    work_count += poll_descriptor!(state, descriptor_assembler, fragment_limit)
+    work_count += poll_control!(state, control_assembler, fragment_limit)
+    work_count += poll_timers!(state, now_ns)
+    return work_count
+end
+
 @inline function valid_dtype(dtype::Dtype.SbeEnum)
     return dtype != Dtype.UNKNOWN && dtype != Dtype.NULL_VALUE
 end

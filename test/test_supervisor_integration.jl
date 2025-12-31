@@ -91,7 +91,7 @@
         @test supervisor_state.consumers[UInt32(21)].drops_late == UInt64(1)
 
         ok_step = wait_for() do
-            supervisor_step!(supervisor_state, ctrl_asm, qos_asm) > 0
+            supervisor_do_work!(supervisor_state, ctrl_asm, qos_asm) > 0
         end
         @test ok_step
 
