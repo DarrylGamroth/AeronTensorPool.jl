@@ -173,6 +173,27 @@ Spec refs
 Status
 - Complete (unit + Aeron embedded driver integration tests in place, including remap/fallback and seqlock drops; CLI tooling tested and can send ConsumerConfig).
 
+## Phase 7b - End-to-End System Bring-up
+
+Goals
+- Enable a complete multi-process system test (producer + consumer + supervisor).
+
+Deliverables
+- Runner wiring for AgentRunner vs invoker mode in a real process (startup/shutdown, signal handling).
+- Configuration loader (TOML + env overrides) for each role.
+- Launch scripts or CLI tooling to start producer/consumer/supervisor with consistent URIs/stream IDs.
+- E2E smoke test harness: launch embedded or external media driver, create SHM pools, send real frames, verify QoS/liveness.
+- Cleanup/shutdown behavior for SHM files and Aeron directory in test runs.
+
+Validation
+- A full system test can be run from a single command and completes without manual setup.
+
+Spec refs
+- 15.13, 15.14, 15.22
+
+Status
+- Not started.
+
 ## Phase 8 - Perf and Ops Hardening
 
 Goals
