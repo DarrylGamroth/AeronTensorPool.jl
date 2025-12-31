@@ -63,18 +63,7 @@ Aeron.MediaDriver.launch_embedded() do driver
             nothing
         end)
         sup_ctrl = make_control_assembler(supervisor)
-        sup_qos = Aeron.FragmentAssembler(Aeron.FragmentHandler(supervisor) do st, buffer, _
-            header = MessageHeader.Decoder(buffer, 0)
-            template_id = MessageHeader.templateId(header)
-            if template_id == TEMPLATE_QOS_PRODUCER
-                QosProducer.wrap!(st.qos_producer_decoder, buffer, 0; header = header)
-                AeronTensorPool.handle_qos_producer!(st, st.qos_producer_decoder)
-            elseif template_id == TEMPLATE_QOS_CONSUMER
-                QosConsumer.wrap!(st.qos_consumer_decoder, buffer, 0; header = header)
-                AeronTensorPool.handle_qos_consumer!(st, st.qos_consumer_decoder)
-            end
-            nothing
-        end)
+        sup_qos = make_qos_assembler(supervisor)
 
         payload = UInt8[1, 2, 3, 4]
         shape = Int32[4]

@@ -54,7 +54,7 @@ function init_supervisor(config::SupervisorConfig)
     fetch!(clock)
 
     ctx = Aeron.Context()
-    Aeron.aeron_dir!(ctx, config.aeron_dir)
+    set_aeron_dir!(ctx, config.aeron_dir)
     client = Aeron.Client(ctx)
 
     pub_control = Aeron.add_publication(client, config.aeron_uri, config.control_stream_id)

@@ -43,18 +43,7 @@ elseif role == "supervisor"
     config = load_supervisor_config(config_path)
     state = init_supervisor(config)
     ctrl_asm = make_control_assembler(state)
-    qos_asm = Aeron.FragmentAssembler(Aeron.FragmentHandler(state) do st, buffer, _
-        header = MessageHeader.Decoder(buffer, 0)
-        template_id = MessageHeader.templateId(header)
-        if template_id == TEMPLATE_QOS_PRODUCER
-            QosProducer.wrap!(st.qos_producer_decoder, buffer, 0; header = header)
-            AeronTensorPool.handle_qos_producer!(st, st.qos_producer_decoder)
-        elseif template_id == TEMPLATE_QOS_CONSUMER
-            QosConsumer.wrap!(st.qos_consumer_decoder, buffer, 0; header = header)
-            AeronTensorPool.handle_qos_consumer!(st, st.qos_consumer_decoder)
-        end
-        nothing
-    end)
+    qos_asm = make_qos_assembler(state)
     try
         while true
             work = supervisor_do_work!(state, ctrl_asm, qos_asm)

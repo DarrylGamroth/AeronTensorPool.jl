@@ -20,6 +20,7 @@ include("supervisor.jl")
 include("bridge.jl")
 include("decimator.jl")
 include("config_loader.jl")
+include("agent_glue.jl")
 
 export Dtype,
     MajorOrder,
@@ -31,13 +32,16 @@ export Dtype,
     PayloadPoolConfig,
     ProducerConfig,
     ProducerState,
+    ProducerAgent,
     ProducerInfo,
     ConsumerConfig,
     ConsumerConfigMsg,
     ConsumerState,
+    ConsumerAgent,
     ConsumerInfo,
     SupervisorConfig,
     SupervisorState,
+    SupervisorAgent,
     BridgeConfig,
     BridgeState,
     DecimatorConfig,
@@ -103,6 +107,7 @@ export Dtype,
     supervisor_do_work!,
     producer_do_work!,
     consumer_do_work!,
+    make_qos_assembler,
     next_header_index,
     payload_pool_config,
     publish_frame_from_slot!,

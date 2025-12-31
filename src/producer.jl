@@ -107,7 +107,7 @@ function init_producer(config::ProducerConfig)
     end
 
     ctx = Aeron.Context()
-    Aeron.aeron_dir!(ctx, config.aeron_dir)
+    set_aeron_dir!(ctx, config.aeron_dir)
     client = Aeron.Client(ctx)
 
     pub_descriptor = Aeron.add_publication(client, config.aeron_uri, config.descriptor_stream_id)

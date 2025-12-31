@@ -12,3 +12,8 @@ end
 @inline function sbe_message_length(msg::SBE.AbstractSbeMessage)
     return MESSAGE_HEADER_LEN + sbe_encoded_length(msg)
 end
+
+@inline function set_aeron_dir!(ctx::Aeron.Context, aeron_dir::AbstractString)
+    isempty(aeron_dir) || Aeron.aeron_dir!(ctx, aeron_dir)
+    return nothing
+end

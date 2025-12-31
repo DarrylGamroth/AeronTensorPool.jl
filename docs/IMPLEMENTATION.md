@@ -150,6 +150,16 @@ aeron_dir = "/dev/shm/aeron-${USER}"
 - Invoker mode lets you run one or more agents inside an application loop without AgentRunner; you call `*_do_work!` each duty cycle with a consistent `now_ns`.
 - The supervisor is optional for basic producer/consumer operation (announce + descriptors + QoS can flow without it), but required for dynamic policy (ConsumerConfig), liveness aggregation, and multi-consumer coordination.
 
+## 16c. Config notes (IDs, SHM, and MAX_DIMS)
+- `producer_id`: configured per stream; spec recommends a supervisor/authority assign it, otherwise choose a stable app-specific ID.
+- `consumer_id`: recommended to be assigned by a supervisor/authority; if self-assigned, spec suggests randomized IDs and collision handling (see §10.1.2).
+- `pool_id`: chosen by the producer and advertised in ShmPoolAnnounce; use a simple sequential scheme (1..N) unless you need a stable external mapping.
+- `nslots`: capacity for ring and pools; size it to cover producer rate × worst-case consumer latency × safety factor.
+- `max_dims`: fixed by the SBE schema and must match on producer/consumer; it is not runtime-configurable without regenerating codecs.
+- `use_shm`: ConsumerConfig lever to force a consumer to use SHM or fallback (see §10.1.3).
+- `supports_shm`: ConsumerHello capability flag for non-SHM consumers (e.g., remote/bridged); see §10.1.2 in the spec.
+- `aeron_dir`: optional; when empty, the default Aeron directory is used. TOML supports `$USER` or `${USER}` via env expansion.
+
 ## 17. Validation, logging, and errors
 - Backend checks before mmap: scheme==shm:file, require_hugepages honored, stride_bytes power-of-two and page/hugepage aligned; log and reject before mapping.
 - On epoch mismatch or commit_word regression: drop frame, increment drops_late, log at debug/info.
