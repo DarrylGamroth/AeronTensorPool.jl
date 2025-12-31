@@ -24,3 +24,6 @@ include("test_cli_tool.jl")
 if get(ENV, "TP_RUN_SYSTEM_SMOKE", "false") == "true"
     include("test_system_smoke.jl")
 end
+if get(ENV, "TP_RUN_SYSTEM_SMOKE_GC", "false") == "true"
+    include("test_system_smoke_gc.jl")
+end

@@ -212,4 +212,4 @@ Spec refs
 - 15.7a, 15.14, 15.17
 
 Status
-- Complete (allocation load checks added, perf/ops hardening guidance documented).
+- Complete (allocation load checks plus optional GC monitoring added, perf/ops hardening guidance documented).

@@ -97,6 +97,7 @@ This guide maps the normative spec (SHM_Aeron_Tensor_Pool.md) to concrete implem
 - Multi-role runner: `scripts/run_all.sh <config>` launches producer/consumer/supervisor in one shell with a shared config.
 - System smoke test: `scripts/run_system_smoke.jl [config] [timeout_s]` runs a full in-process system using an embedded media driver.
 - Optional CI/system test: `TP_RUN_SYSTEM_SMOKE=true julia --project -e 'using Pkg; Pkg.test()'` runs the end-to-end smoke test.
+- Optional GC monitor: `TP_RUN_SYSTEM_SMOKE_GC=true TP_GC_MONITOR_ITERS=2000 TP_GC_ALLOC_LIMIT_BYTES=50000000 julia --project -e 'using Pkg; Pkg.test()'` runs the E2E loop and asserts GC allocation growth stays below the limit.
 
 ## 15. Configuration pattern (TOML + env overrides)
 - Keep a default TOML (e.g., config/defaults.toml) with uri, nslots, stride_bytes, cadences, progress defaults, payload_fallback_uri, and Aeron directory when needed.
