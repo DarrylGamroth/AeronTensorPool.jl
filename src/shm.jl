@@ -7,17 +7,6 @@ end
     return nothing
 end
 
-@inline function load_int32_le(buffer::AbstractVector{UInt8}, offset::Integer)
-    ptr = Ptr{Int32}(pointer(buffer, offset + 1))
-    return ltoh(unsafe_load(ptr))
-end
-
-@inline function store_int32_le!(buffer::AbstractVector{UInt8}, offset::Integer, val::Int32)
-    ptr = Ptr{Int32}(pointer(buffer, offset + 1))
-    unsafe_store!(ptr, htol(val))
-    return nothing
-end
-
 @inline function page_size_bytes()
     return Int(ccall(:getpagesize, Cint, ()))
 end
@@ -224,16 +213,8 @@ end
 end
 
 function read_tensor_slot_header(m::TensorSlotHeader256.Decoder)
-    dims_offset = TensorSlotHeader256.dims_encoding_offset(m)
-    strides_offset = TensorSlotHeader256.strides_encoding_offset(m)
-    dims = ntuple(
-        i -> load_int32_le(m.buffer, m.offset + dims_offset + (i - 1) * 4),
-        Val(MAX_DIMS),
-    )
-    strides = ntuple(
-        i -> load_int32_le(m.buffer, m.offset + strides_offset + (i - 1) * 4),
-        Val(MAX_DIMS),
-    )
+    dims = TensorSlotHeader256.dims(m, NTuple{MAX_DIMS, Int32})
+    strides = TensorSlotHeader256.strides(m, NTuple{MAX_DIMS, Int32})
     return TensorSlotHeader(
         TensorSlotHeader256.commitWord(m),
         TensorSlotHeader256.frameId(m),
