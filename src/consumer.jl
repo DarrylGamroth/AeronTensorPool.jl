@@ -36,6 +36,8 @@ mutable struct ConsumerState
     header_mmap::Union{Nothing, Vector{UInt8}}
     payload_mmaps::Dict{UInt16, Vector{UInt8}}
     pool_stride_bytes::Dict{UInt16, UInt32}
+    mapped_nslots::UInt32
+    last_commit_words::Vector{UInt64}
     last_seq_seen::UInt64
     seen_any::Bool
     drops_gap::UInt64
@@ -51,6 +53,8 @@ mutable struct ConsumerState
     desc_decoder::FrameDescriptor.Decoder{UnsafeArrays.UnsafeArray{UInt8, 1}}
     announce_decoder::ShmPoolAnnounce.Decoder{UnsafeArrays.UnsafeArray{UInt8, 1}}
     config_decoder::ConsumerConfigMsg.Decoder{UnsafeArrays.UnsafeArray{UInt8, 1}}
+    scratch_dims::Vector{Int64}
+    scratch_strides::Vector{Int64}
 end
 
 function init_consumer(config::ConsumerConfig)
@@ -81,6 +85,8 @@ function init_consumer(config::ConsumerConfig)
         nothing,
         Dict{UInt16, Vector{UInt8}}(),
         Dict{UInt16, UInt32}(),
+        UInt32(0),
+        UInt64[],
         UInt64(0),
         false,
         UInt64(0),
@@ -96,6 +102,8 @@ function init_consumer(config::ConsumerConfig)
         FrameDescriptor.Decoder(UnsafeArrays.UnsafeArray{UInt8, 1}),
         ShmPoolAnnounce.Decoder(UnsafeArrays.UnsafeArray{UInt8, 1}),
         ConsumerConfigMsg.Decoder(UnsafeArrays.UnsafeArray{UInt8, 1}),
+        Vector{Int64}(undef, MAX_DIMS),
+        Vector{Int64}(undef, MAX_DIMS),
     )
 end
 
@@ -217,6 +225,8 @@ function map_from_announce!(state::ConsumerState, msg::ShmPoolAnnounce.Decoder)
     state.header_mmap = header_mmap
     state.payload_mmaps = payload_mmaps
     state.pool_stride_bytes = stride_bytes
+    state.mapped_nslots = header_expected_nslots
+    state.last_commit_words = fill(UInt64(0), Int(header_expected_nslots))
     state.mapped_epoch = ShmPoolAnnounce.epoch(msg)
     state.last_seq_seen = UInt64(0)
     state.seen_any = false
@@ -227,6 +237,8 @@ function reset_mappings!(state::ConsumerState)
     state.header_mmap = nothing
     empty!(state.payload_mmaps)
     empty!(state.pool_stride_bytes)
+    state.mapped_nslots = UInt32(0)
+    empty!(state.last_commit_words)
     state.mapped_epoch = UInt64(0)
     state.last_seq_seen = UInt64(0)
     state.seen_any = false
@@ -243,7 +255,13 @@ function handle_shm_pool_announce!(state::ConsumerState, msg::ShmPoolAnnounce.De
     end
 
     if state.header_mmap === nothing
-        return map_from_announce!(state, msg)
+        ok = map_from_announce!(state, msg)
+        if !ok && !isempty(state.config.payload_fallback_uri)
+            state.config.use_shm = false
+            reset_mappings!(state)
+            return true
+        end
+        return ok
     end
     return true
 end
@@ -404,6 +422,59 @@ function emit_periodic!(state::ConsumerState)
 
     return work_done
 end
+
+@inline function valid_dtype(dtype::Dtype.SbeEnum)
+    return dtype != Dtype.UNKNOWN && dtype != Dtype.NULL_VALUE
+end
+
+@inline function valid_major_order(order::MajorOrder.SbeEnum)
+    return order == MajorOrder.ROW || order == MajorOrder.COLUMN
+end
+
+function validate_strides!(state::ConsumerState, header::TensorSlotHeader)
+    ndims = Int(header.ndims)
+    ndims == 0 && return true
+
+    for i in 1:ndims
+        dim = header.dims[i]
+        dim < 0 && return false
+        state.scratch_dims[i] = Int64(dim)
+    end
+
+    for i in 1:ndims
+        stride = header.strides[i]
+        stride < 0 && return false
+        state.scratch_strides[i] = Int64(stride)
+    end
+
+    if header.major_order == MajorOrder.ROW
+        if state.scratch_strides[ndims] == 0
+            state.scratch_strides[ndims] = 1
+        end
+        for i in (ndims - 1):-1:1
+            required = state.scratch_strides[i + 1] * max(state.scratch_dims[i + 1], 1)
+            if state.scratch_strides[i] == 0
+                state.scratch_strides[i] = required
+            end
+            state.scratch_strides[i] < required && return false
+        end
+        return true
+    elseif header.major_order == MajorOrder.COLUMN
+        if state.scratch_strides[1] == 0
+            state.scratch_strides[1] = 1
+        end
+        for i in 2:ndims
+            required = state.scratch_strides[i - 1] * max(state.scratch_dims[i - 1], 1)
+            if state.scratch_strides[i] == 0
+                state.scratch_strides[i] = required
+            end
+            state.scratch_strides[i] < required && return false
+        end
+        return true
+    end
+
+    return false
+end
 function try_read_frame!(
     state::ConsumerState,
     desc::FrameDescriptor.Decoder,
@@ -414,6 +485,11 @@ function try_read_frame!(
     should_process(state, seq) || return nothing
 
     header_index = FrameDescriptor.headerIndex(desc)
+    if state.mapped_nslots == 0 || header_index >= state.mapped_nslots
+        state.drops_late += 1
+        return nothing
+    end
+
     header_offset = header_slot_offset(header_index)
     header_mmap = state.header_mmap::Vector{UInt8}
 
@@ -434,7 +510,28 @@ function try_read_frame!(
         return nothing
     end
 
+    last_commit = state.last_commit_words[Int(header_index) + 1]
+    if second < last_commit
+        state.drops_late += 1
+        return nothing
+    end
+
     if header.frame_id != seq
+        state.drops_late += 1
+        return nothing
+    end
+
+    if header.payload_slot != header_index
+        state.drops_late += 1
+        return nothing
+    end
+
+    if !valid_dtype(header.dtype) || !valid_major_order(header.major_order)
+        state.drops_late += 1
+        return nothing
+    end
+
+    if header.ndims > state.config.max_dims || !validate_strides!(state, header)
         state.drops_late += 1
         return nothing
     end
@@ -449,5 +546,6 @@ function try_read_frame!(
     payload = view(payload_mmap, payload_offset + 1:payload_offset + payload_len)
 
     maybe_track_gap!(state, seq)
+    state.last_commit_words[Int(header_index) + 1] = second
     return (header, payload)
 end
