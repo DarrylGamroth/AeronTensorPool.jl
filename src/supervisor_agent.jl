@@ -1,0 +1,34 @@
+struct SupervisorAgent
+    state::SupervisorState
+    control_assembler::Aeron.FragmentAssembler
+    qos_assembler::Aeron.FragmentAssembler
+    counters::SupervisorCounters
+end
+
+function SupervisorAgent(config::SupervisorConfig)
+    state = init_supervisor(config)
+    control_assembler = make_control_assembler(state)
+    qos_assembler = make_qos_assembler(state)
+    counters = SupervisorCounters(state.client, Int(config.stream_id), "Supervisor")
+    return SupervisorAgent(state, control_assembler, qos_assembler, counters)
+end
+
+Agent.name(agent::SupervisorAgent) = "supervisor"
+
+function Agent.do_work(agent::SupervisorAgent)
+    Aeron.increment!(agent.counters.base.total_duty_cycles)
+    work_done = supervisor_do_work!(agent.state, agent.control_assembler, agent.qos_assembler)
+    work_done > 0 && Aeron.add!(agent.counters.base.total_work_done, Int64(work_done))
+    agent.counters.config_published[] = Int64(agent.state.config_emits)
+    agent.counters.liveness_checks[] = Int64(agent.state.liveness_checks)
+    return work_done
+end
+
+function Agent.on_close(agent::SupervisorAgent)
+    safe_close(agent.counters)
+    safe_close(agent.state.pub_control)
+    safe_close(agent.state.sub_control)
+    safe_close(agent.state.sub_qos)
+    safe_close(agent.state.client)
+    return nothing
+end

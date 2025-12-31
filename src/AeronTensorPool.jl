@@ -14,6 +14,7 @@ include("constants.jl")
 include("aeron_utils.jl")
 include("polled_timer.jl")
 include("counters.jl")
+include("agent_common.jl")
 include("shm.jl")
 include("producer.jl")
 include("consumer.jl")
@@ -21,7 +22,9 @@ include("supervisor.jl")
 include("bridge.jl")
 include("decimator.jl")
 include("config_loader.jl")
-include("agent_glue.jl")
+include("producer_agent.jl")
+include("consumer_agent.jl")
+include("supervisor_agent.jl")
 
 export Dtype,
     MajorOrder,
