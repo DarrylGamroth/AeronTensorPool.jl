@@ -273,6 +273,10 @@ end
 
 function mmap_shm(uri::String, size::Integer; write::Bool = false)
     parsed = parse_shm_uri(uri)
+    if parsed.require_hugepages
+        is_hugetlbfs_path(parsed.path) || throw(ShmValidationError("hugetlbfs mount required for path: $(parsed.path)"))
+        hugepage_size_bytes() > 0 || throw(ShmValidationError("hugetlbfs mount has unknown hugepage size"))
+    end
     open(parsed.path, write ? "w+" : "r") do io
         if write
             truncate(io, size)
