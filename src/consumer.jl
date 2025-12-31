@@ -541,8 +541,9 @@ function try_read_frame!(
     payload_mmap = get(state.payload_mmaps, header.pool_id, nothing)
     payload_mmap === nothing && return nothing
 
-    payload_offset = SUPERBLOCK_SIZE + Int(header.payload_slot) * Int(pool_stride)
     payload_len = Int(header.values_len_bytes)
+    payload_len > Int(pool_stride) && return nothing
+    payload_offset = SUPERBLOCK_SIZE + Int(header.payload_slot) * Int(pool_stride)
     payload = view(payload_mmap, payload_offset + 1:payload_offset + payload_len)
 
     maybe_track_gap!(state, seq)
