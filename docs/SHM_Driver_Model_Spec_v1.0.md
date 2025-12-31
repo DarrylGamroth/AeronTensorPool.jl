@@ -209,6 +209,19 @@ Deployments MAY configure the driver to delete and recreate existing SHM backing
 
 ---
 
+## 14. Aeron Media Driver Reference (Informative)
+
+This driver model intentionally mirrors the Aeron Media Driver/Client split. The Aeron codebase provides concrete guidance on liveness, identity, and retry behaviors that can inform SHM Driver implementations:
+
+- Liveness and heartbeats: Aeron exposes `client_liveness_timeout` and a driver heartbeat timestamp in the CnC file (see `aeron/aeron-client/src/main/c/aeronc.h`). Clients can read the last `to_driver_heartbeat` timestamp to detect liveness.
+- Driver activity checks: Aeron provides `aeron_is_driver_active(dirname, timeout_ms, ...)` to detect whether a driver is running for a directory (see `aeron/aeron-client/src/main/c/aeronc.h`), which can be used as a model for attach retry/backoff strategies.
+- Client identity: Aeron clients can query their `client_id` via `aeron_client_id(...)` (see `aeron/aeron-client/src/main/c/aeronc.h`), which suggests keeping client identity stable for the lifetime of a process.
+- Driver-enforced timeouts: Aeron can close a client due to driver timeouts (`aeron_is_closed(...)` comment in `aeron/aeron-client/src/main/c/aeronc.h`), which maps to lease expiry behavior in this spec.
+
+These references are informative; this specification defines its own normative behaviors.
+
+---
+
 ## Appendix A. Driver Control-Plane SBE Schema (Normative)
 
 <?xml version="1.0" encoding="UTF-8"?>
