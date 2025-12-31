@@ -144,6 +144,7 @@ function validate_superblock_fields(
     fields.region_type == expected_region_type || return false
     fields.pool_id == expected_pool_id || return false
     fields.nslots == expected_nslots || return false
+    ispow2(fields.nslots) || return false
     fields.slot_bytes == expected_slot_bytes || return false
     return true
 end
