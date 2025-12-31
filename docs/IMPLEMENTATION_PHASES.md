@@ -114,7 +114,7 @@ Spec refs
 - 10.1, 10.4, 15.14, 15.18
 
 Status
-- Complete (ConsumerHello, QosProducer/QosConsumer, ConsumerConfig handling).
+- Complete (ConsumerHello, QosProducer/QosConsumer, ConsumerConfig handling, producer progress floors enforced).
 
 ## Phase 5 - Supervisor Agent
 

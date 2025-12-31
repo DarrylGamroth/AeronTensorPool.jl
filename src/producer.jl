@@ -570,10 +570,18 @@ function handle_consumer_hello!(state::ProducerState, msg::ConsumerHello.Decoder
         bytes_delta = ConsumerHello.progressBytesDelta(msg)
 
         if interval != typemax(UInt32)
-            state.progress_interval_ns = min(state.progress_interval_ns, UInt64(interval) * 1000)
+            hint_ns = UInt64(interval) * 1000
+            state.progress_interval_ns = max(
+                state.config.progress_interval_ns,
+                min(state.progress_interval_ns, hint_ns),
+            )
         end
         if bytes_delta != typemax(UInt32)
-            state.progress_bytes_delta = min(state.progress_bytes_delta, UInt64(bytes_delta))
+            hint_bytes = UInt64(bytes_delta)
+            state.progress_bytes_delta = max(
+                state.config.progress_bytes_delta,
+                min(state.progress_bytes_delta, hint_bytes),
+            )
         end
     end
     return nothing
