@@ -151,6 +151,7 @@ Deliverables
 - ShmDetachRequest/Response handling.
 - ShmLeaseRevoked publishing and epoch bump rules.
 - Driver TOML/env configuration surface per Driver Spec §16.
+- Driver shutdown notice and QoS telemetry (Aeron counters).
 
 Validation
 - Protocol error handling: fail closed on missing fields or null sentinels.
@@ -160,7 +161,7 @@ Spec refs
 - Driver: 2-4, 6-7
 
 Status
-- Complete (driver config, attach/detach/keepalive, lease revoke, announces, shutdown notice, policy edge cases, and basic tests).
+- Complete (QoS/shutdown extensions and tests added).
 
 ## Phase 7 - Driver Integration (Producer/Consumer)
 
