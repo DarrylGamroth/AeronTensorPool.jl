@@ -177,7 +177,7 @@ function publish_frame!(
 
     header_offset = header_slot_offset(header_index)
     commit_ptr = Ptr{UInt64}(pointer(state.mappings.header_mmap, header_offset + 1))
-    atomic_store_u64!(commit_ptr, (frame_id << 1) | 1)
+    seqlock_begin_write!(commit_ptr, frame_id)
 
     copyto!(view(payload_mmap, payload_offset + 1:payload_offset + values_len), payload_data)
 
@@ -198,7 +198,7 @@ function publish_frame!(
         strides,
     )
 
-    atomic_store_u64!(commit_ptr, frame_id << 1)
+    seqlock_commit_write!(commit_ptr, frame_id)
 
     now_ns = UInt64(Clocks.time_nanos(state.clock))
     sent = try_claim_sbe!(state.runtime.pub_descriptor, state.runtime.descriptor_claim, FRAME_DESCRIPTOR_LEN) do buf
@@ -372,7 +372,7 @@ function publish_reservation!(
 
     header_offset = header_slot_offset(reservation.header_index)
     commit_ptr = Ptr{UInt64}(pointer(state.mappings.header_mmap, header_offset + 1))
-    atomic_store_u64!(commit_ptr, (frame_id << 1) | 1)
+    seqlock_begin_write!(commit_ptr, frame_id)
 
     wrap_tensor_header!(state.runtime.header_encoder, state.mappings.header_mmap, header_offset)
     write_tensor_slot_header!(
@@ -391,7 +391,7 @@ function publish_reservation!(
         strides,
     )
 
-    atomic_store_u64!(commit_ptr, frame_id << 1)
+    seqlock_commit_write!(commit_ptr, frame_id)
 
     now_ns = UInt64(Clocks.time_nanos(state.clock))
     sent = try_claim_sbe!(state.runtime.pub_descriptor, state.runtime.descriptor_claim, FRAME_DESCRIPTOR_LEN) do buf
@@ -440,7 +440,7 @@ function publish_frame_from_slot!(
 
     header_offset = header_slot_offset(header_index)
     commit_ptr = Ptr{UInt64}(pointer(state.mappings.header_mmap, header_offset + 1))
-    atomic_store_u64!(commit_ptr, (frame_id << 1) | 1)
+    seqlock_begin_write!(commit_ptr, frame_id)
 
     wrap_tensor_header!(state.runtime.header_encoder, state.mappings.header_mmap, header_offset)
     write_tensor_slot_header!(
@@ -459,7 +459,7 @@ function publish_frame_from_slot!(
         strides,
     )
 
-    atomic_store_u64!(commit_ptr, frame_id << 1)
+    seqlock_commit_write!(commit_ptr, frame_id)
 
     now_ns = UInt64(Clocks.time_nanos(state.clock))
     sent = try_claim_sbe!(state.runtime.pub_descriptor, state.runtime.descriptor_claim, FRAME_DESCRIPTOR_LEN) do buf

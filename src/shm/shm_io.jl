@@ -1,16 +1,38 @@
 """
-Atomic acquire-load for a UInt64 pointer.
+Begin a seqlock write by marking the commit_word as odd (WRITING).
 """
-@inline function atomic_load_u64(ptr::Ptr{UInt64})
-    return unsafe_load(ptr, :acquire)
+@inline function seqlock_begin_write!(commit_ptr::Ptr{UInt64}, frame_id::UInt64)
+    unsafe_store!(commit_ptr, (frame_id << 1) | 1, :release)
+    return nothing
 end
 
 """
-Atomic release-store for a UInt64 pointer.
+Commit a seqlock write by marking the commit_word as even (COMMITTED).
 """
-@inline function atomic_store_u64!(ptr::Ptr{UInt64}, val::UInt64)
-    unsafe_store!(ptr, val, :release)
+@inline function seqlock_commit_write!(commit_ptr::Ptr{UInt64}, frame_id::UInt64)
+    unsafe_store!(commit_ptr, frame_id << 1, :release)
     return nothing
+end
+
+"""
+Acquire-load the current seqlock commit_word at the start of a read.
+"""
+@inline function seqlock_read_begin(commit_ptr::Ptr{UInt64})
+    return unsafe_load(commit_ptr, :acquire)
+end
+
+"""
+Acquire-load the seqlock commit_word at the end of a read.
+"""
+@inline function seqlock_read_end(commit_ptr::Ptr{UInt64})
+    return unsafe_load(commit_ptr, :acquire)
+end
+
+"""
+Return true if the seqlock indicates an in-progress write.
+"""
+@inline function seqlock_is_write_in_progress(word::UInt64)
+    return isodd(word)
 end
 
 @inline function page_size_bytes()

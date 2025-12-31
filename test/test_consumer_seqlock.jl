@@ -144,10 +144,10 @@
 
             commit_ptr = Ptr{UInt64}(pointer(header_mmap, header_offset + 1))
 
-            atomic_store_u64!(commit_ptr, (UInt64(1) << 1) | 1)
+            seqlock_begin_write!(commit_ptr, UInt64(1))
             @test try_read_frame!(state, desc_dec) === nothing
 
-            atomic_store_u64!(commit_ptr, UInt64(1) << 1)
+            seqlock_commit_write!(commit_ptr, UInt64(1))
             state.mappings.last_commit_words[1] = UInt64(4) << 1
             @test try_read_frame!(state, desc_dec) === nothing
             state.mappings.last_commit_words[1] = UInt64(0)
@@ -167,7 +167,7 @@
                 vcat(Int32(16), zeros(Int32, MAX_DIMS - 1)),
                 vcat(Int32(0), zeros(Int32, MAX_DIMS - 1)),
             )
-            atomic_store_u64!(commit_ptr, UInt64(1) << 1)
+            seqlock_commit_write!(commit_ptr, UInt64(1))
             @test try_read_frame!(state, desc_dec) === nothing
 
             write_tensor_slot_header!(
@@ -185,7 +185,7 @@
                 vcat(Int32(16), zeros(Int32, MAX_DIMS - 1)),
                 vcat(Int32(0), zeros(Int32, MAX_DIMS - 1)),
             )
-            atomic_store_u64!(commit_ptr, UInt64(1) << 1)
+            seqlock_commit_write!(commit_ptr, UInt64(1))
             @test try_read_frame!(state, desc_dec) === nothing
             finally
                 close_consumer_state!(state)

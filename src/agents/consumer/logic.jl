@@ -533,8 +533,8 @@ function try_read_frame!(
     header_mmap = state.mappings.header_mmap::Vector{UInt8}
 
     commit_ptr = Ptr{UInt64}(pointer(header_mmap, header_offset + 1))
-    first = atomic_load_u64(commit_ptr)
-    if isodd(first)
+    first = seqlock_read_begin(commit_ptr)
+    if seqlock_is_write_in_progress(first)
         state.metrics.drops_late += 1
         state.metrics.drops_odd += 1
         return nothing
@@ -550,8 +550,8 @@ function try_read_frame!(
         return nothing
     end
 
-    second = atomic_load_u64(commit_ptr)
-    if first != second || isodd(second)
+    second = seqlock_read_end(commit_ptr)
+    if first != second || seqlock_is_write_in_progress(second)
         state.metrics.drops_late += 1
         state.metrics.drops_changed += 1
         return nothing
