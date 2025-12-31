@@ -319,6 +319,8 @@ These references are informative; this specification defines its own normative b
 
 The driver is typically configured via a TOML file. The following keys are the canonical configuration surface. Implementations MAY add additional keys, but SHOULD preserve these names and defaults for interoperability.
 
+Drivers SHOULD also accept equivalent environment variables, following Aeron’s convention: uppercase the key and replace `.` with `_`. For example, `driver.control_stream_id` maps to `DRIVER_CONTROL_STREAM_ID`.
+
 Required keys (unless stated otherwise):
 
 - `driver.instance_id` (string): identifier for logging/diagnostics. Default: `"driver-01"`.
