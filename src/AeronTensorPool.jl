@@ -9,6 +9,8 @@ using UnsafeArrays
 
 include("gen/ShmTensorpoolControl.jl")
 using .ShmTensorpoolControl
+include("gen/ShmTensorpoolDriver.jl")
+using .ShmTensorpoolDriver
 
 include("core/constants.jl")
 include("core/errors.jl")
@@ -16,6 +18,12 @@ include("shm/shm_io.jl")
 include("aeron/aeron_utils.jl")
 include("aeron/counters.jl")
 include("timers/polled_timer.jl")
+include("driver/config.jl")
+include("driver/state.jl")
+include("driver/handlers.jl")
+include("driver/logic.jl")
+include("client/driver_proxies.jl")
+include("client/driver_poller.jl")
 include("agents/producer/state.jl")
 include("agents/producer/handlers.jl")
 include("agents/producer/logic.jl")
@@ -32,16 +40,30 @@ include("agents/decimator/logic.jl")
 include("agent_glue/producer_agent.jl")
 include("agent_glue/consumer_agent.jl")
 include("agent_glue/supervisor_agent.jl")
+include("agent_glue/driver_agent.jl")
 include("config/config_loader.jl")
 
 export Dtype,
     MajorOrder,
     RegionType,
+    DriverBool,
+    DriverResponseCode,
+    DriverRole,
+    DriverPublishMode,
+    DriverLeaseRevokeReason,
+    DriverShutdownReason,
     MAGIC_TPOLSHM1,
     SUPERBLOCK_SIZE,
     HEADER_SLOT_BYTES,
     MAX_DIMS,
     PayloadPoolConfig,
+    DriverPoolConfig,
+    DriverProfileConfig,
+    DriverStreamConfig,
+    DriverPolicies,
+    DriverShmConfig,
+    DriverEndpoints,
+    DriverConfig,
     ProducerConfig,
     ProducerState,
     ProducerAgent,
@@ -54,6 +76,8 @@ export Dtype,
     SupervisorConfig,
     SupervisorState,
     SupervisorAgent,
+    DriverAgent,
+    DriverState,
     BridgeConfig,
     BridgeState,
     DecimatorConfig,
@@ -62,6 +86,7 @@ export Dtype,
     FrameDescriptor,
     FrameProgress,
     MessageHeader,
+    DriverMessageHeader,
     QosProducer,
     ShmRegionSuperblock,
     ShmUri,
@@ -71,6 +96,13 @@ export Dtype,
     TensorSlotHeader,
     Mode,
     QosConsumer,
+    ShmAttachRequest,
+    ShmAttachResponse,
+    ShmDetachRequest,
+    ShmDetachResponse,
+    ShmLeaseKeepalive,
+    ShmDriverShutdown,
+    ShmLeaseRevoked,
     seqlock_begin_write!,
     seqlock_commit_write!,
     seqlock_read_begin,
@@ -87,6 +119,7 @@ export Dtype,
     ProducerCounters,
     ConsumerCounters,
     SupervisorCounters,
+    DriverCounters,
     add_counter,
     make_counter_type_id,
     PolledTimer,
@@ -112,6 +145,7 @@ export Dtype,
     handle_shm_pool_announce!,
     init_producer,
     init_consumer,
+    init_driver,
     mmap_shm,
     parse_shm_uri,
     publish_frame!,
@@ -139,6 +173,8 @@ export Dtype,
     supervisor_do_work!,
     producer_do_work!,
     consumer_do_work!,
+    driver_do_work!,
+    poll_driver_control!,
     make_qos_assembler,
     next_header_index,
     payload_pool_config,
@@ -158,10 +194,24 @@ export Dtype,
     write_superblock!,
     write_tensor_slot_header!,
     load_producer_config,
+    load_driver_config,
     load_consumer_config,
     load_supervisor_config,
     load_system_config,
     try_claim_sbe!,
-    sbe_message_length
+    sbe_message_length,
+    AttachRequestProxy,
+    KeepaliveProxy,
+    DetachRequestProxy,
+    send_attach!,
+    send_keepalive!,
+    send_detach!,
+    DriverPoolInfo,
+    AttachResponseInfo,
+    DetachResponseInfo,
+    LeaseRevokedInfo,
+    DriverShutdownInfo,
+    DriverResponsePoller,
+    poll_driver_responses!
 
 end

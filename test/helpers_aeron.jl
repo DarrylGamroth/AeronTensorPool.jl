@@ -108,3 +108,16 @@ function close_supervisor_state!(state::SupervisorState)
     end
     return nothing
 end
+
+function close_driver_state!(state::DriverState)
+    try
+        close(state.runtime.pub_control)
+        close(state.runtime.pub_announce)
+        close(state.runtime.pub_qos)
+        close(state.runtime.sub_control)
+        close(state.runtime.client)
+        close(state.runtime.ctx)
+    catch
+    end
+    return nothing
+end

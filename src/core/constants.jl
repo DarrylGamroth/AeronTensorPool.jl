@@ -22,7 +22,24 @@ const ShmPoolAnnounce = ShmTensorpoolControl.ShmPoolAnnounce
 const ShmRegionSuperblock = ShmTensorpoolControl.ShmRegionSuperblock
 const TensorSlotHeader256 = ShmTensorpoolControl.TensorSlotHeader256
 
+const DriverMessageHeader = ShmTensorpoolDriver.MessageHeader
+const DriverBool = ShmTensorpoolDriver.Bool_
+const DriverResponseCode = ShmTensorpoolDriver.ResponseCode
+const DriverRole = ShmTensorpoolDriver.Role
+const DriverPublishMode = ShmTensorpoolDriver.PublishMode
+const DriverLeaseRevokeReason = ShmTensorpoolDriver.LeaseRevokeReason
+const DriverShutdownReason = ShmTensorpoolDriver.ShutdownReason
+const ShmAttachRequest = ShmTensorpoolDriver.ShmAttachRequest
+const ShmAttachResponse = ShmTensorpoolDriver.ShmAttachResponse
+const ShmDetachRequest = ShmTensorpoolDriver.ShmDetachRequest
+const ShmDetachResponse = ShmTensorpoolDriver.ShmDetachResponse
+const ShmLeaseKeepalive = ShmTensorpoolDriver.ShmLeaseKeepalive
+const ShmDriverShutdown = ShmTensorpoolDriver.ShmDriverShutdown
+const ShmLeaseRevoked = ShmTensorpoolDriver.ShmLeaseRevoked
+
 const MESSAGE_HEADER_LEN = Int(MessageHeader.sbe_encoded_length(MessageHeader.Decoder))
+const DRIVER_MESSAGE_HEADER_LEN =
+    Int(DriverMessageHeader.sbe_encoded_length(DriverMessageHeader.Decoder))
 const FRAME_DESCRIPTOR_LEN = MESSAGE_HEADER_LEN + Int(FrameDescriptor.sbe_block_length(FrameDescriptor.Decoder))
 const FRAME_PROGRESS_LEN = MESSAGE_HEADER_LEN + Int(FrameProgress.sbe_block_length(FrameProgress.Decoder))
 const QOS_PRODUCER_LEN = MESSAGE_HEADER_LEN + Int(QosProducer.sbe_block_length(QosProducer.Decoder))
@@ -35,6 +52,14 @@ const TEMPLATE_CONSUMER_CONFIG = ConsumerConfigMsg.sbe_template_id(ConsumerConfi
 const TEMPLATE_CONSUMER_HELLO = ConsumerHello.sbe_template_id(ConsumerHello.Decoder)
 const TEMPLATE_QOS_CONSUMER = QosConsumer.sbe_template_id(QosConsumer.Decoder)
 const TEMPLATE_QOS_PRODUCER = QosProducer.sbe_template_id(QosProducer.Decoder)
+
+const TEMPLATE_SHM_ATTACH_REQUEST = ShmAttachRequest.sbe_template_id(ShmAttachRequest.Decoder)
+const TEMPLATE_SHM_ATTACH_RESPONSE = ShmAttachResponse.sbe_template_id(ShmAttachResponse.Decoder)
+const TEMPLATE_SHM_DETACH_REQUEST = ShmDetachRequest.sbe_template_id(ShmDetachRequest.Decoder)
+const TEMPLATE_SHM_DETACH_RESPONSE = ShmDetachResponse.sbe_template_id(ShmDetachResponse.Decoder)
+const TEMPLATE_SHM_LEASE_KEEPALIVE = ShmLeaseKeepalive.sbe_template_id(ShmLeaseKeepalive.Decoder)
+const TEMPLATE_SHM_DRIVER_SHUTDOWN = ShmDriverShutdown.sbe_template_id(ShmDriverShutdown.Decoder)
+const TEMPLATE_SHM_LEASE_REVOKED = ShmLeaseRevoked.sbe_template_id(ShmLeaseRevoked.Decoder)
 
 """
 Configuration for a payload pool in shared memory.

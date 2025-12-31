@@ -9,6 +9,8 @@ References:
 
 Note: Initial driver and client implementations are in Julia. A C client is planned next, so API and protocol decisions should remain C-friendly. The driver can remain Julia-only.
 
+Code organization: separate modules for shared (wire + shm utilities), client (attach/keepalive/detach proxies and pollers), and driver (SHM lifecycle, leases, announces).
+
 ## 1. Scope and Roles
 
 Wire-level roles:

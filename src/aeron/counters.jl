@@ -75,6 +75,18 @@ struct SupervisorCounters
 end
 
 """
+Driver-specific counters (attach, detach, keepalive, revoke, announce).
+"""
+struct DriverCounters
+    base::Counters
+    attach_responses::Aeron.Counter
+    detach_responses::Aeron.Counter
+    keepalives::Aeron.Counter
+    lease_revoked::Aeron.Counter
+    announces::Aeron.Counter
+end
+
+"""
 Construct producer counters for a given agent identity.
 """
 function ProducerCounters(client::Aeron.Client, agent_id, agent_name)
@@ -116,6 +128,20 @@ function SupervisorCounters(client::Aeron.Client, agent_id, agent_name)
     )
 end
 
+"""
+Construct driver counters for a given agent identity.
+"""
+function DriverCounters(client::Aeron.Client, agent_id, agent_name)
+    DriverCounters(
+        Counters(client, agent_id, agent_name),
+        add_counter(client, agent_id, agent_name, 3, "AttachResponses"),
+        add_counter(client, agent_id, agent_name, 4, "DetachResponses"),
+        add_counter(client, agent_id, agent_name, 5, "Keepalives"),
+        add_counter(client, agent_id, agent_name, 6, "LeaseRevoked"),
+        add_counter(client, agent_id, agent_name, 7, "Announces"),
+    )
+end
+
 function Base.close(counters::Counters)
     close(counters.total_duty_cycles)
     close(counters.total_work_done)
@@ -145,5 +171,14 @@ end
 function Base.close(counters::SupervisorCounters)
     close(counters.config_published)
     close(counters.liveness_checks)
+    close(counters.base)
+end
+
+function Base.close(counters::DriverCounters)
+    close(counters.attach_responses)
+    close(counters.detach_responses)
+    close(counters.keepalives)
+    close(counters.lease_revoked)
+    close(counters.announces)
     close(counters.base)
 end

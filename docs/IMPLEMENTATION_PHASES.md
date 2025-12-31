@@ -141,7 +141,8 @@ Status
 
 Goals
 - Implement the external SHM Driver and attach protocol.
- - Keep the client protocol surface C-friendly for the planned C client.
+- Keep the client protocol surface C-friendly for the planned C client.
+- Organize code into shared, client, and driver modules.
 
 Deliverables
 - Driver agent with exclusive producer enforcement per stream.
@@ -159,7 +160,7 @@ Spec refs
 - Driver: 2-4, 6-7
 
 Status
-- Not started (no driver agent or attach protocol in src).
+- In progress (driver config, attach/detach/keepalive, lease revoke, announces, and basic tests added; shutdown/QoS and policy edge cases remain).
 
 ## Phase 7 - Driver Integration (Producer/Consumer)
 
