@@ -149,7 +149,7 @@ Bridge senders MUST NOT publish local `FrameDescriptor` messages over UDP; only 
 
 ## 7.1 Metadata Forwarding (Normative)
 
-Bridge instances MUST support forwarding `DataSourceAnnounce` and `DataSourceMeta` from the source stream to the receiver host. When `bridge.forward_metadata=true`, they MUST be forwarded on the destination host's standard local IPC metadata channel/stream for `dest_stream_id` and MUST preserve `stream_id` and `meta_version`. When `bridge.forward_metadata=false`, metadata MAY be omitted and bridged consumers will lack metadata.
+Bridge instances MUST support forwarding `DataSourceAnnounce` and `DataSourceMeta` from the source stream to the receiver host. When `bridge.forward_metadata=true`, they MUST be forwarded on the destination host's standard local IPC metadata channel/stream. The forwarded `stream_id` MUST be rewritten to `metadata_stream_id` for the mapping (defaulting to `dest_stream_id` if unset) and MUST preserve `meta_version`. When `bridge.forward_metadata=false`, metadata MAY be omitted and bridged consumers will lack metadata.
 
 ## 7.2 Source Pool Announce Forwarding (Normative)
 
@@ -200,6 +200,7 @@ Each `mappings` entry:
 - `source_stream_id` (uint32): stream ID consumed from local SHM.
 - `dest_stream_id` (uint32): stream ID produced on the destination host.
 - `profile` (string): destination profile name or pool mapping policy.
+- `metadata_stream_id` (uint32, optional): stream ID for forwarded metadata on the destination host. Default: `dest_stream_id`.
 
 Example config: `docs/examples/bridge_config_example.toml`.
 

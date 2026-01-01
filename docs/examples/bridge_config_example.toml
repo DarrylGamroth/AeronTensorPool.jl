@@ -19,8 +19,10 @@ forward_qos = false
 source_stream_id = 1001
 dest_stream_id = 2001
 profile = "processed_profile"
+metadata_stream_id = 2001
 
 [[mappings]]
 source_stream_id = 1002
 dest_stream_id = 2002
 profile = "processed_profile"
+metadata_stream_id = 2002
