@@ -154,7 +154,7 @@ Bridge instances MUST support forwarding `DataSourceAnnounce` and `DataSourceMet
 
 ## 7.2 Source Pool Announce Forwarding (Normative)
 
-Bridge instances MUST forward `ShmPoolAnnounce` for each mapped source stream to the receiver host on the bridge control channel. The receiver MUST use the most recent forwarded announce to validate `headerBytes.pool_id` and MUST NOT republish the source `ShmPoolAnnounce` to local consumers. Metadata forwarding does not use the bridge control channel.
+Bridge instances MUST forward `ShmPoolAnnounce` for each mapped source stream to the receiver host on the bridge control channel. The receiver MUST use the most recent forwarded announce to validate `headerBytes.pool_id` and MUST NOT republish the source `ShmPoolAnnounce` to local consumers. Metadata forwarding does not use the bridge control channel; implementations SHOULD use a dedicated bridge metadata channel for transport.
 
 ---
 
@@ -193,6 +193,8 @@ Optional keys and defaults:
 - `bridge.max_chunk_bytes` (uint32): hard cap for chunk length. Default: `65535`.
 - `bridge.max_payload_bytes` (uint32): hard cap for total payload length. Default: `1073741824`.
 - `bridge.forward_metadata` (bool): forward `DataSourceAnnounce`/`DataSourceMeta`. Default: `true`.
+- `bridge.metadata_channel` (string): Aeron UDP channel used to forward metadata (distinct from `bridge.control_channel`). Default: empty (disabled unless set).
+- `bridge.metadata_stream_id` (uint32): stream ID for forwarded metadata over `bridge.metadata_channel`. Default: deployment-specific.
 - `bridge.forward_qos` (bool): forward QoS messages. Default: `false`.
 - `bridge.assembly_timeout_ms` (uint32): per-stream frame assembly timeout. Default: `250`.
 

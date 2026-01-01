@@ -264,7 +264,7 @@ Spec refs
 - Wire: 12
 
 Status
-- In progress (bridge schema added; sender/receiver scaffolds with chunking, assembly, and announce forwarding; rematerialization + metadata/QoS forwarding TODO).
+- In progress (bridge schema added; sender/receiver scaffolds with chunking, assembly, announce forwarding, and metadata forwarding; rematerialization + QoS forwarding TODO).
 
 ## Driver Implementation Checklist (decided)
 

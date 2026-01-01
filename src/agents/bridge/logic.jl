@@ -101,8 +101,15 @@ function init_bridge_sender(consumer_state::ConsumerState, config::BridgeConfig,
 
     pub_payload = Aeron.add_publication(client, config.payload_channel, config.payload_stream_id)
     pub_control = Aeron.add_publication(client, config.control_channel, config.control_stream_id)
+    pub_metadata = nothing
+    sub_metadata = nothing
+    metadata_assembler = nothing
+    if config.forward_metadata && !isempty(config.metadata_channel)
+        pub_metadata = Aeron.add_publication(client, config.metadata_channel, config.metadata_stream_id)
+        sub_metadata = Aeron.add_subscription(client, consumer_state.config.aeron_uri, config.metadata_stream_id)
+    end
 
-    return BridgeSenderState(
+    state = BridgeSenderState(
         consumer_state,
         config,
         mapping,
@@ -110,16 +117,28 @@ function init_bridge_sender(consumer_state::ConsumerState, config::BridgeConfig,
         client,
         pub_payload,
         pub_control,
+        pub_metadata,
         BridgeFrameChunk.Encoder(UnsafeArrays.UnsafeArray{UInt8, 1}),
         Aeron.BufferClaim(),
         ShmPoolAnnounce.Encoder(UnsafeArrays.UnsafeArray{UInt8, 1}),
         Aeron.BufferClaim(),
+        Aeron.BufferClaim(),
+        DataSourceAnnounce.Encoder(UnsafeArrays.UnsafeArray{UInt8, 1}),
+        DataSourceMeta.Encoder(UnsafeArrays.UnsafeArray{UInt8, 1}),
         TensorSlotHeader256.Decoder(UnsafeArrays.UnsafeArray{UInt8, 1}),
         Vector{UInt8}(undef, HEADER_SLOT_BYTES),
         Vector{Int32}(undef, MAX_DIMS),
         Vector{Int32}(undef, MAX_DIMS),
         UInt64(0),
+        sub_metadata,
+        metadata_assembler,
+        DataSourceAnnounce.Decoder(UnsafeArrays.UnsafeArray{UInt8, 1}),
+        DataSourceMeta.Decoder(UnsafeArrays.UnsafeArray{UInt8, 1}),
     )
+    if sub_metadata !== nothing
+        state.metadata_assembler = make_bridge_metadata_sender_assembler(state)
+    end
+    return state
 end
 
 """
@@ -154,6 +173,16 @@ function init_bridge_receiver(config::BridgeConfig, mapping::BridgeMapping)
 
     source_info = BridgeSourceInfo(UInt32(0), UInt64(0), UInt32(0), UInt8(0), Dict{UInt16, UInt32}())
 
+    dest_metadata_stream_id =
+        mapping.metadata_stream_id == 0 ? Int32(mapping.dest_stream_id) : Int32(mapping.metadata_stream_id)
+    pub_metadata_local = nothing
+    sub_metadata = nothing
+    metadata_assembler = nothing
+    if config.forward_metadata && !isempty(config.metadata_channel)
+        sub_metadata = Aeron.add_subscription(client, config.metadata_channel, config.metadata_stream_id)
+        pub_metadata_local = Aeron.add_publication(client, "aeron:ipc", dest_metadata_stream_id)
+    end
+
     state = BridgeReceiverState(
         config,
         mapping,
@@ -165,6 +194,14 @@ function init_bridge_receiver(config::BridgeConfig, mapping::BridgeMapping)
         Aeron.FragmentAssembler(Aeron.FragmentHandler((_, _, _) -> nothing)),
         sub_control,
         Aeron.FragmentAssembler(Aeron.FragmentHandler((_, _, _) -> nothing)),
+        sub_metadata,
+        metadata_assembler,
+        pub_metadata_local,
+        Aeron.BufferClaim(),
+        DataSourceAnnounce.Encoder(UnsafeArrays.UnsafeArray{UInt8, 1}),
+        DataSourceMeta.Encoder(UnsafeArrays.UnsafeArray{UInt8, 1}),
+        DataSourceAnnounce.Decoder(UnsafeArrays.UnsafeArray{UInt8, 1}),
+        DataSourceMeta.Decoder(UnsafeArrays.UnsafeArray{UInt8, 1}),
         BridgeFrameChunk.Decoder(UnsafeArrays.UnsafeArray{UInt8, 1}),
         ShmPoolAnnounce.Decoder(UnsafeArrays.UnsafeArray{UInt8, 1}),
         TensorSlotHeader256.Decoder(UnsafeArrays.UnsafeArray{UInt8, 1}),
@@ -175,6 +212,9 @@ function init_bridge_receiver(config::BridgeConfig, mapping::BridgeMapping)
 
     state.payload_assembler = make_bridge_payload_assembler(state)
     state.control_assembler = make_bridge_control_assembler(state)
+    if sub_metadata !== nothing
+        state.metadata_assembler = make_bridge_metadata_receiver_assembler(state)
+    end
     return state
 end
 
@@ -211,6 +251,122 @@ function bridge_forward_announce!(state::BridgeSenderState, msg::ShmPoolAnnounce
     sent || return false
     state.last_announce_epoch = ShmPoolAnnounce.epoch(msg)
     return true
+end
+
+"""
+Forward a DataSourceAnnounce from source to bridge metadata channel.
+"""
+function bridge_forward_metadata_announce!(state::BridgeSenderState, msg::DataSourceAnnounce.Decoder)
+    state.config.forward_metadata || return false
+    state.pub_metadata === nothing && return false
+    DataSourceAnnounce.streamId(msg) == state.mapping.source_stream_id || return false
+
+    msg_len = MESSAGE_HEADER_LEN + Int(DataSourceAnnounce.sbe_decoded_length(msg))
+    sent = try_claim_sbe!(state.pub_metadata, state.metadata_claim, msg_len) do buf
+        enc = state.metadata_announce_encoder
+        DataSourceAnnounce.wrap_and_apply_header!(enc, buf, 0)
+        DataSourceAnnounce.streamId!(enc, DataSourceAnnounce.streamId(msg))
+        DataSourceAnnounce.producerId!(enc, DataSourceAnnounce.producerId(msg))
+        DataSourceAnnounce.epoch!(enc, DataSourceAnnounce.epoch(msg))
+        DataSourceAnnounce.metaVersion!(enc, DataSourceAnnounce.metaVersion(msg))
+        name_view = DataSourceAnnounce.name(msg)
+        summary_view = DataSourceAnnounce.summary(msg)
+        if !isempty(name_view)
+            DataSourceAnnounce.name!(enc, name_view)
+        end
+        if !isempty(summary_view)
+            DataSourceAnnounce.summary!(enc, summary_view)
+        end
+    end
+    return sent
+end
+
+"""
+Forward a DataSourceMeta from source to bridge metadata channel.
+"""
+function bridge_forward_metadata_meta!(state::BridgeSenderState, msg::DataSourceMeta.Decoder)
+    state.config.forward_metadata || return false
+    state.pub_metadata === nothing && return false
+    DataSourceMeta.streamId(msg) == state.mapping.source_stream_id || return false
+
+    msg_len = MESSAGE_HEADER_LEN + Int(DataSourceMeta.sbe_decoded_length(msg))
+    sent = try_claim_sbe!(state.pub_metadata, state.metadata_claim, msg_len) do buf
+        enc = state.metadata_meta_encoder
+        DataSourceMeta.wrap_and_apply_header!(enc, buf, 0)
+        DataSourceMeta.streamId!(enc, DataSourceMeta.streamId(msg))
+        DataSourceMeta.metaVersion!(enc, DataSourceMeta.metaVersion(msg))
+        DataSourceMeta.timestampNs!(enc, DataSourceMeta.timestampNs(msg))
+
+        attrs = DataSourceMeta.attributes(msg)
+        group = DataSourceMeta.attributes!(enc, length(attrs))
+        for attr in attrs
+            entry = DataSourceMeta.Attributes.next!(group)
+            DataSourceMeta.Attributes.key!(entry, DataSourceMeta.Attributes.key(attr))
+            DataSourceMeta.Attributes.format!(entry, DataSourceMeta.Attributes.format(attr))
+            DataSourceMeta.Attributes.value!(entry, DataSourceMeta.Attributes.value(attr))
+        end
+    end
+    return sent
+end
+
+"""
+Publish a forwarded DataSourceAnnounce on the local metadata stream.
+"""
+function bridge_publish_metadata_announce!(state::BridgeReceiverState, msg::DataSourceAnnounce.Decoder)
+    state.config.forward_metadata || return false
+    state.pub_metadata_local === nothing && return false
+    DataSourceAnnounce.streamId(msg) == state.mapping.source_stream_id || return false
+
+    dest_stream_id =
+        state.mapping.metadata_stream_id == 0 ? UInt32(state.mapping.dest_stream_id) : state.mapping.metadata_stream_id
+    msg_len = MESSAGE_HEADER_LEN + Int(DataSourceAnnounce.sbe_decoded_length(msg))
+    sent = try_claim_sbe!(state.pub_metadata_local, state.metadata_claim, msg_len) do buf
+        enc = state.metadata_announce_encoder
+        DataSourceAnnounce.wrap_and_apply_header!(enc, buf, 0)
+        DataSourceAnnounce.streamId!(enc, dest_stream_id)
+        DataSourceAnnounce.producerId!(enc, DataSourceAnnounce.producerId(msg))
+        DataSourceAnnounce.epoch!(enc, DataSourceAnnounce.epoch(msg))
+        DataSourceAnnounce.metaVersion!(enc, DataSourceAnnounce.metaVersion(msg))
+        name_view = DataSourceAnnounce.name(msg)
+        summary_view = DataSourceAnnounce.summary(msg)
+        if !isempty(name_view)
+            DataSourceAnnounce.name!(enc, name_view)
+        end
+        if !isempty(summary_view)
+            DataSourceAnnounce.summary!(enc, summary_view)
+        end
+    end
+    return sent
+end
+
+"""
+Publish a forwarded DataSourceMeta on the local metadata stream.
+"""
+function bridge_publish_metadata_meta!(state::BridgeReceiverState, msg::DataSourceMeta.Decoder)
+    state.config.forward_metadata || return false
+    state.pub_metadata_local === nothing && return false
+    DataSourceMeta.streamId(msg) == state.mapping.source_stream_id || return false
+
+    dest_stream_id =
+        state.mapping.metadata_stream_id == 0 ? UInt32(state.mapping.dest_stream_id) : state.mapping.metadata_stream_id
+    msg_len = MESSAGE_HEADER_LEN + Int(DataSourceMeta.sbe_decoded_length(msg))
+    sent = try_claim_sbe!(state.pub_metadata_local, state.metadata_claim, msg_len) do buf
+        enc = state.metadata_meta_encoder
+        DataSourceMeta.wrap_and_apply_header!(enc, buf, 0)
+        DataSourceMeta.streamId!(enc, dest_stream_id)
+        DataSourceMeta.metaVersion!(enc, DataSourceMeta.metaVersion(msg))
+        DataSourceMeta.timestampNs!(enc, DataSourceMeta.timestampNs(msg))
+
+        attrs = DataSourceMeta.attributes(msg)
+        group = DataSourceMeta.attributes!(enc, length(attrs))
+        for attr in attrs
+            entry = DataSourceMeta.Attributes.next!(group)
+            DataSourceMeta.Attributes.key!(entry, DataSourceMeta.Attributes.key(attr))
+            DataSourceMeta.Attributes.format!(entry, DataSourceMeta.Attributes.format(attr))
+            DataSourceMeta.Attributes.value!(entry, DataSourceMeta.Attributes.value(attr))
+        end
+    end
+    return sent
 end
 
 """
@@ -496,6 +652,57 @@ function make_bridge_control_assembler(state::BridgeReceiverState)
 end
 
 """
+Create a FragmentAssembler for source metadata forwarding on the sender.
+"""
+function make_bridge_metadata_sender_assembler(state::BridgeSenderState)
+    handler = Aeron.FragmentHandler(state) do st, buffer, _
+        header = MessageHeader.Decoder(buffer, 0)
+        template_id = MessageHeader.templateId(header)
+        if template_id == DataSourceAnnounce.sbe_template_id(DataSourceAnnounce.Decoder)
+            DataSourceAnnounce.wrap!(st.metadata_announce_decoder, buffer, 0; header = header)
+            bridge_forward_metadata_announce!(st, st.metadata_announce_decoder)
+        elseif template_id == DataSourceMeta.sbe_template_id(DataSourceMeta.Decoder)
+            DataSourceMeta.wrap!(st.metadata_meta_decoder, buffer, 0; header = header)
+            bridge_forward_metadata_meta!(st, st.metadata_meta_decoder)
+        end
+        nothing
+    end
+    return Aeron.FragmentAssembler(handler)
+end
+
+"""
+Create a FragmentAssembler for forwarding metadata to local IPC on the receiver.
+"""
+function make_bridge_metadata_receiver_assembler(state::BridgeReceiverState)
+    handler = Aeron.FragmentHandler(state) do st, buffer, _
+        header = MessageHeader.Decoder(buffer, 0)
+        template_id = MessageHeader.templateId(header)
+        if template_id == DataSourceAnnounce.sbe_template_id(DataSourceAnnounce.Decoder)
+            DataSourceAnnounce.wrap!(st.metadata_announce_decoder, buffer, 0; header = header)
+            bridge_publish_metadata_announce!(st, st.metadata_announce_decoder)
+        elseif template_id == DataSourceMeta.sbe_template_id(DataSourceMeta.Decoder)
+            DataSourceMeta.wrap!(st.metadata_meta_decoder, buffer, 0; header = header)
+            bridge_publish_metadata_meta!(st, st.metadata_meta_decoder)
+        end
+        nothing
+    end
+    return Aeron.FragmentAssembler(handler)
+end
+
+"""
+Poll metadata subscription for a bridge sender.
+"""
+function bridge_sender_do_work!(
+    state::BridgeSenderState;
+    fragment_limit::Int32 = DEFAULT_FRAGMENT_LIMIT,
+)
+    if state.sub_metadata === nothing || state.metadata_assembler === nothing
+        return 0
+    end
+    return Aeron.poll(state.sub_metadata, state.metadata_assembler, fragment_limit)
+end
+
+"""
 Poll bridge receiver subscriptions and return work count.
 """
 function bridge_receiver_do_work!(
@@ -507,5 +714,8 @@ function bridge_receiver_do_work!(
     state.now_ns = UInt64(Clocks.time_nanos(state.clock))
     work_count += Aeron.poll(state.sub_control, state.control_assembler, fragment_limit)
     work_count += Aeron.poll(state.sub_payload, state.payload_assembler, fragment_limit)
+    if state.sub_metadata !== nothing && state.metadata_assembler !== nothing
+        work_count += Aeron.poll(state.sub_metadata, state.metadata_assembler, fragment_limit)
+    end
     return work_count
 end

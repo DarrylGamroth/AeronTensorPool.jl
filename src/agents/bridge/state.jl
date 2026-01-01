@@ -29,6 +29,8 @@ mutable struct BridgeConfig
     payload_stream_id::Int32
     control_channel::String
     control_stream_id::Int32
+    metadata_channel::String
+    metadata_stream_id::Int32
     mtu_bytes::UInt32
     chunk_bytes::UInt32
     max_chunk_bytes::UInt32
@@ -76,15 +78,23 @@ mutable struct BridgeSenderState
     client::Aeron.Client
     pub_payload::Aeron.Publication
     pub_control::Aeron.Publication
+    pub_metadata::Union{Nothing, Aeron.Publication}
     chunk_encoder::BridgeFrameChunk.Encoder{UnsafeArrays.UnsafeArray{UInt8, 1}}
     chunk_claim::Aeron.BufferClaim
     announce_encoder::ShmPoolAnnounce.Encoder{UnsafeArrays.UnsafeArray{UInt8, 1}}
     control_claim::Aeron.BufferClaim
+    metadata_claim::Aeron.BufferClaim
+    metadata_announce_encoder::DataSourceAnnounce.Encoder{UnsafeArrays.UnsafeArray{UInt8, 1}}
+    metadata_meta_encoder::DataSourceMeta.Encoder{UnsafeArrays.UnsafeArray{UInt8, 1}}
     header_decoder::TensorSlotHeader256.Decoder{UnsafeArrays.UnsafeArray{UInt8, 1}}
     header_buf::Vector{UInt8}
     scratch_dims::Vector{Int32}
     scratch_strides::Vector{Int32}
     last_announce_epoch::UInt64
+    sub_metadata::Union{Nothing, Aeron.Subscription}
+    metadata_assembler::Union{Nothing, Aeron.FragmentAssembler}
+    metadata_announce_decoder::DataSourceAnnounce.Decoder{UnsafeArrays.UnsafeArray{UInt8, 1}}
+    metadata_meta_decoder::DataSourceMeta.Decoder{UnsafeArrays.UnsafeArray{UInt8, 1}}
 end
 
 """
@@ -101,6 +111,14 @@ mutable struct BridgeReceiverState
     payload_assembler::Aeron.FragmentAssembler
     sub_control::Aeron.Subscription
     control_assembler::Aeron.FragmentAssembler
+    sub_metadata::Union{Nothing, Aeron.Subscription}
+    metadata_assembler::Union{Nothing, Aeron.FragmentAssembler}
+    pub_metadata_local::Union{Nothing, Aeron.Publication}
+    metadata_claim::Aeron.BufferClaim
+    metadata_announce_encoder::DataSourceAnnounce.Encoder{UnsafeArrays.UnsafeArray{UInt8, 1}}
+    metadata_meta_encoder::DataSourceMeta.Encoder{UnsafeArrays.UnsafeArray{UInt8, 1}}
+    metadata_announce_decoder::DataSourceAnnounce.Decoder{UnsafeArrays.UnsafeArray{UInt8, 1}}
+    metadata_meta_decoder::DataSourceMeta.Decoder{UnsafeArrays.UnsafeArray{UInt8, 1}}
     chunk_decoder::BridgeFrameChunk.Decoder{UnsafeArrays.UnsafeArray{UInt8, 1}}
     announce_decoder::ShmPoolAnnounce.Decoder{UnsafeArrays.UnsafeArray{UInt8, 1}}
     header_decoder::TensorSlotHeader256.Decoder{UnsafeArrays.UnsafeArray{UInt8, 1}}
