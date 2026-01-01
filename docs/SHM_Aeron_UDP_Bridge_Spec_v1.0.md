@@ -84,7 +84,8 @@ The bridge transports frames as a sequence of chunks. Each chunk carries a small
 - For `chunkIndex>0`, `headerIncluded` MUST be FALSE.
 - `chunkOffset` and `chunkLength` MUST describe a non-overlapping slice of the payload.
 - The sum of all `chunkLength` values MUST equal `payloadLength`.
-- Chunks SHOULD be sized to fit within the configured MTU for the UDP channel.
+- Chunks SHOULD be sized to fit within the configured MTU for the UDP channel to avoid fragmentation.
+- Implementations SHOULD size chunks to allow Aeron `try_claim` usage (single buffer write) and avoid extra copies.
 - When `headerIncluded=TRUE`, `headerBytes` length MUST be 256. When `headerIncluded=FALSE`, `headerBytes` length MUST be 0.
 - `payloadBytes` length MUST equal `chunkLength`.
 
