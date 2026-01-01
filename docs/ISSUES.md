@@ -9,6 +9,8 @@
   - Goal: zero allocations in hot path without unsafe pointer exposure.
 - Aeron poll allocations.
   - `Aeron.poll` allocates when delivering fragments (upstream in Aeron.jl).
+  - Likely cause: type instability in fragment handler path (closure captures, abstract handler types).
+  - Next: audit FragmentHandler/FragmentAssembler construction for concrete handler types; verify with `@code_warntype`.
   - Decide whether to accept, work around in tests, or patch upstream.
 
 ## Closed
