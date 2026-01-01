@@ -91,6 +91,7 @@ The bridge transports frames as a sequence of chunks. Each chunk carries a small
 - `chunkOffset` and `chunkLength` MUST describe a non-overlapping slice of the payload.
 - The sum of all `chunkLength` values MUST equal `payloadLength`.
 - `payloadLength` MUST NOT exceed the largest supported local `stride_bytes`; receivers MUST drop frames that violate this limit.
+- Receivers MUST drop all frame chunks until a `ShmPoolAnnounce` has been received for the mapping.
 - Chunks SHOULD be sized to fit within the configured MTU for the UDP channel to avoid fragmentation.
 - Implementations SHOULD size chunks to allow Aeron `try_claim` usage (single buffer write) and avoid extra copies.
 - A safe default is `chunk_bytes = MTU - 128` to account for Aeron and IP/UDP overhead.
