@@ -50,7 +50,7 @@ src/
     decimator/
       state.jl
       logic.jl
-  agent_glue/
+  agents/
     producer_agent.jl
     consumer_agent.jl
     supervisor_agent.jl

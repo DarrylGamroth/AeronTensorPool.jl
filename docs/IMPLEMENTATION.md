@@ -27,7 +27,7 @@ For a combined wire + driver overview, see `docs/IMPLEMENTATION_GUIDE.md`.
 - `src/timers`: polled timers and timer sets.
 - `src/config`: TOML/env config loading and path resolution.
 - `src/agents/<role>`: role implementation split into `state.jl`, `handlers.jl`, and `logic.jl`.
-- `src/agent_glue`: Agent.jl integration for each role.
+- `src/agents`: Agent.jl integration for each role.
 
 ## 3. Shared Constants (must match spec)
 - superblock_size = 64
