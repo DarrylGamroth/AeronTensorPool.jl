@@ -618,13 +618,18 @@ function bridge_send_frame!(state::BridgeSenderState, desc::FrameDescriptor.Deco
                 header_included ? BridgeBool.TRUE : BridgeBool.FALSE,
             )
             if header_included
-                header_view = BridgeFrameChunk.headerBytes_buffer!(state.chunk_encoder, HEADER_SLOT_BYTES)
-                copyto!(header_view, 1, state.header_buf, 1, HEADER_SLOT_BYTES)
+                BridgeFrameChunk.headerBytes!(state.chunk_encoder, state.header_buf)
             else
-                BridgeFrameChunk.headerBytes_length!(state.chunk_encoder, 0)
+                BridgeFrameChunk.headerBytes!(state.chunk_encoder, nothing)
             end
-            payload_view = BridgeFrameChunk.payloadBytes_buffer!(state.chunk_encoder, chunk_len)
-            copyto!(payload_view, 1, payload_mmap, payload_base + chunk_offset + 1, chunk_len)
+            if chunk_len == 0
+                BridgeFrameChunk.payloadBytes!(state.chunk_encoder, nothing)
+            else
+                payload_view = @view payload_mmap[
+                    payload_base + chunk_offset + 1:payload_base + chunk_offset + chunk_len
+                ]
+                BridgeFrameChunk.payloadBytes!(state.chunk_encoder, payload_view)
+            end
         end
         sent || return false
     end
