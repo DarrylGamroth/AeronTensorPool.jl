@@ -196,6 +196,8 @@ Optional keys and defaults:
 - `bridge.metadata_channel` (string): Aeron UDP channel used to forward metadata (distinct from `bridge.control_channel`). Default: empty (disabled unless set).
 - `bridge.metadata_stream_id` (uint32): stream ID for forwarded metadata over `bridge.metadata_channel`. Default: deployment-specific.
 - `bridge.forward_qos` (bool): forward QoS messages. Default: `false`.
+- `bridge.source_qos_stream_id` (uint32): source QoS stream ID to subscribe on the sender host. Default: `0` (disabled).
+- `bridge.dest_qos_stream_id` (uint32): destination QoS stream ID for local IPC publish on the receiver host. Default: `0` (disabled).
 - `bridge.assembly_timeout_ms` (uint32): per-stream frame assembly timeout. Default: `250`.
 
 The bridge control channel is used for forwarding `ShmPoolAnnounce` and, when enabled, QoS messages. Metadata forwarding uses the destination host's local IPC metadata stream.

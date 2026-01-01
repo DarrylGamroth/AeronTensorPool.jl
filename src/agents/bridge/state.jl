@@ -31,6 +31,8 @@ mutable struct BridgeConfig
     control_stream_id::Int32
     metadata_channel::String
     metadata_stream_id::Int32
+    source_qos_stream_id::Int32
+    dest_qos_stream_id::Int32
     mtu_bytes::UInt32
     chunk_bytes::UInt32
     max_chunk_bytes::UInt32
@@ -95,6 +97,12 @@ mutable struct BridgeSenderState
     metadata_assembler::Union{Nothing, Aeron.FragmentAssembler}
     metadata_announce_decoder::DataSourceAnnounce.Decoder{UnsafeArrays.UnsafeArray{UInt8, 1}}
     metadata_meta_decoder::DataSourceMeta.Decoder{UnsafeArrays.UnsafeArray{UInt8, 1}}
+    sub_qos::Union{Nothing, Aeron.Subscription}
+    qos_assembler::Union{Nothing, Aeron.FragmentAssembler}
+    qos_producer_decoder::QosProducer.Decoder{UnsafeArrays.UnsafeArray{UInt8, 1}}
+    qos_consumer_decoder::QosConsumer.Decoder{UnsafeArrays.UnsafeArray{UInt8, 1}}
+    qos_producer_encoder::QosProducer.Encoder{UnsafeArrays.UnsafeArray{UInt8, 1}}
+    qos_consumer_encoder::QosConsumer.Encoder{UnsafeArrays.UnsafeArray{UInt8, 1}}
 end
 
 """
@@ -119,6 +127,12 @@ mutable struct BridgeReceiverState
     metadata_meta_encoder::DataSourceMeta.Encoder{UnsafeArrays.UnsafeArray{UInt8, 1}}
     metadata_announce_decoder::DataSourceAnnounce.Decoder{UnsafeArrays.UnsafeArray{UInt8, 1}}
     metadata_meta_decoder::DataSourceMeta.Decoder{UnsafeArrays.UnsafeArray{UInt8, 1}}
+    pub_qos_local::Union{Nothing, Aeron.Publication}
+    qos_claim::Aeron.BufferClaim
+    qos_producer_encoder::QosProducer.Encoder{UnsafeArrays.UnsafeArray{UInt8, 1}}
+    qos_consumer_encoder::QosConsumer.Encoder{UnsafeArrays.UnsafeArray{UInt8, 1}}
+    qos_producer_decoder::QosProducer.Decoder{UnsafeArrays.UnsafeArray{UInt8, 1}}
+    qos_consumer_decoder::QosConsumer.Decoder{UnsafeArrays.UnsafeArray{UInt8, 1}}
     chunk_decoder::BridgeFrameChunk.Decoder{UnsafeArrays.UnsafeArray{UInt8, 1}}
     announce_decoder::ShmPoolAnnounce.Decoder{UnsafeArrays.UnsafeArray{UInt8, 1}}
     header_decoder::TensorSlotHeader256.Decoder{UnsafeArrays.UnsafeArray{UInt8, 1}}
