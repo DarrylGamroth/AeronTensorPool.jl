@@ -88,10 +88,16 @@ The bridge transports frames as a sequence of chunks. Each chunk carries a small
 - Implementations SHOULD size chunks to allow Aeron `try_claim` usage (single buffer write) and avoid extra copies.
 - When `headerIncluded=TRUE`, `headerBytes` length MUST be 256. When `headerIncluded=FALSE`, `headerBytes` length MUST be 0.
 - `payloadBytes` length MUST equal `chunkLength`.
+- Chunks MAY arrive out-of-order; receivers MUST assemble by `chunkOffset` and `chunkLength`.
+- Duplicate chunks MAY be ignored if identical; overlapping or conflicting chunks for the same offset MUST cause the frame to be dropped.
 
 ### 5.3 Loss Handling
 
 If any chunk is missing or inconsistent, the receiver MUST drop the frame and MUST NOT publish a `FrameDescriptor` for it.
+
+### 5.4 Integrity (Informative)
+
+The bridge assumes Aeron UDP reliability. If additional integrity is required, deployments MAY add an out-of-band CRC32C policy or a future schema version with checksums; this v1.0 spec does not require per-chunk or per-frame CRCs.
 
 ---
 
@@ -100,11 +106,12 @@ If any chunk is missing or inconsistent, the receiver MUST drop the frame and MU
 Upon receiving all chunks for a frame:
 
 1. Validate `streamId`, `epoch`, `seq`, and chunk consistency.
-2. Select the local payload pool and slot using configured mapping rules (e.g., smallest stride >= `payloadLength`).
-3. Write payload bytes into the selected local SHM payload pool.
-4. Write the `TensorSlotHeader256` into the local header ring (with `frame_id` and `seq` preserved), but override `pool_id` and `payload_slot` to match the local mapping.
-5. Commit via the standard `commit_word` protocol.
-6. Publish a local `FrameDescriptor` on the receiver's descriptor stream.
+2. Validate the header: `values_len_bytes` MUST equal `payloadLength`; `ndims`, `dtype`, and `dims` MUST be within local limits; malformed headers MUST be dropped.
+3. Select the local payload pool and slot using configured mapping rules (e.g., smallest stride >= `payloadLength`). If no local pool can fit the payload, the receiver MUST drop the frame.
+4. Write payload bytes into the selected local SHM payload pool.
+5. Write the `TensorSlotHeader256` into the local header ring (with `frame_id` and `seq` preserved), but override `pool_id` and `payload_slot` to match the local mapping. The receiver MUST ignore source `pool_id` and `payload_slot` values.
+6. Commit via the standard `commit_word` protocol.
+7. Publish a local `FrameDescriptor` on the receiver's descriptor stream.
 
 The receiver MUST treat `headerBytes.frame_id` as the canonical frame identity and MUST ensure it matches `seq`.
 
@@ -128,12 +135,15 @@ Bridge instances MUST forward `DataSourceAnnounce` and `DataSourceMeta` from the
 
 - The bridge MUST treat an epoch change on the source stream as a remap boundary.
 - If `epoch` changes, the receiver MUST drop any in-flight bridge frames and wait for new frames with the new epoch.
+- Once a receiver observes a higher `epoch` for a stream, it MUST drop any subsequent chunks that carry an older `epoch`.
 
 ---
 
 ## 9. Control and QoS (Informative)
 
 Bridge instances MAY forward or translate `QosProducer`/`QosConsumer` messages; when `bridge.forward_qos=true`, they SHOULD do so. A minimal bridge only handles payload and local descriptor publication.
+
+Forwarded `DataSourceAnnounce` and `DataSourceMeta` MUST be published on the destination host's local metadata stream.
 
 ---
 
