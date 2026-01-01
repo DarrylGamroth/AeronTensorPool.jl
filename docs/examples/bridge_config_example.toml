@@ -11,6 +11,8 @@ control_stream_id = 3001
 # control_channel carries forwarded ShmPoolAnnounce and optional QoS.
 mtu_bytes = 1408
 chunk_bytes = 1200
+max_chunk_bytes = 65535
+max_payload_bytes = 268435456
 assembly_timeout_ms = 250
 forward_metadata = true
 forward_qos = false

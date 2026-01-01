@@ -102,8 +102,8 @@ The bridge transports frames as a sequence of chunks. Each chunk carries a small
 - Senders SHOULD publish chunks in order but MUST NOT require in-order delivery.
 - Duplicate chunks MAY be ignored if identical; overlapping or conflicting chunks for the same offset MUST cause the frame to be dropped.
 - Two chunks are identical if `chunkOffset`, `chunkLength`, and `payloadBytes` content match exactly.
-- Receivers MUST drop chunks where `chunkLength` exceeds the configured `bridge.chunk_bytes` or MTU-derived bound.
-- Decoders MUST NOT allocate buffers larger than configured `bridge.chunk_bytes` for `payloadBytes`; oversized varData fields MUST be rejected.
+- Receivers MUST drop chunks where `chunkLength` exceeds the configured `bridge.chunk_bytes`, MTU-derived bound, or `bridge.max_chunk_bytes`.
+- Decoders MUST NOT allocate buffers larger than configured `bridge.max_chunk_bytes` for `payloadBytes`; oversized varData fields MUST be rejected.
 
 ### 5.3 Loss Handling
 
@@ -111,7 +111,7 @@ If any chunk is missing or inconsistent, the receiver MUST drop the frame and MU
 
 ### 5.3a Frame Assembly Timeout (Normative)
 
-Receivers MUST apply a per-stream frame assembly timeout (RECOMMENDED: 100-500 ms). Incomplete frames exceeding this timeout MUST be dropped, and any in-flight frame state MUST be discarded.
+Receivers MUST apply a per-stream frame assembly timeout (RECOMMENDED: 100-500 ms). Incomplete frames exceeding this timeout MUST be dropped, and any in-flight frame state MUST be discarded (including associated buffer credits).
 
 The timeout SHOULD be configurable via `bridge.assembly_timeout_ms`.
 
@@ -127,7 +127,7 @@ Upon receiving all chunks for a frame:
 
 1. Validate `streamId`, `epoch`, `seq`, and chunk consistency.
 2. Drop frames until at least one `ShmPoolAnnounce` has been received for the mapping; receivers MUST NOT accept payloads without a source pool announce.
-3. Validate the header: `values_len_bytes` MUST equal `payloadLength`; `ndims`, `dtype`, and `dims` MUST be within local limits; malformed headers MUST be dropped.
+3. Validate the header: `values_len_bytes` MUST equal `payloadLength`; `ndims`, `dtype`, and `dims` MUST be within local limits; malformed headers MUST be dropped. Header length requirements in §5.2 are mandatory.
 4. Validate `headerBytes.pool_id` against the source pool range from the most recent forwarded `ShmPoolAnnounce` for the mapping; invalid pool IDs MUST be dropped.
 5. Validate `payloadLength` against the source pool stride (from the forwarded announce); if `payloadLength` exceeds the source `stride_bytes`, the frame MUST be dropped.
 6. Select the local payload pool and slot using configured mapping rules (e.g., smallest stride >= `payloadLength`). If no local pool can fit the payload, or if `payloadLength` exceeds the largest local `stride_bytes`, the receiver MUST drop the frame.
@@ -190,11 +190,13 @@ Optional keys and defaults:
 
 - `bridge.mtu_bytes` (uint32): MTU used to size chunks. Default: Aeron channel MTU.
 - `bridge.chunk_bytes` (uint32): payload bytes per chunk. Default: `min(bridge.chunk_bytes, bridge.mtu_bytes - 128)` when set; otherwise `bridge.mtu_bytes - 128`.
+- `bridge.max_chunk_bytes` (uint32): hard cap for chunk length. Default: `65535`.
+- `bridge.max_payload_bytes` (uint32): hard cap for total payload length. Default: `268435456`.
 - `bridge.forward_metadata` (bool): forward `DataSourceAnnounce`/`DataSourceMeta`. Default: `true`.
 - `bridge.forward_qos` (bool): forward QoS messages. Default: `false`.
 - `bridge.assembly_timeout_ms` (uint32): per-stream frame assembly timeout. Default: `250`.
 
-The bridge control channel is used for forwarding `ShmPoolAnnounce` and, when enabled, QoS messages.
+The bridge control channel is used for forwarding `ShmPoolAnnounce` and, when enabled, QoS messages. Metadata forwarding uses the destination host's local IPC metadata stream.
 
 Each `mappings` entry:
 
@@ -249,8 +251,8 @@ Example config: `docs/examples/bridge_config_example.toml`.
     <field name="chunkIndex"     id="4" type="uint32" maxValue="65535"/>
     <field name="chunkCount"     id="5" type="uint32" maxValue="65535"/>
     <field name="chunkOffset"    id="6" type="uint32"/>
-    <field name="chunkLength"    id="7" type="uint32" maxValue="1073741824"/>
-    <field name="payloadLength"  id="8" type="uint32" maxValue="1073741824"/>
+    <field name="chunkLength"    id="7" type="uint32" maxValue="65535"/>
+    <field name="payloadLength"  id="8" type="uint32" maxValue="268435456"/>
     <field name="headerIncluded" id="9" type="Bool"/>
     <data  name="headerBytes"    id="10" type="varDataEncoding256"/>
     <data  name="payloadBytes"   id="11" type="varDataEncoding"/>
