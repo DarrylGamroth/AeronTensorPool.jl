@@ -133,7 +133,7 @@ Bridge instances MUST forward `DataSourceAnnounce` and `DataSourceMeta` from the
 
 ## 9. Control and QoS (Informative)
 
-Bridge instances MAY forward or translate `QosProducer`/`QosConsumer` messages, but this is optional. A minimal bridge only handles payload and local descriptor publication.
+Bridge instances MAY forward or translate `QosProducer`/`QosConsumer` messages; when `bridge.forward_qos=true`, they SHOULD do so. A minimal bridge only handles payload and local descriptor publication.
 
 ---
 
