@@ -225,7 +225,7 @@ Spec refs
 - Driver: 4.7, 4.7a
 
 Status
-- Partial (wire-spec unit + integration tests exist; driver protocol tests pending).
+- Complete (driver protocol lease-expiry test added; system smoke test available via TP_RUN_SYSTEM_SMOKE).
 
 ## Phase 10 - Documentation and Examples
 

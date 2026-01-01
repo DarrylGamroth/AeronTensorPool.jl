@@ -27,6 +27,7 @@ include("test_driver_attach.jl")
 include("test_driver_shutdown.jl")
 include("test_driver_integration.jl")
 include("test_driver_reattach.jl")
+include("test_driver_lease_expiry.jl")
 if get(ENV, "TP_RUN_SYSTEM_SMOKE", "false") == "true"
     include("test_system_smoke.jl")
 end
