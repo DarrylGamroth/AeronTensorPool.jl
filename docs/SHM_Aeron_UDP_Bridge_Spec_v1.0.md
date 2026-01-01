@@ -171,6 +171,8 @@ Bridge instances MUST forward `ShmPoolAnnounce` for each mapped source stream to
 
 Bridge instances MAY forward or translate `QosProducer`/`QosConsumer` messages; when `bridge.forward_qos=true`, they SHOULD do so. A minimal bridge only handles payload and local descriptor publication.
 
+Bridge instances MAY forward `FrameProgress`; when `bridge.forward_progress=true`, they SHOULD forward it on the destination host's local control stream. Consumers MUST still treat `FrameDescriptor` as the canonical availability signal.
+
 ---
 
 ## 10. Bridge Configuration (Informative)
@@ -197,6 +199,7 @@ Optional keys and defaults:
 - `bridge.metadata_stream_id` (uint32): stream ID for forwarded metadata over `bridge.metadata_channel`. Default: deployment-specific.
 - `bridge.source_metadata_stream_id` (uint32): source metadata stream ID to subscribe on the sender host. Default: deployment-specific.
 - `bridge.forward_qos` (bool): forward QoS messages. Default: `false`.
+- `bridge.forward_progress` (bool): forward `FrameProgress` messages. Default: `false`.
 - `bridge.source_qos_stream_id` (uint32): source QoS stream ID to subscribe on the sender host. Default: `0` (disabled).
 - `bridge.dest_qos_stream_id` (uint32): destination QoS stream ID for local IPC publish on the receiver host. Default: `0` (disabled).
 - `bridge.assembly_timeout_ms` (uint32): per-stream frame assembly timeout. Default: `250`.

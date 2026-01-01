@@ -20,6 +20,7 @@ max_payload_bytes = 1073741824
 assembly_timeout_ms = 250
 forward_metadata = true
 forward_qos = false
+forward_progress = false
 source_qos_stream_id = 1200
 dest_qos_stream_id = 2200
 
