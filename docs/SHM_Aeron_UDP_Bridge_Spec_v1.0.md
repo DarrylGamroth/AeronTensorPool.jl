@@ -41,7 +41,7 @@ The Bridge Receiver subscribes to bridge payload chunks, reconstructs frames, wr
 
 - The bridge uses Aeron UDP channels (e.g., `aeron:udp?endpoint=...`).
 - Multicast is supported and MAY be used for one-to-many fan-out (use a multicast endpoint address in the UDP channel).
-- When using multicast, each receiver independently reconstructs frames into its local SHM pool; receivers do not coordinate and must apply the same out-of-order/duplicate handling rules.
+- When using multicast, each receiver independently reconstructs frames into its local SHM pool; receivers do not coordinate and must apply the same out-of-order/duplicate handling rules. Divergent drop behavior across receivers is expected.
 - The bridge does not expose the SHM Driver over the network; each host runs its own driver with local SHM pools.
 - The bridge is lossy: if any chunk is missing, the frame is dropped.
 
@@ -96,11 +96,13 @@ The bridge transports frames as a sequence of chunks. Each chunk carries a small
 - Implementations SHOULD size chunks to allow Aeron `try_claim` usage (single buffer write) and avoid extra copies.
 - A safe default is `chunk_bytes = MTU - 128` to account for Aeron and IP/UDP overhead.
 - When `headerIncluded=TRUE`, `headerBytes` length MUST be 256. When `headerIncluded=FALSE`, `headerBytes` length MUST be 0.
+- Receivers MUST drop chunks where `headerIncluded=TRUE` but `headerBytes.length != 256`, or `headerIncluded=FALSE` and `headerBytes.length > 0`.
 - `payloadBytes` length MUST equal `chunkLength`.
 - Chunks MAY arrive out-of-order; receivers MUST assemble by `chunkOffset` and `chunkLength`.
 - Senders SHOULD publish chunks in order but MUST NOT require in-order delivery.
 - Duplicate chunks MAY be ignored if identical; overlapping or conflicting chunks for the same offset MUST cause the frame to be dropped.
 - Two chunks are identical if `chunkOffset`, `chunkLength`, and `payloadBytes` content match exactly.
+- Receivers MUST drop chunks where `chunkLength` exceeds the configured `bridge.chunk_bytes` or MTU-derived bound.
 
 ### 5.3 Loss Handling
 
@@ -108,7 +110,7 @@ If any chunk is missing or inconsistent, the receiver MUST drop the frame and MU
 
 ### 5.3a Frame Assembly Timeout (Normative)
 
-Receivers MUST apply a per-stream frame assembly timeout (RECOMMENDED: 100-500 ms). Incomplete frames exceeding this timeout MUST be dropped and their stored chunks freed.
+Receivers MUST apply a per-stream frame assembly timeout (RECOMMENDED: 100-500 ms). Incomplete frames exceeding this timeout MUST be dropped, and any in-flight frame state MUST be discarded.
 
 The timeout SHOULD be configurable via `bridge.assembly_timeout_ms`.
 
@@ -147,11 +149,11 @@ Bridge senders MUST NOT publish local `FrameDescriptor` messages over UDP; only 
 
 ## 7.1 Metadata Forwarding (Normative)
 
-Bridge instances MUST support forwarding `DataSourceAnnounce` and `DataSourceMeta` from the source stream to the receiver host. When `bridge.forward_metadata=true`, they MUST be forwarded on the destination host's local metadata stream and MUST preserve `stream_id` and `meta_version`. When `bridge.forward_metadata=false`, metadata MAY be omitted and bridged consumers will lack metadata.
+Bridge instances MUST support forwarding `DataSourceAnnounce` and `DataSourceMeta` from the source stream to the receiver host. When `bridge.forward_metadata=true`, they MUST be forwarded on the destination host's standard local IPC metadata channel/stream for `dest_stream_id` and MUST preserve `stream_id` and `meta_version`. When `bridge.forward_metadata=false`, metadata MAY be omitted and bridged consumers will lack metadata.
 
 ## 7.2 Source Pool Announce Forwarding (Normative)
 
-Bridge instances MUST forward `ShmPoolAnnounce` for each mapped source stream to the receiver host on the bridge control channel. The receiver MUST use the most recent forwarded announce to validate `headerBytes.pool_id` and MUST NOT republish the source `ShmPoolAnnounce` to local consumers.
+Bridge instances MUST forward `ShmPoolAnnounce` for each mapped source stream to the receiver host on the bridge control channel. The receiver MUST use the most recent forwarded announce to validate `headerBytes.pool_id` and MUST NOT republish the source `ShmPoolAnnounce` to local consumers. Metadata forwarding does not use the bridge control channel.
 
 ---
 
