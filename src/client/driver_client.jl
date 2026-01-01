@@ -126,25 +126,37 @@ function driver_client_do_work!(state::DriverClientState, now_ns::UInt64)
 end
 
 """
+Poll once for an attach response with the given correlation id.
+"""
+function poll_attach!(
+    state::DriverClientState,
+    correlation_id::Int64,
+    now_ns::UInt64,
+)
+    driver_client_do_work!(state, now_ns)
+    attach = state.poller.last_attach
+    if attach !== nothing && attach.correlation_id == correlation_id
+        apply_attach!(state, attach)
+        return attach
+    end
+    return nothing
+end
+
+"""
 Poll until an attach response with the given correlation id is received.
 """
 function await_attach!(
     state::DriverClientState,
-    correlation_id::Int64,
-    now_ns_fn::F;
+    correlation_id::Int64;
     timeout_ns::UInt64 = 5_000_000_000,
-) where {F}
-    now_ns = UInt64(now_ns_fn())
+)
+    now_ns = UInt64(time_ns())
     deadline = now_ns + timeout_ns
     while now_ns < deadline
-        driver_client_do_work!(state, now_ns)
-        if state.poller.last_attach !== nothing &&
-           state.poller.last_attach.correlation_id == correlation_id
-            apply_attach!(state, state.poller.last_attach)
-            return state.poller.last_attach
-        end
+        attach = poll_attach!(state, correlation_id, now_ns)
+        attach !== nothing && return attach
         yield()
-        now_ns = UInt64(now_ns_fn())
+        now_ns = UInt64(time_ns())
     end
     return nothing
 end
