@@ -881,6 +881,9 @@ Reference schema patterned after Aeron archive control style; adjust IDs and fie
       <type name="varData" primitiveType="uint8" length="0"/>
     </composite>
 
+    <!-- Constant used for array sizing in generated code -->
+    <type name="MAX_DIMS" primitiveType="uint8" presence="constant">8</type>
+
     <!-- Fixed-length arrays for TensorSlotHeader256 (set length to MAX_DIMS) -->
     <type name="DimsArray"     primitiveType="int32" length="8"/>
     <type name="StridesArray"  primitiveType="int32" length="8"/>
