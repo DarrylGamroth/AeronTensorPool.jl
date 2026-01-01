@@ -103,6 +103,7 @@ The bridge transports frames as a sequence of chunks. Each chunk carries a small
 - Duplicate chunks MAY be ignored if identical; overlapping or conflicting chunks for the same offset MUST cause the frame to be dropped.
 - Two chunks are identical if `chunkOffset`, `chunkLength`, and `payloadBytes` content match exactly.
 - Receivers MUST drop chunks where `chunkLength` exceeds the configured `bridge.chunk_bytes` or MTU-derived bound.
+- Decoders MUST NOT allocate buffers larger than configured `bridge.chunk_bytes` for `payloadBytes`; oversized varData fields MUST be rejected.
 
 ### 5.3 Loss Handling
 
