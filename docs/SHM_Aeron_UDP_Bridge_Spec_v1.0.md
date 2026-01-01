@@ -191,7 +191,7 @@ Optional keys and defaults:
 - `bridge.mtu_bytes` (uint32): MTU used to size chunks. Default: Aeron channel MTU.
 - `bridge.chunk_bytes` (uint32): payload bytes per chunk. Default: `min(bridge.chunk_bytes, bridge.mtu_bytes - 128)` when set; otherwise `bridge.mtu_bytes - 128`.
 - `bridge.max_chunk_bytes` (uint32): hard cap for chunk length. Default: `65535`.
-- `bridge.max_payload_bytes` (uint32): hard cap for total payload length. Default: `268435456`.
+- `bridge.max_payload_bytes` (uint32): hard cap for total payload length. Default: `1073741824`.
 - `bridge.forward_metadata` (bool): forward `DataSourceAnnounce`/`DataSourceMeta`. Default: `true`.
 - `bridge.forward_qos` (bool): forward QoS messages. Default: `false`.
 - `bridge.assembly_timeout_ms` (uint32): per-stream frame assembly timeout. Default: `250`.
@@ -252,7 +252,7 @@ Example config: `docs/examples/bridge_config_example.toml`.
     <field name="chunkCount"     id="5" type="uint32" maxValue="65535"/>
     <field name="chunkOffset"    id="6" type="uint32"/>
     <field name="chunkLength"    id="7" type="uint32" maxValue="65535"/>
-    <field name="payloadLength"  id="8" type="uint32" maxValue="268435456"/>
+    <field name="payloadLength"  id="8" type="uint32" maxValue="1073741824"/>
     <field name="headerIncluded" id="9" type="Bool"/>
     <data  name="headerBytes"    id="10" type="varDataEncoding256"/>
     <data  name="payloadBytes"   id="11" type="varDataEncoding"/>
