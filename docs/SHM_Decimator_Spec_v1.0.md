@@ -29,7 +29,7 @@ This specification does **not** modify SHM layout or wire formats; it defines ag
 
 ### 2.1 Decimator Agent (Normative)
 
-The Decimator Agent consumes `FrameDescriptor` messages for a source stream, reads payloads from source SHM, and republishes selected frames to a destination stream using its own SHM pools.
+The Decimator Agent is intended to run per-consumer. It consumes `FrameDescriptor` messages for a source stream, reads payloads from source SHM, and republishes selected frames to a destination stream using its own SHM pools.
 
 ---
 
@@ -52,6 +52,8 @@ For each mapping, the decimator applies one of:
 If multiple policies are configured, the decimator MUST apply them in the order listed and MAY drop frames early.
 
 The decimator MUST preserve `frame_id`/`seq` identity when republishing.
+
+When operating per-consumer, the decimator MAY honor `ConsumerHello`/`ConsumerConfig` settings for the consumer it serves, treating those as its local decimation policy. It MUST NOT aggregate or apply policies across multiple consumers.
 
 ---
 
