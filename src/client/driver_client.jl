@@ -150,13 +150,13 @@ function await_attach!(
     correlation_id::Int64;
     timeout_ns::UInt64 = 5_000_000_000,
 )
-    now_ns = UInt64(time_ns())
+    now_ns = time_ns()
     deadline = now_ns + timeout_ns
     while now_ns < deadline
         attach = poll_attach!(state, correlation_id, now_ns)
         attach !== nothing && return attach
         yield()
-        now_ns = UInt64(time_ns())
+        now_ns = time_ns()
     end
     return nothing
 end
