@@ -264,7 +264,7 @@ Spec refs
 - Wire: 12
 
 Status
-- Partial (bridge/decimator scaffolds present; no on-wire format yet).
+- In progress (bridge schema added; sender/receiver scaffolds with chunking, assembly, and announce forwarding; rematerialization + metadata/QoS forwarding TODO).
 
 ## Driver Implementation Checklist (decided)
 

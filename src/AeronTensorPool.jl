@@ -11,6 +11,8 @@ include("gen/ShmTensorpoolControl.jl")
 using .ShmTensorpoolControl
 include("gen/ShmTensorpoolDriver.jl")
 using .ShmTensorpoolDriver
+include("gen/ShmTensorpoolBridge.jl")
+using .ShmTensorpoolBridge
 
 include("core/constants.jl")
 include("core/errors.jl")
@@ -80,7 +82,11 @@ export Dtype,
     DriverAgent,
     DriverState,
     BridgeConfig,
-    BridgeState,
+    BridgeMapping,
+    BridgeSourceInfo,
+    BridgeAssembledFrame,
+    BridgeSenderState,
+    BridgeReceiverState,
     DecimatorConfig,
     DecimatorState,
     ConsumerHello,
@@ -133,8 +139,12 @@ export Dtype,
     producer_config_from_attach,
     init_consumer_from_attach,
     init_supervisor,
-    init_bridge,
+    init_bridge_sender,
+    init_bridge_receiver,
     init_decimator,
+    bridge_forward_announce!,
+    bridge_send_frame!,
+    bridge_receiver_do_work!,
     map_from_announce!,
     map_from_attach_response!,
     emit_consumer_config!,
