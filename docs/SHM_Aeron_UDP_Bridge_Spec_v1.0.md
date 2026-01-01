@@ -40,6 +40,7 @@ The Bridge Receiver subscribes to bridge payload chunks, reconstructs frames, wr
 ## 3. Transport Model
 
 - The bridge uses Aeron UDP channels (e.g., `aeron:udp?endpoint=...`).
+- Multicast (`aeron:udp?endpoint=...|group=...`) is supported and MAY be used for one-to-many fan-out.
 - The bridge does not expose the SHM Driver over the network; each host runs its own driver with local SHM pools.
 - The bridge is lossy: if any chunk is missing, the frame is dropped.
 
