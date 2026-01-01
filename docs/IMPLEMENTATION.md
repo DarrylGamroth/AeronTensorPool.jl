@@ -28,6 +28,7 @@ For a combined wire + driver overview, see `docs/IMPLEMENTATION_GUIDE.md`.
 - `src/config`: TOML/env config loading and path resolution.
 - `src/agents/<role>`: role implementation split into `state.jl`, `handlers.jl`, and `logic.jl`.
 - `src/agents`: Agent.jl integration for each role.
+- `scripts/run_role.jl bridge` expects `bridge`, `consumer`, and `producer` sections in the same config file.
 
 ## 3. Shared Constants (must match spec)
 - superblock_size = 64

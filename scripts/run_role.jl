@@ -3,7 +3,7 @@ using Aeron
 using AeronTensorPool
 
 function usage()
-    println("Usage: julia --project scripts/run_role.jl <producer|consumer|supervisor|driver> [config_path]")
+    println("Usage: julia --project scripts/run_role.jl <producer|consumer|supervisor|driver|bridge> [config_path]")
 end
 
 if length(ARGS) < 1
@@ -62,6 +62,23 @@ elseif role == "driver"
         end
     catch err
         @info "Driver exiting" error = err
+    end
+elseif role == "bridge"
+    bridge_cfg = load_bridge_config(config_path)
+    if isempty(bridge_cfg.mappings)
+        error("Bridge config requires at least one mapping")
+    end
+    mapping = bridge_cfg.mappings[1]
+    consumer_cfg = load_consumer_config(config_path)
+    producer_cfg = load_producer_config(config_path)
+    agent = BridgeAgent(bridge_cfg.bridge, mapping, consumer_cfg, producer_cfg)
+    try
+        while true
+            work = Agent.do_work(agent)
+            work == 0 && yield()
+        end
+    catch err
+        @info "Bridge exiting" error = err
     end
 else
     usage()

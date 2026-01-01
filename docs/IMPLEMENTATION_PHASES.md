@@ -264,7 +264,7 @@ Spec refs
 - Wire: 12
 
 Status
-- In progress (bridge schema added; sender/receiver scaffolds with chunking, assembly, announce forwarding, metadata/QoS forwarding; rematerialization implemented with integration test; bridge driver wiring TBD).
+- Complete (bridge schema + sender/receiver + rematerialization + metadata/QoS forwarding + BridgeAgent + config loader + integration test).
 
 ## Driver Implementation Checklist (decided)
 

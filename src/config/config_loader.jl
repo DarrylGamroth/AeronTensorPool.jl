@@ -10,6 +10,14 @@ struct SystemConfig
     supervisor::SupervisorConfig
 end
 
+"""
+Bundled bridge configuration with mappings.
+"""
+struct BridgeSystemConfig
+    bridge::BridgeConfig
+    mappings::Vector{BridgeMapping}
+end
+
 @inline function expand_vars(value::String, env::AbstractDict)
     user = get(env, "USER", "")
     out = replace(value, "\${USER}" => user)
@@ -57,6 +65,25 @@ function parse_payload_pools(tbl::Dict, env::AbstractDict)
         )
     end
     return pools
+end
+
+function parse_bridge_mappings(cfg::Dict, env::AbstractDict)
+    mappings_tbl = get(cfg, "mappings", Any[])
+    mappings = BridgeMapping[]
+    for mapping in mappings_tbl
+        profile = expand_vars(String(get(mapping, "profile", "")), env)
+        metadata_stream_id = UInt32(get(mapping, "metadata_stream_id", 0))
+        push!(
+            mappings,
+            BridgeMapping(
+                UInt32(mapping["source_stream_id"]),
+                UInt32(mapping["dest_stream_id"]),
+                profile,
+                metadata_stream_id,
+            ),
+        )
+    end
+    return mappings
 end
 
 function resolve_producer_paths(
@@ -262,4 +289,55 @@ function load_system_config(path::AbstractString; env::AbstractDict = ENV)
         load_consumer_config(path; env = env),
         load_supervisor_config(path; env = env),
     )
+end
+
+"""
+Load BridgeConfig and mappings from a TOML file.
+"""
+function load_bridge_config(path::AbstractString; env::AbstractDict = ENV)
+    cfg = TOML.parsefile(path)
+    bridge = get(cfg, "bridge", Dict{String, Any}())
+
+    instance_id = expand_vars(String(get(bridge, "instance_id", "bridge")), env)
+    aeron_dir = env_default(env, "AERON_DIR", String(get(bridge, "aeron_dir", "/dev/shm/aeron-\$USER")))
+    payload_channel = expand_vars(String(get(bridge, "payload_channel", "")), env)
+    payload_stream_id = Int32(get(bridge, "payload_stream_id", 0))
+    control_channel = expand_vars(String(get(bridge, "control_channel", "")), env)
+    control_stream_id = Int32(get(bridge, "control_stream_id", 0))
+    metadata_channel = expand_vars(String(get(bridge, "metadata_channel", "")), env)
+    metadata_stream_id = Int32(get(bridge, "metadata_stream_id", 0))
+    source_metadata_stream_id = Int32(get(bridge, "source_metadata_stream_id", metadata_stream_id))
+    source_qos_stream_id = Int32(get(bridge, "source_qos_stream_id", 0))
+    dest_qos_stream_id = Int32(get(bridge, "dest_qos_stream_id", 0))
+    mtu_bytes = UInt32(get(bridge, "mtu_bytes", 0))
+    chunk_bytes = UInt32(get(bridge, "chunk_bytes", 0))
+    max_chunk_bytes = UInt32(get(bridge, "max_chunk_bytes", 65535))
+    max_payload_bytes = UInt32(get(bridge, "max_payload_bytes", 1073741824))
+    forward_metadata = Bool(get(bridge, "forward_metadata", true))
+    forward_qos = Bool(get(bridge, "forward_qos", false))
+    assembly_timeout_ms = UInt64(get(bridge, "assembly_timeout_ms", 250))
+
+    bridge_config = BridgeConfig(
+        instance_id,
+        aeron_dir,
+        payload_channel,
+        payload_stream_id,
+        control_channel,
+        control_stream_id,
+        metadata_channel,
+        metadata_stream_id,
+        source_metadata_stream_id,
+        source_qos_stream_id,
+        dest_qos_stream_id,
+        mtu_bytes,
+        chunk_bytes,
+        max_chunk_bytes,
+        max_payload_bytes,
+        forward_metadata,
+        forward_qos,
+        assembly_timeout_ms * UInt64(1_000_000),
+    )
+
+    mappings = parse_bridge_mappings(cfg, env)
+    return BridgeSystemConfig(bridge_config, mappings)
 end
