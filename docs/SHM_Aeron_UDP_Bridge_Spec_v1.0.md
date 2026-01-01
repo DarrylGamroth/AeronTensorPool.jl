@@ -137,7 +137,31 @@ Bridge instances MAY forward or translate `QosProducer`/`QosConsumer` messages, 
 
 ---
 
-## 10. Bridge SBE Schema (Normative)
+## 10. Bridge Configuration (Informative)
+
+The bridge is a separate application from the driver and SHOULD be configured independently. The following keys define a minimal configuration surface; implementations MAY add additional keys.
+
+Required keys:
+
+- `bridge.instance_id` (string): identifier for logging/diagnostics.
+- `bridge.payload_channel` (string): Aeron UDP channel for `BridgeFrameChunk`.
+- `bridge.payload_stream_id` (uint32): stream ID for `BridgeFrameChunk`.
+- `bridge.source_stream_id` (uint32): stream ID consumed from local SHM.
+- `bridge.dest_stream_id` (uint32): stream ID produced on the destination host.
+- `bridge.profile` (string): destination profile name or pool mapping policy.
+
+Optional keys and defaults:
+
+- `bridge.mtu_bytes` (uint32): MTU used to size chunks. Default: Aeron channel MTU.
+- `bridge.chunk_bytes` (uint32): payload bytes per chunk. Default: derived from MTU.
+- `bridge.forward_metadata` (bool): forward `DataSourceAnnounce`/`DataSourceMeta`. Default: `true`.
+- `bridge.forward_qos` (bool): forward QoS messages. Default: `false`.
+
+Example config: `docs/examples/bridge_config_example.toml`.
+
+---
+
+## 11. Bridge SBE Schema (Normative)
 
 ```
 <?xml version="1.0" encoding="UTF-8"?>

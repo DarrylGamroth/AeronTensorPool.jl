@@ -1,0 +1,13 @@
+# Example Bridge Configuration
+
+[bridge]
+instance_id = "bridge-01"
+payload_channel = "aeron:udp?endpoint=239.1.1.1:40456"
+payload_stream_id = 3000
+source_stream_id = 1001
+dest_stream_id = 2001
+profile = "processed_profile"
+mtu_bytes = 1408
+chunk_bytes = 1200
+forward_metadata = true
+forward_qos = false
