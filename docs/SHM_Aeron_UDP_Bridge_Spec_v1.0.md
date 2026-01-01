@@ -146,9 +146,7 @@ Required keys:
 - `bridge.instance_id` (string): identifier for logging/diagnostics.
 - `bridge.payload_channel` (string): Aeron UDP channel for `BridgeFrameChunk`.
 - `bridge.payload_stream_id` (uint32): stream ID for `BridgeFrameChunk`.
-- `bridge.source_stream_id` (uint32): stream ID consumed from local SHM.
-- `bridge.dest_stream_id` (uint32): stream ID produced on the destination host.
-- `bridge.profile` (string): destination profile name or pool mapping policy.
+- `mappings` (array): one or more stream mappings.
 
 Optional keys and defaults:
 
@@ -156,6 +154,12 @@ Optional keys and defaults:
 - `bridge.chunk_bytes` (uint32): payload bytes per chunk. Default: derived from MTU.
 - `bridge.forward_metadata` (bool): forward `DataSourceAnnounce`/`DataSourceMeta`. Default: `true`.
 - `bridge.forward_qos` (bool): forward QoS messages. Default: `false`.
+
+Each `mappings` entry:
+
+- `source_stream_id` (uint32): stream ID consumed from local SHM.
+- `dest_stream_id` (uint32): stream ID produced on the destination host.
+- `profile` (string): destination profile name or pool mapping policy.
 
 Example config: `docs/examples/bridge_config_example.toml`.
 
