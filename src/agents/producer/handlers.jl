@@ -27,10 +27,10 @@ end
 """
 Refresh activity_timestamp_ns in all mapped superblocks.
 """
-function refresh_activity_timestamps!(state::ProducerState)
-    fetch!(state.clock)
-    now_ns = UInt64(Clocks.time_nanos(state.clock))
-
+function refresh_activity_timestamps!(
+    state::ProducerState,
+    now_ns::UInt64 = UInt64(Clocks.time_nanos(state.clock)),
+)
     wrap_superblock!(state.runtime.superblock_encoder, state.mappings.header_mmap, 0)
     ShmRegionSuperblock.activityTimestampNs!(state.runtime.superblock_encoder, now_ns)
 
@@ -45,7 +45,7 @@ end
     if state.emit_announce
         emit_announce!(state)
     end
-    refresh_activity_timestamps!(state)
+    refresh_activity_timestamps!(state, now_ns)
     return 1
 end
 

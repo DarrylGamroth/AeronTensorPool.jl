@@ -10,10 +10,10 @@ using StringViews
             end
         return view(a, 1:len)
     end
-@enumx T = SbeEnum Bool_::UInt8 begin
-        FALSE = 0
-        TRUE = 1
-        UNKNOWN = 255
+@enumx T = SbeEnum HugepagesPolicy::UInt8 begin
+        UNSPECIFIED = 0
+        STANDARD = 1
+        HUGEPAGES = 2
         NULL_VALUE = UInt8(255)
     end
 @enumx T = SbeEnum LeaseRevokeReason::UInt8 begin
@@ -4915,9 +4915,9 @@ import SBE: sbe_encoded_length, sbe_decoded_length, sbe_semantic_type
 abstract type AbstractShmAttachRequest{T} <: AbstractSbeMessage{T} end
 using ..MessageHeader
 using StringViews: StringView
-using ..Bool_
 using ..Role
 using ..PublishMode
+using ..HugepagesPolicy
 begin
     import SBE: encode_value_le, decode_value_le, encode_array_le, decode_array_le
     const encode_value = encode_value_le
@@ -5589,12 +5589,12 @@ begin
 end
 begin
     function requireHugepages_meta_attribute(::AbstractShmAttachRequest, meta_attribute)
-        meta_attribute === :presence && return Symbol("optional")
+        meta_attribute === :presence && return Symbol("required")
         meta_attribute === :semanticType && return Symbol("")
         return Symbol("")
     end
     function requireHugepages_meta_attribute(::Type{<:AbstractShmAttachRequest}, meta_attribute)
-        meta_attribute === :presence && return Symbol("optional")
+        meta_attribute === :presence && return Symbol("required")
         meta_attribute === :semanticType && return Symbol("")
         return Symbol("")
     end
@@ -5605,9 +5605,9 @@ begin
         end
     @inline function requireHugepages(m::Decoder)
             raw = decode_value(UInt8, m.buffer, m.offset + 23)
-            return Bool_.SbeEnum(raw)
+            return HugepagesPolicy.SbeEnum(raw)
         end
-    @inline function requireHugepages!(m::Encoder, value::Bool_.SbeEnum)
+    @inline function requireHugepages!(m::Encoder, value::HugepagesPolicy.SbeEnum)
             encode_value(UInt8, m.buffer, m.offset + 23, UInt8(value))
         end
     export requireHugepages, requireHugepages!

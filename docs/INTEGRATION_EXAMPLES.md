@@ -85,12 +85,13 @@ Sketch:
 ```julia
 driver_client = init_driver_client(client, "aeron:ipc", Int32(1000), UInt32(7), DriverRole.PRODUCER)
 consumer_client = init_driver_client(client, "aeron:ipc", Int32(1000), UInt32(21), DriverRole.CONSUMER)
+wait_clock = Clocks.MonotonicClock()
 
 prod_attach_id = send_attach_request!(driver_client; stream_id = UInt32(42))
 cons_attach_id = send_attach_request!(consumer_client; stream_id = UInt32(42))
 
-prod_attach = await_attach!(driver_client, clock, prod_attach_id)
-cons_attach = await_attach!(consumer_client, clock, cons_attach_id)
+prod_attach = await_attach!(driver_client, prod_attach_id, () -> UInt64(Clocks.time_nanos(wait_clock)))
+cons_attach = await_attach!(consumer_client, cons_attach_id, () -> UInt64(Clocks.time_nanos(wait_clock)))
 
 producer = init_producer_from_attach(prod_cfg, prod_attach; driver_client = driver_client)
 consumer = init_consumer_from_attach(cons_cfg, cons_attach; driver_client = consumer_client)
@@ -116,8 +117,9 @@ Use the attach response to map driver-owned SHM, then hand slot pointers to BGAP
 
 ```julia
 driver_client = init_driver_client(client, "aeron:ipc", Int32(1000), UInt32(7), DriverRole.PRODUCER)
+wait_clock = Clocks.MonotonicClock()
 attach_id = send_attach_request!(driver_client; stream_id = UInt32(42))
-attach = await_attach!(driver_client, clock, attach_id)
+attach = await_attach!(driver_client, attach_id, () -> UInt64(Clocks.time_nanos(wait_clock)))
 state = init_producer_from_attach(cfg, attach; driver_client = driver_client)
 
 pool_id = UInt16(1)

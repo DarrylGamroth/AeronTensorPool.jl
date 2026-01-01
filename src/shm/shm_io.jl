@@ -360,8 +360,6 @@ end
 Decode a tensor slot header into a TensorSlotHeader struct.
 """
 function read_tensor_slot_header(m::TensorSlotHeader256.Decoder)
-    dims = TensorSlotHeader256.dims(m, NTuple{MAX_DIMS, Int32})
-    strides = TensorSlotHeader256.strides(m, NTuple{MAX_DIMS, Int32})
     return TensorSlotHeader(
         TensorSlotHeader256.commitWord(m),
         TensorSlotHeader256.frameId(m),
@@ -375,8 +373,8 @@ function read_tensor_slot_header(m::TensorSlotHeader256.Decoder)
         TensorSlotHeader256.majorOrder(m),
         TensorSlotHeader256.ndims(m),
         TensorSlotHeader256.padAlign(m),
-        dims,
-        strides,
+        TensorSlotHeader256.dims(m, NTuple{MAX_DIMS, Int32}),
+        TensorSlotHeader256.strides(m, NTuple{MAX_DIMS, Int32}),
     )
 end
 
@@ -460,15 +458,17 @@ end
 
 """
 Pick the smallest payload pool that can fit values_len.
+Returns a 1-based index or 0 if no pool fits.
 """
-function select_pool(pools::AbstractVector{PayloadPoolConfig}, values_len::Integer)
-    best = nothing
-    for pool in pools
-        if pool.stride_bytes >= values_len
-            if best === nothing || pool.stride_bytes < best.stride_bytes
-                best = pool
-            end
+@inline function select_pool(pools::AbstractVector{PayloadPoolConfig}, values_len::Integer)::Int
+    best_idx = 0
+    best_stride = typemax(UInt32)
+    for (i, pool) in pairs(pools)
+        stride = pool.stride_bytes
+        if stride >= values_len && stride < best_stride
+            best_idx = i
+            best_stride = stride
         end
     end
-    return best
+    return best_idx
 end

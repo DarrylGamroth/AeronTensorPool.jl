@@ -50,7 +50,7 @@ include("config/config_loader.jl")
 export Dtype,
     MajorOrder,
     RegionType,
-    DriverBool,
+    DriverHugepagesPolicy,
     DriverResponseCode,
     DriverRole,
     DriverPublishMode,

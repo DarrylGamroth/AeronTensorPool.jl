@@ -3,7 +3,6 @@ Initialize a consumer: create Aeron resources and initial timers.
 """
 function init_consumer(config::ConsumerConfig)
     clock = Clocks.CachedEpochClock(Clocks.MonotonicClock())
-    fetch!(clock)
 
     ctx = Aeron.Context()
     set_aeron_dir!(ctx, config.aeron_dir)
@@ -799,7 +798,8 @@ function try_read_frame!(
         return nothing
     end
     payload_offset = SUPERBLOCK_SIZE + Int(header.payload_slot) * Int(pool_stride)
-    payload = view(payload_mmap, payload_offset + 1:payload_offset + payload_len)
+    payload_mmap_vec = payload_mmap::Vector{UInt8}
+    payload = view(payload_mmap_vec, payload_offset + 1:payload_offset + payload_len)
 
     maybe_track_gap!(state, seq)
     state.mappings.last_commit_words[Int(header_index) + 1] = second

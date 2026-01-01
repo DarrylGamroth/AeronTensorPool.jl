@@ -67,7 +67,7 @@ function send_attach_request!(
     expected_layout_version::UInt32 = UInt32(0),
     max_dims::UInt8 = UInt8(0),
     publish_mode::Union{DriverPublishMode.SbeEnum, Nothing} = nothing,
-    require_hugepages::Union{Bool, Nothing} = nothing,
+    require_hugepages::Union{DriverHugepagesPolicy.SbeEnum, Bool, Nothing} = nothing,
 )
     correlation_id = next_correlation_id!(state)
     sent = send_attach!(
@@ -130,14 +130,13 @@ Poll until an attach response with the given correlation id is received.
 """
 function await_attach!(
     state::DriverClientState,
-    clock::Clocks.AbstractClock,
-    correlation_id::Int64;
+    correlation_id::Int64,
+    now_ns_fn::F;
     timeout_ns::UInt64 = 5_000_000_000,
-)
-    fetch!(clock)
-    deadline = UInt64(Clocks.time_nanos(clock)) + timeout_ns
-    while UInt64(Clocks.time_nanos(clock)) < deadline
-        now_ns = UInt64(Clocks.time_nanos(clock))
+) where {F}
+    now_ns = UInt64(now_ns_fn())
+    deadline = now_ns + timeout_ns
+    while now_ns < deadline
         driver_client_do_work!(state, now_ns)
         if state.poller.last_attach !== nothing &&
            state.poller.last_attach.correlation_id == correlation_id
@@ -145,7 +144,7 @@ function await_attach!(
             return state.poller.last_attach
         end
         yield()
-        fetch!(clock)
+        now_ns = UInt64(now_ns_fn())
     end
     return nothing
 end

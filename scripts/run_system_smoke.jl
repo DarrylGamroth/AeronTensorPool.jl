@@ -88,6 +88,11 @@ Aeron.MediaDriver.launch_embedded() do driver
         consumer_cfg = apply_canonical_layout(system.consumer, dir)
         supervisor_cfg = system.supervisor
 
+        mkpath(dirname(parse_shm_uri(producer_cfg.header_uri).path))
+        for pool in producer_cfg.payload_pools
+            mkpath(dirname(parse_shm_uri(pool.uri).path))
+        end
+
         producer = init_producer(producer_cfg)
         consumer = init_consumer(consumer_cfg)
         supervisor = init_supervisor(supervisor_cfg)
@@ -98,8 +103,8 @@ Aeron.MediaDriver.launch_embedded() do driver
         cons_desc = Aeron.FragmentAssembler(Aeron.FragmentHandler(consumer) do st, buffer, _
             header = MessageHeader.Decoder(buffer, 0)
             if MessageHeader.templateId(header) == AeronTensorPool.TEMPLATE_FRAME_DESCRIPTOR
-                FrameDescriptor.wrap!(st.desc_decoder, buffer, 0; header = header)
-                result = try_read_frame!(st, st.desc_decoder)
+                FrameDescriptor.wrap!(st.runtime.desc_decoder, buffer, 0; header = header)
+                result = try_read_frame!(st, st.runtime.desc_decoder)
                 result === nothing || (got_frame[] = true)
             end
             nothing

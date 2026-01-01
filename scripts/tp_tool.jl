@@ -7,7 +7,7 @@ function usage()
     println("  julia --project scripts/tp_tool.jl read-superblock <uri>")
     println("  julia --project scripts/tp_tool.jl read-header <uri> <index>")
     println("  julia --project scripts/tp_tool.jl send-consumer-config <aeron_dir> <aeron_uri> <control_stream_id> <stream_id> <consumer_id> <use_shm> <mode> <decimation> [payload_fallback_uri]")
-    println("  julia --project scripts/tp_tool.jl driver-attach <aeron_dir> <control_channel> <control_stream_id> <client_id> <role> <stream_id> [publish_mode] [expected_layout_version] [max_dims] [require_hugepages] [timeout_ms]")
+    println("  julia --project scripts/tp_tool.jl driver-attach <aeron_dir> <control_channel> <control_stream_id> <client_id> <role> <stream_id> [publish_mode] [expected_layout_version] [max_dims] [require_hugepages_policy] [timeout_ms]")
     println("  julia --project scripts/tp_tool.jl driver-detach <aeron_dir> <control_channel> <control_stream_id> <client_id> <role> <stream_id> <lease_id> [timeout_ms]")
     println("  julia --project scripts/tp_tool.jl driver-keepalive <aeron_dir> <control_channel> <control_stream_id> <client_id> <role> <stream_id> <lease_id>")
     exit(1)
@@ -44,21 +44,24 @@ function parse_publish_mode(val::String)
     error("invalid publish_mode: $val")
 end
 
-function parse_optional_bool(val::String)
+function parse_hugepages_policy(val::String)
     v = lowercase(val)
-    v == "true" && return true
-    v == "false" && return false
-    v == "unset" && return nothing
-    error("invalid optional bool: $val (use true|false|unset)")
+    v == "hugepages" && return DriverHugepagesPolicy.HUGEPAGES
+    v == "standard" && return DriverHugepagesPolicy.STANDARD
+    v == "unspecified" && return DriverHugepagesPolicy.UNSPECIFIED
+    v == "true" && return DriverHugepagesPolicy.HUGEPAGES
+    v == "false" && return DriverHugepagesPolicy.STANDARD
+    v == "unset" && return DriverHugepagesPolicy.UNSPECIFIED
+    error("invalid hugepages policy: $val (use hugepages|standard|unspecified|true|false|unset)")
 end
 
 function with_driver_client(
+    f::Function,
     aeron_dir::String,
     control_channel::String,
     control_stream::Int32,
     client_id::UInt32,
     role::DriverRole.SbeEnum,
-    f::Function,
 )
     ctx = Aeron.Context()
     Aeron.aeron_dir!(ctx, aeron_dir)
@@ -182,7 +185,7 @@ elseif cmd == "driver-attach"
     publish_mode = length(ARGS) >= 8 ? parse_publish_mode(ARGS[8]) : DriverPublishMode.REQUIRE_EXISTING
     expected_layout_version = length(ARGS) >= 9 ? parse(UInt32, ARGS[9]) : UInt32(0)
     max_dims = length(ARGS) >= 10 ? parse(UInt8, ARGS[10]) : UInt8(0)
-    require_hugepages = length(ARGS) >= 11 ? parse_optional_bool(ARGS[11]) : nothing
+    require_hugepages = length(ARGS) >= 11 ? parse_hugepages_policy(ARGS[11]) : DriverHugepagesPolicy.UNSPECIFIED
     timeout_ms = length(ARGS) >= 12 ? parse(Int, ARGS[12]) : 5000
 
     with_driver_client(aeron_dir, control_channel, control_stream, client_id, role) do client

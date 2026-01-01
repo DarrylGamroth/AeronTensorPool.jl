@@ -79,7 +79,7 @@ For `code != OK`, the response MUST include `correlationId` and `code`, and SHOU
 
 Optional primitive fields in the SBE schema MUST use explicit `nullValue` sentinels. For `code=OK`, all required fields MUST be non-null; for `code != OK`, optional response fields SHOULD be set to their `nullValue`.
 
-For optional enum fields, `UNKNOWN` (value 255) is the null sentinel and MUST be used when the field is absent.
+For optional enum fields, `UNKNOWN` (value 255) is the null sentinel and MUST be used when the field is absent. For required enum fields that are conceptually optional, this specification uses an explicit `UNSPECIFIED` value instead of `UNKNOWN` (e.g., `HugepagesPolicy`).
 
 If `code=OK` and any required field is set to its `nullValue`, the client MUST treat the response as a protocol error, DROP the attach, and reattach.
 
@@ -94,7 +94,7 @@ If `errorMessage` is present, it MUST be limited to 1024 bytes; drivers SHOULD t
 - `expectedLayoutVersion`: If present and nonzero, the driver MUST reject the request with `code=REJECTED` if the active layout version for the stream does not match. If absent or zero, the driver uses its configured layout version and returns it in the response.
 - `maxDims`: If present and nonzero, the driver MUST reject with `code=INVALID_PARAMS` if the requested value exceeds the configured `maxDims` for the stream. If it is less than or equal to the configured value, the driver MAY accept but MUST return the configured `maxDims` in the response.
 - `publishMode`: `REQUIRE_EXISTING` means the driver MUST reject if the stream is not already provisioned. `EXISTING_OR_CREATE` allows the driver to create or initialize SHM regions on demand.
-- `requireHugepages`: If present and TRUE, the driver MUST reject the request with `code=REJECTED` if it cannot provide hugepage-backed regions that satisfy Wire Specification validation rules. If FALSE or absent, hugepages are optional per deployment policy.
+- `requireHugepages`: A `HugepagesPolicy` value. If `HUGEPAGES`, the driver MUST reject the request with `code=REJECTED` if it cannot provide hugepage-backed regions that satisfy Wire Specification validation rules. If `STANDARD`, the driver MUST reject the request with `code=REJECTED` if it cannot provide standard page-backed regions. If `UNSPECIFIED`, the driver applies its configured default policy.
 - `poolNslots`: For each pool returned in the response, `poolNslots` MUST equal `headerNslots`; otherwise the driver MUST reject the attach with `code=INVALID_PARAMS`.
 - Streams with zero payload pools are invalid in v1.0; the driver MUST reject attach requests for such streams with `code=INVALID_PARAMS`.
 - `leaseExpiryTimestampNs`: If present, clients MUST treat it as a hard deadline; if absent, clients MUST still send keepalives at the configured interval and treat lease validity as unknown beyond the absence of `ShmLeaseRevoked`.
@@ -129,7 +129,7 @@ The driver MUST use response codes consistently:
 - `OK`: The request succeeded and all required fields are present.
 - `UNSUPPORTED`: The request uses a feature the driver does not implement (e.g., unsupported schema version or publish mode).
 - `INVALID_PARAMS`: The request is malformed or violates parameter constraints (e.g., invalid `maxDims`).
-- `REJECTED`: The request is valid but denied by policy or state (e.g., exclusive producer already attached, `requireHugepages=true` not satisfiable, `expectedLayoutVersion` mismatch).
+- `REJECTED`: The request is valid but denied by policy or state (e.g., exclusive producer already attached, `requireHugepages=HUGEPAGES` not satisfiable, `expectedLayoutVersion` mismatch).
 - `INTERNAL_ERROR`: The driver encountered an unexpected failure while processing a valid request.
 
 ### 4.7 Lease Lifecycle (Normative)
@@ -338,7 +338,7 @@ Optional keys and defaults:
 - `driver.announce_stream_id` (uint32): stream ID for `ShmPoolAnnounce`. Default: `driver.control_stream_id`.
 - `driver.qos_channel` (string): channel for QoS messages. Default: `"aeron:ipc"`.
 - `driver.qos_stream_id` (uint32): QoS stream ID. Default: `1200`.
-- `shm.require_hugepages` (bool): require hugepage-backed SHM. Default: `false`.
+- `shm.require_hugepages` (bool): default policy for hugepage-backed SHM when `requireHugepages=UNSPECIFIED`. Default: `false`.
 - `shm.page_size_bytes` (uint32): backing page size for validation. Default: `4096`.
 - `shm.permissions_mode` (string): POSIX mode for created files. Default: `"660"`.
 - `shm.allowed_base_dirs` (array of string): allowlist for URIs. Default: `[shm.base_dir]`.
@@ -394,10 +394,10 @@ See `docs/examples/driver_camera_example.toml` for a concrete example.
       <type name="varData" primitiveType="uint8" length="0"/>
     </composite>
 
-    <enum name="Bool" encodingType="uint8">
-      <validValue name="FALSE">0</validValue>
-      <validValue name="TRUE">1</validValue>
-      <validValue name="UNKNOWN">255</validValue>
+    <enum name="HugepagesPolicy" encodingType="uint8">
+      <validValue name="UNSPECIFIED">0</validValue>
+      <validValue name="STANDARD">1</validValue>
+      <validValue name="HUGEPAGES">2</validValue>
     </enum>
 
     <enum name="ResponseCode" encodingType="int32">
@@ -447,7 +447,7 @@ See `docs/examples/driver_camera_example.toml` for a concrete example.
     <field name="expectedLayoutVersion" id="5" type="version_t"/>
     <field name="maxDims"              id="6" type="uint8"/>
     <field name="publishMode"          id="7" type="PublishMode" presence="optional" nullValue="255"/>
-    <field name="requireHugepages"     id="8" type="Bool" presence="optional" nullValue="255"/>
+    <field name="requireHugepages"     id="8" type="HugepagesPolicy"/>
   </sbe:message>
 
   <sbe:message name="ShmAttachResponse" id="2">

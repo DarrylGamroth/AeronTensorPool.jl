@@ -3,7 +3,6 @@ Initialize a supervisor: create Aeron resources and timers.
 """
 function init_supervisor(config::SupervisorConfig)
     clock = Clocks.CachedEpochClock(Clocks.MonotonicClock())
-    fetch!(clock)
 
     ctx = Aeron.Context()
     set_aeron_dir!(ctx, config.aeron_dir)
@@ -45,7 +44,6 @@ end
 Handle ShmPoolAnnounce messages and update producer tracking.
 """
 function handle_shm_pool_announce!(state::SupervisorState, msg::ShmPoolAnnounce.Decoder)
-    fetch!(state.clock)
     now_ns = UInt64(Clocks.time_nanos(state.clock))
 
     pid = ShmPoolAnnounce.producerId(msg)
@@ -68,7 +66,6 @@ end
 Handle QosProducer updates.
 """
 function handle_qos_producer!(state::SupervisorState, msg::QosProducer.Decoder)
-    fetch!(state.clock)
     now_ns = UInt64(Clocks.time_nanos(state.clock))
 
     pid = QosProducer.producerId(msg)
@@ -97,7 +94,6 @@ end
 Handle ConsumerHello messages and update consumer tracking.
 """
 function handle_consumer_hello!(state::SupervisorState, msg::ConsumerHello.Decoder)
-    fetch!(state.clock)
     now_ns = UInt64(Clocks.time_nanos(state.clock))
 
     cid = ConsumerHello.consumerId(msg)
@@ -125,7 +121,6 @@ end
 Handle QosConsumer updates.
 """
 function handle_qos_consumer!(state::SupervisorState, msg::QosConsumer.Decoder)
-    fetch!(state.clock)
     now_ns = UInt64(Clocks.time_nanos(state.clock))
 
     cid = QosConsumer.consumerId(msg)

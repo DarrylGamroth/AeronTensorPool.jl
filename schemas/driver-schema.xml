@@ -25,10 +25,10 @@
       <type name="varData" primitiveType="uint8" length="0"/>
     </composite>
 
-    <enum name="Bool" encodingType="uint8">
-      <validValue name="FALSE">0</validValue>
-      <validValue name="TRUE">1</validValue>
-      <validValue name="UNKNOWN">255</validValue>
+    <enum name="HugepagesPolicy" encodingType="uint8">
+      <validValue name="UNSPECIFIED">0</validValue>
+      <validValue name="STANDARD">1</validValue>
+      <validValue name="HUGEPAGES">2</validValue>
     </enum>
 
     <enum name="ResponseCode" encodingType="int32">
@@ -78,7 +78,7 @@
     <field name="expectedLayoutVersion" id="5" type="version_t"/>
     <field name="maxDims"              id="6" type="uint8"/>
     <field name="publishMode"          id="7" type="PublishMode" presence="optional" nullValue="255"/>
-    <field name="requireHugepages"     id="8" type="Bool" presence="optional" nullValue="255"/>
+    <field name="requireHugepages"     id="8" type="HugepagesPolicy"/>
   </sbe:message>
 
   <sbe:message name="ShmAttachResponse" id="2">

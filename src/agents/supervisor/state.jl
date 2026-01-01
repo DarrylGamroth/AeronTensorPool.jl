@@ -70,9 +70,9 @@ end
 """
 Mutable supervisor runtime state including liveness tracking.
 """
-mutable struct SupervisorState
+mutable struct SupervisorState{ClockT<:Clocks.AbstractClock}
     config::SupervisorConfig
-    clock::Clocks.AbstractClock
+    clock::ClockT
     runtime::SupervisorRuntime
     tracking::SupervisorTracking
     timer_set::TimerSet{Tuple{PolledTimer}, Tuple{SupervisorLivenessHandler}}

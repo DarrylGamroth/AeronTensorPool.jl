@@ -474,8 +474,9 @@ function bridge_rematerialize!(
     frame_id == frame.seq || return false
 
     payload_len = Int(frame.payload_length)
-    pool = select_pool(producer_state.config.payload_pools, payload_len)
-    pool === nothing && return false
+    pool_idx = select_pool(producer_state.config.payload_pools, payload_len)
+    pool_idx == 0 && return false
+    pool = producer_state.config.payload_pools[pool_idx]
     payload_slot = UInt32(frame.seq & (UInt64(producer_state.config.nslots) - 1))
     payload_slot < pool.nslots || return false
 
@@ -514,7 +515,6 @@ function bridge_rematerialize!(
 
     seqlock_commit_write!(commit_ptr, frame_id)
 
-    fetch!(producer_state.clock)
     now_ns = UInt64(Clocks.time_nanos(producer_state.clock))
     sent = try_claim_sbe!(
         producer_state.runtime.pub_descriptor,

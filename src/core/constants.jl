@@ -1,7 +1,6 @@
 const SUPERBLOCK_SIZE = 64
 const HEADER_SLOT_BYTES = 256
 const MAGIC_TPOLSHM1 = 0x544F504C53484D31
-const MAX_DIMS = 8
 const DEFAULT_FRAGMENT_LIMIT = Int32(10)
 
 const CONTROL_BUF_BYTES = 512
@@ -24,8 +23,10 @@ const TensorSlotHeader256 = ShmTensorpoolControl.TensorSlotHeader256
 const DataSourceAnnounce = ShmTensorpoolControl.DataSourceAnnounce
 const DataSourceMeta = ShmTensorpoolControl.DataSourceMeta
 
+const MAX_DIMS::Int = Int(TensorSlotHeader256.maxDims(TensorSlotHeader256.Decoder))
+
 const DriverMessageHeader = ShmTensorpoolDriver.MessageHeader
-const DriverBool = ShmTensorpoolDriver.Bool_
+const DriverHugepagesPolicy = ShmTensorpoolDriver.HugepagesPolicy
 const DriverResponseCode = ShmTensorpoolDriver.ResponseCode
 const DriverRole = ShmTensorpoolDriver.Role
 const DriverPublishMode = ShmTensorpoolDriver.PublishMode

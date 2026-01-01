@@ -49,9 +49,9 @@ end
 """
 Mutable producer runtime state including Aeron resources and SHM mappings.
 """
-mutable struct ProducerState
+mutable struct ProducerState{ClockT<:Clocks.AbstractClock}
     config::ProducerConfig
-    clock::Clocks.AbstractClock
+    clock::ClockT
     runtime::ProducerRuntime
     mappings::ProducerMappings
     metrics::ProducerMetrics

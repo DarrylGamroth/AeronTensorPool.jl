@@ -115,7 +115,7 @@ using Test
                 client_id = UInt32(9),
                 role = DriverRole.CONSUMER,
                 publish_mode = DriverPublishMode.REQUIRE_EXISTING,
-                require_hugepages = true,
+                require_hugepages = DriverHugepagesPolicy.HUGEPAGES,
             )
             @test sent == true
             ok = wait_for() do

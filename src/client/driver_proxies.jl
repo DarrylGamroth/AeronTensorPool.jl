@@ -37,6 +37,13 @@ function DetachRequestProxy(pub::Aeron.Publication)
     return DetachRequestProxy(pub, Aeron.BufferClaim(), ShmDetachRequest.Encoder(UnsafeArrays.UnsafeArray{UInt8, 1}))
 end
 
+@inline hugepages_policy_value(value::DriverHugepagesPolicy.SbeEnum) = value
+
+@inline hugepages_policy_value(value::Bool) =
+    value ? DriverHugepagesPolicy.HUGEPAGES : DriverHugepagesPolicy.STANDARD
+
+@inline hugepages_policy_value(::Nothing) = DriverHugepagesPolicy.UNSPECIFIED
+
 """
 Send an attach request.
 """
@@ -49,7 +56,7 @@ function send_attach!(
     expected_layout_version::UInt32 = UInt32(0),
     max_dims::UInt8 = UInt8(0),
     publish_mode::Union{DriverPublishMode.SbeEnum, Nothing} = nothing,
-    require_hugepages::Union{Bool, Nothing} = nothing,
+    require_hugepages::Union{DriverHugepagesPolicy.SbeEnum, Bool, Nothing} = nothing,
 )
     msg_len = DRIVER_MESSAGE_HEADER_LEN + Int(ShmAttachRequest.sbe_block_length(ShmAttachRequest.Decoder))
     return try_claim_sbe!(proxy.pub, proxy.claim, msg_len) do buf
@@ -67,14 +74,7 @@ function send_attach!(
             ShmAttachRequest.publishMode!(proxy.encoder, publish_mode)
         end
 
-        if isnothing(require_hugepages)
-            ShmAttachRequest.requireHugepages!(proxy.encoder, DriverBool.NULL_VALUE)
-        else
-            ShmAttachRequest.requireHugepages!(
-                proxy.encoder,
-                require_hugepages ? DriverBool.TRUE : DriverBool.FALSE,
-            )
-        end
+        ShmAttachRequest.requireHugepages!(proxy.encoder, hugepages_policy_value(require_hugepages))
     end
 end
 

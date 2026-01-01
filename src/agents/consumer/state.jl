@@ -91,9 +91,9 @@ end
 """
 Mutable consumer runtime state including SHM mappings and QoS counters.
 """
-mutable struct ConsumerState
+mutable struct ConsumerState{ClockT<:Clocks.AbstractClock}
     config::ConsumerConfig
-    clock::Clocks.AbstractClock
+    clock::ClockT
     runtime::ConsumerRuntime
     mappings::ConsumerMappings
     metrics::ConsumerMetrics

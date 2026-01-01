@@ -30,11 +30,11 @@
     </composite>
 
     <!-- Constant used for array sizing in generated code -->
-    <type name="MAX_DIMS" primitiveType="uint8" presence="constant">8</type>
+    <type name="MaxDimsConst" primitiveType="uint8" presence="constant">8</type>
 
-    <!-- Fixed-length arrays for TensorSlotHeader256 (set length to MAX_DIMS) -->
-    <type name="DimsArray"     primitiveType="int32" length="MAX_DIMS"/>
-    <type name="StridesArray"  primitiveType="int32" length="MAX_DIMS"/>
+    <!-- Fixed-length arrays for TensorSlotHeader256 (length matches MaxDimsConst) -->
+    <type name="DimsArray"     primitiveType="int32" length="8"/>
+    <type name="StridesArray"  primitiveType="int32" length="8"/>
     <type name="Pad144"        primitiveType="uint8" length="144"/>
 
     <enum name="Bool" encodingType="uint8">
@@ -200,6 +200,7 @@
     <field name="dtype"          id="9" type="Dtype"/>
     <field name="majorOrder"     id="10" type="MajorOrder"/>
     <field name="ndims"          id="11" type="uint8"/>
+    <field name="maxDims"        id="16" type="MaxDimsConst"/>
     <field name="padAlign"       id="12" type="uint8"/>
     <field name="dims"           id="13" type="DimsArray"/>
     <field name="strides"        id="14" type="StridesArray"/>

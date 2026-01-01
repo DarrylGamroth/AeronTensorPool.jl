@@ -5,7 +5,6 @@ Initialize the SHM driver.
 """
 function init_driver(config::DriverConfig)
     clock = Clocks.CachedEpochClock(Clocks.MonotonicClock())
-    fetch!(clock)
 
     ctx = Aeron.Context()
     set_aeron_dir!(ctx, config.endpoints.aeron_dir)
@@ -168,10 +167,35 @@ function handle_attach_request!(state::DriverState, msg::ShmAttachRequest.Decode
         publish_mode = DriverPublishMode.REQUIRE_EXISTING
     end
 
-    require_hugepages = state.config.shm.require_hugepages
-    requested_hugepages = ShmAttachRequest.requireHugepages(msg)
-    if requested_hugepages != DriverBool.NULL_VALUE
-        require_hugepages = (requested_hugepages == DriverBool.TRUE)
+    hugepages_policy = ShmAttachRequest.requireHugepages(msg)
+    if hugepages_policy == DriverHugepagesPolicy.HUGEPAGES && !state.config.shm.require_hugepages
+        return emit_attach_response!(
+            state,
+            correlation_id,
+            DriverResponseCode.REJECTED,
+            "hugepages required but unavailable",
+            nothing,
+        )
+    end
+    if hugepages_policy == DriverHugepagesPolicy.STANDARD && state.config.shm.require_hugepages
+        return emit_attach_response!(
+            state,
+            correlation_id,
+            DriverResponseCode.REJECTED,
+            "hugepages required by driver policy",
+            nothing,
+        )
+    end
+    if hugepages_policy != DriverHugepagesPolicy.UNSPECIFIED &&
+       hugepages_policy != DriverHugepagesPolicy.HUGEPAGES &&
+       hugepages_policy != DriverHugepagesPolicy.STANDARD
+        return emit_attach_response!(
+            state,
+            correlation_id,
+            DriverResponseCode.INVALID_PARAMS,
+            "unknown hugepages policy",
+            nothing,
+        )
     end
 
     for lease in values(state.leases)
@@ -266,16 +290,6 @@ function handle_attach_request!(state::DriverState, msg::ShmAttachRequest.Decode
                 nothing,
             )
         end
-    end
-
-    if require_hugepages && !state.config.shm.require_hugepages
-        return emit_attach_response!(
-            state,
-            correlation_id,
-            DriverResponseCode.REJECTED,
-            "hugepages required but unavailable",
-            nothing,
-        )
     end
 
     now_ns = UInt64(Clocks.time_nanos(state.clock))

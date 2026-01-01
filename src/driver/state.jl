@@ -64,9 +64,9 @@ end
 """
 Driver mutable state.
 """
-mutable struct DriverState
+mutable struct DriverState{ClockT<:Clocks.AbstractClock}
     config::DriverConfig
-    clock::Clocks.AbstractClock
+    clock::ClockT
     runtime::DriverRuntime
     streams::Dict{UInt32, DriverStreamState}
     leases::Dict{UInt64, DriverLease}

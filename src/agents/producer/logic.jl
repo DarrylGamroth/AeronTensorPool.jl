@@ -23,7 +23,6 @@ function init_producer(config::ProducerConfig)
     end
 
     clock = Clocks.CachedEpochClock(Clocks.MonotonicClock())
-    fetch!(clock)
 
     header_size = SUPERBLOCK_SIZE + Int(config.nslots) * HEADER_SLOT_BYTES
     header_mmap = mmap_shm(config.header_uri, header_size; write = true)
@@ -246,7 +245,6 @@ function init_producer_from_attach(
     end
 
     clock = Clocks.CachedEpochClock(Clocks.MonotonicClock())
-    fetch!(clock)
 
     mappings = map_producer_from_attach(driver_config, attach)
     mappings === nothing && throw(ArgumentError("payload superblock validation failed"))
@@ -410,15 +408,15 @@ function publish_frame!(
     meta_version::UInt32,
 )
     producer_driver_active(state) || return false
-    fetch!(state.clock)
 
     seq = state.seq
     frame_id = seq
     header_index = UInt32(seq & (UInt64(state.config.nslots) - 1))
 
     values_len = length(payload_data)
-    pool = select_pool(state.config.payload_pools, values_len)
-    pool === nothing && return false
+    pool_idx = select_pool(state.config.payload_pools, values_len)
+    pool_idx == 0 && return false
+    pool = state.config.payload_pools[pool_idx]
 
     payload_slot = header_index
     payload_mmap = state.mappings.payload_mmaps[pool.pool_id]
@@ -428,7 +426,7 @@ function publish_frame!(
     commit_ptr = header_commit_ptr_from_offset(state.mappings.header_mmap, header_offset)
     seqlock_begin_write!(commit_ptr, frame_id)
 
-    copyto!(view(payload_mmap, payload_offset + 1:payload_offset + values_len), payload_data)
+    copyto!(payload_mmap, payload_offset + 1, payload_data, 1, values_len)
 
     wrap_tensor_header!(state.runtime.header_encoder, state.mappings.header_mmap, header_offset)
     write_tensor_slot_header!(
@@ -451,7 +449,12 @@ function publish_frame!(
 
     now_ns = UInt64(Clocks.time_nanos(state.clock))
     sent = try_claim_sbe!(state.runtime.pub_descriptor, state.runtime.descriptor_claim, FRAME_DESCRIPTOR_LEN) do buf
-        FrameDescriptor.wrap_and_apply_header!(state.runtime.descriptor_encoder, buf, 0)
+        header = MessageHeader.Encoder(buf, 0)
+        MessageHeader.blockLength!(header, FrameDescriptor.sbe_block_length(FrameDescriptor.Decoder))
+        MessageHeader.templateId!(header, FrameDescriptor.sbe_template_id(FrameDescriptor.Decoder))
+        MessageHeader.schemaId!(header, FrameDescriptor.sbe_schema_id(FrameDescriptor.Decoder))
+        MessageHeader.version!(header, FrameDescriptor.sbe_schema_version(FrameDescriptor.Decoder))
+        FrameDescriptor.wrap!(state.runtime.descriptor_encoder, buf, MESSAGE_HEADER_LEN)
         encode_frame_descriptor!(state.runtime.descriptor_encoder, state, seq, header_index, meta_version, now_ns)
     end
     sent || return false
@@ -618,7 +621,6 @@ function publish_reservation!(
     expected_index = UInt32(reservation.seq & (UInt64(state.config.nslots) - 1))
     reservation.header_index == expected_index || return false
 
-    fetch!(state.clock)
     frame_id = reservation.seq
 
     header_offset = header_slot_offset(reservation.header_index)
@@ -679,7 +681,6 @@ function publish_frame_from_slot!(
     meta_version::UInt32,
 )
     producer_driver_active(state) || return false
-    fetch!(state.clock)
 
     seq = state.seq
     frame_id = seq
