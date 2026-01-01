@@ -146,6 +146,27 @@ struct TensorSlotHeader
 end
 
 """
+Reference to a payload region in shared memory.
+"""
+mutable struct PayloadSlice
+    mmap::Vector{UInt8}
+    offset::Int
+    len::Int
+end
+
+@inline function payload_view(slice::PayloadSlice)
+    return view(slice.mmap, slice.offset + 1: slice.offset + slice.len)
+end
+
+"""
+Decoded frame header and payload slice.
+"""
+mutable struct ConsumerFrameView
+    header::TensorSlotHeader
+    payload::PayloadSlice
+end
+
+"""
 Parsed shm:file URI components.
 """
 struct ShmUri

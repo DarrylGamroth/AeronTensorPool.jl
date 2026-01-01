@@ -189,9 +189,8 @@
                 if MessageHeader.templateId(header) == template_frame_descriptor
                     FrameDescriptor.wrap!(st.runtime.desc_decoder, buffer, 0; header = header)
                     result = try_read_frame!(st, st.runtime.desc_decoder)
-                    if result !== nothing
-                        (_hdr, payload) = result
-                        got_payload[] = collect(payload)
+                    if result
+                        got_payload[] = collect(payload_view(st.runtime.frame_view.payload))
                     end
                 end
                 nothing

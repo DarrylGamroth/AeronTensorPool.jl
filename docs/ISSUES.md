@@ -3,15 +3,12 @@
 ## Open
 
 - Allocation-free consumer payload access vs type safety.
-  - Current: `try_read_frame!` returns `view(payload_mmap, ...)`, which allocates per frame.
-  - Prior zero-alloc option: `UnsafeArray` payload return, but uses unsafe access.
-  - Alternative: return a safe `PayloadSlice` (mmap + offset + len) and provide helpers; caller chooses to copy or view.
-  - Goal: zero allocations in hot path without unsafe pointer exposure.
+  - Finding: allocations come from returning a tuple `(header, payload)` where `payload` is a `SubArray`.
+  - Fix: `try_read_frame!` returns `Bool` and fills a reusable `ConsumerFrameView` with `PayloadSlice`.
 - Aeron poll allocations.
-  - `Aeron.poll` allocates when delivering fragments (upstream in Aeron.jl).
-  - Likely cause: type instability in fragment handler path (closure captures, abstract handler types).
-  - Next: audit FragmentHandler/FragmentAssembler construction for concrete handler types; verify with `@code_warntype`.
-  - Decide whether to accept, work around in tests, or patch upstream.
+  - Could not reproduce in minimal Aeron/IPC tests; `@allocated Aeron.poll(...)` returns 0 with `FragmentAssembler`.
+  - `@code_warntype Aeron.poll` shows stable types for `FragmentAssembler` handler.
+  - Suspect allocations (if any) come from handler logic or downstream processing, not Aeron.poll itself.
 
 ## Closed
 

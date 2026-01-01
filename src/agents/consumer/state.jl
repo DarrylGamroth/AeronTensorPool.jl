@@ -55,6 +55,7 @@ mutable struct ConsumerRuntime
     header_decoder::TensorSlotHeader256.Decoder{Vector{UInt8}}
     scratch_dims::Vector{Int64}
     scratch_strides::Vector{Int64}
+    frame_view::ConsumerFrameView
 end
 
 """
@@ -76,6 +77,7 @@ Mutable consumer counters and QoS metrics.
 mutable struct ConsumerMetrics
     last_seq_seen::UInt64
     seen_any::Bool
+    frames_ok::UInt64
     drops_gap::UInt64
     drops_late::UInt64
     drops_odd::UInt64

@@ -156,7 +156,7 @@ end
             )
             @test sent
 
-            received = Ref{Any}(nothing)
+            received = Ref(false)
             handler = Aeron.FragmentHandler(consumer_state) do st, buffer, _
                 header = MessageHeader.Decoder(buffer, 0)
                 if MessageHeader.templateId(header) == AeronTensorPool.TEMPLATE_FRAME_DESCRIPTOR
@@ -173,12 +173,13 @@ end
                     assembler,
                     AeronTensorPool.DEFAULT_FRAGMENT_LIMIT,
                 ) > 0 &&
-                    received[] !== nothing
+                    received[]
             end
             @test ok
-            header, payload_view = received[]
+            header = consumer_state.runtime.frame_view.header
+            payload_view_buf = payload_view(consumer_state.runtime.frame_view.payload)
             @test header.frame_id == UInt64(0)
-            @test collect(payload_view) == payload
+            @test collect(payload_view_buf) == payload
 
             close_producer_state!(producer_state)
             close_consumer_state!(consumer_state)

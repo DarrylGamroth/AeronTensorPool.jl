@@ -6,7 +6,7 @@ function make_descriptor_assembler(state::ConsumerState)
         header = MessageHeader.Decoder(buffer, 0)
         if MessageHeader.templateId(header) == TEMPLATE_FRAME_DESCRIPTOR
             FrameDescriptor.wrap!(st.runtime.desc_decoder, buffer, 0; header = header)
-            try_read_frame!(st, st.runtime.desc_decoder)
+            try_read_frame!(st, st.runtime.desc_decoder) && (st.metrics.frames_ok += 1)
         end
         nothing
     end

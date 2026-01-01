@@ -169,7 +169,7 @@ end
                 if MessageHeader.templateId(header) == AeronTensorPool.TEMPLATE_FRAME_DESCRIPTOR
                     FrameDescriptor.wrap!(st.runtime.desc_decoder, buffer, 0; header = header)
                     result = try_read_frame!(st, st.runtime.desc_decoder)
-                    result === nothing || (got_frame[] = true)
+                    result && (got_frame[] = true)
                 end
                 nothing
             end

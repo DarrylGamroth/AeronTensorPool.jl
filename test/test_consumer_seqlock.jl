@@ -145,11 +145,11 @@
             commit_ptr = header_commit_ptr_from_offset(header_mmap, header_offset)
 
             seqlock_begin_write!(commit_ptr, UInt64(1))
-            @test try_read_frame!(state, desc_dec) === nothing
+            @test try_read_frame!(state, desc_dec) == false
 
             seqlock_commit_write!(commit_ptr, UInt64(1))
             state.mappings.last_commit_words[1] = UInt64(4) << 1
-            @test try_read_frame!(state, desc_dec) === nothing
+            @test try_read_frame!(state, desc_dec) == false
             state.mappings.last_commit_words[1] = UInt64(0)
 
             write_tensor_slot_header!(
@@ -168,7 +168,7 @@
                 vcat(Int32(0), zeros(Int32, MAX_DIMS - 1)),
             )
             seqlock_commit_write!(commit_ptr, UInt64(1))
-            @test try_read_frame!(state, desc_dec) === nothing
+            @test try_read_frame!(state, desc_dec) == false
 
             write_tensor_slot_header!(
                 hdr_enc,
@@ -186,7 +186,7 @@
                 vcat(Int32(0), zeros(Int32, MAX_DIMS - 1)),
             )
             seqlock_commit_write!(commit_ptr, UInt64(1))
-            @test try_read_frame!(state, desc_dec) === nothing
+            @test try_read_frame!(state, desc_dec) == false
             finally
                 close_consumer_state!(state)
             end

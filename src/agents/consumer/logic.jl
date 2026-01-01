@@ -40,6 +40,25 @@ function init_consumer(config::ConsumerConfig)
         TensorSlotHeader256.Decoder(Vector{UInt8}),
         Vector{Int64}(undef, MAX_DIMS),
         Vector{Int64}(undef, MAX_DIMS),
+        ConsumerFrameView(
+            TensorSlotHeader(
+                UInt64(0),
+                UInt64(0),
+                UInt64(0),
+                UInt32(0),
+                UInt32(0),
+                UInt32(0),
+                UInt32(0),
+                UInt16(0),
+                Dtype.UNKNOWN,
+                MajorOrder.ROW,
+                UInt8(0),
+                UInt8(0),
+                ntuple(_ -> Int32(0), Val(MAX_DIMS)),
+                ntuple(_ -> Int32(0), Val(MAX_DIMS)),
+            ),
+            PayloadSlice(UInt8[], 0, 0),
+        ),
     )
     mappings = ConsumerMappings(
         UInt64(0),
@@ -53,6 +72,7 @@ function init_consumer(config::ConsumerConfig)
     metrics = ConsumerMetrics(
         UInt64(0),
         false,
+        UInt64(0),
         UInt64(0),
         UInt64(0),
         UInt64(0),
@@ -687,22 +707,25 @@ function validate_strides!(state::ConsumerState, header::TensorSlotHeader, elem_
 end
 """
 Attempt to read a frame from SHM using the seqlock protocol.
+
+Returns true on success and updates the provided `ConsumerFrameView`.
 """
 function try_read_frame!(
     state::ConsumerState,
     desc::FrameDescriptor.Decoder,
+    view::ConsumerFrameView,
 )
-    consumer_driver_active(state) || return nothing
-    state.mappings.header_mmap === nothing && return nothing
-    FrameDescriptor.epoch(desc) == state.mappings.mapped_epoch || return nothing
+    consumer_driver_active(state) || return false
+    state.mappings.header_mmap === nothing && return false
+    FrameDescriptor.epoch(desc) == state.mappings.mapped_epoch || return false
     seq = FrameDescriptor.seq(desc)
-    should_process(state, seq) || return nothing
+    should_process(state, seq) || return false
 
     header_index = FrameDescriptor.headerIndex(desc)
     if state.mappings.mapped_nslots == 0 || header_index >= state.mappings.mapped_nslots
         state.metrics.drops_late += 1
         state.metrics.drops_header_invalid += 1
-        return nothing
+        return false
     end
 
     header_offset = header_slot_offset(header_index)
@@ -713,7 +736,7 @@ function try_read_frame!(
     if seqlock_is_write_in_progress(first)
         state.metrics.drops_late += 1
         state.metrics.drops_odd += 1
-        return nothing
+        return false
     end
 
     header = try
@@ -722,52 +745,52 @@ function try_read_frame!(
     catch
         state.metrics.drops_late += 1
         state.metrics.drops_header_invalid += 1
-        return nothing
+        return false
     end
 
     second = seqlock_read_end(commit_ptr)
     if first != second || seqlock_is_write_in_progress(second)
         state.metrics.drops_late += 1
         state.metrics.drops_changed += 1
-        return nothing
+        return false
     end
 
     commit_frame = seqlock_frame_id(second)
     if commit_frame != header.frame_id
         state.metrics.drops_late += 1
         state.metrics.drops_frame_id_mismatch += 1
-        return nothing
+        return false
     end
 
     last_commit = state.mappings.last_commit_words[Int(header_index) + 1]
     if second < last_commit
         state.metrics.drops_late += 1
         state.metrics.drops_changed += 1
-        return nothing
+        return false
     end
 
     if header.frame_id != seq
         state.metrics.drops_late += 1
         state.metrics.drops_frame_id_mismatch += 1
-        return nothing
+        return false
     end
 
     if header.payload_slot != header_index
         state.metrics.drops_late += 1
         state.metrics.drops_header_invalid += 1
-        return nothing
+        return false
     end
 
     if header.payload_offset != 0
         state.metrics.drops_late += 1
         state.metrics.drops_header_invalid += 1
-        return nothing
+        return false
     end
 
     if !valid_dtype(header.dtype) || !valid_major_order(header.major_order)
         state.metrics.drops_late += 1
         state.metrics.drops_header_invalid += 1
-        return nothing
+        return false
     end
 
     elem_size = dtype_size_bytes(header.dtype)
@@ -775,33 +798,44 @@ function try_read_frame!(
        !validate_strides!(state, header, elem_size)
         state.metrics.drops_late += 1
         state.metrics.drops_header_invalid += 1
-        return nothing
+        return false
     end
 
     pool_stride = get(state.mappings.pool_stride_bytes, header.pool_id, UInt32(0))
     if pool_stride == 0
         state.metrics.drops_late += 1
         state.metrics.drops_payload_invalid += 1
-        return nothing
+        return false
     end
     payload_mmap = get(state.mappings.payload_mmaps, header.pool_id, nothing)
     if payload_mmap === nothing
         state.metrics.drops_late += 1
         state.metrics.drops_payload_invalid += 1
-        return nothing
+        return false
     end
 
     payload_len = Int(header.values_len_bytes)
     if payload_len > Int(pool_stride)
         state.metrics.drops_late += 1
         state.metrics.drops_payload_invalid += 1
-        return nothing
+        return false
     end
     payload_offset = SUPERBLOCK_SIZE + Int(header.payload_slot) * Int(pool_stride)
     payload_mmap_vec = payload_mmap::Vector{UInt8}
-    payload = view(payload_mmap_vec, payload_offset + 1:payload_offset + payload_len)
 
     maybe_track_gap!(state, seq)
     state.mappings.last_commit_words[Int(header_index) + 1] = second
-    return (header, payload)
+    view.header = header
+    slice = view.payload
+    slice.mmap = payload_mmap_vec
+    slice.offset = payload_offset
+    slice.len = payload_len
+    return true
+end
+
+"""
+Attempt to read a frame using the state's preallocated frame view.
+"""
+@inline function try_read_frame!(state::ConsumerState, desc::FrameDescriptor.Decoder)
+    return try_read_frame!(state, desc, state.runtime.frame_view)
 end

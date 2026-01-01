@@ -88,7 +88,7 @@ liveness_check_interval_ns = 1000000000
                 if MessageHeader.templateId(header) == TEMPLATE_FRAME_DESCRIPTOR
                     FrameDescriptor.wrap!(st.desc_decoder, buffer, 0; header = header)
                     result = try_read_frame!(st, st.desc_decoder)
-                    result === nothing || (got_frame[] = true)
+                    result && (got_frame[] = true)
                 end
                 nothing
             end)
