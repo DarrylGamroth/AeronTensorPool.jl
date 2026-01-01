@@ -87,6 +87,14 @@ struct DriverCounters
 end
 
 """
+Bridge-specific counters (rematerialized frames).
+"""
+struct BridgeCounters
+    base::Counters
+    frames_rematerialized::Aeron.Counter
+end
+
+"""
 Construct producer counters for a given agent identity.
 """
 function ProducerCounters(client::Aeron.Client, agent_id, agent_name)
@@ -142,6 +150,16 @@ function DriverCounters(client::Aeron.Client, agent_id, agent_name)
     )
 end
 
+"""
+Construct bridge counters for a given agent identity.
+"""
+function BridgeCounters(client::Aeron.Client, agent_id, agent_name)
+    BridgeCounters(
+        Counters(client, agent_id, agent_name),
+        add_counter(client, agent_id, agent_name, 3, "FramesRematerialized"),
+    )
+end
+
 function Base.close(counters::Counters)
     close(counters.total_duty_cycles)
     close(counters.total_work_done)
@@ -180,5 +198,10 @@ function Base.close(counters::DriverCounters)
     close(counters.keepalives)
     close(counters.lease_revoked)
     close(counters.announces)
+    close(counters.base)
+end
+
+function Base.close(counters::BridgeCounters)
+    close(counters.frames_rematerialized)
     close(counters.base)
 end

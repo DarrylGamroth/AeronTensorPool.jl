@@ -6,6 +6,7 @@ struct BridgeAgent
     receiver::BridgeReceiverState
     control_assembler::Aeron.FragmentAssembler
     descriptor_assembler::Aeron.FragmentAssembler
+    counters::BridgeCounters
 end
 
 """
@@ -40,24 +41,34 @@ function BridgeAgent(
 
     control_assembler = make_control_assembler(consumer_state)
     descriptor_assembler = make_bridge_descriptor_assembler(sender)
+    counters = BridgeCounters(sender.client, Int(mapping.dest_stream_id), "Bridge")
 
-    return BridgeAgent(sender, receiver, control_assembler, descriptor_assembler)
+    return BridgeAgent(sender, receiver, control_assembler, descriptor_assembler, counters)
 end
 
 Agent.name(agent::BridgeAgent) = "bridge"
 
 function Agent.do_work(agent::BridgeAgent)
+    Aeron.increment!(agent.counters.base.total_duty_cycles)
     work_count = 0
     consumer = agent.sender.consumer_state
     work_count += Aeron.poll(consumer.runtime.sub_control, agent.control_assembler, DEFAULT_FRAGMENT_LIMIT)
     work_count += Aeron.poll(consumer.runtime.sub_descriptor, agent.descriptor_assembler, DEFAULT_FRAGMENT_LIMIT)
     work_count += bridge_sender_do_work!(agent.sender)
     work_count += bridge_receiver_do_work!(agent.receiver)
+    if work_count > 0
+        Aeron.add!(agent.counters.base.total_work_done, Int64(work_count))
+    end
+    producer = agent.receiver.producer_state
+    if producer !== nothing
+        agent.counters.frames_rematerialized[] = Int64(producer.seq)
+    end
     return work_count
 end
 
 function Agent.on_close(agent::BridgeAgent)
     try
+        close(agent.counters)
         consumer = agent.sender.consumer_state
         producer = agent.receiver.producer_state
 
