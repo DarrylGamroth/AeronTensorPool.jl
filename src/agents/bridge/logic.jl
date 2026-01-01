@@ -41,35 +41,6 @@ Return var-data positions for header/payload bytes in a BridgeFrameChunk decoder
 end
 
 """
-Write header/payload var-data bytes without allocating views.
-"""
-@inline function bridge_write_var_data!(
-    encoder::BridgeFrameChunk.Encoder,
-    header_buf::Vector{UInt8},
-    header_len::Int,
-    payload_buf::AbstractVector{UInt8},
-    payload_offset::Int,
-    payload_len::Int,
-)
-    buf = BridgeFrameChunk.sbe_buffer(encoder)
-    pos = BridgeFrameChunk.sbe_position(encoder)
-    SBE.encode_value_le(UInt32, buf, pos, UInt32(header_len))
-    pos += 4
-    if header_len > 0
-        copyto!(buf, pos + 1, header_buf, 1, header_len)
-    end
-    pos += header_len
-    SBE.encode_value_le(UInt32, buf, pos, UInt32(payload_len))
-    pos += 4
-    if payload_len > 0
-        copyto!(buf, pos + 1, payload_buf, payload_offset + 1, payload_len)
-    end
-    pos += payload_len
-    BridgeFrameChunk.sbe_position!(encoder, pos)
-    return nothing
-end
-
-"""
 Reset assembly state for a new frame.
 """
 @inline function reset_bridge_assembly!(
@@ -646,14 +617,14 @@ function bridge_send_frame!(state::BridgeSenderState, desc::FrameDescriptor.Deco
                 state.chunk_encoder,
                 header_included ? BridgeBool.TRUE : BridgeBool.FALSE,
             )
-            bridge_write_var_data!(
-                state.chunk_encoder,
-                state.header_buf,
-                header_len,
-                payload_mmap,
-                payload_base + chunk_offset,
-                chunk_len,
-            )
+            if header_included
+                header_view = BridgeFrameChunk.headerBytes_buffer!(state.chunk_encoder, HEADER_SLOT_BYTES)
+                copyto!(header_view, 1, state.header_buf, 1, HEADER_SLOT_BYTES)
+            else
+                BridgeFrameChunk.headerBytes_length!(state.chunk_encoder, 0)
+            end
+            payload_view = BridgeFrameChunk.payloadBytes_buffer!(state.chunk_encoder, chunk_len)
+            copyto!(payload_view, 1, payload_mmap, payload_base + chunk_offset + 1, chunk_len)
         end
         sent || return false
     end
