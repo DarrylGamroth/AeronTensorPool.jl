@@ -122,11 +122,13 @@ function init_producer(config::ProducerConfig)
         metrics,
         UInt64(1),
         UInt64(0),
+        true,
         false,
         config.progress_interval_ns,
         config.progress_bytes_delta,
         true,
         nothing,
+        Int64(0),
         timer_set,
     )
 
@@ -171,6 +173,62 @@ function producer_config_from_attach(config::ProducerConfig, attach::AttachRespo
 end
 
 """
+Map driver-provisioned SHM regions for a producer config.
+"""
+function map_producer_from_attach(config::ProducerConfig, attach::AttachResponseInfo)
+    attach.code == DriverResponseCode.OK || return nothing
+    attach.header_slot_bytes == UInt16(HEADER_SLOT_BYTES) || return nothing
+
+    header_size = SUPERBLOCK_SIZE + Int(config.nslots) * HEADER_SLOT_BYTES
+    header_mmap = mmap_shm_existing(config.header_uri, header_size; write = true)
+
+    sb_dec = ShmRegionSuperblock.Decoder(Vector{UInt8})
+    wrap_superblock!(sb_dec, header_mmap, 0)
+    header_fields = try
+        read_superblock(sb_dec)
+    catch
+        return nothing
+    end
+    header_ok = validate_superblock_fields(
+        header_fields;
+        expected_layout_version = config.layout_version,
+        expected_epoch = attach.epoch,
+        expected_stream_id = config.stream_id,
+        expected_nslots = config.nslots,
+        expected_slot_bytes = UInt32(HEADER_SLOT_BYTES),
+        expected_region_type = RegionType.HEADER_RING,
+        expected_pool_id = UInt16(0),
+    )
+    header_ok || return nothing
+
+    payload_mmaps = Dict{UInt16, Vector{UInt8}}()
+    for pool in config.payload_pools
+        pool_size = SUPERBLOCK_SIZE + Int(pool.nslots) * Int(pool.stride_bytes)
+        pmmap = mmap_shm_existing(pool.uri, pool_size; write = true)
+        wrap_superblock!(sb_dec, pmmap, 0)
+        pool_fields = try
+            read_superblock(sb_dec)
+        catch
+            return nothing
+        end
+        pool_ok = validate_superblock_fields(
+            pool_fields;
+            expected_layout_version = config.layout_version,
+            expected_epoch = attach.epoch,
+            expected_stream_id = config.stream_id,
+            expected_nslots = pool.nslots,
+            expected_slot_bytes = pool.stride_bytes,
+            expected_region_type = RegionType.PAYLOAD_POOL,
+            expected_pool_id = pool.pool_id,
+        )
+        pool_ok || return nothing
+        payload_mmaps[pool.pool_id] = pmmap
+    end
+
+    return ProducerMappings(header_mmap, payload_mmaps)
+end
+
+"""
 Initialize a producer using driver-provisioned SHM regions.
 """
 function init_producer_from_attach(
@@ -190,43 +248,8 @@ function init_producer_from_attach(
     clock = Clocks.CachedEpochClock(Clocks.MonotonicClock())
     fetch!(clock)
 
-    header_size = SUPERBLOCK_SIZE + Int(driver_config.nslots) * HEADER_SLOT_BYTES
-    header_mmap = mmap_shm(driver_config.header_uri, header_size; write = true)
-
-    sb_dec = ShmRegionSuperblock.Decoder(Vector{UInt8})
-    wrap_superblock!(sb_dec, header_mmap, 0)
-    header_fields = read_superblock(sb_dec)
-    header_ok = validate_superblock_fields(
-        header_fields;
-        expected_layout_version = driver_config.layout_version,
-        expected_epoch = attach.epoch,
-        expected_stream_id = driver_config.stream_id,
-        expected_nslots = driver_config.nslots,
-        expected_slot_bytes = UInt32(HEADER_SLOT_BYTES),
-        expected_region_type = RegionType.HEADER_RING,
-        expected_pool_id = UInt16(0),
-    )
-    header_ok || throw(ArgumentError("header superblock validation failed"))
-
-    payload_mmaps = Dict{UInt16, Vector{UInt8}}()
-    for pool in driver_config.payload_pools
-        pool_size = SUPERBLOCK_SIZE + Int(pool.nslots) * Int(pool.stride_bytes)
-        pmmap = mmap_shm(pool.uri, pool_size; write = true)
-        wrap_superblock!(sb_dec, pmmap, 0)
-        pool_fields = read_superblock(sb_dec)
-        pool_ok = validate_superblock_fields(
-            pool_fields;
-            expected_layout_version = driver_config.layout_version,
-            expected_epoch = attach.epoch,
-            expected_stream_id = driver_config.stream_id,
-            expected_nslots = pool.nslots,
-            expected_slot_bytes = pool.stride_bytes,
-            expected_region_type = RegionType.PAYLOAD_POOL,
-            expected_pool_id = pool.pool_id,
-        )
-        pool_ok || throw(ArgumentError("payload superblock validation failed"))
-        payload_mmaps[pool.pool_id] = pmmap
-    end
+    mappings = map_producer_from_attach(driver_config, attach)
+    mappings === nothing && throw(ArgumentError("payload superblock validation failed"))
 
     ctx = Aeron.Context()
     set_aeron_dir!(ctx, driver_config.aeron_dir)
@@ -266,7 +289,6 @@ function init_producer_from_attach(
         Aeron.BufferClaim(),
         ConsumerHello.Decoder(UnsafeArrays.UnsafeArray{UInt8, 1}),
     )
-    mappings = ProducerMappings(header_mmap, payload_mmaps)
     metrics = ProducerMetrics(UInt64(0), UInt64(0), UInt64(0), UInt64(0))
     state = ProducerState(
         driver_config,
@@ -276,14 +298,87 @@ function init_producer_from_attach(
         metrics,
         attach.epoch,
         UInt64(0),
+        true,
         false,
         driver_config.progress_interval_ns,
         driver_config.progress_bytes_delta,
         false,
         driver_client,
+        Int64(0),
         timer_set,
     )
     return state
+end
+
+"""
+Remap producer SHM and epoch from a driver attach response.
+"""
+function remap_producer_from_attach!(state::ProducerState, attach::AttachResponseInfo)
+    attach.code == DriverResponseCode.OK || return false
+    driver_config = producer_config_from_attach(state.config, attach)
+    ispow2(driver_config.nslots) || return false
+    for pool in driver_config.payload_pools
+        pool.nslots == driver_config.nslots || return false
+    end
+
+    mappings = map_producer_from_attach(driver_config, attach)
+    mappings === nothing && return false
+
+    state.config = driver_config
+    state.mappings = mappings
+    state.epoch = attach.epoch
+    state.seq = UInt64(0)
+    state.emit_announce = false
+    state.driver_active = true
+    return true
+end
+
+@inline function producer_driver_active(state::ProducerState)
+    dc = state.driver_client
+    dc === nothing && return true
+    return state.driver_active && dc.lease_id != 0 && !dc.revoked && !dc.shutdown
+end
+
+"""
+Handle driver revocations and reattach when a lease is invalidated.
+"""
+function handle_driver_events!(state::ProducerState, now_ns::UInt64)
+    dc = state.driver_client
+    dc === nothing && return 0
+    work_count = 0
+
+    if dc.revoked || dc.shutdown
+        state.driver_active = false
+    end
+
+    if !state.driver_active && state.pending_attach_id == 0
+        cid = send_attach_request!(
+            dc;
+            stream_id = state.config.stream_id,
+            expected_layout_version = state.config.layout_version,
+            max_dims = state.config.max_dims,
+            publish_mode = DriverPublishMode.REQUIRE_EXISTING,
+        )
+        if cid != 0
+            state.pending_attach_id = cid
+            work_count += 1
+        end
+    end
+
+    if state.pending_attach_id != 0
+        attach = dc.poller.last_attach
+        if attach !== nothing && attach.correlation_id == state.pending_attach_id
+            state.pending_attach_id = Int64(0)
+            if attach.code == DriverResponseCode.OK
+                apply_attach!(dc, attach)
+                state.driver_active = remap_producer_from_attach!(state, attach)
+                state.driver_active || (dc.lease_id = UInt64(0))
+            else
+                state.driver_active = false
+            end
+        end
+    end
+    return work_count
 end
 
 function encode_frame_descriptor!(
@@ -314,6 +409,7 @@ function publish_frame!(
     dtype::Dtype.SbeEnum,
     meta_version::UInt32,
 )
+    producer_driver_active(state) || return false
     fetch!(state.clock)
 
     seq = state.seq
@@ -487,6 +583,7 @@ end
 Reserve a payload slot and return a SlotReservation for external filling.
 """
 function reserve_slot!(state::ProducerState, pool_id::UInt16)
+    producer_driver_active(state) || error("driver lease inactive")
     pool = payload_pool_config(state, pool_id)
     pool === nothing && error("Unknown pool_id: $pool_id")
 
@@ -513,6 +610,7 @@ function publish_reservation!(
     dtype::Dtype.SbeEnum,
     meta_version::UInt32,
 )
+    producer_driver_active(state) || return false
     pool = payload_pool_config(state, reservation.pool_id)
     pool === nothing && return false
     values_len <= reservation.stride_bytes || return false
@@ -580,6 +678,7 @@ function publish_frame_from_slot!(
     dtype::Dtype.SbeEnum,
     meta_version::UInt32,
 )
+    producer_driver_active(state) || return false
     fetch!(state.clock)
 
     seq = state.seq

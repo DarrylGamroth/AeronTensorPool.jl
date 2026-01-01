@@ -65,7 +65,7 @@ function init_consumer(config::ConsumerConfig)
         UInt64(0),
         UInt64(0),
     )
-    return ConsumerState(config, clock, runtime, mappings, metrics, nothing, timer_set)
+    return ConsumerState(config, clock, runtime, mappings, metrics, nothing, true, Int64(0), timer_set)
 end
 
 """
@@ -82,7 +82,69 @@ function init_consumer_from_attach(
     ok = map_from_attach_response!(state, attach)
     ok || throw(ArgumentError("failed to map SHM from attach"))
     state.driver_client = driver_client
+    state.driver_active = true
     return state
+end
+
+@inline function consumer_driver_active(state::ConsumerState)
+    dc = state.driver_client
+    dc === nothing && return true
+    return state.driver_active && dc.lease_id != 0 && !dc.revoked && !dc.shutdown
+end
+
+"""
+Remap consumer SHM from a driver attach response.
+"""
+function remap_consumer_from_attach!(state::ConsumerState, attach::AttachResponseInfo)
+    reset_mappings!(state)
+    state.config.use_shm = true
+    ok = map_from_attach_response!(state, attach)
+    state.driver_active = ok
+    return ok
+end
+
+"""
+Handle driver revocations and reattach when a lease is invalidated.
+"""
+function handle_driver_events!(state::ConsumerState, now_ns::UInt64)
+    dc = state.driver_client
+    dc === nothing && return 0
+    work_count = 0
+
+    if dc.revoked || dc.shutdown
+        state.driver_active = false
+        reset_mappings!(state)
+    end
+
+    if !state.driver_active && state.pending_attach_id == 0
+        cid = send_attach_request!(
+            dc;
+            stream_id = state.config.stream_id,
+            expected_layout_version = state.config.expected_layout_version,
+            max_dims = state.config.max_dims,
+            publish_mode = DriverPublishMode.REQUIRE_EXISTING,
+            require_hugepages = state.config.require_hugepages,
+        )
+        if cid != 0
+            state.pending_attach_id = cid
+            work_count += 1
+        end
+    end
+
+    if state.pending_attach_id != 0
+        attach = dc.poller.last_attach
+        if attach !== nothing && attach.correlation_id == state.pending_attach_id
+            state.pending_attach_id = Int64(0)
+            if attach.code == DriverResponseCode.OK
+                apply_attach!(dc, attach)
+                state.driver_active = remap_consumer_from_attach!(state, attach)
+                state.driver_active || (dc.lease_id = UInt64(0))
+            else
+                state.driver_active = false
+            end
+        end
+    end
+    return work_count
 end
 
 @inline function should_process(state::ConsumerState, seq::UInt64)
@@ -417,6 +479,7 @@ Handle ShmPoolAnnounce updates, remapping on epoch/layout changes.
 """
 function handle_shm_pool_announce!(state::ConsumerState, msg::ShmPoolAnnounce.Decoder)
     ShmPoolAnnounce.streamId(msg) == state.config.stream_id || return false
+    consumer_driver_active(state) || return false
     ShmPoolAnnounce.layoutVersion(msg) == state.config.expected_layout_version || return false
     if ShmPoolAnnounce.maxDims(msg) != state.config.max_dims
         if !isempty(state.config.payload_fallback_uri)
@@ -630,6 +693,7 @@ function try_read_frame!(
     state::ConsumerState,
     desc::FrameDescriptor.Decoder,
 )
+    consumer_driver_active(state) || return nothing
     state.mappings.header_mmap === nothing && return nothing
     FrameDescriptor.epoch(desc) == state.mappings.mapped_epoch || return nothing
     seq = FrameDescriptor.seq(desc)

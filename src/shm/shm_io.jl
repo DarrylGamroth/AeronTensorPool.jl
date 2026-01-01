@@ -444,6 +444,21 @@ function mmap_shm(uri::String, size::Integer; write::Bool = false)
 end
 
 """
+Map an existing SHM region without truncating the backing file.
+"""
+function mmap_shm_existing(uri::String, size::Integer; write::Bool = false)
+    parsed = parse_shm_uri(uri)
+    if parsed.require_hugepages
+        is_hugetlbfs_path(parsed.path) || throw(ShmValidationError("hugetlbfs mount required for path: $(parsed.path)"))
+        hugepage_size_bytes() > 0 || throw(ShmValidationError("hugetlbfs mount has unknown hugepage size"))
+    end
+    open(parsed.path, write ? "r+" : "r") do io
+        filesize(io) >= size || throw(ShmValidationError("shm file smaller than requested size"))
+        return Mmap.mmap(io, Vector{UInt8}, size; grow = false, shared = true)
+    end
+end
+
+"""
 Pick the smallest payload pool that can fit values_len.
 """
 function select_pool(pools::AbstractVector{PayloadPoolConfig}, values_len::Integer)

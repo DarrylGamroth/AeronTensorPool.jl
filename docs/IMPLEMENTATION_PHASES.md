@@ -182,7 +182,7 @@ Spec refs
 - Wire: 15.21, 15.21a
 
 Status
-- In progress (driver client API, attach mapping helpers, and keepalive polling integrated).
+- Complete (driver-aware producer/consumer flows, lease revoke reattach, integration tests for driver mode).
 
 ## Phase 8 - Tooling and Ops
 

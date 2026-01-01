@@ -27,7 +27,7 @@ function init_driver_client(
     control_stream_id::Int32,
     client_id::UInt32,
     role::DriverRole.SbeEnum;
-    keepalive_interval_ns::UInt64 = 1_000_000_000,
+    keepalive_interval_ns::UInt64 = UInt64(1_000_000_000),
 )
     pub = Aeron.add_publication(client, control_channel, control_stream_id)
     sub = Aeron.add_subscription(client, control_channel, control_stream_id)
@@ -47,6 +47,16 @@ function init_driver_client(
         false,
         false,
     )
+end
+
+@inline function apply_attach!(state::DriverClientState, attach::AttachResponseInfo)
+    if attach.code == DriverResponseCode.OK
+        state.lease_id = attach.lease_id
+        state.stream_id = attach.stream_id
+        state.revoked = false
+        state.shutdown = false
+    end
+    return nothing
 end
 
 @inline function next_correlation_id!(state::DriverClientState)
@@ -125,10 +135,7 @@ function await_attach!(
         driver_client_do_work!(state, now_ns)
         if state.poller.last_attach !== nothing &&
            state.poller.last_attach.correlation_id == correlation_id
-            if state.poller.last_attach.code == DriverResponseCode.OK
-                state.lease_id = state.poller.last_attach.lease_id
-                state.stream_id = state.poller.last_attach.stream_id
-            end
+            apply_attach!(state, state.poller.last_attach)
             return state.poller.last_attach
         end
         yield()
