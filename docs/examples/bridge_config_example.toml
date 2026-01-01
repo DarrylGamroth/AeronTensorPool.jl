@@ -35,3 +35,16 @@ source_stream_id = 1002
 dest_stream_id = 2002
 profile = "processed_profile"
 metadata_stream_id = 2002
+
+# Bidirectional example: add reverse mappings to the same bridge instance
+[[mappings]]
+source_stream_id = 1101
+dest_stream_id = 2101
+profile = "processed_profile"
+metadata_stream_id = 2101
+
+[[mappings]]
+source_stream_id = 1102
+dest_stream_id = 2102
+profile = "processed_profile"
+metadata_stream_id = 2102
