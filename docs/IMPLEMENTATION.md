@@ -124,9 +124,12 @@ For a combined wire + driver overview, see `docs/IMPLEMENTATION_GUIDE.md`.
 - Optional VS Code task/make target: regenerate codec, then `julia --project -e 'using Pkg; Pkg.test()'` or run agents.
 - Tooling: `scripts/run_tests.sh` wraps the full test run for CI/local workflows.
 - Control CLI: `scripts/tp_tool.jl send-consumer-config` can push ConsumerConfig on the control stream.
+- Driver CLI: `scripts/tp_tool.jl driver-attach|driver-keepalive|driver-detach` exercise the driver control plane.
 - Role runner: `scripts/run_role.jl <producer|consumer|supervisor> [config]` starts a single agent with polling loop.
 - Multi-role runner: `scripts/run_all.sh <config>` launches producer/consumer/supervisor in one shell with a shared config.
+- Driver multi-role runner: `scripts/run_all_driver.sh <config>` launches driver + supervisor + producer + consumer.
 - System smoke test: `scripts/run_system_smoke.jl [config] [timeout_s]` runs a full in-process system using an embedded media driver.
+- Driver smoke test: `scripts/run_driver_smoke.jl` runs an embedded media driver plus the SHM driver and exercises attach/keepalive/detach via the CLI.
 - Optional CI/system test: `TP_RUN_SYSTEM_SMOKE=true julia --project -e 'using Pkg; Pkg.test()'` runs the end-to-end smoke test.
 - Optional GC monitor: `TP_RUN_SYSTEM_SMOKE_GC=true TP_GC_MONITOR_ITERS=2000 TP_GC_ALLOC_LIMIT_BYTES=50000000 julia --project -e 'using Pkg; Pkg.test()'` runs the E2E loop and asserts GC allocation growth stays below the limit.
 

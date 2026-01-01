@@ -135,6 +135,7 @@ Tooling:
 - Example driver config: `docs/examples/driver_camera_example.toml` and `docs/EXAMPLE_Camera_Pipeline.md`.
   - `scripts/tp_tool.jl` supports driver attach/detach/keepalive, URI validation, and superblock/header reads.
   - `scripts/run_all_driver.sh` launches driver + supervisor + producer + consumer.
+  - `scripts/run_driver_smoke.jl` runs a minimal driver attach/keepalive/detach flow.
 
 Testing:
 - Unit tests for SHM validation, seqlock behavior, URI parsing.

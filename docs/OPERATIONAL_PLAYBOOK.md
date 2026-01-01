@@ -62,3 +62,13 @@ Suggested thresholds (tune per deployment)
 - Confirm descriptor/control/QoS stream IDs align across roles.
 - Check that consumers remap after epoch changes and drop in-flight frames.
 - Verify that payload_slot == header_index for v1.1 mapping.
+
+## CLI Examples (Driver Control Plane)
+Attach (producer role):
+- `julia --project scripts/tp_tool.jl driver-attach /dev/shm/aeron aeron:ipc 1000 7 producer 42`
+
+Keepalive:
+- `julia --project scripts/tp_tool.jl driver-keepalive /dev/shm/aeron aeron:ipc 1000 7 producer 42 123`
+
+Detach:
+- `julia --project scripts/tp_tool.jl driver-detach /dev/shm/aeron aeron:ipc 1000 7 producer 42 123`
