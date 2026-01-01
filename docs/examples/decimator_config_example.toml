@@ -1,0 +1,22 @@
+# Example Decimator Configuration
+
+[decimator]
+instance_id = "decimator-01"
+descriptor_channel = "aeron:ipc"
+descriptor_stream_id = 2100
+forward_metadata = true
+mode = "every_n"
+
+[[mappings]]
+source_stream_id = 1001
+dest_stream_id = 2001
+profile = "processed_profile"
+decimation = 4
+metadata_stream_id = 2001
+
+[[mappings]]
+source_stream_id = 1002
+dest_stream_id = 2002
+profile = "processed_profile"
+decimation = 2
+metadata_stream_id = 2002
