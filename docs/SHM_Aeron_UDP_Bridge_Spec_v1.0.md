@@ -41,7 +41,7 @@ The Bridge Receiver subscribes to bridge payload chunks, reconstructs frames, wr
 
 - The bridge uses Aeron UDP channels (e.g., `aeron:udp?endpoint=...`).
 - Multicast is supported and MAY be used for one-to-many fan-out (use a multicast endpoint address in the UDP channel).
-- When using multicast, each receiver independently reconstructs frames into its local SHM pool; receivers do not coordinate.
+- When using multicast, each receiver independently reconstructs frames into its local SHM pool; receivers do not coordinate and must apply the same out-of-order/duplicate handling rules.
 - The bridge does not expose the SHM Driver over the network; each host runs its own driver with local SHM pools.
 - The bridge is lossy: if any chunk is missing, the frame is dropped.
 
@@ -86,6 +86,7 @@ The bridge transports frames as a sequence of chunks. Each chunk carries a small
 - `chunkCount` MUST NOT exceed 65535.
 - `chunkIndex` MUST be < `chunkCount`.
 - For `chunkIndex==0`, `headerIncluded` MUST be TRUE and `headerBytes` MUST contain the full 256-byte `TensorSlotHeader256`.
+- For `chunkIndex==0`, `chunkOffset` MUST be 0.
 - For `chunkIndex>0`, `headerIncluded` MUST be FALSE.
 - `chunkOffset` and `chunkLength` MUST describe a non-overlapping slice of the payload.
 - The sum of all `chunkLength` values MUST equal `payloadLength`.
@@ -108,6 +109,8 @@ If any chunk is missing or inconsistent, the receiver MUST drop the frame and MU
 
 Receivers MUST apply a per-stream frame assembly timeout (RECOMMENDED: 100-500 ms). Incomplete frames exceeding this timeout MUST be dropped and their stored chunks freed.
 
+The timeout SHOULD be configurable via `bridge.assembly_timeout_ms`.
+
 ### 5.4 Integrity (Informative)
 
 The bridge assumes Aeron UDP reliability. If additional integrity is required, deployments MAY add an out-of-band CRC32C policy or a future schema version with checksums; this v1.0 spec does not require per-chunk or per-frame CRCs.
@@ -119,13 +122,15 @@ The bridge assumes Aeron UDP reliability. If additional integrity is required, d
 Upon receiving all chunks for a frame:
 
 1. Validate `streamId`, `epoch`, `seq`, and chunk consistency.
-2. Validate the header: `values_len_bytes` MUST equal `payloadLength`; `ndims`, `dtype`, and `dims` MUST be within local limits; malformed headers MUST be dropped.
-3. Validate `headerBytes.pool_id` against the source pool range from the most recent forwarded `ShmPoolAnnounce` for the mapping; invalid pool IDs MUST be dropped.
-4. Select the local payload pool and slot using configured mapping rules (e.g., smallest stride >= `payloadLength`). If no local pool can fit the payload, or if `payloadLength` exceeds the largest local `stride_bytes`, the receiver MUST drop the frame.
-5. Write payload bytes into the selected local SHM payload pool.
-6. Write the `TensorSlotHeader256` into the local header ring (with `frame_id` and `seq` preserved), but override `pool_id` and `payload_slot` to match the local mapping. The receiver MUST ignore source `pool_id` and `payload_slot` values.
-7. Commit via the standard `commit_word` protocol.
-8. Publish a local `FrameDescriptor` on the receiver's descriptor stream.
+2. Drop frames until at least one `ShmPoolAnnounce` has been received for the mapping; receivers MUST NOT accept payloads without a source pool announce.
+3. Validate the header: `values_len_bytes` MUST equal `payloadLength`; `ndims`, `dtype`, and `dims` MUST be within local limits; malformed headers MUST be dropped.
+4. Validate `headerBytes.pool_id` against the source pool range from the most recent forwarded `ShmPoolAnnounce` for the mapping; invalid pool IDs MUST be dropped.
+5. Validate `payloadLength` against the source pool stride (from the forwarded announce); if `payloadLength` exceeds the source `stride_bytes`, the frame MUST be dropped.
+6. Select the local payload pool and slot using configured mapping rules (e.g., smallest stride >= `payloadLength`). If no local pool can fit the payload, or if `payloadLength` exceeds the largest local `stride_bytes`, the receiver MUST drop the frame.
+7. Write payload bytes into the selected local SHM payload pool.
+8. Write the `TensorSlotHeader256` into the local header ring (with `frame_id` and `seq` preserved), but override `pool_id` and `payload_slot` to match the local mapping. The receiver MUST ignore source `pool_id` and `payload_slot` values.
+9. Commit via the standard `commit_word` protocol.
+10. Publish a local `FrameDescriptor` on the receiver's descriptor stream.
 
 The receiver MUST treat `headerBytes.frame_id` as the canonical frame identity and MUST ensure it matches `seq`.
 
@@ -133,7 +138,7 @@ The receiver MUST treat `headerBytes.frame_id` as the canonical frame identity a
 
 ## 7. Descriptor Semantics (Normative)
 
-The bridge receiver publishes a standard `FrameDescriptor` for the re-materialized frame. `headerIndex` and `payloadSlot` refer to the receiver's local SHM pools. The receiver MUST publish `FrameDescriptor` on a local IPC channel per the wire specification.
+The bridge receiver publishes a standard `FrameDescriptor` for the re-materialized frame. `headerIndex` and `payloadSlot` refer to the receiver's local SHM pools. The receiver MUST publish `FrameDescriptor` on its standard local IPC descriptor channel and stream for `dest_stream_id` (per the wire specification), unless explicitly overridden by deployment configuration.
 
 Bridge senders MUST NOT publish local `FrameDescriptor` messages over UDP; only `BridgeFrameChunk` messages are carried over the bridge transport.
 
@@ -180,9 +185,12 @@ Required keys:
 Optional keys and defaults:
 
 - `bridge.mtu_bytes` (uint32): MTU used to size chunks. Default: Aeron channel MTU.
-- `bridge.chunk_bytes` (uint32): payload bytes per chunk. Default: derived from MTU.
+- `bridge.chunk_bytes` (uint32): payload bytes per chunk. Default: `min(bridge.chunk_bytes, bridge.mtu_bytes - 128)` when set; otherwise `bridge.mtu_bytes - 128`.
 - `bridge.forward_metadata` (bool): forward `DataSourceAnnounce`/`DataSourceMeta`. Default: `true`.
 - `bridge.forward_qos` (bool): forward QoS messages. Default: `false`.
+- `bridge.assembly_timeout_ms` (uint32): per-stream frame assembly timeout. Default: `250`.
+
+The bridge control channel is used for forwarding `ShmPoolAnnounce` and, when enabled, QoS messages.
 
 Each `mappings` entry:
 
@@ -218,6 +226,11 @@ Example config: `docs/examples/bridge_config_example.toml`.
       <type name="varData" primitiveType="uint8" length="0"/>
     </composite>
 
+    <composite name="varDataEncoding256">
+      <type name="length"  primitiveType="uint32" maxValue="256"/>
+      <type name="varData" primitiveType="uint8" length="0"/>
+    </composite>
+
     <enum name="Bool" encodingType="uint8">
       <validValue name="FALSE">0</validValue>
       <validValue name="TRUE">1</validValue>
@@ -228,13 +241,13 @@ Example config: `docs/examples/bridge_config_example.toml`.
     <field name="streamId"       id="1" type="uint32"/>
     <field name="epoch"          id="2" type="uint64"/>
     <field name="seq"            id="3" type="uint64"/>
-    <field name="chunkIndex"     id="4" type="uint32"/>
-    <field name="chunkCount"     id="5" type="uint32"/>
+    <field name="chunkIndex"     id="4" type="uint32" maxValue="65535"/>
+    <field name="chunkCount"     id="5" type="uint32" maxValue="65535"/>
     <field name="chunkOffset"    id="6" type="uint32"/>
-    <field name="chunkLength"    id="7" type="uint32"/>
-    <field name="payloadLength"  id="8" type="uint32"/>
+    <field name="chunkLength"    id="7" type="uint32" maxValue="1073741824"/>
+    <field name="payloadLength"  id="8" type="uint32" maxValue="1073741824"/>
     <field name="headerIncluded" id="9" type="Bool"/>
-    <data  name="headerBytes"    id="10" type="varDataEncoding"/>
+    <data  name="headerBytes"    id="10" type="varDataEncoding256"/>
     <data  name="payloadBytes"   id="11" type="varDataEncoding"/>
   </sbe:message>
 
