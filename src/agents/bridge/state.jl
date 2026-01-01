@@ -31,6 +31,7 @@ mutable struct BridgeConfig
     control_stream_id::Int32
     metadata_channel::String
     metadata_stream_id::Int32
+    source_metadata_stream_id::Int32
     source_qos_stream_id::Int32
     dest_qos_stream_id::Int32
     mtu_bytes::UInt32
@@ -88,11 +89,14 @@ mutable struct BridgeSenderState
     metadata_claim::Aeron.BufferClaim
     metadata_announce_encoder::DataSourceAnnounce.Encoder{UnsafeArrays.UnsafeArray{UInt8, 1}}
     metadata_meta_encoder::DataSourceMeta.Encoder{UnsafeArrays.UnsafeArray{UInt8, 1}}
-    header_decoder::TensorSlotHeader256.Decoder{UnsafeArrays.UnsafeArray{UInt8, 1}}
+    header_decoder::TensorSlotHeader256.Decoder{Vector{UInt8}}
     header_buf::Vector{UInt8}
     scratch_dims::Vector{Int32}
     scratch_strides::Vector{Int32}
     last_announce_epoch::UInt64
+    sub_control::Aeron.Subscription
+    control_assembler::Aeron.FragmentAssembler
+    announce_decoder::ShmPoolAnnounce.Decoder{UnsafeArrays.UnsafeArray{UInt8, 1}}
     sub_metadata::Union{Nothing, Aeron.Subscription}
     metadata_assembler::Union{Nothing, Aeron.FragmentAssembler}
     metadata_announce_decoder::DataSourceAnnounce.Decoder{UnsafeArrays.UnsafeArray{UInt8, 1}}
@@ -115,6 +119,7 @@ mutable struct BridgeReceiverState
     client::Aeron.Client
     clock::Clocks.AbstractClock
     now_ns::UInt64
+    producer_state::Union{Nothing, ProducerState}
     sub_payload::Aeron.Subscription
     payload_assembler::Aeron.FragmentAssembler
     sub_control::Aeron.Subscription
@@ -135,7 +140,9 @@ mutable struct BridgeReceiverState
     qos_consumer_decoder::QosConsumer.Decoder{UnsafeArrays.UnsafeArray{UInt8, 1}}
     chunk_decoder::BridgeFrameChunk.Decoder{UnsafeArrays.UnsafeArray{UInt8, 1}}
     announce_decoder::ShmPoolAnnounce.Decoder{UnsafeArrays.UnsafeArray{UInt8, 1}}
-    header_decoder::TensorSlotHeader256.Decoder{UnsafeArrays.UnsafeArray{UInt8, 1}}
+    header_decoder::TensorSlotHeader256.Decoder{Vector{UInt8}}
+    scratch_dims::Vector{Int32}
+    scratch_strides::Vector{Int32}
     source_info::BridgeSourceInfo
     assembly::BridgeAssembly
     have_announce::Bool

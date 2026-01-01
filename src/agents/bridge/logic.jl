@@ -101,12 +101,13 @@ function init_bridge_sender(consumer_state::ConsumerState, config::BridgeConfig,
 
     pub_payload = Aeron.add_publication(client, config.payload_channel, config.payload_stream_id)
     pub_control = Aeron.add_publication(client, config.control_channel, config.control_stream_id)
+    sub_control = Aeron.add_subscription(client, consumer_state.config.aeron_uri, consumer_state.config.control_stream_id)
     pub_metadata = nothing
     sub_metadata = nothing
     metadata_assembler = nothing
     if config.forward_metadata && !isempty(config.metadata_channel)
         pub_metadata = Aeron.add_publication(client, config.metadata_channel, config.metadata_stream_id)
-        sub_metadata = Aeron.add_subscription(client, consumer_state.config.aeron_uri, config.metadata_stream_id)
+        sub_metadata = Aeron.add_subscription(client, consumer_state.config.aeron_uri, config.source_metadata_stream_id)
     end
     sub_qos = nothing
     qos_assembler = nothing
@@ -130,11 +131,14 @@ function init_bridge_sender(consumer_state::ConsumerState, config::BridgeConfig,
         Aeron.BufferClaim(),
         DataSourceAnnounce.Encoder(UnsafeArrays.UnsafeArray{UInt8, 1}),
         DataSourceMeta.Encoder(UnsafeArrays.UnsafeArray{UInt8, 1}),
-        TensorSlotHeader256.Decoder(UnsafeArrays.UnsafeArray{UInt8, 1}),
+        TensorSlotHeader256.Decoder(Vector{UInt8}),
         Vector{UInt8}(undef, HEADER_SLOT_BYTES),
         Vector{Int32}(undef, MAX_DIMS),
         Vector{Int32}(undef, MAX_DIMS),
         UInt64(0),
+        sub_control,
+        Aeron.FragmentAssembler(Aeron.FragmentHandler((_, _, _) -> nothing)),
+        ShmPoolAnnounce.Decoder(UnsafeArrays.UnsafeArray{UInt8, 1}),
         sub_metadata,
         metadata_assembler,
         DataSourceAnnounce.Decoder(UnsafeArrays.UnsafeArray{UInt8, 1}),
@@ -152,13 +156,18 @@ function init_bridge_sender(consumer_state::ConsumerState, config::BridgeConfig,
     if sub_qos !== nothing
         state.qos_assembler = make_bridge_qos_sender_assembler(state)
     end
+    state.control_assembler = make_bridge_control_sender_assembler(state)
     return state
 end
 
 """
 Initialize a bridge receiver for a single mapping.
 """
-function init_bridge_receiver(config::BridgeConfig, mapping::BridgeMapping)
+function init_bridge_receiver(
+    config::BridgeConfig,
+    mapping::BridgeMapping;
+    producer_state::Union{Nothing, ProducerState} = nothing,
+)
     ctx = Aeron.Context()
     set_aeron_dir!(ctx, config.aeron_dir)
     client = Aeron.Client(ctx)
@@ -208,6 +217,7 @@ function init_bridge_receiver(config::BridgeConfig, mapping::BridgeMapping)
         client,
         clock,
         UInt64(0),
+        producer_state,
         sub_payload,
         Aeron.FragmentAssembler(Aeron.FragmentHandler((_, _, _) -> nothing)),
         sub_control,
@@ -228,7 +238,9 @@ function init_bridge_receiver(config::BridgeConfig, mapping::BridgeMapping)
         QosConsumer.Decoder(UnsafeArrays.UnsafeArray{UInt8, 1}),
         BridgeFrameChunk.Decoder(UnsafeArrays.UnsafeArray{UInt8, 1}),
         ShmPoolAnnounce.Decoder(UnsafeArrays.UnsafeArray{UInt8, 1}),
-        TensorSlotHeader256.Decoder(UnsafeArrays.UnsafeArray{UInt8, 1}),
+        TensorSlotHeader256.Decoder(Vector{UInt8}),
+        Vector{Int32}(undef, MAX_DIMS),
+        Vector{Int32}(undef, MAX_DIMS),
         source_info,
         assembly,
         false,
@@ -473,6 +485,85 @@ function bridge_publish_qos_consumer!(state::BridgeReceiverState, msg::QosConsum
         QosConsumer.mode!(enc, QosConsumer.mode(msg))
     end
     return sent
+end
+
+"""
+Rematerialize an assembled bridge frame into local SHM and publish a descriptor.
+"""
+function bridge_rematerialize!(
+    state::BridgeReceiverState,
+    producer_state::ProducerState,
+    frame::BridgeAssembledFrame,
+)
+    producer_driver_active(producer_state) || return false
+    frame.payload_length <= UInt32(length(frame.payload)) || return false
+
+    wrap_tensor_header!(state.header_decoder, frame.header_bytes, 0)
+    frame_id = TensorSlotHeader256.frameId(state.header_decoder)
+    frame_id == frame.seq || return false
+
+    payload_len = Int(frame.payload_length)
+    pool = select_pool(producer_state.config.payload_pools, payload_len)
+    pool === nothing && return false
+    payload_slot = UInt32(frame.seq & (UInt64(producer_state.config.nslots) - 1))
+    payload_slot < pool.nslots || return false
+
+    header_index = payload_slot
+    header_offset = header_slot_offset(header_index)
+    commit_ptr = header_commit_ptr_from_offset(producer_state.mappings.header_mmap, header_offset)
+    seqlock_begin_write!(commit_ptr, frame_id)
+
+    payload_mmap = producer_state.mappings.payload_mmaps[pool.pool_id]
+    payload_offset = payload_slot_offset(pool.stride_bytes, payload_slot)
+    copyto!(payload_mmap, payload_offset + 1, frame.payload, 1, payload_len)
+
+    dims_tuple = TensorSlotHeader256.dims(state.header_decoder, NTuple{MAX_DIMS, Int32})
+    strides_tuple = TensorSlotHeader256.strides(state.header_decoder, NTuple{MAX_DIMS, Int32})
+    @inbounds for i in 1:MAX_DIMS
+        state.scratch_dims[i] = dims_tuple[i]
+        state.scratch_strides[i] = strides_tuple[i]
+    end
+
+    wrap_tensor_header!(producer_state.runtime.header_encoder, producer_state.mappings.header_mmap, header_offset)
+    write_tensor_slot_header!(
+        producer_state.runtime.header_encoder,
+        frame_id,
+        TensorSlotHeader256.timestampNs(state.header_decoder),
+        TensorSlotHeader256.metaVersion(state.header_decoder),
+        UInt32(payload_len),
+        payload_slot,
+        UInt32(0),
+        pool.pool_id,
+        TensorSlotHeader256.dtype(state.header_decoder),
+        TensorSlotHeader256.majorOrder(state.header_decoder),
+        TensorSlotHeader256.ndims(state.header_decoder),
+        state.scratch_dims,
+        state.scratch_strides,
+    )
+
+    seqlock_commit_write!(commit_ptr, frame_id)
+
+    fetch!(producer_state.clock)
+    now_ns = UInt64(Clocks.time_nanos(producer_state.clock))
+    sent = try_claim_sbe!(
+        producer_state.runtime.pub_descriptor,
+        producer_state.runtime.descriptor_claim,
+        FRAME_DESCRIPTOR_LEN,
+    ) do buf
+        FrameDescriptor.wrap_and_apply_header!(producer_state.runtime.descriptor_encoder, buf, 0)
+        encode_frame_descriptor!(producer_state.runtime.descriptor_encoder, producer_state, frame.seq, header_index,
+            TensorSlotHeader256.metaVersion(state.header_decoder), now_ns)
+    end
+    sent || return false
+
+    if producer_state.supports_progress && should_emit_progress!(producer_state, UInt64(payload_len), true)
+        emit_progress_complete!(producer_state, frame_id, header_index, UInt64(payload_len))
+    end
+
+    if frame.seq >= producer_state.seq
+        producer_state.seq = frame.seq + 1
+    end
+    return true
 end
 
 """
@@ -735,7 +826,10 @@ function make_bridge_payload_assembler(state::BridgeReceiverState)
         header = BridgeMessageHeader.Decoder(buffer, 0)
         if BridgeMessageHeader.templateId(header) == TEMPLATE_BRIDGE_FRAME_CHUNK
             BridgeFrameChunk.wrap!(st.chunk_decoder, buffer, 0; header = header)
-            bridge_receive_chunk!(st, st.chunk_decoder, st.now_ns)
+            frame = bridge_receive_chunk!(st, st.chunk_decoder, st.now_ns)
+            if frame !== nothing && st.producer_state !== nothing
+                bridge_rematerialize!(st, st.producer_state, frame)
+            end
         end
         nothing
     end
@@ -758,6 +852,21 @@ function make_bridge_control_assembler(state::BridgeReceiverState)
         elseif template_id == TEMPLATE_QOS_CONSUMER
             QosConsumer.wrap!(st.qos_consumer_decoder, buffer, 0; header = header)
             bridge_publish_qos_consumer!(st, st.qos_consumer_decoder)
+        end
+        nothing
+    end
+    return Aeron.FragmentAssembler(handler)
+end
+
+"""
+Create a FragmentAssembler for forwarding control messages on the sender.
+"""
+function make_bridge_control_sender_assembler(state::BridgeSenderState)
+    handler = Aeron.FragmentHandler(state) do st, buffer, _
+        header = MessageHeader.Decoder(buffer, 0)
+        if MessageHeader.templateId(header) == TEMPLATE_SHM_POOL_ANNOUNCE
+            ShmPoolAnnounce.wrap!(st.announce_decoder, buffer, 0; header = header)
+            bridge_forward_announce!(st, st.announce_decoder)
         end
         nothing
     end
@@ -829,6 +938,7 @@ function bridge_sender_do_work!(
     fragment_limit::Int32 = DEFAULT_FRAGMENT_LIMIT,
 )
     work_count = 0
+    work_count += Aeron.poll(state.sub_control, state.control_assembler, fragment_limit)
     if state.sub_metadata !== nothing && state.metadata_assembler !== nothing
         work_count += Aeron.poll(state.sub_metadata, state.metadata_assembler, fragment_limit)
     end

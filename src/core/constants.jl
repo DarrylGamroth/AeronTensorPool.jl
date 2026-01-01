@@ -21,6 +21,8 @@ const QosProducer = ShmTensorpoolControl.QosProducer
 const ShmPoolAnnounce = ShmTensorpoolControl.ShmPoolAnnounce
 const ShmRegionSuperblock = ShmTensorpoolControl.ShmRegionSuperblock
 const TensorSlotHeader256 = ShmTensorpoolControl.TensorSlotHeader256
+const DataSourceAnnounce = ShmTensorpoolControl.DataSourceAnnounce
+const DataSourceMeta = ShmTensorpoolControl.DataSourceMeta
 
 const DriverMessageHeader = ShmTensorpoolDriver.MessageHeader
 const DriverBool = ShmTensorpoolDriver.Bool_

@@ -11,6 +11,7 @@ control_stream_id = 3001
 # metadata_channel carries DataSourceAnnounce/DataSourceMeta between hosts.
 metadata_channel = "aeron:udp?endpoint=239.1.1.1:40458"
 metadata_stream_id = 3002
+source_metadata_stream_id = 1300
 # control_channel carries forwarded ShmPoolAnnounce and optional QoS.
 mtu_bytes = 1408
 chunk_bytes = 1200
