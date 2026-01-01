@@ -44,6 +44,7 @@ include("agents/producer_agent.jl")
 include("agents/consumer_agent.jl")
 include("agents/supervisor_agent.jl")
 include("agents/driver_agent.jl")
+include("agents/bridge_agent.jl")
 include("config/config_loader.jl")
 
 export Dtype,
@@ -81,6 +82,7 @@ export Dtype,
     SupervisorAgent,
     DriverAgent,
     DriverState,
+    BridgeAgent,
     BridgeConfig,
     BridgeMapping,
     BridgeSourceInfo,
