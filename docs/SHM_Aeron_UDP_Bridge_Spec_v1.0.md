@@ -100,10 +100,11 @@ If any chunk is missing or inconsistent, the receiver MUST drop the frame and MU
 Upon receiving all chunks for a frame:
 
 1. Validate `streamId`, `epoch`, `seq`, and chunk consistency.
-2. Write payload bytes into the local SHM payload pool selected by `payloadLength`.
-3. Write the `TensorSlotHeader256` into the local header ring (with `frame_id` and `seq` preserved).
-4. Commit via the standard `commit_word` protocol.
-5. Publish a local `FrameDescriptor` on the receiver's descriptor stream.
+2. Select the local payload pool and slot using configured mapping rules (e.g., smallest stride >= `payloadLength`).
+3. Write payload bytes into the selected local SHM payload pool.
+4. Write the `TensorSlotHeader256` into the local header ring (with `frame_id` and `seq` preserved), but override `pool_id` and `payload_slot` to match the local mapping.
+5. Commit via the standard `commit_word` protocol.
+6. Publish a local `FrameDescriptor` on the receiver's descriptor stream.
 
 The receiver MUST treat `headerBytes.frame_id` as the canonical frame identity and MUST ensure it matches `seq`.
 
@@ -114,6 +115,12 @@ The receiver MUST treat `headerBytes.frame_id` as the canonical frame identity a
 The bridge receiver publishes a standard `FrameDescriptor` for the re-materialized frame. `headerIndex` and `payloadSlot` refer to the receiver's local SHM pools.
 
 Bridge senders MUST NOT publish local `FrameDescriptor` messages over UDP; only `BridgeFrameChunk` messages are carried over the bridge transport.
+
+---
+
+## 7.1 Metadata Forwarding (Normative)
+
+Bridge instances MUST forward `DataSourceAnnounce` and `DataSourceMeta` from the source stream to the receiver host. Forwarded metadata MUST preserve `stream_id` and `meta_version` to keep re-materialized frames consistent with local consumers.
 
 ---
 
