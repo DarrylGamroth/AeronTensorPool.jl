@@ -203,7 +203,7 @@ Spec refs
 - Wire: 15.13
 
 Status
-- Partial (runner scripts exist; driver tooling pending).
+- Complete (driver CLI utilities, driver run scripts, and ops notes updated).
 
 ## Phase 9 - Tests and Compliance
 

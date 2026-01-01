@@ -133,6 +133,8 @@ Tooling:
 - CLI utilities for attach/detach/keepalive and control messages.
 - Scripts to run producer/consumer/supervisor/driver.
 - Example driver config: `docs/examples/driver_camera_example.toml` and `docs/EXAMPLE_Camera_Pipeline.md`.
+  - `scripts/tp_tool.jl` supports driver attach/detach/keepalive, URI validation, and superblock/header reads.
+  - `scripts/run_all_driver.sh` launches driver + supervisor + producer + consumer.
 
 Testing:
 - Unit tests for SHM validation, seqlock behavior, URI parsing.

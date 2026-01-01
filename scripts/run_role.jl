@@ -3,7 +3,7 @@ using Aeron
 using AeronTensorPool
 
 function usage()
-    println("Usage: julia --project scripts/run_role.jl <producer|consumer|supervisor> [config_path]")
+    println("Usage: julia --project scripts/run_role.jl <producer|consumer|supervisor|driver> [config_path]")
 end
 
 if length(ARGS) < 1
@@ -51,6 +51,17 @@ elseif role == "supervisor"
         end
     catch err
         @info "Supervisor exiting" error = err
+    end
+elseif role == "driver"
+    config = load_driver_config(config_path)
+    state = init_driver(config)
+    try
+        while true
+            work = driver_do_work!(state)
+            work == 0 && yield()
+        end
+    catch err
+        @info "Driver exiting" error = err
     end
 else
     usage()

@@ -4,6 +4,7 @@ This playbook complements the spec and implementation guide with deployment and 
 
 ## Startup Order
 - Start Aeron media driver (embedded or standalone).
+- Start SHM driver (driver mode only).
 - Start supervisor (optional but recommended for liveness/QoS and config).
 - Start producer(s) to publish announces and descriptors.
 - Start consumer(s).
@@ -45,6 +46,15 @@ Suggested thresholds (tune per deployment)
 - Mount hugetlbfs (example): `mount -t hugetlbfs none /dev/hugepages`.
 - Ensure SHM URIs use `require_hugepages=true` only when hugepages are available.
 - Verify stride_bytes is multiple of hugepage size.
+
+## Driver Mode Notes
+- Clients must attach via the SHM driver and MUST NOT create/truncate SHM files.
+- In standalone mode, run the SHM driver in-process (analogous to an embedded driver pattern).
+- Use driver announce/qos streams for operator visibility.
+
+## GC Monitoring (Julia)
+- Track `GC.num()` and `GC.gc_time_ns()` under load for jitter spikes.
+- Use allocation tests and keep hot loops allocation-free after init.
 
 ## Troubleshooting Checklist
 - Verify SHM file paths exist and permissions are correct.
