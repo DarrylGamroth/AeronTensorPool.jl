@@ -1,9 +1,13 @@
 # Example Bridge Configuration
+# Note: consider reserving a bridge payload stream ID range (e.g., 50000-59999)
+# to avoid collisions with local IPC/control streams.
 
 [bridge]
 instance_id = "bridge-01"
 payload_channel = "aeron:udp?endpoint=239.1.1.1:40456"
 payload_stream_id = 3000
+control_channel = "aeron:udp?endpoint=239.1.1.1:40457"
+control_stream_id = 3001
 mtu_bytes = 1408
 chunk_bytes = 1200
 forward_metadata = true
