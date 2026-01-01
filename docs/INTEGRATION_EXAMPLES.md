@@ -2,7 +2,7 @@
 
 These examples show how to embed AeronTensorPool in an application loop or connect a camera driver that expects pre-registered buffers.
 
-## BGAPI2 Producer (DMA Into Shared Slots)
+## BGAPI2 Producer (Standalone, DMA Into Shared Slots)
 
 Goal: hand SHM payload slots to BGAPI2 so the device DMA fills them, then publish the descriptor after completion.
 
@@ -43,7 +43,7 @@ Notes:
 - If device completion order differs from reservation order, use a mapping from device buffer ID to SlotReservation.
 - For fixed-size frames, you can set shape/strides once and reuse.
 
-## GenICamServer Integration (Invoker Mode)
+## GenICamServer Integration (Invoker Mode, Standalone)
 
 Goal: run producer/consumer/supervisor in an application loop without a dedicated agent runner.
 
@@ -58,14 +58,79 @@ producer = init_producer(prod_cfg)
 consumer = init_consumer(cons_cfg)
 supervisor = init_supervisor(sup_cfg)
 
+prod_ctrl = make_control_assembler(producer)
+cons_desc = make_descriptor_assembler(consumer)
+cons_ctrl = make_control_assembler(consumer)
+sup_ctrl = make_control_assembler(supervisor)
+sup_qos = make_qos_assembler(supervisor)
+
 while running
-    now_ns = UInt64(Clocks.time_nanos(producer.clock))
-    producer_do_work!(producer, now_ns)
-    consumer_do_work!(consumer, now_ns)
-    supervisor_do_work!(supervisor, now_ns)
+    producer_do_work!(producer, prod_ctrl)
+    consumer_do_work!(consumer, cons_desc, cons_ctrl)
+    supervisor_do_work!(supervisor, sup_ctrl, sup_qos)
+    yield()
 end
 ```
 
 Notes:
 - Invoker mode avoids an AgentRunner; it is appropriate when you already manage a main loop.
 - If you run only producer+consumer, the supervisor is optional; you lose centralized QoS and config updates.
+
+## Driver-Mode Producer/Consumer (Attach + Keepalive)
+
+Goal: attach via the SHM driver and map driver-owned regions before producing/consuming.
+
+Sketch:
+
+```julia
+driver_client = init_driver_client(client, "aeron:ipc", Int32(1000), UInt32(7), DriverRole.PRODUCER)
+consumer_client = init_driver_client(client, "aeron:ipc", Int32(1000), UInt32(21), DriverRole.CONSUMER)
+
+prod_attach_id = send_attach_request!(driver_client; stream_id = UInt32(42))
+cons_attach_id = send_attach_request!(consumer_client; stream_id = UInt32(42))
+
+prod_attach = await_attach!(driver_client, clock, prod_attach_id)
+cons_attach = await_attach!(consumer_client, clock, cons_attach_id)
+
+producer = init_producer_from_attach(prod_cfg, prod_attach; driver_client = driver_client)
+consumer = init_consumer_from_attach(cons_cfg, cons_attach; driver_client = consumer_client)
+
+prod_ctrl = make_control_assembler(producer)
+cons_desc = make_descriptor_assembler(consumer)
+cons_ctrl = make_control_assembler(consumer)
+
+while running
+    producer_do_work!(producer, prod_ctrl)
+    consumer_do_work!(consumer, cons_desc, cons_ctrl)
+    yield()
+end
+```
+
+Notes:
+- The driver owns SHM layout/paths; clients must not create or truncate SHM files.
+- Keepalives are sent automatically by `driver_client_do_work!` (called inside `*_do_work!`).
+
+## BGAPI2 Producer (Driver Mode)
+
+Use the attach response to map driver-owned SHM, then hand slot pointers to BGAPI2.
+
+```julia
+driver_client = init_driver_client(client, "aeron:ipc", Int32(1000), UInt32(7), DriverRole.PRODUCER)
+attach_id = send_attach_request!(driver_client; stream_id = UInt32(42))
+attach = await_attach!(driver_client, clock, attach_id)
+state = init_producer_from_attach(cfg, attach; driver_client = driver_client)
+
+pool_id = UInt16(1)
+inflight = InflightQueue(state.config.nslots)
+for _ in 1:state.config.nslots
+    res = reserve_slot!(state, pool_id)
+    inflight_push!(inflight, res)
+    # Register res.ptr/res.stride_bytes with BGAPI2.
+end
+```
+
+## Driver Deployment Example
+
+- Config file: `docs/examples/driver_camera_example.toml`
+- One-shot launcher: `scripts/run_all_driver.sh docs/examples/driver_camera_example.toml`
+- CLI attach/keepalive/detach: `scripts/tp_tool.jl driver-attach|driver-keepalive|driver-detach`

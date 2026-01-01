@@ -49,16 +49,9 @@ function init_driver_client(
     )
 end
 
-@inline function apply_attach!(state::DriverClientState, attach::AttachResponseInfo)
-    if attach.code == DriverResponseCode.OK
-        state.lease_id = attach.lease_id
-        state.stream_id = attach.stream_id
-        state.revoked = false
-        state.shutdown = false
-    end
-    return nothing
-end
-
+"""
+Return the next correlation id for control-plane requests.
+"""
 @inline function next_correlation_id!(state::DriverClientState)
     cid = state.next_correlation_id
     state.next_correlation_id += 1
@@ -90,6 +83,19 @@ function send_attach_request!(
     )
     sent || return Int64(0)
     return correlation_id
+end
+
+"""
+Apply a successful attach response to the client state.
+"""
+@inline function apply_attach!(state::DriverClientState, attach::AttachResponseInfo)
+    if attach.code == DriverResponseCode.OK
+        state.lease_id = attach.lease_id
+        state.stream_id = attach.stream_id
+        state.revoked = false
+        state.shutdown = false
+    end
+    return nothing
 end
 
 """

@@ -246,7 +246,7 @@ Spec refs
 - Driver: 1-2 (informative)
 
 Status
-- Partial (wire-focused docs and integration examples present; driver examples pending).
+- Complete (driver/standalone examples, deployment notes, and public API docstrings updated).
 
 ## Phase 11 - Optional Features
 
