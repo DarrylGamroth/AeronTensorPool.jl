@@ -57,6 +57,7 @@ function init_driver(config::DriverConfig; client::Aeron.Client)
         metrics,
         timer_set,
         0,
+        UInt64(0),
         lifecycle,
     )
     state.runtime.control_assembler = make_driver_control_assembler(state)

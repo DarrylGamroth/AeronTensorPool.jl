@@ -37,6 +37,7 @@ struct DriverPolicies
     announce_period_ms::UInt32
     lease_keepalive_interval_ms::UInt32
     lease_expiry_grace_intervals::UInt32
+    shutdown_timeout_ms::UInt32
 end
 
 """
@@ -147,6 +148,8 @@ function load_driver_config(path::AbstractString; env::AbstractDict = ENV)
         env_override(env, "policies.lease_keepalive_interval_ms", UInt32(get(policies_tbl, "lease_keepalive_interval_ms", 1000)))
     lease_expiry_grace_intervals =
         env_override(env, "policies.lease_expiry_grace_intervals", UInt32(get(policies_tbl, "lease_expiry_grace_intervals", 3)))
+    shutdown_timeout_ms =
+        env_override(env, "policies.shutdown_timeout_ms", UInt32(get(policies_tbl, "shutdown_timeout_ms", 2000)))
 
     profiles = Dict{String, DriverProfileConfig}()
     for (name, entry) in profiles_tbl
@@ -224,6 +227,7 @@ function load_driver_config(path::AbstractString; env::AbstractDict = ENV)
         announce_period_ms,
         lease_keepalive_interval_ms,
         lease_expiry_grace_intervals,
+        shutdown_timeout_ms,
     )
 
     return DriverConfig(endpoints, shm, policies, profiles, streams)

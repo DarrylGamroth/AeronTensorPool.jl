@@ -72,5 +72,6 @@ mutable struct DriverState{ClockT<:Clocks.AbstractClock}
     metrics::DriverMetrics
     timer_set::TimerSet{Tuple{PolledTimer, PolledTimer}, Tuple{DriverAnnounceHandler, DriverLeaseCheckHandler}}
     work_count::Int
+    shutdown_deadline_ns::UInt64
     lifecycle::DriverLifecycle
 end

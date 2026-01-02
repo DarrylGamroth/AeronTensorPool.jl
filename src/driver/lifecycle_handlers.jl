@@ -30,14 +30,25 @@ end
 end
 
 @on_event function(sm::DriverLifecycle, ::Draining, ::Tick, state::DriverState)
-    return driver_lifecycle_tick!(state)
+    work = driver_lifecycle_tick!(state)
+    if state.shutdown_deadline_ns != 0 && state.now_ns >= state.shutdown_deadline_ns
+        return Hsm.dispatch!(sm, :ShutdownTimeout, state)
+    end
+    return work
 end
 
-@on_event function(sm::DriverLifecycle, ::Running, ::ShutdownRequested, ::DriverState)
+@on_event function(sm::DriverLifecycle, ::Running, ::ShutdownRequested, state::DriverState)
+    timeout_ns = UInt64(state.config.policies.shutdown_timeout_ms) * 1_000_000
+    if timeout_ns == 0
+        state.shutdown_deadline_ns = state.now_ns
+    else
+        state.shutdown_deadline_ns = state.now_ns + timeout_ns
+    end
     return Hsm.transition!(sm, :Draining)
 end
 
-@on_event function(sm::DriverLifecycle, ::Draining, ::ShutdownTimeout, ::DriverState)
+@on_event function(sm::DriverLifecycle, ::Draining, ::ShutdownTimeout, state::DriverState)
+    emit_driver_shutdown!(state)
     return Hsm.transition!(sm, :Stopped)
 end
 
