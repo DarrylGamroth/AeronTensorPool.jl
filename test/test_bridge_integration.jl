@@ -143,7 +143,7 @@
             consumer_src = init_consumer(src_consumer)
             consumer_dst = init_consumer(dst_consumer)
 
-            mapping = BridgeMapping(UInt32(1), UInt32(2), "default", UInt32(2300), Int32(1201), Int32(2201))
+            mapping = BridgeMapping(UInt32(1), UInt32(2), "default", UInt32(2300), Int32(0), Int32(0))
             bridge_config = BridgeConfig(
                 "bridge-test",
                 aeron_dir,
