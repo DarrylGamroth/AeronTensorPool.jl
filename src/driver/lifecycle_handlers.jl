@@ -11,8 +11,8 @@
 end
 
 @on_event function(sm::DriverLifecycle, ::Running, ::AttachRequest, state::DriverState)
-    handled = handle_attach_request!(state, state.runtime.attach_decoder)
-    return handled ? Hsm.EventHandled : Hsm.EventNotHandled
+    handle_attach_request!(state, state.runtime.attach_decoder)
+    return Hsm.EventHandled
 end
 
 @on_event function(sm::DriverLifecycle, ::Draining, ::AttachRequest, state::DriverState)
