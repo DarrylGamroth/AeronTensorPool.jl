@@ -117,6 +117,7 @@ function run_system_bench(
     duration_s::Float64;
     payload_bytes::Int = 1024,
     payload_bytes_list::Vector{Int} = Int[],
+    warmup_s::Float64 = 0.2,
 )
     Aeron.MediaDriver.launch_embedded() do driver
         GC.@preserve driver begin
@@ -154,6 +155,24 @@ function run_system_bench(
                     shape = Int32[bytes]
                     strides = Int32[1]
                     published = 0
+                    if warmup_s > 0
+                        warmup_start = time()
+                        while time() - warmup_start < warmup_s
+                            producer_do_work!(producer, prod_ctrl)
+                            consumer_do_work!(consumer, cons_desc, cons_ctrl)
+                            supervisor_do_work!(supervisor, sup_ctrl, sup_qos)
+                            if consumer.mappings.header_mmap !== nothing
+                                publish_frame!(producer, payload, shape, strides, Dtype.UINT8, UInt32(0))
+                            end
+                            yield()
+                        end
+                        consumed[] = 0
+                        published = 0
+                    end
+
+                    GC.gc()
+                    start_num = Base.gc_num()
+                    start_live = Base.gc_live_bytes()
                     start = time()
 
                     while time() - start < duration_s
@@ -169,11 +188,18 @@ function run_system_bench(
                     end
 
                     elapsed = time() - start
+                    GC.gc()
+                    end_num = Base.gc_num()
+                    end_live = Base.gc_live_bytes()
+                    allocd_delta = end_num.allocd - start_num.allocd
+                    live_delta = end_live - start_live
                     println("System benchmark: payload_bytes=$(bytes)")
                     println("Published: $(published) frames in $(round(elapsed, digits=3))s")
                     println("Consumed:  $(consumed[]) frames in $(round(elapsed, digits=3))s")
                     println("Publish rate: $(round(published / elapsed, digits=1)) fps")
                     println("Consume rate: $(round(consumed[] / elapsed, digits=1)) fps")
+                    println("GC allocd delta: $(allocd_delta) bytes")
+                    println("GC live delta:  $(live_delta) bytes")
                     println()
 
                     close_supervisor!(supervisor)

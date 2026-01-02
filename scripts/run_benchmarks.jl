@@ -11,6 +11,7 @@ function parse_args(args)
     duration_s = 5.0
     payload_bytes = 1024
     payload_bytes_list = Int[]
+    warmup_s = 0.2
     run_system = false
     i = 1
     while i <= length(args)
@@ -29,13 +30,16 @@ function parse_args(args)
         elseif arg == "--payload-bytes-list" && i < length(args)
             i += 1
             payload_bytes_list = [parse(Int, entry) for entry in split(args[i], ",") if !isempty(entry)]
+        elseif arg == "--warmup" && i < length(args)
+            i += 1
+            warmup_s = parse(Float64, args[i])
         end
         i += 1
     end
-    return run_system, config, duration_s, payload_bytes, payload_bytes_list
+    return run_system, config, duration_s, payload_bytes, payload_bytes_list, warmup_s
 end
 
-run_system, config, duration_s, payload_bytes, payload_bytes_list = parse_args(ARGS)
+run_system, config, duration_s, payload_bytes, payload_bytes_list, warmup_s = parse_args(ARGS)
 
 run_benchmarks()
 
@@ -46,5 +50,6 @@ if run_system
         duration_s;
         payload_bytes = payload_bytes,
         payload_bytes_list = payload_bytes_list,
+        warmup_s = warmup_s,
     )
 end
