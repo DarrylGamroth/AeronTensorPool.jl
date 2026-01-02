@@ -1,5 +1,6 @@
 include("config.jl")
 include("lifecycle.jl")
+include("metrics.jl")
 include("lease_lifecycle.jl")
 include("state.jl")
 include("handlers.jl")

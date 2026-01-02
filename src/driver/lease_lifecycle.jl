@@ -55,9 +55,7 @@ end
     return Hsm.EventHandled
 end
 
-@on_event function(sm::LeaseLifecycle, ::Root, event::Any, arg)
-    if arg !== nothing && hasproperty(arg, :lease_hsm_unhandled)
-        arg.lease_hsm_unhandled += 1
-    end
+@on_event function(sm::LeaseLifecycle, ::Root, event::Any, arg::DriverMetrics)
+    arg.lease_hsm_unhandled += 1
     return Hsm.EventHandled
 end
