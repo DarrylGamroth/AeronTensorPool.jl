@@ -170,6 +170,28 @@ Spec refs
 Status
 - Complete (QoS/shutdown extensions and tests added).
 
+## Phase 6a - Driver Lifecycle HSM (Middle-Ground)
+
+Goals
+- Introduce a minimal driver lifecycle state machine without per-lease/per-stream HSMs.
+- Replace flag-driven lifecycle transitions with explicit states.
+
+Deliverables
+- Driver lifecycle HSM with states `Init`, `Running`, `Draining`, `Stopped`.
+- `driver_do_work!` dispatches `Tick` into the lifecycle HSM.
+- `ShutdownRequested` and `ShutdownTimeout` transitions with existing shutdown behavior.
+- Documentation aligned with the middle-ground HSM plan.
+
+Validation
+- Existing driver tests pass unchanged.
+- Shutdown tests cover Draining semantics.
+
+Spec refs
+- Driver: 2-4 (lifecycle coordination; no wire changes).
+
+Status
+- Planned (see `docs/IMPLEMENTATION_PHASES_HSM_MIDDLE_GROUND.md`).
+
 ## Phase 7 - Driver Integration (Producer/Consumer)
 
 Goals
