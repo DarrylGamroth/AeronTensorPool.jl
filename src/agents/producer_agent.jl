@@ -4,6 +4,7 @@ Agent wrapper for running a ProducerState with Agent.jl.
 struct ProducerAgent
     state::ProducerState
     control_assembler::Aeron.FragmentAssembler
+    qos_assembler::Aeron.FragmentAssembler
     counters::ProducerCounters
 end
 
@@ -16,15 +17,17 @@ function ProducerAgent(
 )
     state = init_producer(config; client = client)
     control_assembler = make_control_assembler(state)
+    qos_assembler = make_qos_assembler(state)
     counters = ProducerCounters(state.runtime.control.client, Int(config.producer_id), "Producer")
-    return ProducerAgent(state, control_assembler, counters)
+    return ProducerAgent(state, control_assembler, qos_assembler, counters)
 end
 
 Agent.name(agent::ProducerAgent) = "producer"
 
 function Agent.do_work(agent::ProducerAgent)
     Aeron.increment!(agent.counters.base.total_duty_cycles)
-    work_done = producer_do_work!(agent.state, agent.control_assembler)
+    work_done =
+        producer_do_work!(agent.state, agent.control_assembler; qos_assembler = agent.qos_assembler)
     if work_done > 0
         Aeron.add!(agent.counters.base.total_work_done, Int64(work_done))
     end
@@ -42,6 +45,7 @@ function Agent.on_close(agent::ProducerAgent)
         close(agent.state.runtime.pub_qos)
         close(agent.state.runtime.pub_metadata)
         close(agent.state.runtime.control.sub_control)
+        close(agent.state.runtime.sub_qos)
         for entry in values(agent.state.consumer_streams)
             entry.descriptor_pub === nothing || close(entry.descriptor_pub)
             entry.control_pub === nothing || close(entry.control_pub)

@@ -123,7 +123,7 @@ Spec refs
 - Wire: 10.1, 10.4, 15.14, 15.16, 15.18
 
 Status
-- Complete (ConsumerHello/ConsumerConfig/QoS done; per-consumer descriptor/control streams implemented; Heartbeat deferred).
+- Complete (ConsumerHello/ConsumerConfig/QoS done; per-consumer streams with validation + QoS liveness; Heartbeat deferred).
 
 ## Phase 5 - Supervisor Agent
 
@@ -234,7 +234,7 @@ Spec refs
 - Driver: 4.7, 4.7a
 
 Status
-- Complete (core compliance done; per-consumer stream coverage added; Heartbeat deferred).
+- Complete (core compliance done; per-consumer validation + QoS liveness tests added; Heartbeat deferred).
 
 ## Phase 10 - Documentation and Examples
 

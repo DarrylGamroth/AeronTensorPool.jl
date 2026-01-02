@@ -81,6 +81,7 @@ liveness_check_interval_ns = 1000000000
                 try
 
             prod_ctrl = make_control_assembler(producer)
+            prod_qos = make_qos_assembler(producer)
             cons_ctrl = make_control_assembler(consumer)
             got_frame = Ref(false)
             cons_desc = Aeron.FragmentAssembler(Aeron.FragmentHandler(consumer) do st, buffer, _
@@ -113,7 +114,7 @@ liveness_check_interval_ns = 1000000000
             published = false
 
             ok = wait_for() do
-                producer_do_work!(producer, prod_ctrl)
+                producer_do_work!(producer, prod_ctrl; qos_assembler = prod_qos)
                 consumer_do_work!(consumer, cons_desc, cons_ctrl)
                 supervisor_do_work!(supervisor, sup_ctrl, sup_qos)
 

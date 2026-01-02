@@ -81,6 +81,7 @@ liveness_check_interval_ns = 1000000000
                 try
 
             prod_ctrl = make_control_assembler(producer)
+            prod_qos = make_qos_assembler(producer)
             cons_ctrl = make_control_assembler(consumer)
             cons_desc = make_descriptor_assembler(consumer)
             sup_ctrl = make_control_assembler(supervisor)
@@ -96,7 +97,7 @@ liveness_check_interval_ns = 1000000000
 
             iterations = get(ENV, "TP_GC_MONITOR_ITERS", "2000") |> x -> parse(Int, x)
             for i in 1:iterations
-                producer_do_work!(producer, prod_ctrl)
+                producer_do_work!(producer, prod_ctrl; qos_assembler = prod_qos)
                 consumer_do_work!(consumer, cons_desc, cons_ctrl)
                 supervisor_do_work!(supervisor, sup_ctrl, sup_qos)
                 if consumer.mappings.header_mmap !== nothing

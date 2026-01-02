@@ -144,6 +144,7 @@ end
             )
 
             prod_control_asm = make_control_assembler(producer_state)
+            prod_qos_asm = make_qos_assembler(producer_state)
             cons_desc_asm = make_descriptor_assembler(consumer_state)
             cons_ctrl_asm = make_control_assembler(consumer_state)
 
@@ -157,7 +158,7 @@ end
 
             ok = wait_for() do
                 driver_do_work!(driver_state)
-                producer_do_work!(producer_state, prod_control_asm)
+                producer_do_work!(producer_state, prod_control_asm; qos_assembler = prod_qos_asm)
                 producer_state.driver_active && producer_state.epoch != old_epoch
             end
             @test ok

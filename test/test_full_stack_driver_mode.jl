@@ -164,6 +164,7 @@ end
             supervisor_state = init_supervisor(supervisor_cfg; client = client)
 
             prod_ctrl = make_control_assembler(producer_state)
+            prod_qos = make_qos_assembler(producer_state)
             cons_ctrl = make_control_assembler(consumer_state)
             sup_ctrl = make_control_assembler(supervisor_state)
             sup_qos = make_qos_assembler(supervisor_state)
@@ -185,7 +186,7 @@ end
             strides = Int32[0]
             ok = wait_for() do
                 driver_do_work!(driver_state)
-                producer_do_work!(producer_state, prod_ctrl)
+                producer_do_work!(producer_state, prod_ctrl; qos_assembler = prod_qos)
                 consumer_do_work!(consumer_state, cons_desc, cons_ctrl)
                 supervisor_do_work!(supervisor_state, sup_ctrl, sup_qos)
 

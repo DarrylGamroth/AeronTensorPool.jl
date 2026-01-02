@@ -14,6 +14,21 @@ function make_control_assembler(state::ProducerState)
 end
 
 """
+Create a FragmentAssembler for the QoS subscription.
+"""
+function make_qos_assembler(state::ProducerState)
+    handler = Aeron.FragmentHandler(state) do st, buffer, _
+        header = MessageHeader.Decoder(buffer, 0)
+        if MessageHeader.templateId(header) == TEMPLATE_QOS_CONSUMER
+            QosConsumer.wrap!(st.runtime.qos_decoder, buffer, 0; header = header)
+            handle_qos_consumer!(st, st.runtime.qos_decoder)
+        end
+        nothing
+    end
+    return Aeron.FragmentAssembler(handler)
+end
+
+"""
 Poll the control subscription for ConsumerHello messages.
 """
 @inline function poll_control!(
@@ -22,6 +37,17 @@ Poll the control subscription for ConsumerHello messages.
     fragment_limit::Int32 = DEFAULT_FRAGMENT_LIMIT,
 )
     return Aeron.poll(state.runtime.control.sub_control, assembler, fragment_limit)
+end
+
+"""
+Poll the QoS subscription for QosConsumer messages.
+"""
+@inline function poll_qos!(
+    state::ProducerState,
+    assembler::Aeron.FragmentAssembler,
+    fragment_limit::Int32 = DEFAULT_FRAGMENT_LIMIT,
+)
+    return Aeron.poll(state.runtime.sub_qos, assembler, fragment_limit)
 end
 
 """
@@ -64,12 +90,16 @@ Producer duty cycle: poll control, emit periodic messages, and return work count
 function producer_do_work!(
     state::ProducerState,
     control_assembler::Aeron.FragmentAssembler;
+    qos_assembler::Union{Aeron.FragmentAssembler, Nothing} = nothing,
     fragment_limit::Int32 = DEFAULT_FRAGMENT_LIMIT,
 )
     fetch!(state.clock)
     now_ns = UInt64(Clocks.time_nanos(state.clock))
     work_count = 0
     work_count += poll_control!(state, control_assembler, fragment_limit)
+    if qos_assembler !== nothing
+        work_count += poll_qos!(state, qos_assembler, fragment_limit)
+    end
     work_count += poll_timers!(state, now_ns)
     work_count += cleanup_consumer_streams!(state, now_ns)
     if !isnothing(state.driver_client)

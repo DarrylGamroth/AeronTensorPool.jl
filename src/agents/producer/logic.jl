@@ -78,6 +78,7 @@ function init_producer(config::ProducerConfig; client::Aeron.Client)
     pub_qos = Aeron.add_publication(client, config.aeron_uri, config.qos_stream_id)
     pub_metadata = Aeron.add_publication(client, config.aeron_uri, config.metadata_stream_id)
     sub_control = Aeron.add_subscription(client, config.aeron_uri, config.control_stream_id)
+    sub_qos = Aeron.add_subscription(client, config.aeron_uri, config.qos_stream_id)
 
     timer_set = TimerSet(
         (PolledTimer(config.announce_interval_ns), PolledTimer(config.qos_interval_ns)),
@@ -90,6 +91,7 @@ function init_producer(config::ProducerConfig; client::Aeron.Client)
         pub_descriptor,
         pub_qos,
         pub_metadata,
+        sub_qos,
         Vector{UInt8}(undef, CONTROL_BUF_BYTES),
         Vector{UInt8}(undef, CONTROL_BUF_BYTES),
         Vector{UInt8}(undef, ANNOUNCE_BUF_BYTES),
@@ -106,6 +108,7 @@ function init_producer(config::ProducerConfig; client::Aeron.Client)
         Aeron.BufferClaim(),
         Aeron.BufferClaim(),
         ConsumerHello.Decoder(UnsafeArrays.UnsafeArray{UInt8, 1}),
+        QosConsumer.Decoder(UnsafeArrays.UnsafeArray{UInt8, 1}),
     )
     mappings = ProducerMappings(header_mmap, payload_mmaps)
     metrics = ProducerMetrics(UInt64(0), UInt64(0), UInt64(0), UInt64(0))
@@ -252,6 +255,7 @@ function init_producer_from_attach(
     pub_qos = Aeron.add_publication(client, driver_config.aeron_uri, driver_config.qos_stream_id)
     pub_metadata = Aeron.add_publication(client, driver_config.aeron_uri, driver_config.metadata_stream_id)
     sub_control = Aeron.add_subscription(client, driver_config.aeron_uri, driver_config.control_stream_id)
+    sub_qos = Aeron.add_subscription(client, driver_config.aeron_uri, driver_config.qos_stream_id)
 
     timer_set = TimerSet(
         (PolledTimer(driver_config.announce_interval_ns), PolledTimer(driver_config.qos_interval_ns)),
@@ -264,6 +268,7 @@ function init_producer_from_attach(
         pub_descriptor,
         pub_qos,
         pub_metadata,
+        sub_qos,
         Vector{UInt8}(undef, CONTROL_BUF_BYTES),
         Vector{UInt8}(undef, CONTROL_BUF_BYTES),
         Vector{UInt8}(undef, ANNOUNCE_BUF_BYTES),
@@ -280,6 +285,7 @@ function init_producer_from_attach(
         Aeron.BufferClaim(),
         Aeron.BufferClaim(),
         ConsumerHello.Decoder(UnsafeArrays.UnsafeArray{UInt8, 1}),
+        QosConsumer.Decoder(UnsafeArrays.UnsafeArray{UInt8, 1}),
     )
     metrics = ProducerMetrics(UInt64(0), UInt64(0), UInt64(0), UInt64(0))
     state = ProducerState(
@@ -835,6 +841,10 @@ end
     return base * 5
 end
 
+@inline function consumer_stream_last_seen_ns(entry::ProducerConsumerStream)
+    return max(entry.last_hello_ns, entry.last_qos_ns)
+end
+
 function clear_consumer_stream!(entry::ProducerConsumerStream)
     entry.descriptor_pub === nothing || close(entry.descriptor_pub)
     entry.control_pub === nothing || close(entry.control_pub)
@@ -847,6 +857,7 @@ function clear_consumer_stream!(entry::ProducerConsumerStream)
     entry.max_rate_hz = UInt16(0)
     entry.next_descriptor_ns = UInt64(0)
     entry.last_hello_ns = UInt64(0)
+    entry.last_qos_ns = UInt64(0)
     return nothing
 end
 
@@ -854,8 +865,9 @@ function cleanup_consumer_streams!(state::ProducerState, now_ns::UInt64)
     timeout_ns = consumer_stream_timeout_ns(state)
     closed = 0
     for entry in values(state.consumer_streams)
-        entry.last_hello_ns == 0 && continue
-        if now_ns - entry.last_hello_ns > timeout_ns
+        last_seen = consumer_stream_last_seen_ns(entry)
+        last_seen == 0 && continue
+        if now_ns - last_seen > timeout_ns
             clear_consumer_stream!(entry)
             closed += 1
         end
@@ -941,12 +953,18 @@ function update_consumer_streams!(state::ProducerState, msg::ConsumerHello.Decod
     control_null = ConsumerHello.controlStreamId_null_value(ConsumerHello.Decoder)
     descriptor_channel = String(ConsumerHello.descriptorChannel(msg))
     control_channel = String(ConsumerHello.controlChannel(msg))
-    descriptor_requested =
-        !isempty(descriptor_channel) && descriptor_stream_id != 0 && descriptor_stream_id != descriptor_null
-    control_requested =
-        !isempty(control_channel) && control_stream_id != 0 && control_stream_id != control_null
+    descriptor_stream_id_provided =
+        descriptor_stream_id != 0 && descriptor_stream_id != descriptor_null
+    control_stream_id_provided =
+        control_stream_id != 0 && control_stream_id != control_null
+    descriptor_channel_provided = !isempty(descriptor_channel)
+    control_channel_provided = !isempty(control_channel)
+    descriptor_requested = descriptor_channel_provided && descriptor_stream_id_provided
+    control_requested = control_channel_provided && control_stream_id_provided
+    invalid_descriptor_request = descriptor_channel_provided != descriptor_stream_id_provided
+    invalid_control_request = control_channel_provided != control_stream_id_provided
 
-    if !descriptor_requested && !control_requested
+    if !descriptor_requested && !control_requested && !invalid_descriptor_request && !invalid_control_request
         return false
     end
 
@@ -962,6 +980,7 @@ function update_consumer_streams!(state::ProducerState, msg::ConsumerHello.Decod
             UInt16(0),
             UInt64(0),
             now_ns,
+            UInt64(0),
         )
         state.consumer_streams[consumer_id] = entry
     end
@@ -975,12 +994,22 @@ function update_consumer_streams!(state::ProducerState, msg::ConsumerHello.Decod
             entry.descriptor_stream_id != descriptor_stream_id ||
             entry.descriptor_channel != descriptor_channel
             entry.descriptor_pub === nothing || close(entry.descriptor_pub)
-            entry.descriptor_pub =
-                Aeron.add_publication(state.runtime.control.client, descriptor_channel, Int32(descriptor_stream_id))
-            entry.descriptor_stream_id = descriptor_stream_id
-            entry.descriptor_channel = descriptor_channel
-            entry.next_descriptor_ns = now_ns
-            changed = true
+            try
+                entry.descriptor_pub = Aeron.add_publication(
+                    state.runtime.control.client,
+                    descriptor_channel,
+                    Int32(descriptor_stream_id),
+                )
+                entry.descriptor_stream_id = descriptor_stream_id
+                entry.descriptor_channel = descriptor_channel
+                entry.next_descriptor_ns = now_ns
+                changed = true
+            catch
+                entry.descriptor_pub = nothing
+                entry.descriptor_stream_id = UInt32(0)
+                entry.descriptor_channel = ""
+                changed = true
+            end
         end
     elseif entry.descriptor_pub !== nothing
         close(entry.descriptor_pub)
@@ -995,11 +1024,21 @@ function update_consumer_streams!(state::ProducerState, msg::ConsumerHello.Decod
             entry.control_stream_id != control_stream_id ||
             entry.control_channel != control_channel
             entry.control_pub === nothing || close(entry.control_pub)
-            entry.control_pub =
-                Aeron.add_publication(state.runtime.control.client, control_channel, Int32(control_stream_id))
-            entry.control_stream_id = control_stream_id
-            entry.control_channel = control_channel
-            changed = true
+            try
+                entry.control_pub = Aeron.add_publication(
+                    state.runtime.control.client,
+                    control_channel,
+                    Int32(control_stream_id),
+                )
+                entry.control_stream_id = control_stream_id
+                entry.control_channel = control_channel
+                changed = true
+            catch
+                entry.control_pub = nothing
+                entry.control_stream_id = UInt32(0)
+                entry.control_channel = ""
+                changed = true
+            end
         end
     elseif entry.control_pub !== nothing
         close(entry.control_pub)
@@ -1007,6 +1046,22 @@ function update_consumer_streams!(state::ProducerState, msg::ConsumerHello.Decod
         entry.control_channel = ""
         entry.control_stream_id = UInt32(0)
         changed = true
+    end
+
+    if invalid_descriptor_request || invalid_control_request
+        emit_consumer_config!(
+            state,
+            consumer_id;
+            use_shm = true,
+            mode = ConsumerHello.mode(msg),
+            decimation = UInt16(1),
+            payload_fallback_uri = "",
+            descriptor_channel = "",
+            descriptor_stream_id = UInt32(0),
+            control_channel = "",
+            control_stream_id = UInt32(0),
+        )
+        return false
     end
 
     if changed
@@ -1017,13 +1072,37 @@ function update_consumer_streams!(state::ProducerState, msg::ConsumerHello.Decod
             mode = ConsumerHello.mode(msg),
             decimation = UInt16(1),
             payload_fallback_uri = "",
-            descriptor_channel = descriptor_requested ? descriptor_channel : "",
-            descriptor_stream_id = descriptor_requested ? descriptor_stream_id : UInt32(0),
-            control_channel = control_requested ? control_channel : "",
-            control_stream_id = control_requested ? control_stream_id : UInt32(0),
+            descriptor_channel = entry.descriptor_channel,
+            descriptor_stream_id = entry.descriptor_stream_id,
+            control_channel = entry.control_channel,
+            control_stream_id = entry.control_stream_id,
         )
     end
     return changed
+end
+
+function handle_qos_consumer!(state::ProducerState, msg::QosConsumer.Decoder)
+    QosConsumer.streamId(msg) == state.config.stream_id || return false
+    consumer_id = QosConsumer.consumerId(msg)
+    now_ns = UInt64(Clocks.time_nanos(state.clock))
+    entry = get(state.consumer_streams, consumer_id, nothing)
+    if entry === nothing
+        entry = ProducerConsumerStream(
+            nothing,
+            nothing,
+            "",
+            "",
+            UInt32(0),
+            UInt32(0),
+            UInt16(0),
+            UInt64(0),
+            UInt64(0),
+            now_ns,
+        )
+        state.consumer_streams[consumer_id] = entry
+    end
+    entry.last_qos_ns = now_ns
+    return true
 end
 
 function publish_descriptor_to_consumers!(

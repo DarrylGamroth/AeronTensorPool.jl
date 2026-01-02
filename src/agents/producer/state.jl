@@ -9,6 +9,7 @@ mutable struct ProducerRuntime
     pub_descriptor::Aeron.Publication
     pub_qos::Aeron.Publication
     pub_metadata::Aeron.Publication
+    sub_qos::Aeron.Subscription
     descriptor_buf::Vector{UInt8}
     progress_buf::Vector{UInt8}
     announce_buf::Vector{UInt8}
@@ -25,6 +26,7 @@ mutable struct ProducerRuntime
     qos_claim::Aeron.BufferClaim
     config_claim::Aeron.BufferClaim
     hello_decoder::ConsumerHello.Decoder{UnsafeArrays.UnsafeArray{UInt8, 1}}
+    qos_decoder::QosConsumer.Decoder{UnsafeArrays.UnsafeArray{UInt8, 1}}
 end
 
 """
@@ -58,6 +60,7 @@ mutable struct ProducerConsumerStream
     max_rate_hz::UInt16
     next_descriptor_ns::UInt64
     last_hello_ns::UInt64
+    last_qos_ns::UInt64
 end
 
 """
