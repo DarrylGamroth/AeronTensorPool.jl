@@ -64,10 +64,13 @@ Driver mutable state.
 mutable struct DriverState{ClockT<:Clocks.AbstractClock}
     config::DriverConfig
     clock::ClockT
+    now_ns::UInt64
     runtime::DriverRuntime
     streams::Dict{UInt32, DriverStreamState}
     leases::Dict{UInt64, DriverLease}
     next_lease_id::UInt64
     metrics::DriverMetrics
     timer_set::TimerSet{Tuple{PolledTimer, PolledTimer}, Tuple{DriverAnnounceHandler, DriverLeaseCheckHandler}}
+    work_count::Int
+    lifecycle::DriverLifecycle
 end

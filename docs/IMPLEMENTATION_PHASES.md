@@ -190,7 +190,7 @@ Spec refs
 - Driver: 2-4 (lifecycle coordination; no wire changes).
 
 Status
-- Planned (see `docs/IMPLEMENTATION_PHASES_HSM_MIDDLE_GROUND.md`).
+- In progress (lifecycle HSM scaffolding wired into driver loop; shutdown transitions wired).
 
 ## Phase 7 - Driver Integration (Producer/Consumer)
 

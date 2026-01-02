@@ -3,6 +3,7 @@ module AeronTensorPool
 using Aeron
 using Agent
 using Clocks
+using Hsm
 using Mmap
 using SBE
 using UnsafeArrays

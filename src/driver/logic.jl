@@ -45,7 +45,20 @@ function init_driver(config::DriverConfig; client::Aeron.Client)
         (DriverAnnounceHandler(), DriverLeaseCheckHandler()),
     )
 
-    state = DriverState(config, clock, runtime, streams, leases, UInt64(1), metrics, timer_set)
+    lifecycle = DriverLifecycle()
+    state = DriverState(
+        config,
+        clock,
+        UInt64(0),
+        runtime,
+        streams,
+        leases,
+        UInt64(1),
+        metrics,
+        timer_set,
+        0,
+        lifecycle,
+    )
     state.runtime.control_assembler = make_driver_control_assembler(state)
     return state
 end
@@ -62,13 +75,10 @@ Driver work loop.
 """
 function driver_do_work!(state::DriverState)
     fetch!(state.clock)
-    work_count = 0
-    work_count += poll_driver_control!(state)
-
-    now_ns = UInt64(Clocks.time_nanos(state.clock))
-    work_count += poll_timers!(state, now_ns)
-
-    return work_count
+    state.now_ns = UInt64(Clocks.time_nanos(state.clock))
+    state.work_count = 0
+    driver_lifecycle_dispatch!(state, :Tick)
+    return state.work_count
 end
 
 @inline function announce_all_streams!(state::DriverState)
@@ -649,7 +659,7 @@ function emit_driver_shutdown!(
         Int(ShmDriverShutdown.sbe_block_length(ShmDriverShutdown.Decoder)) +
         ShmDriverShutdown.errorMessage_header_length +
         sizeof(error_message)
-    now_ns = UInt64(Clocks.time_nanos(state.clock))
+    now_ns = state.now_ns
     return let st = state,
         now_ns = now_ns,
         reason = reason,

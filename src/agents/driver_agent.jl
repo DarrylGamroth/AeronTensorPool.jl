@@ -37,6 +37,8 @@ end
 
 function Agent.on_close(agent::DriverAgent)
     try
+        driver_lifecycle_dispatch!(agent.state, :ShutdownRequested)
+        driver_lifecycle_dispatch!(agent.state, :ShutdownTimeout)
         emit_driver_shutdown!(agent.state)
         close(agent.counters)
         close(agent.state.runtime.control.pub_control)
