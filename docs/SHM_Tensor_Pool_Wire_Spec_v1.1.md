@@ -268,6 +268,7 @@ All messages below are SBE encoded and transported over Aeron.
 - All primitive fields marked `presence="optional"` use explicit null sentinels in the schema: `uint32 nullValue = 0xFFFFFFFF`, `uint64 nullValue = 0xFFFFFFFFFFFFFFFF`.
 - Producers MUST encode “absent” optional primitives using the nullValue; consumers MUST interpret those null values as “not provided”.
 - Implementations MAY instead choose to always populate fields and omit `presence="optional"`; keep schema and prose aligned.
+- Variable-length `data` fields are optional by encoding an empty value (length = 0). Producers MUST use length 0 to indicate absence; consumers MUST treat length 0 as “not provided”.
 
 #### 10.1.1 ShmPoolAnnounce (producer → all)
 
@@ -304,14 +305,14 @@ Sent on startup and optionally periodically.
 - `mode : enum { STREAM=1, LATEST=2, DECIMATED=3 }`
 - `max_rate_hz : u16` (0 = unlimited; mainly for GUI)
 - `expected_layout_version : u32`
-- `descriptor_channel : string` (optional; request per-consumer descriptor stream)
-- `descriptor_stream_id : u32` (optional; preferred stream ID, or 0 to let producer choose)
-- `control_channel : string` (optional; request per-consumer control stream)
-- `control_stream_id : u32` (optional; preferred stream ID, or 0 to let producer choose)
 - optional progress policy hints (producer may coarsen across consumers):
   - `progress_interval_us : u32` (minimum interval between `PROGRESS` messages; optional; if absent, producer defaults apply; **recommended default**: 250 µs)
   - `progress_bytes_delta : u32` (minimum byte delta to report; optional; if absent, producer defaults apply; **recommended default**: 65,536 bytes)
   - `progress_rows_delta : u32` (minimum row delta to report; optional; 0/absent if not row-major; **recommended default**: 0 when not row-major)
+- `descriptor_stream_id : u32` (optional; preferred stream ID, or 0 to let producer choose)
+- `control_stream_id : u32` (optional; preferred stream ID, or 0 to let producer choose)
+- `descriptor_channel : string` (optional; request per-consumer descriptor stream)
+- `control_channel : string` (optional; request per-consumer control stream)
 
 **Purpose**
 - Advertise consumer capabilities.
@@ -329,12 +330,12 @@ Sent on startup and optionally periodically.
 - `use_shm : bool`
 - `mode : enum { STREAM, LATEST, DECIMATED }`
 - `decimation : u16` (valid when mode=DECIMATED; 1=none)
-- `descriptor_channel : string` (optional; assigned per-consumer descriptor channel)
 - `descriptor_stream_id : u32` (optional; assigned per-consumer descriptor stream ID)
-- `control_channel : string` (optional; assigned per-consumer control channel)
 - `control_stream_id : u32` (optional; assigned per-consumer control stream ID)
 - `payload_fallback_uri : string` (optional; e.g., bridge channel/stream info)
   - URI SHOULD follow Aeron channel syntax when bridged over Aeron (e.g., `aeron:udp?...`) or a documented scheme such as `bridge://<id>` when using a custom bridge; undefined schemes MUST be treated as unsupported.
+- `descriptor_channel : string` (optional; assigned per-consumer descriptor channel)
+- `control_channel : string` (optional; assigned per-consumer control channel)
 
 **Purpose**
 - Central authority can force GUI into LATEST or DECIMATED.
@@ -997,8 +998,8 @@ Reference schema patterned after Aeron archive control style; adjust IDs and fie
     <field name="progressBytesDelta"    id="9" type="uint32" presence="optional" nullValue="4294967295"/>
     <field name="progressRowsDelta"     id="10" type="uint32" presence="optional" nullValue="4294967295"/>
     <field name="descriptorStreamId"    id="11" type="uint32" presence="optional" nullValue="4294967295"/>
-    <data  name="descriptorChannel"     id="12" type="varAsciiEncoding"/>
     <field name="controlStreamId"       id="13" type="uint32" presence="optional" nullValue="4294967295"/>
+    <data  name="descriptorChannel"     id="12" type="varAsciiEncoding"/>
     <data  name="controlChannel"        id="14" type="varAsciiEncoding"/>
   </sbe:message>
 
@@ -1008,10 +1009,10 @@ Reference schema patterned after Aeron archive control style; adjust IDs and fie
     <field name="useShm"             id="3" type="Bool"/>
     <field name="mode"               id="4" type="Mode"/>
     <field name="decimation"         id="5" type="uint16"/>
-    <data  name="payloadFallbackUri" id="6" type="varAsciiEncoding"/>
     <field name="descriptorStreamId" id="7" type="uint32" presence="optional" nullValue="4294967295"/>
-    <data  name="descriptorChannel"  id="8" type="varAsciiEncoding"/>
     <field name="controlStreamId"    id="9" type="uint32" presence="optional" nullValue="4294967295"/>
+    <data  name="payloadFallbackUri" id="6" type="varAsciiEncoding"/>
+    <data  name="descriptorChannel"  id="8" type="varAsciiEncoding"/>
     <data  name="controlChannel"     id="10" type="varAsciiEncoding"/>
   </sbe:message>
 
@@ -1091,8 +1092,8 @@ Reference schema patterned after Aeron archive control style; adjust IDs and fie
     <field name="producerId"  id="2" type="uint32"/>
     <field name="epoch"       id="3" type="epoch_t"/>
     <field name="metaVersion" id="4" type="version_t"/>
-    <data  name="name"        id="5" type="varAsciiEncoding" presence="optional"/>
-    <data  name="summary"     id="6" type="varAsciiEncoding" presence="optional"/>
+    <data  name="name"        id="5" type="varAsciiEncoding"/>
+    <data  name="summary"     id="6" type="varAsciiEncoding"/>
   </sbe:message>
 
   <sbe:message name="DataSourceMeta" id="8">
@@ -1116,7 +1117,7 @@ Reference schema patterned after Aeron archive control style; adjust IDs and fie
   <sbe:message name="ControlResponse" id="9">
     <field name="correlationId" id="1" type="int64"/>
     <field name="code"          id="2" type="ResponseCode"/>
-    <data  name="errorMessage"  id="3" type="varAsciiEncoding" presence="optional"/>
+    <data  name="errorMessage"  id="3" type="varAsciiEncoding"/>
   </sbe:message>
 
 </sbe:messageSchema>
