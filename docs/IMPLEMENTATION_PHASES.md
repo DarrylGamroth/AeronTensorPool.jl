@@ -192,20 +192,6 @@ Spec refs
 Status
 - Complete (lifecycle HSM wired; draining rejects attaches, timer-driven shutdown emits notice; admin shutdown request wired).
 
-## Phase 6b - Stream Lifecycle HSM (Per-Stream)
-
-Goals
-- Introduce a per-stream lifecycle HSM to model stream-level transitions.
-
-Deliverables
-- Stream lifecycle phases documented in `docs/IMPLEMENTATION_PHASES_HSM_PER_STREAM.md`.
-- Implementation and tests tracked in the per-stream plan.
-
-Validation
-- Unit tests in the per-stream plan.
-
-Status
-- Complete (stream lifecycle HSM implemented; integration and tests complete).
 
 ## Phase 7 - Driver Integration (Producer/Consumer)
 

@@ -8,7 +8,7 @@ function get_or_create_stream!(
 )
     stream_state = get(state.streams, stream_id, nothing)
     if !isnothing(stream_state)
-        return stream_state, false
+        return stream_state
     end
 
     stream_config = nothing
@@ -20,18 +20,18 @@ function get_or_create_stream!(
     end
 
     if isnothing(stream_config) && !state.config.policies.allow_dynamic_streams
-        return nothing, false
+        return nothing
     end
     if isnothing(stream_config)
         if publish_mode != DriverPublishMode.EXISTING_OR_CREATE
-            return nothing, false
+            return nothing
         end
         profile_name = state.config.policies.default_profile
     else
         profile_name = stream_config.profile
     end
     profile = get(state.config.profiles, profile_name, nothing)
-    isnothing(profile) && return nothing, false
+    isnothing(profile) && return nothing
 
     stream_state = DriverStreamState(
         stream_id,
@@ -41,16 +41,14 @@ function get_or_create_stream!(
         Dict{UInt16, String}(),
         UInt64(0),
         Set{UInt64}(),
-        StreamLifecycle(),
     )
     state.streams[stream_id] = stream_state
-    return stream_state, true
+    return stream_state
 end
 
 function bump_epoch!(state::DriverState, stream_state::DriverStreamState)
     stream_state.epoch = stream_state.epoch == 0 ? UInt64(1) : stream_state.epoch + 1
     provision_stream_epoch!(state, stream_state)
-    Hsm.dispatch!(stream_state.lifecycle, :EpochBumped, state.metrics)
     return nothing
 end
 

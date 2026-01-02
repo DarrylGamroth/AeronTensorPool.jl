@@ -66,7 +66,7 @@ function handle_attach_request!(state::DriverState, msg::ShmAttachRequest.Decode
         end
     end
 
-    stream_state, stream_created = get_or_create_stream!(state, stream_id, publish_mode)
+    stream_state = get_or_create_stream!(state, stream_id, publish_mode)
     if isnothing(stream_state)
         return emit_attach_response!(
             state,
@@ -75,9 +75,6 @@ function handle_attach_request!(state::DriverState, msg::ShmAttachRequest.Decode
             "stream not provisioned",
             nothing,
         )
-    end
-    if stream_created
-        Hsm.dispatch!(stream_state.lifecycle, :StreamProvisioned, state.metrics)
     end
 
     if expected_layout_version != 0 && expected_layout_version != UInt32(1)
@@ -159,10 +156,8 @@ function handle_attach_request!(state::DriverState, msg::ShmAttachRequest.Decode
 
     if role == DriverRole.PRODUCER
         stream_state.producer_lease_id = lease_id
-        Hsm.dispatch!(stream_state.lifecycle, :ProducerAttached, state.metrics)
     else
         push!(stream_state.consumer_lease_ids, lease_id)
-        Hsm.dispatch!(stream_state.lifecycle, :ConsumerAttached, state.metrics)
     end
 
     Hsm.dispatch!(lease.lifecycle, :AttachOk, state.metrics)
@@ -237,13 +232,11 @@ function revoke_lease!(state::DriverState, lease_id::UInt64, reason::DriverLease
     if !isnothing(stream_state)
         if lease.role == DriverRole.PRODUCER
             stream_state.producer_lease_id = 0
-            Hsm.dispatch!(stream_state.lifecycle, :ProducerDetached, state.metrics)
             emit_lease_revoked!(state, lease, reason, now_ns)
             bump_epoch!(state, stream_state)
             emit_driver_announce!(state, stream_state)
         else
             delete!(stream_state.consumer_lease_ids, lease_id)
-            Hsm.dispatch!(stream_state.lifecycle, :ConsumerDetached, state.metrics)
         end
     end
 
@@ -254,7 +247,6 @@ function revoke_lease!(state::DriverState, lease_id::UInt64, reason::DriverLease
        stream_state.producer_lease_id == 0 &&
        isempty(stream_state.consumer_lease_ids) &&
        state.config.policies.allow_dynamic_streams
-        Hsm.dispatch!(stream_state.lifecycle, :StreamIdle, state.metrics)
         delete!(state.streams, stream_state.stream_id)
     end
     return true

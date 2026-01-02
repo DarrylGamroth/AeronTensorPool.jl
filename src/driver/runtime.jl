@@ -35,7 +35,7 @@ function init_driver(config::DriverConfig; client::Aeron.Client)
 
     streams = Dict{UInt32, DriverStreamState}()
     leases = Dict{UInt64, DriverLease}()
-    metrics = DriverMetrics(0, 0, 0, 0, 0, 0, 0, 0)
+    metrics = DriverMetrics(0, 0, 0, 0, 0, 0, 0)
     timer_set = TimerSet(
         (
             PolledTimer(UInt64(config.policies.announce_period_ms) * 1_000_000),

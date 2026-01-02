@@ -1,7 +1,7 @@
 using Test
 
 @testset "Driver lease HSM" begin
-    metrics = AeronTensorPool.DriverMetrics(0, 0, 0, 0, 0, 0, 0, 0)
+    metrics = AeronTensorPool.DriverMetrics(0, 0, 0, 0, 0, 0, 0)
     lease = AeronTensorPool.LeaseLifecycle()
 
     @test AeronTensorPool.Hsm.current(lease) == :Init

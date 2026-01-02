@@ -9,5 +9,4 @@ mutable struct DriverMetrics
     lease_revoked::UInt64
     announces::UInt64
     lease_hsm_unhandled::UInt64
-    stream_hsm_unhandled::UInt64
 end
