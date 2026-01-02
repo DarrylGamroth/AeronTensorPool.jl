@@ -80,6 +80,7 @@ Driver-specific counters (attach, detach, keepalive, revoke, announce).
 struct DriverCounters
     base::Counters
     attach_responses::Aeron.Counter
+    attach_response_drops::Aeron.Counter
     detach_responses::Aeron.Counter
     keepalives::Aeron.Counter
     lease_revoked::Aeron.Counter
@@ -143,10 +144,11 @@ function DriverCounters(client::Aeron.Client, agent_id, agent_name)
     DriverCounters(
         Counters(client, agent_id, agent_name),
         add_counter(client, agent_id, agent_name, 3, "AttachResponses"),
-        add_counter(client, agent_id, agent_name, 4, "DetachResponses"),
-        add_counter(client, agent_id, agent_name, 5, "Keepalives"),
-        add_counter(client, agent_id, agent_name, 6, "LeaseRevoked"),
-        add_counter(client, agent_id, agent_name, 7, "Announces"),
+        add_counter(client, agent_id, agent_name, 4, "AttachResponseDrops"),
+        add_counter(client, agent_id, agent_name, 5, "DetachResponses"),
+        add_counter(client, agent_id, agent_name, 6, "Keepalives"),
+        add_counter(client, agent_id, agent_name, 7, "LeaseRevoked"),
+        add_counter(client, agent_id, agent_name, 8, "Announces"),
     )
 end
 

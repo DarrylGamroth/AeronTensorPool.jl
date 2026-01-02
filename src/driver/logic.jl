@@ -37,7 +37,7 @@ function init_driver(config::DriverConfig; client::Aeron.Client)
 
     streams = Dict{UInt32, DriverStreamState}()
     leases = Dict{UInt64, DriverLease}()
-    metrics = DriverMetrics(0, 0, 0, 0, 0)
+    metrics = DriverMetrics(0, 0, 0, 0, 0, 0)
     timer_set = TimerSet(
         (
             PolledTimer(UInt64(config.policies.announce_period_ms) * 1_000_000),
@@ -540,7 +540,7 @@ function emit_attach_response!(
         stream_state = stream_state,
         error_message = error_message,
         payload_count = payload_count
-        try_claim_sbe!(st.runtime.control.pub_control, st.runtime.control_claim, msg_len) do buf
+        sent = try_claim_sbe!(st.runtime.control.pub_control, st.runtime.control_claim, msg_len) do buf
             ShmAttachResponse.wrap_and_apply_header!(st.runtime.attach_encoder, buf, 0)
             ShmAttachResponse.correlationId!(st.runtime.attach_encoder, correlation_id)
             ShmAttachResponse.code!(st.runtime.attach_encoder, code)
@@ -578,7 +578,13 @@ function emit_attach_response!(
                 ShmAttachResponse.headerRegionUri!(st.runtime.attach_encoder, "")
                 ShmAttachResponse.errorMessage!(st.runtime.attach_encoder, error_message)
             end
-        end && (st.metrics.attach_responses += 1; true)
+        end
+        if sent
+            st.metrics.attach_responses += 1
+        else
+            st.metrics.attach_response_drops += 1
+        end
+        return sent
     end
 end
 

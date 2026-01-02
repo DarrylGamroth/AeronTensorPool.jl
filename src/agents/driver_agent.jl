@@ -28,6 +28,7 @@ function Agent.do_work(agent::DriverAgent)
         Aeron.add!(agent.counters.base.total_work_done, Int64(work_done))
     end
     agent.counters.attach_responses[] = Int64(agent.state.metrics.attach_responses)
+    agent.counters.attach_response_drops[] = Int64(agent.state.metrics.attach_response_drops)
     agent.counters.detach_responses[] = Int64(agent.state.metrics.detach_responses)
     agent.counters.keepalives[] = Int64(agent.state.metrics.keepalives)
     agent.counters.lease_revoked[] = Int64(agent.state.metrics.lease_revoked)
