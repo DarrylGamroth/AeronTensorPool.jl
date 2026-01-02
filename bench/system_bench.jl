@@ -1,6 +1,12 @@
 using Aeron
 using AeronTensorPool
 
+function ensure_shm_dir(uri::AbstractString)
+    parsed = AeronTensorPool.parse_shm_uri(uri)
+    mkpath(dirname(parsed.path))
+    return nothing
+end
+
 function apply_canonical_layout(
     config::ProducerConfig,
     base_dir::String;
@@ -17,6 +23,10 @@ function apply_canonical_layout(
         producer_instance_id,
         epoch,
     )
+    ensure_shm_dir(header_uri)
+    for pool in resolved_pools
+        ensure_shm_dir(pool.uri)
+    end
     return ProducerConfig(
         config.aeron_dir,
         config.aeron_uri,
@@ -94,9 +104,8 @@ function run_system_bench(config_path::AbstractString, duration_s::Float64; payl
             cons_desc = Aeron.FragmentAssembler(Aeron.FragmentHandler(consumer) do st, buffer, _
                 header = MessageHeader.Decoder(buffer, 0)
                 if MessageHeader.templateId(header) == AeronTensorPool.TEMPLATE_FRAME_DESCRIPTOR
-                    FrameDescriptor.wrap!(st.desc_decoder, buffer, 0; header = header)
-                    result = try_read_frame!(st, st.desc_decoder)
-                    result === nothing || (consumed[] += 1)
+                    FrameDescriptor.wrap!(st.runtime.desc_decoder, buffer, 0; header = header)
+                    try_read_frame!(st, st.runtime.desc_decoder) && (consumed[] += 1)
                 end
                 nothing
             end)
