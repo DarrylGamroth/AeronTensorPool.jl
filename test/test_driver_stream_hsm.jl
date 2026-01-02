@@ -21,4 +21,12 @@ using Test
     AeronTensorPool.Hsm.dispatch!(stream2, :UnknownEvent, metrics)
     @test AeronTensorPool.Hsm.current(stream2) == :Active
     @test metrics.stream_hsm_unhandled == 1
+
+    streams = Dict{UInt32, Int}(0x01 => 1)
+    ctx = AeronTensorPool.StreamLifecycleContext(streams, UInt32(0x01), metrics)
+    stream3 = AeronTensorPool.StreamLifecycle()
+    AeronTensorPool.Hsm.dispatch!(stream3, :StreamProvisioned, metrics)
+    AeronTensorPool.Hsm.dispatch!(stream3, :StreamIdle, ctx)
+    @test AeronTensorPool.Hsm.current(stream3) == :Closed
+    @test isempty(streams)
 end
