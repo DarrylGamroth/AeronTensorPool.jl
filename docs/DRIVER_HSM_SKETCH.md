@@ -13,48 +13,48 @@ using Clocks
     state::DriverState
 end
 
-@statedef DriverHsm :BOOT
-@statedef DriverHsm :RUNNING
-@statedef DriverHsm :RUNNING_DRAINING
-@statedef DriverHsm :STOPPED
+@statedef DriverHsm :Init
+@statedef DriverHsm :Running
+@statedef DriverHsm :Running_Draining
+@statedef DriverHsm :Stopped
 
 @on_initial function(sm::DriverHsm, ::Root)
-    return Hsm.transition!(sm, :BOOT)
+    return Hsm.transition!(sm, :Init)
 end
 
-@on_initial function(sm::DriverHsm, ::BOOT)
+@on_initial function(sm::DriverHsm, ::Init)
     # init_driver already sets up pubs/subs/timers
-    return Hsm.transition!(sm, :RUNNING)
+    return Hsm.transition!(sm, :Running)
 end
 
-@on_event function(sm::DriverHsm, ::RUNNING, ::ShutdownRequested, _)
-    return Hsm.transition!(sm, :RUNNING_DRAINING)
+@on_event function(sm::DriverHsm, ::Running, ::ShutdownRequested, _)
+    return Hsm.transition!(sm, :Running_Draining)
 end
 
-@on_event function(sm::DriverHsm, ::RUNNING_DRAINING, ::ShutdownTimeout, _)
-    return Hsm.transition!(sm, :STOPPED)
+@on_event function(sm::DriverHsm, ::Running_Draining, ::ShutdownTimeout, _)
+    return Hsm.transition!(sm, :Stopped)
 end
 
-@on_event function(sm::DriverHsm, ::RUNNING, ::Tick, now_ns::UInt64)
+@on_event function(sm::DriverHsm, ::Running, ::Tick, now_ns::UInt64)
     # driver_do_work! body:
     poll_driver_control!(sm.state)
     poll_timers!(sm.state, now_ns)
     return Hsm.EventHandled
 end
 
-@on_entry function(sm::DriverHsm, ::RUNNING)
+@on_entry function(sm::DriverHsm, ::Running)
     # arm timers / enable accepts (no transitions here)
 end
 
-@on_exit function(sm::DriverHsm, ::RUNNING)
+@on_exit function(sm::DriverHsm, ::Running)
     # stop accepts / flush control state (no transitions here)
 end
 
-@on_entry function(sm::DriverHsm, ::RUNNING_DRAINING)
+@on_entry function(sm::DriverHsm, ::Running_Draining)
     # reject new attaches, allow detach/expiry (no transitions here)
 end
 
-@on_exit function(sm::DriverHsm, ::RUNNING_DRAINING)
+@on_exit function(sm::DriverHsm, ::Running_Draining)
     # emit shutdown notice if needed (no transitions here)
 end
 ```
@@ -164,5 +164,5 @@ end
 ## Why Hsm.jl fits
 
 - Event handling is type‑stable and zero‑allocation (Val‑based dispatch).
-- Hierarchy allows `RUNNING` to share handlers while `RUNNING_DRAINING` overrides attach behavior.
+- Hierarchy allows `Running` to share handlers while `Running_Draining` overrides attach behavior.
 - Entry/exit hooks make timer arming and teardown deterministic.

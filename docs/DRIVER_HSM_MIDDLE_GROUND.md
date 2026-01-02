@@ -12,36 +12,36 @@ using Hsm
     state::DriverState
 end
 
-@statedef DriverLifecycle :BOOT
-@statedef DriverLifecycle :RUNNING
-@statedef DriverLifecycle :DRAINING
-@statedef DriverLifecycle :STOPPED
+@statedef DriverLifecycle :Init
+@statedef DriverLifecycle :Running
+@statedef DriverLifecycle :Draining
+@statedef DriverLifecycle :Stopped
 
 @on_initial function(sm::DriverLifecycle, ::Root)
-    return Hsm.transition!(sm, :BOOT)
+    return Hsm.transition!(sm, :Init)
 end
 
-@on_initial function(sm::DriverLifecycle, ::BOOT)
+@on_initial function(sm::DriverLifecycle, ::Init)
     # init_driver already sets up pubs/subs/timers
-    return Hsm.transition!(sm, :RUNNING)
+    return Hsm.transition!(sm, :Running)
 end
 
-@on_event function(sm::DriverLifecycle, ::RUNNING, ::ShutdownRequested, _)
-    return Hsm.transition!(sm, :DRAINING)
+@on_event function(sm::DriverLifecycle, ::Running, ::ShutdownRequested, _)
+    return Hsm.transition!(sm, :Draining)
 end
 
-@on_event function(sm::DriverLifecycle, ::DRAINING, ::ShutdownTimeout, _)
-    return Hsm.transition!(sm, :STOPPED)
+@on_event function(sm::DriverLifecycle, ::Draining, ::ShutdownTimeout, _)
+    return Hsm.transition!(sm, :Stopped)
 end
 
-@on_event function(sm::DriverLifecycle, ::RUNNING, ::Tick, now_ns::UInt64)
+@on_event function(sm::DriverLifecycle, ::Running, ::Tick, now_ns::UInt64)
     poll_driver_control!(sm.state)
     poll_timers!(sm.state, now_ns)
     return Hsm.EventHandled
 end
 
-@on_event function(sm::DriverLifecycle, ::DRAINING, ::Tick, now_ns::UInt64)
-    # no new attach accepted in DRAINING, but keep detaches/expiry
+@on_event function(sm::DriverLifecycle, ::Draining, ::Tick, now_ns::UInt64)
+    # no new attach accepted in Draining, but keep detaches/expiry
     poll_driver_control!(sm.state)
     poll_timers!(sm.state, now_ns)
     return Hsm.EventHandled

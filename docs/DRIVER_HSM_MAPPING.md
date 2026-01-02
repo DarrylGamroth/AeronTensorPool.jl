@@ -6,19 +6,19 @@ It is a design aid only (no code changes implied).
 ## Top-Level Driver HSM
 
 States:
-- `BOOT`: init, Aeron pubs/subs, timers.
-- `RUNNING`: normal operation.
-- `RUNNING.DRAINING`: reject new attaches; allow detach/expiry.
-- `STOPPED`: shutdown complete.
+- `Init`: init, Aeron pubs/subs, timers.
+- `Running`: normal operation.
+- `Running.Draining`: reject new attaches; allow detach/expiry.
+- `Stopped`: shutdown complete.
 
 Event mapping (current code → HSM events):
-- `init_driver` → `BOOT → RUNNING`
-- `driver_do_work!` loop → `RUNNING` tick
-- `emit_driver_shutdown!` (Agent.on_close) → `RUNNING → RUNNING.DRAINING → STOPPED`
+- `init_driver` → `Init → Running`
+- `driver_do_work!` loop → `Running` tick
+- `emit_driver_shutdown!` (Agent.on_close) → `Running → Running.Draining → Stopped`
 
 Timers as events:
-- `DriverAnnounceHandler` → `announce_timer_fired` in `RUNNING`
-- `DriverLeaseCheckHandler` → `lease_check_timer_fired` in `RUNNING`
+- `DriverAnnounceHandler` → `announce_timer_fired` in `Running`
+- `DriverLeaseCheckHandler` → `lease_check_timer_fired` in `Running`
 
 ## Per-Stream HSM (driver-owned)
 
@@ -64,10 +64,10 @@ Liveness:
 
 ## Where Hsm.jl Fits
 
-If adopted, each `DriverLease` becomes its own sub‑HSM owned by the driver’s `RUNNING` state.
+If adopted, each `DriverLease` becomes its own sub‑HSM owned by the driver’s `Running` state.
 The per‑stream HSM is another sub‑HSM keyed by `stream_id`, handling epoch/provisioning.
 Timers become explicit `announce_timer_fired` and `lease_check_timer_fired` events
 instead of implicit checks inside `driver_do_work!`.
 
-This keeps teardown paths (detach/revoke/expiry) consistent and allows a `DRAINING`
+This keeps teardown paths (detach/revoke/expiry) consistent and allows a `Draining`
 super‑state to halt attaches while still servicing keepalive/detach until shutdown.
