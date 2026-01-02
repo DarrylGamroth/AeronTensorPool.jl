@@ -125,8 +125,8 @@
     <field name="progressBytesDelta"    id="9" type="uint32" presence="optional" nullValue="4294967295"/>
     <field name="progressRowsDelta"     id="10" type="uint32" presence="optional" nullValue="4294967295"/>
     <field name="descriptorStreamId"    id="11" type="uint32" presence="optional" nullValue="4294967295"/>
-    <field name="controlStreamId"       id="13" type="uint32" presence="optional" nullValue="4294967295"/>
-    <data  name="descriptorChannel"     id="12" type="varAsciiEncoding"/>
+    <field name="controlStreamId"       id="12" type="uint32" presence="optional" nullValue="4294967295"/>
+    <data  name="descriptorChannel"     id="13" type="varAsciiEncoding"/>
     <data  name="controlChannel"        id="14" type="varAsciiEncoding"/>
   </sbe:message>
 
@@ -136,10 +136,10 @@
     <field name="useShm"             id="3" type="Bool"/>
     <field name="mode"               id="4" type="Mode"/>
     <field name="decimation"         id="5" type="uint16"/>
-    <field name="descriptorStreamId" id="7" type="uint32" presence="optional" nullValue="4294967295"/>
-    <field name="controlStreamId"    id="9" type="uint32" presence="optional" nullValue="4294967295"/>
-    <data  name="payloadFallbackUri" id="6" type="varAsciiEncoding"/>
-    <data  name="descriptorChannel"  id="8" type="varAsciiEncoding"/>
+    <field name="descriptorStreamId" id="6" type="uint32" presence="optional" nullValue="4294967295"/>
+    <field name="controlStreamId"    id="7" type="uint32" presence="optional" nullValue="4294967295"/>
+    <data  name="payloadFallbackUri" id="8" type="varAsciiEncoding"/>
+    <data  name="descriptorChannel"  id="9" type="varAsciiEncoding"/>
     <data  name="controlChannel"     id="10" type="varAsciiEncoding"/>
   </sbe:message>
 

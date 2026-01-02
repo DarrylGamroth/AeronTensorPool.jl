@@ -110,7 +110,7 @@ A simple deployment can multiplex these message types on one Aeron channel/strea
 
 Per-consumer descriptor streams (optional): producers MAY publish `FrameDescriptor` on per-consumer channels/stream IDs when requested. If used, the producer MUST return the assigned descriptor channel/stream in `ConsumerConfig`, and the consumer MUST subscribe to that stream instead of the shared descriptor stream. Producers MUST stop publishing and close per-consumer descriptor publications when the consumer disconnects or times out.
 When per-consumer descriptor streams are used, producers MAY apply `ConsumerHello.max_rate_hz` as a per-consumer descriptor rate cap; if `max_rate_hz` is 0, descriptors are unthrottled. `max_rate_hz` MUST be ignored when only the shared descriptor stream is used.
-Per-consumer control streams (optional): producers MAY publish `FrameProgress` on per-consumer control channels/stream IDs when requested. If used, the producer MUST return the assigned control channel/stream in `ConsumerConfig`, and the consumer MUST subscribe to that control stream for `FrameProgress`. Consumers MUST continue to subscribe to the shared control stream for all other control-plane messages.
+Per-consumer control streams (optional): producers MAY publish `FrameProgress` on per-consumer control channels/stream IDs when requested. If used, the producer MUST return the assigned control channel/stream in `ConsumerConfig`, and the consumer MUST subscribe to that control stream for `FrameProgress`. Consumers MUST continue to subscribe to the shared control stream for all other control-plane messages. Producers MUST NOT publish other control-plane messages on per-consumer control streams.
 
 ---
 
@@ -180,7 +180,7 @@ slot_offset(i) =
 
 This header represents “almost fixed-size TensorMessage metadata” with the large `values` buffer stored out-of-line in a payload pool.
 
-SBE definition: `TensorSlotHeader256` message in the schema appendix (using `MAX_DIMS=8`; adjust `length` if you pick a different `MAX_DIMS`).
+SBE definition: `TensorSlotHeader256` message in the schema appendix (using `MAX_DIMS=8`; adjust `length` if you pick a different `MAX_DIMS`). The schema includes a `maxDims` constant field for codegen alignment; it is not encoded on the wire and MUST be treated as a compile-time constant.
 
 **Fields** (in wire/layout order)
 - `commit_word : u64` (commit sentinel, written last)
@@ -269,6 +269,7 @@ All messages below are SBE encoded and transported over Aeron.
 - Producers MUST encode “absent” optional primitives using the nullValue; consumers MUST interpret those null values as “not provided”.
 - Implementations MAY instead choose to always populate fields and omit `presence="optional"`; keep schema and prose aligned.
 - Variable-length `data` fields are optional by encoding an empty value (length = 0). Producers MUST use length 0 to indicate absence; consumers MUST treat length 0 as “not provided”.
+- SBE requires variable-length `data` fields to appear at the end of a message. Field IDs are assigned sequentially to fixed fields first, then sequentially to `data` fields.
 
 #### 10.1.1 ShmPoolAnnounce (producer → all)
 
@@ -318,8 +319,8 @@ Sent on startup and optionally periodically.
 - Advertise consumer capabilities.
 - Enables management decisions (e.g., instruct remote consumers to use a bridge).
 - Provides optional per-consumer progress throttling hints; producer aggregates hints (e.g., smallest intervals/deltas within producer safety floors) and retains final authority.
-- Optionally request a per-consumer descriptor stream when `descriptor_channel`/`descriptor_stream_id` are provided.
-- Optionally request a per-consumer control stream when `control_channel`/`control_stream_id` are provided.
+- Optionally request a per-consumer descriptor stream when `descriptor_channel` and `descriptor_stream_id` are both provided (non-empty channel, non-zero stream id).
+- Optionally request a per-consumer control stream when `control_channel` and `control_stream_id` are both provided (non-empty channel, non-zero stream id).
 - Consumer IDs: recommended to be assigned by supervisor/authority per stream; if self-assigned, use randomized IDs and treat collisions (detected via `QosConsumer`) as a reason to reconnect with a new ID.
 
 #### 10.1.3 ConsumerConfig (producer/supervisor → consumer) [optional]
@@ -345,7 +346,9 @@ Sent on startup and optionally periodically.
 
 **Per-consumer stream request rules**
 - Empty `descriptor_channel`/`control_channel` strings MUST be treated as “not requested/assigned”.
+- If only one of channel/stream_id is provided, the request MUST be treated as absent.
 - If a producer declines a per-consumer stream request, it MUST return empty channel and null/zero stream ID in `ConsumerConfig`, and the consumer MUST remain on the shared stream.
+- Per-consumer descriptor/control publications MUST be closed when the consumer is stale (no `QosConsumer` or `ConsumerHello` for 3–5× the configured hello/qos interval) or explicitly disconnected.
 
 ### 10.2 Data Availability
 
@@ -998,8 +1001,8 @@ Reference schema patterned after Aeron archive control style; adjust IDs and fie
     <field name="progressBytesDelta"    id="9" type="uint32" presence="optional" nullValue="4294967295"/>
     <field name="progressRowsDelta"     id="10" type="uint32" presence="optional" nullValue="4294967295"/>
     <field name="descriptorStreamId"    id="11" type="uint32" presence="optional" nullValue="4294967295"/>
-    <field name="controlStreamId"       id="13" type="uint32" presence="optional" nullValue="4294967295"/>
-    <data  name="descriptorChannel"     id="12" type="varAsciiEncoding"/>
+    <field name="controlStreamId"       id="12" type="uint32" presence="optional" nullValue="4294967295"/>
+    <data  name="descriptorChannel"     id="13" type="varAsciiEncoding"/>
     <data  name="controlChannel"        id="14" type="varAsciiEncoding"/>
   </sbe:message>
 
@@ -1009,10 +1012,10 @@ Reference schema patterned after Aeron archive control style; adjust IDs and fie
     <field name="useShm"             id="3" type="Bool"/>
     <field name="mode"               id="4" type="Mode"/>
     <field name="decimation"         id="5" type="uint16"/>
-    <field name="descriptorStreamId" id="7" type="uint32" presence="optional" nullValue="4294967295"/>
-    <field name="controlStreamId"    id="9" type="uint32" presence="optional" nullValue="4294967295"/>
-    <data  name="payloadFallbackUri" id="6" type="varAsciiEncoding"/>
-    <data  name="descriptorChannel"  id="8" type="varAsciiEncoding"/>
+    <field name="descriptorStreamId" id="6" type="uint32" presence="optional" nullValue="4294967295"/>
+    <field name="controlStreamId"    id="7" type="uint32" presence="optional" nullValue="4294967295"/>
+    <data  name="payloadFallbackUri" id="8" type="varAsciiEncoding"/>
+    <data  name="descriptorChannel"  id="9" type="varAsciiEncoding"/>
     <data  name="controlChannel"     id="10" type="varAsciiEncoding"/>
   </sbe:message>
 
