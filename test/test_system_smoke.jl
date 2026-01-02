@@ -75,10 +75,11 @@ liveness_check_interval_ns = 1000000000
             env["AERON_DIR"] = Aeron.MediaDriver.aeron_dir(driver)
             system = load_system_config(config_path; env = env)
 
-            producer = init_producer(system.producer)
-            consumer = init_consumer(system.consumer)
-            supervisor = init_supervisor(system.supervisor)
-            try
+            with_client(; driver = driver) do client
+                producer = init_producer(system.producer; client = client)
+                consumer = init_consumer(system.consumer; client = client)
+                supervisor = init_supervisor(system.supervisor; client = client)
+                try
 
             prod_ctrl = make_control_assembler(producer)
             cons_ctrl = make_control_assembler(consumer)
@@ -124,11 +125,12 @@ liveness_check_interval_ns = 1000000000
                 return published && got_frame[]
             end
 
-            @test ok
-            finally
-                close_producer_state!(producer)
-                close_consumer_state!(consumer)
-                close_supervisor_state!(supervisor)
+                    @test ok
+                finally
+                    close_producer_state!(producer)
+                    close_consumer_state!(consumer)
+                    close_supervisor_state!(supervisor)
+                end
             end
         end
     end

@@ -27,24 +27,26 @@
             UInt64(1_000_000_000),
             UInt64(1_000_000_000),
         )
-        state = init_consumer(consumer_cfg)
-        try
-            AeronTensorPool.maybe_track_gap!(state, UInt64(1))
-            @test state.metrics.drops_gap == 0
-            @test state.metrics.last_seq_seen == 1
-            @test state.metrics.seen_any == true
+        with_client(; driver = driver) do client
+            state = init_consumer(consumer_cfg; client = client)
+            try
+                AeronTensorPool.maybe_track_gap!(state, UInt64(1))
+                @test state.metrics.drops_gap == 0
+                @test state.metrics.last_seq_seen == 1
+                @test state.metrics.seen_any == true
 
-            AeronTensorPool.maybe_track_gap!(state, UInt64(5))
-            @test state.metrics.drops_gap == 3
-            @test state.metrics.last_seq_seen == 5
-            @test state.metrics.seen_any == false
+                AeronTensorPool.maybe_track_gap!(state, UInt64(5))
+                @test state.metrics.drops_gap == 3
+                @test state.metrics.last_seq_seen == 5
+                @test state.metrics.seen_any == false
 
-            AeronTensorPool.maybe_track_gap!(state, UInt64(6))
-            @test state.metrics.drops_gap == 3
-            @test state.metrics.last_seq_seen == 6
-            @test state.metrics.seen_any == true
-        finally
-            close_consumer_state!(state)
+                AeronTensorPool.maybe_track_gap!(state, UInt64(6))
+                @test state.metrics.drops_gap == 3
+                @test state.metrics.last_seq_seen == 6
+                @test state.metrics.seen_any == true
+            finally
+                close_consumer_state!(state)
+            end
         end
     end
 end

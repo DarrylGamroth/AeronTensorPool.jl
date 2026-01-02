@@ -12,10 +12,9 @@ Construct a DriverAgent from a DriverConfig.
 function DriverAgent(
     config::DriverConfig;
     agent_id::Int = 0,
-    aeron_ctx::Union{Nothing, Aeron.Context} = nothing,
-    aeron_client::Union{Nothing, Aeron.Client} = nothing,
+    client::Aeron.Client,
 )
-    state = init_driver(config; aeron_ctx = aeron_ctx, aeron_client = aeron_client)
+    state = init_driver(config; client = client)
     counters = DriverCounters(state.runtime.client, agent_id, "Driver")
     return DriverAgent(state, counters)
 end
@@ -44,8 +43,6 @@ function Agent.on_close(agent::DriverAgent)
         close(agent.state.runtime.pub_announce)
         close(agent.state.runtime.pub_qos)
         close(agent.state.runtime.sub_control)
-        agent.state.runtime.owns_client && close(agent.state.runtime.client)
-        agent.state.runtime.owns_ctx && close(agent.state.runtime.ctx)
     catch
     end
     return nothing

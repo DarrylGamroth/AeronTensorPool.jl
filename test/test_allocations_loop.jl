@@ -71,8 +71,9 @@ qos_interval_ns = 1000000000
                 mkpath(dirname(parse_shm_uri(pool.uri).path))
             end
 
-            producer = init_producer(system.producer)
-            consumer = init_consumer(system.consumer)
+            with_client(; driver = driver) do client
+                producer = init_producer(system.producer; client = client)
+                consumer = init_consumer(system.consumer; client = client)
 
             payload = UInt8[1, 2, 3, 4]
             shape = Int32[4]
@@ -109,15 +110,15 @@ qos_interval_ns = 1000000000
             AeronTensorPool.FrameDescriptor.wrap_and_apply_header!(desc_enc, desc_buf, 0)
             desc_dec = AeronTensorPool.FrameDescriptor.Decoder(Vector{UInt8})
 
-            try
-                GC.gc()
-                @test @allocated(publish_frame!(producer, payload, shape, strides, Dtype.UINT8, UInt32(0))) == 0
+                try
+                    GC.gc()
+                    @test @allocated(publish_frame!(producer, payload, shape, strides, Dtype.UINT8, UInt32(0))) == 0
 
-                alloc_bytes = @allocated(begin
-                    for i in 1:200
-                        publish_frame!(producer, payload, shape, strides, Dtype.UINT8, UInt32(0))
-                        AeronTensorPool.FrameDescriptor.streamId!(desc_enc, system.producer.stream_id)
-                        AeronTensorPool.FrameDescriptor.epoch!(desc_enc, UInt64(1))
+                    alloc_bytes = @allocated(begin
+                        for i in 1:200
+                            publish_frame!(producer, payload, shape, strides, Dtype.UINT8, UInt32(0))
+                            AeronTensorPool.FrameDescriptor.streamId!(desc_enc, system.producer.stream_id)
+                            AeronTensorPool.FrameDescriptor.epoch!(desc_enc, UInt64(1))
                         AeronTensorPool.FrameDescriptor.seq!(desc_enc, UInt64(i - 1))
                         AeronTensorPool.FrameDescriptor.headerIndex!(
                             desc_enc,
@@ -128,12 +129,13 @@ qos_interval_ns = 1000000000
                         header = AeronTensorPool.MessageHeader.Decoder(desc_buf, 0)
                         AeronTensorPool.FrameDescriptor.wrap!(desc_dec, desc_buf, 0; header = header)
                         try_read_frame!(consumer, desc_dec)
-                    end
-                end)
-                @test alloc_bytes == 0
-            finally
-                close_producer_state!(producer)
-                close_consumer_state!(consumer)
+                        end
+                    end)
+                    @test alloc_bytes == 0
+                finally
+                    close_producer_state!(producer)
+                    close_consumer_state!(consumer)
+                end
             end
         end
     end

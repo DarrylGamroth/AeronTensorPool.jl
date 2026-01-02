@@ -78,10 +78,7 @@ mutable struct BridgeSenderState
     consumer_state::ConsumerState
     config::BridgeConfig
     mapping::BridgeMapping
-    ctx::Aeron.Context
     client::Aeron.Client
-    owns_ctx::Bool
-    owns_client::Bool
     pub_payload::Aeron.Publication
     pub_control::Aeron.Publication
     pub_metadata::Union{Nothing, Aeron.Publication}
@@ -118,10 +115,7 @@ Bridge receiver runtime state for assembling BridgeFrameChunk payloads.
 mutable struct BridgeReceiverState
     config::BridgeConfig
     mapping::BridgeMapping
-    ctx::Aeron.Context
     client::Aeron.Client
-    owns_ctx::Bool
-    owns_client::Bool
     clock::Clocks.AbstractClock
     now_ns::UInt64
     producer_state::Union{Nothing, ProducerState}

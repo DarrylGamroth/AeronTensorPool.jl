@@ -14,15 +14,16 @@
             UInt64(2_000_000_000),
             UInt64(200_000_000),
         )
-        supervisor_state = init_supervisor(supervisor_cfg)
-        ctrl_asm = make_control_assembler(supervisor_state)
-        qos_asm = AeronTensorPool.make_qos_assembler(supervisor_state)
+        with_client(; driver = driver) do client
+            supervisor_state = init_supervisor(supervisor_cfg; client = client)
+            ctrl_asm = make_control_assembler(supervisor_state)
+            qos_asm = AeronTensorPool.make_qos_assembler(supervisor_state)
 
-        pub_control = Aeron.add_publication(supervisor_state.runtime.client, uri, control_stream)
-        pub_qos = Aeron.add_publication(supervisor_state.runtime.client, uri, qos_stream)
-        sub_cfg = nothing
+            pub_control = Aeron.add_publication(client, uri, control_stream)
+            pub_qos = Aeron.add_publication(client, uri, qos_stream)
+            sub_cfg = nothing
 
-        try
+            try
             announce_buf = Vector{UInt8}(undef, 1024)
             announce_enc = AeronTensorPool.ShmPoolAnnounce.Encoder(Vector{UInt8})
             AeronTensorPool.ShmPoolAnnounce.wrap_and_apply_header!(announce_enc, announce_buf, 0)
@@ -117,7 +118,7 @@
             nothing
         end
         cfg_asm = Aeron.FragmentAssembler(cfg_handler)
-        sub_cfg = Aeron.add_subscription(supervisor_state.runtime.client, uri, control_stream)
+        sub_cfg = Aeron.add_subscription(client, uri, control_stream)
 
         emit_consumer_config!(supervisor_state, UInt32(21); use_shm = false, mode = Mode.LATEST)
 
@@ -126,19 +127,20 @@
         end
         @test ok_cfg
         @test got_cfg[]
-        finally
-            if sub_cfg !== nothing
+            finally
+                if sub_cfg !== nothing
+                    try
+                        close(sub_cfg)
+                    catch
+                    end
+                end
                 try
-                    close(sub_cfg)
+                    close(pub_control)
+                    close(pub_qos)
                 catch
                 end
+                close_supervisor_state!(supervisor_state)
             end
-            try
-                close(pub_control)
-                close(pub_qos)
-            catch
-            end
-            close_supervisor_state!(supervisor_state)
         end
     end
 end

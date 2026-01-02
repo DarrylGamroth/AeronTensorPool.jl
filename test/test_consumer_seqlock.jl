@@ -85,8 +85,9 @@
                 UInt64(1_000_000_000),
                 UInt64(1_000_000_000),
             )
-            state = init_consumer(consumer_cfg)
-            try
+            with_client(; driver = driver) do client
+                state = init_consumer(consumer_cfg; client = client)
+                try
 
             announce_buf = Vector{UInt8}(undef, 1024)
             announce_enc = AeronTensorPool.ShmPoolAnnounce.Encoder(Vector{UInt8})
@@ -187,8 +188,9 @@
             )
             seqlock_commit_write!(commit_ptr, UInt64(1))
             @test try_read_frame!(state, desc_dec) == false
-            finally
-                close_consumer_state!(state)
+                finally
+                    close_consumer_state!(state)
+                end
             end
         end
     end

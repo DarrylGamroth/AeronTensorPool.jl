@@ -31,7 +31,7 @@ using Test
                 Dict{String, DriverStreamConfig}(),
             )
 
-            driver_state = init_driver(cfg)
+            driver_state = init_driver(cfg; client = client)
             sub = Aeron.add_subscription(client, "aeron:ipc", 1000)
             poller = DriverResponsePoller(sub)
 

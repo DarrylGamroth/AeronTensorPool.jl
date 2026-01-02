@@ -32,16 +32,18 @@
                 UInt64(65536),
             )
 
-            state = init_producer(cfg)
-            try
+            with_client(; driver = driver) do client
+                state = init_producer(cfg; client = client)
+                try
                 res = reserve_slot!(state, UInt16(1))
                 @test res.seq == UInt64(0)
                 @test res.header_index == UInt32(0)
                 @test res.payload_slot == UInt32(0)
                 @test res.stride_bytes == 64
                 @test state.seq == UInt64(1)
-            finally
-                close_producer_state!(state)
+                finally
+                    close_producer_state!(state)
+                end
             end
         end
     end

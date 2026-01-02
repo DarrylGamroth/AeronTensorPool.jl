@@ -1,18 +1,8 @@
 """
 Initialize a consumer: create Aeron resources and initial timers.
 """
-function init_consumer(
-    config::ConsumerConfig;
-    aeron_ctx::Union{Nothing, Aeron.Context} = nothing,
-    aeron_client::Union{Nothing, Aeron.Client} = nothing,
-)
+function init_consumer(config::ConsumerConfig; client::Aeron.Client)
     clock = Clocks.CachedEpochClock(Clocks.MonotonicClock())
-
-    ctx, client, owns_ctx, owns_client = acquire_aeron(
-        config.aeron_dir;
-        ctx = aeron_ctx,
-        client = aeron_client,
-    )
 
     pub_control = Aeron.add_publication(client, config.aeron_uri, config.control_stream_id)
     pub_qos = Aeron.add_publication(client, config.aeron_uri, config.qos_stream_id)
@@ -27,10 +17,7 @@ function init_consumer(
     )
 
     runtime = ConsumerRuntime(
-        ctx,
         client,
-        owns_ctx,
-        owns_client,
         pub_control,
         pub_qos,
         sub_descriptor,
@@ -102,12 +89,11 @@ function init_consumer_from_attach(
     config::ConsumerConfig,
     attach::AttachResponseInfo;
     driver_client::Union{DriverClientState, Nothing} = nothing,
-    aeron_ctx::Union{Nothing, Aeron.Context} = nothing,
-    aeron_client::Union{Nothing, Aeron.Client} = nothing,
+    client::Aeron.Client,
 )
     attach.code == DriverResponseCode.OK || throw(ArgumentError("attach failed"))
     attach.stream_id == config.stream_id || throw(ArgumentError("stream_id mismatch"))
-    state = init_consumer(config; aeron_ctx = aeron_ctx, aeron_client = aeron_client)
+    state = init_consumer(config; client = client)
     ok = map_from_attach_response!(state, attach)
     ok || throw(ArgumentError("failed to map SHM from attach"))
     state.driver_client = driver_client

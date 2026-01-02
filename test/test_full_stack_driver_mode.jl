@@ -26,49 +26,49 @@ end
 
 @testset "Full stack driver mode" begin
     with_embedded_driver() do media_driver
-        base_dir = mktempdir()
+        with_client(; driver = media_driver) do client
+            base_dir = mktempdir()
 
-        driver_control_stream = Int32(15010)
-        pool_control_stream = Int32(15011)
-        qos_stream = Int32(15012)
-        descriptor_stream = Int32(15013)
-        metadata_stream = Int32(15014)
-        uri = "aeron:ipc"
-        stream_id = UInt32(77)
+            driver_control_stream = Int32(15010)
+            pool_control_stream = Int32(15011)
+            qos_stream = Int32(15012)
+            descriptor_stream = Int32(15013)
+            metadata_stream = Int32(15014)
+            uri = "aeron:ipc"
+            stream_id = UInt32(77)
 
-        endpoints = DriverEndpoints(
-            "driver-test",
-            Aeron.MediaDriver.aeron_dir(media_driver),
-            uri,
-            driver_control_stream,
-            uri,
-            pool_control_stream,
-            uri,
-            qos_stream,
-        )
-        shm = DriverShmConfig(base_dir, false, UInt32(4096), "660", [base_dir])
-        policies = DriverPolicies(false, "raw", UInt32(50), UInt32(1000), UInt32(5))
-        profile = DriverProfileConfig(
-            "raw",
-            UInt32(8),
-            UInt16(256),
-            UInt8(8),
-            [DriverPoolConfig(UInt16(1), UInt32(4096))],
-        )
-        streams = Dict("cam1" => DriverStreamConfig("cam1", stream_id, "raw"))
-        cfg = DriverConfig(
-            endpoints,
-            shm,
-            policies,
-            Dict("raw" => profile),
-            streams,
-        )
+            endpoints = DriverEndpoints(
+                "driver-test",
+                Aeron.MediaDriver.aeron_dir(media_driver),
+                uri,
+                driver_control_stream,
+                uri,
+                pool_control_stream,
+                uri,
+                qos_stream,
+            )
+            shm = DriverShmConfig(base_dir, false, UInt32(4096), "660", [base_dir])
+            policies = DriverPolicies(false, "raw", UInt32(50), UInt32(1000), UInt32(5))
+            profile = DriverProfileConfig(
+                "raw",
+                UInt32(8),
+                UInt16(256),
+                UInt8(8),
+                [DriverPoolConfig(UInt16(1), UInt32(4096))],
+            )
+            streams = Dict("cam1" => DriverStreamConfig("cam1", stream_id, "raw"))
+            cfg = DriverConfig(
+                endpoints,
+                shm,
+                policies,
+                Dict("raw" => profile),
+                streams,
+            )
 
-        driver_state = init_driver(cfg)
+            driver_state = init_driver(cfg; client = client)
 
-        with_client(; driver = media_driver) do control_client
             producer_client = init_driver_client(
-                control_client,
+                client,
                 uri,
                 driver_control_stream,
                 UInt32(10),
@@ -76,7 +76,7 @@ end
                 keepalive_interval_ns = UInt64(200_000_000),
             )
             consumer_client = init_driver_client(
-                control_client,
+                client,
                 uri,
                 driver_control_stream,
                 UInt32(20),
@@ -150,13 +150,15 @@ end
                 producer_cfg,
                 prod_attach;
                 driver_client = producer_client,
+                client = client,
             )
             consumer_state = init_consumer_from_attach(
                 consumer_cfg,
                 cons_attach;
                 driver_client = consumer_client,
+                client = client,
             )
-            supervisor_state = init_supervisor(supervisor_cfg)
+            supervisor_state = init_supervisor(supervisor_cfg; client = client)
 
             prod_ctrl = make_control_assembler(producer_state)
             cons_ctrl = make_control_assembler(consumer_state)
@@ -197,8 +199,7 @@ end
             close_producer_state!(producer_state)
             close_consumer_state!(consumer_state)
             close_supervisor_state!(supervisor_state)
+            close_driver_state!(driver_state)
         end
-
-        close_driver_state!(driver_state)
     end
 end

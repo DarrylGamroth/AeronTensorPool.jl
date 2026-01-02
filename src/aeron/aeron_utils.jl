@@ -41,23 +41,3 @@ Set Aeron directory if non-empty.
     isempty(aeron_dir) || Aeron.aeron_dir!(ctx, aeron_dir)
     return nothing
 end
-
-"""
-Create or reuse an Aeron context/client pair.
-"""
-function acquire_aeron(
-    aeron_dir::AbstractString;
-    ctx::Union{Nothing, Aeron.Context} = nothing,
-    client::Union{Nothing, Aeron.Client} = nothing,
-)
-    if client !== nothing
-        return client.context, client, false, false
-    end
-    if ctx === nothing
-        ctx = Aeron.Context()
-        set_aeron_dir!(ctx, aeron_dir)
-        return ctx, Aeron.Client(ctx), true, true
-    end
-    set_aeron_dir!(ctx, aeron_dir)
-    return ctx, Aeron.Client(ctx), false, true
-end

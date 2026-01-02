@@ -14,8 +14,6 @@ function close_producer!(producer)
     close(producer.runtime.pub_qos)
     close(producer.runtime.pub_metadata)
     close(producer.runtime.sub_control)
-    producer.runtime.owns_client && close(producer.runtime.client)
-    producer.runtime.owns_ctx && close(producer.runtime.ctx)
     return nothing
 end
 
@@ -25,8 +23,6 @@ function close_consumer!(consumer)
     close(consumer.runtime.sub_descriptor)
     close(consumer.runtime.sub_control)
     close(consumer.runtime.sub_qos)
-    consumer.runtime.owns_client && close(consumer.runtime.client)
-    consumer.runtime.owns_ctx && close(consumer.runtime.ctx)
     return nothing
 end
 
@@ -34,8 +30,6 @@ function close_supervisor!(supervisor)
     close(supervisor.runtime.pub_control)
     close(supervisor.runtime.sub_control)
     close(supervisor.runtime.sub_qos)
-    supervisor.runtime.owns_client && close(supervisor.runtime.client)
-    supervisor.runtime.owns_ctx && close(supervisor.runtime.ctx)
     return nothing
 end
 
@@ -131,20 +125,23 @@ function run_system_bench(
 )
     Aeron.MediaDriver.launch_embedded() do driver
         GC.@preserve driver begin
-            env = Dict(ENV)
-            env["AERON_DIR"] = Aeron.MediaDriver.aeron_dir(driver)
-            system = load_system_config(config_path; env = env)
-            sizes = isempty(payload_bytes_list) ? [payload_bytes] : payload_bytes_list
-            for bytes in sizes
-                bytes > 0 || error("payload_bytes must be > 0")
-                mktempdir() do dir
-                    producer_cfg = apply_canonical_layout(system.producer, dir)
-                    consumer_cfg = apply_canonical_layout(system.consumer, dir)
-                    supervisor_cfg = system.supervisor
+            Aeron.Context() do context
+                Aeron.aeron_dir!(context, Aeron.MediaDriver.aeron_dir(driver))
+                Aeron.Client(context) do client
+                    env = Dict(ENV)
+                    env["AERON_DIR"] = Aeron.MediaDriver.aeron_dir(driver)
+                    system = load_system_config(config_path; env = env)
+                    sizes = isempty(payload_bytes_list) ? [payload_bytes] : payload_bytes_list
+                    for bytes in sizes
+                        bytes > 0 || error("payload_bytes must be > 0")
+                        mktempdir() do dir
+                            producer_cfg = apply_canonical_layout(system.producer, dir)
+                            consumer_cfg = apply_canonical_layout(system.consumer, dir)
+                            supervisor_cfg = system.supervisor
 
-                    producer = init_producer(producer_cfg)
-                    consumer = init_consumer(consumer_cfg)
-                    supervisor = init_supervisor(supervisor_cfg)
+                            producer = init_producer(producer_cfg; client = client)
+                            consumer = init_consumer(consumer_cfg; client = client)
+                            supervisor = init_supervisor(supervisor_cfg; client = client)
 
                     prod_ctrl = make_control_assembler(producer)
                     cons_ctrl = make_control_assembler(consumer)
@@ -417,9 +414,11 @@ function run_system_bench(
                     println("GC live delta (total):  $(live_total) bytes")
                     println()
 
-                    close_supervisor!(supervisor)
-                    close_consumer!(consumer)
-                    close_producer!(producer)
+                            close_supervisor!(supervisor)
+                            close_consumer!(consumer)
+                            close_producer!(producer)
+                        end
+                    end
                 end
             end
             return nothing

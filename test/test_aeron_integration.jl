@@ -34,13 +34,14 @@ using UnsafeArrays
             UInt64(1_000_000_000),
             UInt64(1_000_000_000),
         )
-        consumer_state = init_consumer(consumer_cfg)
-        ctrl_asm = make_control_assembler(consumer_state)
-        desc_asm = make_descriptor_assembler(consumer_state)
+        with_client(; driver = driver) do client
+            consumer_state = init_consumer(consumer_cfg; client = client)
+            ctrl_asm = make_control_assembler(consumer_state)
+            desc_asm = make_descriptor_assembler(consumer_state)
 
-        pub_control = Aeron.add_publication(consumer_state.runtime.client, uri, control_stream)
-        pub_descriptor = Aeron.add_publication(consumer_state.runtime.client, uri, descriptor_stream)
-        try
+            pub_control = Aeron.add_publication(client, uri, control_stream)
+            pub_descriptor = Aeron.add_publication(client, uri, descriptor_stream)
+            try
 
         claim = Aeron.BufferClaim()
         cfg_len = AeronTensorPool.MESSAGE_HEADER_LEN +
@@ -80,13 +81,14 @@ using UnsafeArrays
             Aeron.poll(consumer_state.runtime.sub_descriptor, desc_asm, AeronTensorPool.DEFAULT_FRAGMENT_LIMIT) > 0
         end
         @test ok_desc
-        finally
-            try
-                close(pub_control)
-                close(pub_descriptor)
-            catch
+            finally
+                try
+                    close(pub_control)
+                    close(pub_descriptor)
+                catch
+                end
+                close_consumer_state!(consumer_state)
             end
-            close_consumer_state!(consumer_state)
         end
     end
 end

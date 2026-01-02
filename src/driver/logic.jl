@@ -3,18 +3,8 @@ const DRIVER_GROUP_HEADER_LEN = 4
 """
 Initialize the SHM driver.
 """
-function init_driver(
-    config::DriverConfig;
-    aeron_ctx::Union{Nothing, Aeron.Context} = nothing,
-    aeron_client::Union{Nothing, Aeron.Client} = nothing,
-)
+function init_driver(config::DriverConfig; client::Aeron.Client)
     clock = Clocks.CachedEpochClock(Clocks.MonotonicClock())
-
-    ctx, client, owns_ctx, owns_client = acquire_aeron(
-        config.endpoints.aeron_dir;
-        ctx = aeron_ctx,
-        client = aeron_client,
-    )
 
     pub_control = Aeron.add_publication(client, config.endpoints.control_channel, config.endpoints.control_stream_id)
     pub_announce =
@@ -23,10 +13,7 @@ function init_driver(
     sub_control = Aeron.add_subscription(client, config.endpoints.control_channel, config.endpoints.control_stream_id)
 
     runtime = DriverRuntime(
-        ctx,
         client,
-        owns_ctx,
-        owns_client,
         pub_control,
         pub_announce,
         pub_qos,

@@ -61,193 +61,194 @@
                 UInt64(1_000_000_000),
                 UInt64(1_000_000_000),
             )
-            state = init_consumer(consumer_cfg)
-            fallback_state = nothing
-            maxdims_state = nothing
-            try
+            with_client(; driver = driver) do client
+                state = init_consumer(consumer_cfg; client = client)
+                fallback_state = nothing
+                maxdims_state = nothing
+                try
+                    function build_announce(epoch::UInt64, header_region_uri::String, pool_region_uri::String)
+                        buf = Vector{UInt8}(undef, 2048)
+                        enc = AeronTensorPool.ShmPoolAnnounce.Encoder(Vector{UInt8})
+                        AeronTensorPool.ShmPoolAnnounce.wrap_and_apply_header!(enc, buf, 0)
+                        AeronTensorPool.ShmPoolAnnounce.streamId!(enc, stream_id)
+                        AeronTensorPool.ShmPoolAnnounce.producerId!(enc, UInt32(7))
+                        AeronTensorPool.ShmPoolAnnounce.epoch!(enc, epoch)
+                        AeronTensorPool.ShmPoolAnnounce.layoutVersion!(enc, layout_version)
+                        AeronTensorPool.ShmPoolAnnounce.headerNslots!(enc, nslots)
+                        AeronTensorPool.ShmPoolAnnounce.headerSlotBytes!(enc, UInt16(HEADER_SLOT_BYTES))
+                        AeronTensorPool.ShmPoolAnnounce.maxDims!(enc, UInt8(MAX_DIMS))
+                        pools = AeronTensorPool.ShmPoolAnnounce.payloadPools!(enc, 1)
+                        pool = AeronTensorPool.ShmPoolAnnounce.PayloadPools.next!(pools)
+                        AeronTensorPool.ShmPoolAnnounce.PayloadPools.poolId!(pool, UInt16(1))
+                        AeronTensorPool.ShmPoolAnnounce.PayloadPools.regionUri!(pool, pool_region_uri)
+                        AeronTensorPool.ShmPoolAnnounce.PayloadPools.poolNslots!(pool, nslots)
+                        AeronTensorPool.ShmPoolAnnounce.PayloadPools.strideBytes!(pool, stride)
+                        AeronTensorPool.ShmPoolAnnounce.headerRegionUri!(enc, header_region_uri)
 
-            function build_announce(epoch::UInt64, header_region_uri::String, pool_region_uri::String)
-                buf = Vector{UInt8}(undef, 2048)
-                enc = AeronTensorPool.ShmPoolAnnounce.Encoder(Vector{UInt8})
-                AeronTensorPool.ShmPoolAnnounce.wrap_and_apply_header!(enc, buf, 0)
-                AeronTensorPool.ShmPoolAnnounce.streamId!(enc, stream_id)
-                AeronTensorPool.ShmPoolAnnounce.producerId!(enc, UInt32(7))
-                AeronTensorPool.ShmPoolAnnounce.epoch!(enc, epoch)
-                AeronTensorPool.ShmPoolAnnounce.layoutVersion!(enc, layout_version)
-                AeronTensorPool.ShmPoolAnnounce.headerNslots!(enc, nslots)
-                AeronTensorPool.ShmPoolAnnounce.headerSlotBytes!(enc, UInt16(HEADER_SLOT_BYTES))
-                AeronTensorPool.ShmPoolAnnounce.maxDims!(enc, UInt8(MAX_DIMS))
-                pools = AeronTensorPool.ShmPoolAnnounce.payloadPools!(enc, 1)
-                pool = AeronTensorPool.ShmPoolAnnounce.PayloadPools.next!(pools)
-                AeronTensorPool.ShmPoolAnnounce.PayloadPools.poolId!(pool, UInt16(1))
-                AeronTensorPool.ShmPoolAnnounce.PayloadPools.regionUri!(pool, pool_region_uri)
-                AeronTensorPool.ShmPoolAnnounce.PayloadPools.poolNslots!(pool, nslots)
-                AeronTensorPool.ShmPoolAnnounce.PayloadPools.strideBytes!(pool, stride)
-                AeronTensorPool.ShmPoolAnnounce.headerRegionUri!(enc, header_region_uri)
+                        header = MessageHeader.Decoder(buf, 0)
+                        dec = AeronTensorPool.ShmPoolAnnounce.Decoder(Vector{UInt8})
+                        AeronTensorPool.ShmPoolAnnounce.wrap!(dec, buf, 0; header = header)
+                        return buf, dec
+                    end
 
-                header = MessageHeader.Decoder(buf, 0)
-                dec = AeronTensorPool.ShmPoolAnnounce.Decoder(Vector{UInt8})
-                AeronTensorPool.ShmPoolAnnounce.wrap!(dec, buf, 0; header = header)
-                return buf, dec
-            end
+                    wrap_superblock!(sb_enc, header_mmap1, 0)
+                    write_superblock!(
+                        sb_enc,
+                        SuperblockFields(
+                            MAGIC_TPOLSHM1,
+                            layout_version,
+                            epoch1,
+                            stream_id,
+                            RegionType.HEADER_RING,
+                            UInt16(0),
+                            nslots,
+                            UInt32(HEADER_SLOT_BYTES),
+                            UInt32(0),
+                            UInt64(1234),
+                            UInt64(0),
+                            UInt64(0),
+                        ),
+                    )
+                    wrap_superblock!(sb_enc, pool_mmap1, 0)
+                    write_superblock!(
+                        sb_enc,
+                        SuperblockFields(
+                            MAGIC_TPOLSHM1,
+                            layout_version,
+                            epoch1,
+                            stream_id,
+                            RegionType.PAYLOAD_POOL,
+                            UInt16(1),
+                            nslots,
+                            stride,
+                            stride,
+                            UInt64(1234),
+                            UInt64(0),
+                            UInt64(0),
+                        ),
+                    )
 
-            wrap_superblock!(sb_enc, header_mmap1, 0)
-            write_superblock!(
-                sb_enc,
-                SuperblockFields(
-                    MAGIC_TPOLSHM1,
-                    layout_version,
-                    epoch1,
-                    stream_id,
-                    RegionType.HEADER_RING,
-                    UInt16(0),
-                    nslots,
-                    UInt32(HEADER_SLOT_BYTES),
-                    UInt32(0),
-                    UInt64(1234),
-                    UInt64(0),
-                    UInt64(0),
-                ),
-            )
-            wrap_superblock!(sb_enc, pool_mmap1, 0)
-            write_superblock!(
-                sb_enc,
-                SuperblockFields(
-                    MAGIC_TPOLSHM1,
-                    layout_version,
-                    epoch1,
-                    stream_id,
-                    RegionType.PAYLOAD_POOL,
-                    UInt16(1),
-                    nslots,
-                    stride,
-                    stride,
-                    UInt64(1234),
-                    UInt64(0),
-                    UInt64(0),
-                ),
-            )
+                    (_, announce_dec1) = build_announce(epoch1, header_uri1, pool_uri1)
+                    @test handle_shm_pool_announce!(state, announce_dec1)
+                    @test state.mappings.mapped_epoch == epoch1
 
-            (_, announce_dec1) = build_announce(epoch1, header_uri1, pool_uri1)
-            @test handle_shm_pool_announce!(state, announce_dec1)
-            @test state.mappings.mapped_epoch == epoch1
+                    wrap_superblock!(sb_enc, header_mmap2, 0)
+                    write_superblock!(
+                        sb_enc,
+                        SuperblockFields(
+                            MAGIC_TPOLSHM1,
+                            layout_version,
+                            epoch2,
+                            stream_id,
+                            RegionType.HEADER_RING,
+                            UInt16(0),
+                            nslots,
+                            UInt32(HEADER_SLOT_BYTES),
+                            UInt32(0),
+                            UInt64(1234),
+                            UInt64(0),
+                            UInt64(0),
+                        ),
+                    )
+                    wrap_superblock!(sb_enc, pool_mmap2, 0)
+                    write_superblock!(
+                        sb_enc,
+                        SuperblockFields(
+                            MAGIC_TPOLSHM1,
+                            layout_version,
+                            epoch2,
+                            stream_id,
+                            RegionType.PAYLOAD_POOL,
+                            UInt16(1),
+                            nslots,
+                            stride,
+                            stride,
+                            UInt64(1234),
+                            UInt64(0),
+                            UInt64(0),
+                        ),
+                    )
 
-            wrap_superblock!(sb_enc, header_mmap2, 0)
-            write_superblock!(
-                sb_enc,
-                SuperblockFields(
-                    MAGIC_TPOLSHM1,
-                    layout_version,
-                    epoch2,
-                    stream_id,
-                    RegionType.HEADER_RING,
-                    UInt16(0),
-                    nslots,
-                    UInt32(HEADER_SLOT_BYTES),
-                    UInt32(0),
-                    UInt64(1234),
-                    UInt64(0),
-                    UInt64(0),
-                ),
-            )
-            wrap_superblock!(sb_enc, pool_mmap2, 0)
-            write_superblock!(
-                sb_enc,
-                SuperblockFields(
-                    MAGIC_TPOLSHM1,
-                    layout_version,
-                    epoch2,
-                    stream_id,
-                    RegionType.PAYLOAD_POOL,
-                    UInt16(1),
-                    nslots,
-                    stride,
-                    stride,
-                    UInt64(1234),
-                    UInt64(0),
-                    UInt64(0),
-                ),
-            )
+                    (_, announce_dec2) = build_announce(epoch2, header_uri2, pool_uri2)
+                    @test handle_shm_pool_announce!(state, announce_dec2)
+                    @test state.mappings.mapped_epoch == epoch2
 
-            (_, announce_dec2) = build_announce(epoch2, header_uri2, pool_uri2)
-            @test handle_shm_pool_announce!(state, announce_dec2)
-            @test state.mappings.mapped_epoch == epoch2
+                    bad_pool_uri = "shm:file?path=$(pool_path2)|require_hugepages=true"
 
-            bad_pool_uri = "shm:file?path=$(pool_path2)|require_hugepages=true"
+                    fallback_cfg = ConsumerConfig(
+                        Aeron.MediaDriver.aeron_dir(driver),
+                        "aeron:ipc",
+                        Int32(12022),
+                        Int32(12021),
+                        Int32(12023),
+                        stream_id,
+                        UInt32(53),
+                        layout_version,
+                        UInt8(MAX_DIMS),
+                        Mode.STREAM,
+                        UInt16(1),
+                        UInt32(256),
+                        true,
+                        true,
+                        false,
+                        UInt16(0),
+                        "aeron:udp?endpoint=127.0.0.1:14000",
+                        "",
+                        String[],
+                        false,
+                        UInt32(250),
+                        UInt32(65536),
+                        UInt32(0),
+                        UInt64(1_000_000_000),
+                        UInt64(1_000_000_000),
+                    )
+                    fallback_state = init_consumer(fallback_cfg; client = client)
+                    (_, announce_dec_bad) = build_announce(epoch2, header_uri2, bad_pool_uri)
+                    @test handle_shm_pool_announce!(fallback_state, announce_dec_bad)
+                    @test fallback_state.config.use_shm == false
+                    @test fallback_state.mappings.header_mmap === nothing
 
-            fallback_cfg = ConsumerConfig(
-                Aeron.MediaDriver.aeron_dir(driver),
-                "aeron:ipc",
-                Int32(12022),
-                Int32(12021),
-                Int32(12023),
-                stream_id,
-                UInt32(53),
-                layout_version,
-                UInt8(MAX_DIMS),
-                Mode.STREAM,
-                UInt16(1),
-                UInt32(256),
-                true,
-                true,
-                false,
-                UInt16(0),
-                "aeron:udp?endpoint=127.0.0.1:14000",
-                "",
-                String[],
-                false,
-                UInt32(250),
-                UInt32(65536),
-                UInt32(0),
-                UInt64(1_000_000_000),
-                UInt64(1_000_000_000),
-            )
-            fallback_state = init_consumer(fallback_cfg)
-            (_, announce_dec_bad) = build_announce(epoch2, header_uri2, bad_pool_uri)
-            @test handle_shm_pool_announce!(fallback_state, announce_dec_bad)
-            @test fallback_state.config.use_shm == false
-            @test fallback_state.mappings.header_mmap === nothing
-
-            maxdims_cfg = ConsumerConfig(
-                Aeron.MediaDriver.aeron_dir(driver),
-                "aeron:ipc",
-                Int32(12032),
-                Int32(12031),
-                Int32(12033),
-                stream_id,
-                UInt32(54),
-                layout_version,
-                UInt8(MAX_DIMS - 1),
-                Mode.STREAM,
-                UInt16(1),
-                UInt32(256),
-                true,
-                true,
-                false,
-                UInt16(0),
-                "aeron:udp?endpoint=127.0.0.1:14001",
-                "",
-                String[],
-                false,
-                UInt32(250),
-                UInt32(65536),
-                UInt32(0),
-                UInt64(1_000_000_000),
-                UInt64(1_000_000_000),
-            )
-            maxdims_state = init_consumer(maxdims_cfg)
-            (_, announce_dec_good) = build_announce(epoch2, header_uri2, pool_uri2)
-            @test handle_shm_pool_announce!(maxdims_state, announce_dec_good)
-            @test maxdims_state.config.use_shm == false
-            @test maxdims_state.mappings.header_mmap === nothing
-            finally
-                if maxdims_state !== nothing
-                    close_consumer_state!(maxdims_state)
+                    maxdims_cfg = ConsumerConfig(
+                        Aeron.MediaDriver.aeron_dir(driver),
+                        "aeron:ipc",
+                        Int32(12032),
+                        Int32(12031),
+                        Int32(12033),
+                        stream_id,
+                        UInt32(54),
+                        layout_version,
+                        UInt8(MAX_DIMS - 1),
+                        Mode.STREAM,
+                        UInt16(1),
+                        UInt32(256),
+                        true,
+                        true,
+                        false,
+                        UInt16(0),
+                        "aeron:udp?endpoint=127.0.0.1:14001",
+                        "",
+                        String[],
+                        false,
+                        UInt32(250),
+                        UInt32(65536),
+                        UInt32(0),
+                        UInt64(1_000_000_000),
+                        UInt64(1_000_000_000),
+                    )
+                    maxdims_state = init_consumer(maxdims_cfg; client = client)
+                    (_, announce_dec_good) = build_announce(epoch2, header_uri2, pool_uri2)
+                    @test handle_shm_pool_announce!(maxdims_state, announce_dec_good)
+                    @test maxdims_state.config.use_shm == false
+                    @test maxdims_state.mappings.header_mmap === nothing
+                finally
+                    if maxdims_state !== nothing
+                        close_consumer_state!(maxdims_state)
+                    end
+                    if fallback_state !== nothing
+                        close_consumer_state!(fallback_state)
+                    end
+                    close_consumer_state!(state)
                 end
-                if fallback_state !== nothing
-                    close_consumer_state!(fallback_state)
-                end
-                close_consumer_state!(state)
             end
         end
     end

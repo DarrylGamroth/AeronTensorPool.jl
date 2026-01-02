@@ -43,10 +43,7 @@ struct SupervisorLivenessHandler end
 Mutable supervisor runtime resources (Aeron publications/subscriptions and codecs).
 """
 mutable struct SupervisorRuntime
-    ctx::Aeron.Context
     client::Aeron.Client
-    owns_ctx::Bool
-    owns_client::Bool
     pub_control::Aeron.Publication
     sub_control::Aeron.Subscription
     sub_qos::Aeron.Subscription

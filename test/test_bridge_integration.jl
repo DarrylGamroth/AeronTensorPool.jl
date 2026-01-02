@@ -138,10 +138,11 @@
                 UInt64(1_000_000_000),
             )
 
-            producer_src = init_producer(src_config)
-            producer_dst = init_producer(dst_config)
-            consumer_src = init_consumer(src_consumer)
-            consumer_dst = init_consumer(dst_consumer)
+            with_client(; driver = driver) do client
+                producer_src = init_producer(src_config; client = client)
+                producer_dst = init_producer(dst_config; client = client)
+                consumer_src = init_consumer(src_consumer; client = client)
+                consumer_dst = init_consumer(dst_consumer; client = client)
 
             mapping = BridgeMapping(UInt32(1), UInt32(2), "default", UInt32(2300), Int32(0), Int32(0))
             bridge_config = BridgeConfig(
@@ -164,8 +165,9 @@
                 UInt64(250_000_000),
             )
 
-            bridge_sender = init_bridge_sender(consumer_src, bridge_config, mapping)
-            bridge_receiver = init_bridge_receiver(bridge_config, mapping; producer_state = producer_dst)
+                bridge_sender = init_bridge_sender(consumer_src, bridge_config, mapping; client = client)
+                bridge_receiver =
+                    init_bridge_receiver(bridge_config, mapping; producer_state = producer_dst, client = client)
 
             src_control = make_control_assembler(consumer_src)
             dst_control = make_control_assembler(consumer_dst)
@@ -287,36 +289,33 @@
             @test bridged
             @test got_payload[] == payload
 
-            try
-                close(meta_sub)
-                close(meta_client)
-                close(meta_ctx)
-            catch
-            end
-            close_consumer_state!(consumer_src)
-            close_consumer_state!(consumer_dst)
-            close_producer_state!(producer_src)
-            close_producer_state!(producer_dst)
-            try
-                close(bridge_sender.pub_payload)
-                close(bridge_sender.pub_control)
-                bridge_sender.pub_metadata === nothing || close(bridge_sender.pub_metadata)
-                close(bridge_sender.sub_control)
-                bridge_sender.sub_metadata === nothing || close(bridge_sender.sub_metadata)
-                bridge_sender.sub_qos === nothing || close(bridge_sender.sub_qos)
-                bridge_sender.owns_client && close(bridge_sender.client)
-                bridge_sender.owns_ctx && close(bridge_sender.ctx)
-            catch
-            end
-            try
-                close(bridge_receiver.sub_payload)
-                close(bridge_receiver.sub_control)
-                bridge_receiver.sub_metadata === nothing || close(bridge_receiver.sub_metadata)
-                bridge_receiver.pub_metadata_local === nothing || close(bridge_receiver.pub_metadata_local)
-                bridge_receiver.pub_qos_local === nothing || close(bridge_receiver.pub_qos_local)
-                bridge_receiver.owns_client && close(bridge_receiver.client)
-                bridge_receiver.owns_ctx && close(bridge_receiver.ctx)
-            catch
+                try
+                    close(meta_sub)
+                    close(meta_client)
+                    close(meta_ctx)
+                catch
+                end
+                close_consumer_state!(consumer_src)
+                close_consumer_state!(consumer_dst)
+                close_producer_state!(producer_src)
+                close_producer_state!(producer_dst)
+                try
+                    close(bridge_sender.pub_payload)
+                    close(bridge_sender.pub_control)
+                    bridge_sender.pub_metadata === nothing || close(bridge_sender.pub_metadata)
+                    close(bridge_sender.sub_control)
+                    bridge_sender.sub_metadata === nothing || close(bridge_sender.sub_metadata)
+                    bridge_sender.sub_qos === nothing || close(bridge_sender.sub_qos)
+                catch
+                end
+                try
+                    close(bridge_receiver.sub_payload)
+                    close(bridge_receiver.sub_control)
+                    bridge_receiver.sub_metadata === nothing || close(bridge_receiver.sub_metadata)
+                    bridge_receiver.pub_metadata_local === nothing || close(bridge_receiver.pub_metadata_local)
+                    bridge_receiver.pub_qos_local === nothing || close(bridge_receiver.pub_qos_local)
+                catch
+                end
             end
         end
     end

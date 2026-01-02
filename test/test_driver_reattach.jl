@@ -26,48 +26,48 @@ end
 
 @testset "Driver reattach on revoke" begin
     with_embedded_driver() do media_driver
-        base_dir = mktempdir()
+        with_client(; driver = media_driver) do client
+            base_dir = mktempdir()
 
-        endpoints = DriverEndpoints(
-            "driver-test",
-            Aeron.MediaDriver.aeron_dir(media_driver),
-            "aeron:ipc",
-            13100,
-            "aeron:ipc",
-            13101,
-            "aeron:ipc",
-            13102,
-        )
-        shm = DriverShmConfig(base_dir, false, UInt32(4096), "660", [base_dir])
-        policies = DriverPolicies(false, "raw", UInt32(100), UInt32(10_000), UInt32(3))
-        profile = DriverProfileConfig(
-            "raw",
-            UInt32(8),
-            UInt16(256),
-            UInt8(8),
-            [DriverPoolConfig(UInt16(1), UInt32(4096))],
-        )
-        streams = Dict("cam1" => DriverStreamConfig("cam1", UInt32(43), "raw"))
-        cfg = DriverConfig(
-            endpoints,
-            shm,
-            policies,
-            Dict("raw" => profile),
-            streams,
-        )
+            endpoints = DriverEndpoints(
+                "driver-test",
+                Aeron.MediaDriver.aeron_dir(media_driver),
+                "aeron:ipc",
+                13100,
+                "aeron:ipc",
+                13101,
+                "aeron:ipc",
+                13102,
+            )
+            shm = DriverShmConfig(base_dir, false, UInt32(4096), "660", [base_dir])
+            policies = DriverPolicies(false, "raw", UInt32(100), UInt32(10_000), UInt32(3))
+            profile = DriverProfileConfig(
+                "raw",
+                UInt32(8),
+                UInt16(256),
+                UInt8(8),
+                [DriverPoolConfig(UInt16(1), UInt32(4096))],
+            )
+            streams = Dict("cam1" => DriverStreamConfig("cam1", UInt32(43), "raw"))
+            cfg = DriverConfig(
+                endpoints,
+                shm,
+                policies,
+                Dict("raw" => profile),
+                streams,
+            )
 
-        driver_state = init_driver(cfg)
+            driver_state = init_driver(cfg; client = client)
 
-        with_client(; driver = media_driver) do control_client
             producer_client = init_driver_client(
-                control_client,
+                client,
                 "aeron:ipc",
                 Int32(13100),
                 UInt32(30),
                 DriverRole.PRODUCER,
             )
             consumer_client = init_driver_client(
-                control_client,
+                client,
                 "aeron:ipc",
                 Int32(13100),
                 UInt32(31),
@@ -131,11 +131,13 @@ end
                 producer_cfg,
                 prod_attach;
                 driver_client = producer_client,
+                client = client,
             )
             consumer_state = init_consumer_from_attach(
                 consumer_cfg,
                 cons_attach;
                 driver_client = consumer_client,
+                client = client,
             )
 
             prod_control_asm = make_control_assembler(producer_state)
@@ -173,8 +175,7 @@ end
 
             close_producer_state!(producer_state)
             close_consumer_state!(consumer_state)
+            close_driver_state!(driver_state)
         end
-
-        close_driver_state!(driver_state)
     end
 end

@@ -27,8 +27,9 @@
             UInt64(1_000_000_000),
             UInt64(1_000_000_000),
         )
-        state = init_consumer(consumer_cfg)
-        try
+        with_client(; driver = driver) do client
+            state = init_consumer(consumer_cfg; client = client)
+            try
             dims = (Int32(2), Int32(2), Int32(0), Int32(0), Int32(0), Int32(0), Int32(0), Int32(0))
             ok_strides = (Int32(0), Int32(0), Int32(0), Int32(0), Int32(0), Int32(0), Int32(0), Int32(0))
             bad_strides = (Int32(4), Int32(2), Int32(0), Int32(0), Int32(0), Int32(0), Int32(0), Int32(0))
@@ -68,8 +69,9 @@
 
             @test AeronTensorPool.validate_strides!(state, header_ok, Int64(4))
             @test !AeronTensorPool.validate_strides!(state, header_bad, Int64(4))
-        finally
-            close_consumer_state!(state)
+            finally
+                close_consumer_state!(state)
+            end
         end
     end
 end

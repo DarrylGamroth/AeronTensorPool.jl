@@ -33,7 +33,7 @@ using Test
                 streams,
             )
 
-            driver_state = init_driver(cfg)
+            driver_state = init_driver(cfg; client = client)
 
             pub = Aeron.add_publication(client, "aeron:ipc", 1000)
             sub = Aeron.add_subscription(client, "aeron:ipc", 1000)
