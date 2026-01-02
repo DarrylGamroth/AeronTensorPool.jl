@@ -304,7 +304,7 @@ function handle_attach_request!(state::DriverState, msg::ShmAttachRequest.Decode
     now_ns = UInt64(Clocks.time_nanos(state.clock))
     lease_id = next_lease_id!(state)
     expiry_ns = lease_expiry_ns(state, now_ns)
-    lease = DriverLease(lease_id, stream_id, client_id, role, expiry_ns)
+    lease = DriverLease(lease_id, stream_id, client_id, role, expiry_ns, LeaseLifecycle())
     state.leases[lease_id] = lease
 
     if role == DriverRole.PRODUCER

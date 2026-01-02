@@ -21,7 +21,7 @@ Validation
 - Design review only.
 
 Status
-- Pending.
+- Complete (states/events and mapping confirmed in `DRIVER_HSM_PER_LEASE_PLAN.md`).
 
 ## Phase L‑1: HSM Scaffolding
 

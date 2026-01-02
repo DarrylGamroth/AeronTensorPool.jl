@@ -11,6 +11,7 @@ mutable struct DriverLease
     client_id::UInt32
     role::DriverRole.SbeEnum
     expiry_ns::UInt64
+    lifecycle::LeaseLifecycle
 end
 
 """
