@@ -26,6 +26,7 @@ Goals
 
 Deliverables
 - StreamLifecycle HSM with initial state and core states (Init, Active, Draining, Closed).
+- Include a Live parent state to share close/drain handlers across Init/Active/Draining.
 - Root handler to count unhandled events (if desired).
 
 Validation
@@ -80,4 +81,3 @@ Validation
 
 Status
 - Pending.
-
