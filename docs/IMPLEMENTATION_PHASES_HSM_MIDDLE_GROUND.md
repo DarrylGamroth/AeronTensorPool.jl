@@ -101,4 +101,4 @@ Validation
 - Design review only.
 
 Status
-- Complete (admin shutdown request, Draining gating, final announce on Draining entry, Maintenance state wiring).
+- Complete (admin shutdown request, Draining gating, final announce on Draining entry).

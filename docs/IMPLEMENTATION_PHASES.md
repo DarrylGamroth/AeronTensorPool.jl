@@ -190,7 +190,7 @@ Spec refs
 - Driver: 2-4 (lifecycle coordination; no wire changes).
 
 Status
-- Complete (lifecycle HSM wired; draining rejects attaches, timer-driven shutdown emits notice; admin shutdown request + Maintenance state wired).
+- Complete (lifecycle HSM wired; draining rejects attaches, timer-driven shutdown emits notice; admin shutdown request wired).
 
 ## Phase 7 - Driver Integration (Producer/Consumer)
 

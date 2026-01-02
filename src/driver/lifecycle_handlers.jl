@@ -15,21 +15,21 @@ end
     return Hsm.EventHandled
 end
 
-@on_event function(sm::DriverLifecycle, ::Maintenance, ::AttachRequest, state::DriverState)
-    handle_attach_request!(state, state.runtime.attach_decoder)
-    return Hsm.EventHandled
-end
-
 @on_event function(sm::DriverLifecycle, ::Draining, ::AttachRequest, state::DriverState)
-    return reject_attach!(state, state.runtime.attach_decoder)
-end
-
-@on_event function(sm::DriverLifecycle, ::Running, ::MaintenanceRequested, ::DriverState)
-    return Hsm.transition!(sm, :Maintenance)
-end
-
-@on_event function(sm::DriverLifecycle, ::Maintenance, ::MaintenanceCleared, ::DriverState)
-    return Hsm.transition!(sm, :Running)
+    msg = state.runtime.attach_decoder
+    publish_mode = ShmAttachRequest.publishMode(msg)
+    if publish_mode == DriverPublishMode.EXISTING_OR_CREATE
+        correlation_id = ShmAttachRequest.correlationId(msg)
+        emit_attach_response!(
+            state,
+            correlation_id,
+            DriverResponseCode.REJECTED,
+            "driver draining (no create)",
+            nothing,
+        )
+        return Hsm.EventHandled
+    end
+    return reject_attach!(state, msg)
 end
 
 @inline function begin_draining!(state::DriverState, sm::DriverLifecycle)
@@ -42,10 +42,6 @@ end
 end
 
 @on_event function(sm::DriverLifecycle, ::Running, ::ShutdownRequested, state::DriverState)
-    return begin_draining!(state, sm)
-end
-
-@on_event function(sm::DriverLifecycle, ::Maintenance, ::ShutdownRequested, state::DriverState)
     return begin_draining!(state, sm)
 end
 

@@ -14,7 +14,6 @@ end
 
 @statedef DriverLifecycle :Init
 @statedef DriverLifecycle :Running
-@statedef DriverLifecycle :Maintenance
 @statedef DriverLifecycle :Draining
 @statedef DriverLifecycle :Stopped
 
@@ -31,25 +30,11 @@ end
     return Hsm.transition!(sm, :Draining)
 end
 
-@on_event function(sm::DriverLifecycle, ::Running, ::MaintenanceRequested, _)
-    return Hsm.transition!(sm, :Maintenance)
-end
-
-@on_event function(sm::DriverLifecycle, ::Maintenance, ::MaintenanceCleared, _)
-    return Hsm.transition!(sm, :Running)
-end
-
 @on_event function(sm::DriverLifecycle, ::Draining, ::ShutdownTimeout, _)
     return Hsm.transition!(sm, :Stopped)
 end
 
 @on_event function(sm::DriverLifecycle, ::Running, ::Tick, now_ns::UInt64)
-    poll_driver_control!(sm.state)
-    poll_timers!(sm.state, now_ns)
-    return Hsm.EventHandled
-end
-
-@on_event function(sm::DriverLifecycle, ::Maintenance, ::Tick, now_ns::UInt64)
     poll_driver_control!(sm.state)
     poll_timers!(sm.state, now_ns)
     return Hsm.EventHandled
@@ -110,4 +95,4 @@ If/when the driver grows:
 - Admin shutdown request message that maps to `ShutdownRequested`.
 - Control-plane gating during `Draining` (reject new stream creation, keep detaches/expiry).
 - Optional final announce/QoS snapshot on `Draining` entry.
-- Optional `Degraded` or `Maintenance` state for liveness warnings without stopping service.
+- Optional `Degraded` state for liveness warnings without stopping service.
