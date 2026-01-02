@@ -234,6 +234,7 @@ function load_consumer_config(path::AbstractString; env::AbstractDict = ENV)
     progress_rows_delta = UInt32(get(cons, "progress_rows_delta", 0))
     hello_interval_ns = UInt64(get(cons, "hello_interval_ns", 1_000_000_000))
     qos_interval_ns = UInt64(get(cons, "qos_interval_ns", 1_000_000_000))
+    announce_freshness_ns = UInt64(get(cons, "announce_freshness_ns", 3_000_000_000))
 
     return ConsumerSettings(
         aeron_dir,
@@ -261,6 +262,7 @@ function load_consumer_config(path::AbstractString; env::AbstractDict = ENV)
         progress_rows_delta,
         hello_interval_ns,
         qos_interval_ns,
+        announce_freshness_ns,
         requested_descriptor_channel,
         requested_descriptor_stream_id,
         requested_control_channel,

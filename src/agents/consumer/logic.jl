@@ -3,6 +3,8 @@ Initialize a consumer: create Aeron resources and initial timers.
 """
 function init_consumer(config::ConsumerSettings; client::Aeron.Client)
     clock = Clocks.CachedEpochClock(Clocks.MonotonicClock())
+    fetch!(clock)
+    announce_join_ns = UInt64(Clocks.time_nanos(clock))
 
     pub_control = Aeron.add_publication(client, config.aeron_uri, config.control_stream_id)
     pub_qos = Aeron.add_publication(client, config.aeron_uri, config.qos_stream_id)
@@ -88,6 +90,7 @@ function init_consumer(config::ConsumerSettings; client::Aeron.Client)
     state = ConsumerState(
         config,
         clock,
+        announce_join_ns,
         runtime,
         mappings,
         metrics,
@@ -519,6 +522,15 @@ function handle_shm_pool_announce!(state::ConsumerState, msg::ShmPoolAnnounce.De
     ShmPoolAnnounce.streamId(msg) == state.config.stream_id || return false
     consumer_driver_active(state) || return false
     ShmPoolAnnounce.layoutVersion(msg) == state.config.expected_layout_version || return false
+    announce_ts = ShmPoolAnnounce.announceTimestampNs(msg)
+    now_ns = UInt64(Clocks.time_nanos(state.clock))
+    if announce_ts == 0
+        return false
+    end
+    if announce_ts + state.config.announce_freshness_ns < state.announce_join_ns ||
+       now_ns > announce_ts + state.config.announce_freshness_ns
+        return false
+    end
     if ShmPoolAnnounce.maxDims(msg) != state.config.max_dims
         if !isempty(state.config.payload_fallback_uri)
             state.config.use_shm = false

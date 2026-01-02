@@ -63,6 +63,7 @@ mutable struct ConsumerSettings
     progress_rows_delta::UInt32
     hello_interval_ns::UInt64
     qos_interval_ns::UInt64
+    announce_freshness_ns::UInt64
     requested_descriptor_channel::String
     requested_descriptor_stream_id::UInt32
     requested_control_channel::String

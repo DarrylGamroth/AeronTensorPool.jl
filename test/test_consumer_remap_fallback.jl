@@ -57,10 +57,11 @@
                 false,
                 UInt32(250),
                 UInt32(65536),
-            UInt32(0),
-            UInt64(1_000_000_000),
-            UInt64(1_000_000_000),
-            "",
+                UInt32(0),
+                UInt64(1_000_000_000),
+                UInt64(1_000_000_000),
+                UInt64(3_000_000_000),
+                "",
             UInt32(0),
             "",
             UInt32(0),
@@ -76,6 +77,7 @@
                         AeronTensorPool.ShmPoolAnnounce.streamId!(enc, stream_id)
                         AeronTensorPool.ShmPoolAnnounce.producerId!(enc, UInt32(7))
                         AeronTensorPool.ShmPoolAnnounce.epoch!(enc, epoch)
+                        AeronTensorPool.ShmPoolAnnounce.announceTimestampNs!(enc, UInt64(time_ns()))
                         AeronTensorPool.ShmPoolAnnounce.layoutVersion!(enc, layout_version)
                         AeronTensorPool.ShmPoolAnnounce.headerNslots!(enc, nslots)
                         AeronTensorPool.ShmPoolAnnounce.headerSlotBytes!(enc, UInt16(HEADER_SLOT_BYTES))
@@ -201,10 +203,11 @@
                         false,
                         UInt32(250),
                         UInt32(65536),
-                    UInt32(0),
-                    UInt64(1_000_000_000),
-                    UInt64(1_000_000_000),
-                    "",
+                        UInt32(0),
+                        UInt64(1_000_000_000),
+                        UInt64(1_000_000_000),
+                        UInt64(3_000_000_000),
+                        "",
                     UInt32(0),
                     "",
                     UInt32(0),
@@ -238,10 +241,11 @@
                         false,
                         UInt32(250),
                         UInt32(65536),
-                    UInt32(0),
-                    UInt64(1_000_000_000),
-                    UInt64(1_000_000_000),
-                    "",
+                        UInt32(0),
+                        UInt64(1_000_000_000),
+                        UInt64(1_000_000_000),
+                        UInt64(3_000_000_000),
+                        "",
                     UInt32(0),
                     "",
                     UInt32(0),

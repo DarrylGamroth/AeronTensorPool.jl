@@ -279,8 +279,8 @@ Sent periodically (e.g. 1 Hz) and on change.
 - `stream_id : u32`
 - `producer_id : u32`
 - `epoch : u64`
+- `announce_timestamp_ns : u64` (producer time; monotonic or epoch time per deployment)
 - `layout_version : u32`
-- `header_region_uri : string`
 - `header_nslots : u32`
 - `header_slot_bytes : u16` (must be 256)
 - `max_dims : u8` (v1.1 fixed at 8; changing it requires a new `layout_version` and schema rebuild)
@@ -289,10 +289,13 @@ Sent periodically (e.g. 1 Hz) and on change.
   - `region_uri : string`
   - `pool_nslots : u32`
   - `stride_bytes : u32`
+- `header_region_uri : string`
 
 **Rules**
 - Consumers use this to open/mmap regions and validate superblocks.
 - If `epoch` changes, consumers must remap and reset state.
+- Consumers MUST treat `ShmPoolAnnounce` as soft-state and ignore stale announcements. At minimum, consumers MUST prefer the highest observed `epoch` per `stream_id` and MUST ignore any announce whose `announce_timestamp_ns` is older than a freshness window (RECOMMENDED: 3× the announce period) relative to local receipt time.
+- Consumers MUST ignore announcements whose `announce_timestamp_ns` precedes the consumer's join time (to avoid Aeron log replay). If a driver attach response is used, it MAY serve as the authoritative snapshot, but consumers MUST still require a fresh `ShmPoolAnnounce` before trusting periodic liveness.
 
 #### 10.1.2 ConsumerHello (consumer → producer/supervisor)
 
@@ -541,6 +544,7 @@ End of specification.
 - Consumers MUST validate that `layout_version`, `nslots`, `slot_bytes`, `stride_bytes`, `region_type`, and `pool_id` in `ShmRegionSuperblock` match the most recent `ShmPoolAnnounce`; mismatches MUST trigger a remap or fallback.
 - Consumers MUST validate `magic` and `epoch` on every `ShmPoolAnnounce`; `pid` is informational and cannot alone detect restarts or multi-producer contention.
 - `max_dims` in `ShmPoolAnnounce` MUST match the compiled SBE schema expectation; otherwise consumers SHOULD reject SHM and use fallback.
+- Consumers MUST validate `announce_timestamp_ns` freshness: announcements older than the freshness window (RECOMMENDED: 3× announce period) MUST be ignored.
 - Host endianness: implementation is little-endian only; big-endian hosts MUST reject or byte-swap consistently (out of scope in v1.1).
 
 ### 15.2 Epoch Lifecycle
@@ -971,17 +975,18 @@ Reference schema patterned after Aeron archive control style; adjust IDs and fie
     <field name="streamId"        id="1" type="uint32"/>
     <field name="producerId"      id="2" type="uint32"/>
     <field name="epoch"           id="3" type="epoch_t"/>
-    <field name="layoutVersion"   id="4" type="version_t"/>
-    <field name="headerNslots"    id="5" type="uint32"/>
-    <field name="headerSlotBytes" id="6" type="uint16"/>
-    <field name="maxDims"         id="7" type="uint8"/>
-    <group name="payloadPools"    id="9" dimensionType="groupSizeEncoding">
+    <field name="announceTimestampNs" id="4" type="uint64"/>
+    <field name="layoutVersion"   id="5" type="version_t"/>
+    <field name="headerNslots"    id="6" type="uint32"/>
+    <field name="headerSlotBytes" id="7" type="uint16"/>
+    <field name="maxDims"         id="8" type="uint8"/>
+    <group name="payloadPools"    id="10" dimensionType="groupSizeEncoding">
       <field name="poolId"      id="1" type="uint16"/>
       <field name="poolNslots"  id="2" type="uint32"/>
       <field name="strideBytes" id="3" type="uint32"/>
       <data  name="regionUri"   id="4" type="varAsciiEncoding"/>
     </group>
-    <data  name="headerRegionUri" id="8" type="varAsciiEncoding"/>
+    <data  name="headerRegionUri" id="9" type="varAsciiEncoding"/>
   </sbe:message>
 
   <sbe:message name="ConsumerHello" id="2">

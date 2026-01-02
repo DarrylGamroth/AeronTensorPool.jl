@@ -29,6 +29,7 @@
             AeronTensorPool.ShmPoolAnnounce.streamId!(announce_enc, stream_id)
             AeronTensorPool.ShmPoolAnnounce.producerId!(announce_enc, UInt32(11))
             AeronTensorPool.ShmPoolAnnounce.epoch!(announce_enc, UInt64(3))
+            AeronTensorPool.ShmPoolAnnounce.announceTimestampNs!(announce_enc, UInt64(time_ns()))
             AeronTensorPool.ShmPoolAnnounce.layoutVersion!(announce_enc, UInt32(1))
             AeronTensorPool.ShmPoolAnnounce.headerNslots!(announce_enc, UInt32(8))
             AeronTensorPool.ShmPoolAnnounce.headerSlotBytes!(announce_enc, UInt16(HEADER_SLOT_BYTES))

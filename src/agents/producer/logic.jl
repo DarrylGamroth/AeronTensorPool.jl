@@ -23,6 +23,7 @@ function init_producer(config::ProducerConfig; client::Aeron.Client)
     end
 
     clock = Clocks.CachedEpochClock(Clocks.MonotonicClock())
+    fetch!(clock)
 
     header_size = SUPERBLOCK_SIZE + Int(config.nslots) * HEADER_SLOT_BYTES
     header_mmap = mmap_shm(config.header_uri, header_size; write = true)
@@ -780,6 +781,7 @@ Emit a ShmPoolAnnounce for this producer.
 """
 function emit_announce!(state::ProducerState)
     payload_count = length(state.config.payload_pools)
+    now_ns = UInt64(Clocks.time_nanos(state.clock))
     msg_len = MESSAGE_HEADER_LEN +
         Int(ShmPoolAnnounce.sbe_block_length(ShmPoolAnnounce.Decoder)) +
         4 +
@@ -791,12 +793,14 @@ function emit_announce!(state::ProducerState)
         sizeof(state.config.header_uri)
 
     sent = let st = state,
-        payload_count = payload_count
+        payload_count = payload_count,
+        now_ns = now_ns
         try_claim_sbe!(st.runtime.control.pub_control, st.runtime.progress_claim, msg_len) do buf
             ShmPoolAnnounce.wrap_and_apply_header!(st.runtime.announce_encoder, buf, 0)
             ShmPoolAnnounce.streamId!(st.runtime.announce_encoder, st.config.stream_id)
             ShmPoolAnnounce.producerId!(st.runtime.announce_encoder, st.config.producer_id)
             ShmPoolAnnounce.epoch!(st.runtime.announce_encoder, st.epoch)
+            ShmPoolAnnounce.announceTimestampNs!(st.runtime.announce_encoder, now_ns)
             ShmPoolAnnounce.layoutVersion!(st.runtime.announce_encoder, st.config.layout_version)
             ShmPoolAnnounce.headerNslots!(st.runtime.announce_encoder, st.config.nslots)
             ShmPoolAnnounce.headerSlotBytes!(st.runtime.announce_encoder, UInt16(HEADER_SLOT_BYTES))

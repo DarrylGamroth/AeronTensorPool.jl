@@ -85,6 +85,7 @@
                 UInt32(0),
                 UInt64(1_000_000_000),
                 UInt64(1_000_000_000),
+                UInt64(3_000_000_000),
                 "",
                 UInt32(0),
                 "",
@@ -99,6 +100,7 @@
             AeronTensorPool.ShmPoolAnnounce.streamId!(announce_enc, stream_id)
             AeronTensorPool.ShmPoolAnnounce.producerId!(announce_enc, UInt32(7))
             AeronTensorPool.ShmPoolAnnounce.epoch!(announce_enc, epoch)
+            AeronTensorPool.ShmPoolAnnounce.announceTimestampNs!(announce_enc, UInt64(time_ns()))
             AeronTensorPool.ShmPoolAnnounce.layoutVersion!(announce_enc, layout_version)
             AeronTensorPool.ShmPoolAnnounce.headerNslots!(announce_enc, nslots)
             AeronTensorPool.ShmPoolAnnounce.headerSlotBytes!(announce_enc, UInt16(HEADER_SLOT_BYTES))

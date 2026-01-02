@@ -151,12 +151,14 @@ function emit_driver_announce!(state::DriverState, stream_state::DriverStreamSta
 
     return let st = state,
         stream_state = stream_state,
-        payload_count = payload_count
+        payload_count = payload_count,
+        now_ns = (st.now_ns == 0 ? UInt64(Clocks.time_nanos(st.clock)) : st.now_ns)
         try_claim_sbe!(st.runtime.pub_announce, st.runtime.control_claim, msg_len) do buf
             ShmPoolAnnounce.wrap_and_apply_header!(st.runtime.announce_encoder, buf, 0)
             ShmPoolAnnounce.streamId!(st.runtime.announce_encoder, stream_state.stream_id)
             ShmPoolAnnounce.producerId!(st.runtime.announce_encoder, UInt32(0))
             ShmPoolAnnounce.epoch!(st.runtime.announce_encoder, stream_state.epoch)
+            ShmPoolAnnounce.announceTimestampNs!(st.runtime.announce_encoder, now_ns)
             ShmPoolAnnounce.layoutVersion!(st.runtime.announce_encoder, UInt32(1))
             ShmPoolAnnounce.headerNslots!(st.runtime.announce_encoder, stream_state.profile.header_nslots)
             ShmPoolAnnounce.headerSlotBytes!(st.runtime.announce_encoder, UInt16(HEADER_SLOT_BYTES))

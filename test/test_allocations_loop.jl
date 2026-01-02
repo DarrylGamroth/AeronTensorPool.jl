@@ -84,6 +84,7 @@ qos_interval_ns = 1000000000
             AeronTensorPool.ShmPoolAnnounce.streamId!(announce_enc, system.producer.stream_id)
             AeronTensorPool.ShmPoolAnnounce.producerId!(announce_enc, system.producer.producer_id)
             AeronTensorPool.ShmPoolAnnounce.epoch!(announce_enc, UInt64(1))
+            AeronTensorPool.ShmPoolAnnounce.announceTimestampNs!(announce_enc, UInt64(time_ns()))
             AeronTensorPool.ShmPoolAnnounce.layoutVersion!(announce_enc, system.producer.layout_version)
             AeronTensorPool.ShmPoolAnnounce.headerNslots!(announce_enc, system.producer.nslots)
             AeronTensorPool.ShmPoolAnnounce.headerSlotBytes!(announce_enc, UInt16(HEADER_SLOT_BYTES))

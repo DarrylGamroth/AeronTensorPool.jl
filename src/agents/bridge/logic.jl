@@ -244,6 +244,7 @@ function bridge_forward_announce!(state::BridgeSenderState, msg::ShmPoolAnnounce
             ShmPoolAnnounce.streamId!(enc, ShmPoolAnnounce.streamId(msg))
             ShmPoolAnnounce.producerId!(enc, ShmPoolAnnounce.producerId(msg))
             ShmPoolAnnounce.epoch!(enc, ShmPoolAnnounce.epoch(msg))
+            ShmPoolAnnounce.announceTimestampNs!(enc, ShmPoolAnnounce.announceTimestampNs(msg))
             ShmPoolAnnounce.layoutVersion!(enc, ShmPoolAnnounce.layoutVersion(msg))
             ShmPoolAnnounce.headerNslots!(enc, ShmPoolAnnounce.headerNslots(msg))
             ShmPoolAnnounce.headerSlotBytes!(enc, ShmPoolAnnounce.headerSlotBytes(msg))
