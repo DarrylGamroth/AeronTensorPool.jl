@@ -367,18 +367,21 @@ function handle_shutdown_request!(state::DriverState, msg::ShmDriverShutdownRequ
     return true
 end
 
+@inline function dispatch_lease_revoke!(lease::DriverLease, reason::DriverLeaseRevokeReason.SbeEnum, metrics::DriverMetrics)
+    if reason == DriverLeaseRevokeReason.DETACHED
+        return Hsm.dispatch!(lease.lifecycle, :Detach, metrics)
+    elseif reason == DriverLeaseRevokeReason.EXPIRED
+        return Hsm.dispatch!(lease.lifecycle, :LeaseTimeout, metrics)
+    end
+    return Hsm.dispatch!(lease.lifecycle, :Revoke, metrics)
+end
+
 function revoke_lease!(state::DriverState, lease_id::UInt64, reason::DriverLeaseRevokeReason.SbeEnum, now_ns::UInt64)
     lease = get(state.leases, lease_id, nothing)
     isnothing(lease) && return false
 
     stream_state = get(state.streams, lease.stream_id, nothing)
-    if reason == DriverLeaseRevokeReason.DETACHED
-        Hsm.dispatch!(lease.lifecycle, :Detach, state.metrics)
-    elseif reason == DriverLeaseRevokeReason.EXPIRED
-        Hsm.dispatch!(lease.lifecycle, :LeaseTimeout, state.metrics)
-    else
-        Hsm.dispatch!(lease.lifecycle, :Revoke, state.metrics)
-    end
+    dispatch_lease_revoke!(lease, reason, state.metrics)
     if !isnothing(stream_state)
         if lease.role == DriverRole.PRODUCER
             stream_state.producer_lease_id = 0
