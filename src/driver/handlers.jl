@@ -7,6 +7,17 @@ function handle_driver_control!(state::DriverState, buffer::AbstractVector{UInt8
 
     if template_id == TEMPLATE_SHM_ATTACH_REQUEST
         ShmAttachRequest.wrap!(state.runtime.attach_decoder, buffer, 0; header = header)
+        if Hsm.current(state.lifecycle) == :Draining
+            correlation_id = ShmAttachRequest.correlationId(state.runtime.attach_decoder)
+            emit_attach_response!(
+                state,
+                correlation_id,
+                DriverResponseCode.REJECTED,
+                "driver draining",
+                nothing,
+            )
+            return true
+        end
         handle_attach_request!(state, state.runtime.attach_decoder)
     elseif template_id == TEMPLATE_SHM_DETACH_REQUEST
         ShmDetachRequest.wrap!(state.runtime.detach_decoder, buffer, 0; header = header)

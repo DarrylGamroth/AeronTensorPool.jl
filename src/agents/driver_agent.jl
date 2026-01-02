@@ -37,6 +37,8 @@ end
 
 function Agent.on_close(agent::DriverAgent)
     try
+        fetch!(agent.state.clock)
+        agent.state.now_ns = UInt64(Clocks.time_nanos(agent.state.clock))
         driver_lifecycle_dispatch!(agent.state, :ShutdownRequested)
         driver_lifecycle_dispatch!(agent.state, :ShutdownTimeout)
         emit_driver_shutdown!(agent.state)
