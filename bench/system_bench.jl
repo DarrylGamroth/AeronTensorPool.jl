@@ -119,6 +119,7 @@ function run_system_bench(
     payload_bytes_list::Vector{Int} = Int[],
     warmup_s::Float64 = 0.2,
     alloc_sample::Bool = false,
+    alloc_probe_iters::Int = 0,
 )
     Aeron.MediaDriver.launch_embedded() do driver
         GC.@preserve driver begin
@@ -199,7 +200,30 @@ function run_system_bench(
                         println("Sample alloc per-iteration: $(sample_after - sample_before) bytes")
                     end
 
+                    if alloc_probe_iters > 0
+                        GC.gc()
+                        probe_start = Base.gc_num().allocd
+                        for _ in 1:alloc_probe_iters
+                            producer_do_work!(producer, prod_ctrl)
+                            consumer_do_work!(consumer, cons_desc, cons_ctrl)
+                            supervisor_do_work!(supervisor, sup_ctrl, sup_qos)
+                            if consumer.mappings.header_mmap !== nothing
+                                publish_frame!(producer, payload, shape, strides, Dtype.UINT8, UInt32(0))
+                            end
+                            yield()
+                        end
+                        probe_end = Base.gc_num().allocd
+                        println("Alloc delta (probe $(alloc_probe_iters) iters): $(probe_end - probe_start) bytes")
+                    end
+
+                    if alloc_sample || alloc_probe_iters > 0
+                        consumed[] = 0
+                        published = 0
+                    end
+
                     GC.gc()
+                    gc_num_overhead = Base.gc_num().allocd
+                    gc_num_overhead = Base.gc_num().allocd - gc_num_overhead
                     start_num = Base.gc_num()
                     start_live = Base.gc_live_bytes()
                     start = time()
@@ -217,18 +241,27 @@ function run_system_bench(
                     end
 
                     elapsed = time() - start
+                    mid_num = Base.gc_num()
+                    mid_live = Base.gc_live_bytes()
                     GC.gc()
                     end_num = Base.gc_num()
                     end_live = Base.gc_live_bytes()
-                    allocd_delta = end_num.allocd - start_num.allocd
-                    live_delta = end_live - start_live
+                    allocd_loop_raw = mid_num.allocd - start_num.allocd
+                    allocd_loop = max(Int64(0), allocd_loop_raw - gc_num_overhead)
+                    live_loop = mid_live - start_live
+                    allocd_total_raw = end_num.allocd - start_num.allocd
+                    allocd_total = max(Int64(0), allocd_total_raw - 2 * gc_num_overhead)
+                    live_total = end_live - start_live
                     println("System benchmark: payload_bytes=$(bytes)")
                     println("Published: $(published) frames in $(round(elapsed, digits=3))s")
                     println("Consumed:  $(consumed[]) frames in $(round(elapsed, digits=3))s")
                     println("Publish rate: $(round(published / elapsed, digits=1)) fps")
                     println("Consume rate: $(round(consumed[] / elapsed, digits=1)) fps")
-                    println("GC allocd delta: $(allocd_delta) bytes")
-                    println("GC live delta:  $(live_delta) bytes")
+                    println("GC allocd overhead per sample: $(gc_num_overhead) bytes")
+                    println("GC allocd delta (loop):  $(allocd_loop) bytes")
+                    println("GC live delta (loop):   $(live_loop) bytes")
+                    println("GC allocd delta (total): $(allocd_total) bytes")
+                    println("GC live delta (total):  $(live_total) bytes")
                     println()
 
                     close_supervisor!(supervisor)
