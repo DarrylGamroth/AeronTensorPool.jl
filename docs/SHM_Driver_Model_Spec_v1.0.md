@@ -122,7 +122,7 @@ Clients MUST reject messages with a schema version higher than they support. Dri
 
 ### 4.5 Control-Plane Transport (Normative)
 
-`ShmAttachRequest`, `ShmAttachResponse`, `ShmDetachRequest`, `ShmDetachResponse`, and `ShmLeaseKeepalive` MUST be carried on the control-plane Aeron stream defined by the Wire Specification unless an alternative is explicitly configured and documented for the deployment.
+`ShmAttachRequest`, `ShmAttachResponse`, `ShmDetachRequest`, `ShmDetachResponse`, `ShmLeaseKeepalive`, `ShmLeaseRevoked`, `ShmDriverShutdown`, and (if implemented) `ShmDriverShutdownRequest` MUST be carried on the control-plane Aeron stream defined by the Wire Specification unless an alternative is explicitly configured and documented for the deployment.
 
 ### 4.6 Response Codes (Normative)
 
@@ -280,7 +280,7 @@ Suggested transitions:
 - `Unmapped` → `Mapped` on attach success + successful SHM validation.
 - `Mapped` → `Remapping` on producer `ShmLeaseRevoked` or new `ShmPoolAnnounce` with higher epoch.
 - `Remapping` → `Mapped` on successful remap and validation.
-- `Mapped` → `Backoff` on SHM validation failure (per §15.22) when no fallback is available.
+- `Mapped` → `Backoff` on SHM validation failure (per Wire Spec §15.22) when no fallback is available.
 - `Backoff` → `Unmapped` after retry delay; attempt reattach/remap.
 - Any → `Unmapped` on `ShmDriverShutdown`; drop in-flight frames and stop.
 

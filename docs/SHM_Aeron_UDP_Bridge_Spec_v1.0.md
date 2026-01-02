@@ -222,7 +222,7 @@ Optional keys and defaults:
 - QoS forwarding uses `source_control_stream_id` and `dest_control_stream_id` (per mapping); there is no global QoS stream.
 - `bridge.assembly_timeout_ms` (uint32): per-stream frame assembly timeout. Default: `250`.
 
-The bridge control channel is used for forwarding `ShmPoolAnnounce` and, when enabled, QoS messages. Metadata forwarding uses the destination host's local IPC metadata stream.
+The bridge control channel is used for forwarding `ShmPoolAnnounce` and, when enabled, QoS and `FrameProgress` messages. Metadata forwarding uses the destination host's local IPC metadata stream.
 
 Each `mappings` entry:
 
