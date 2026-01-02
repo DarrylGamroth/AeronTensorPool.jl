@@ -41,13 +41,10 @@ run_benchmarks()
 
 if run_system
     include(joinpath(@__DIR__, "..", "bench", "system_bench.jl"))
-    if !isempty(payload_bytes_list)
-        for bytes in payload_bytes_list
-            println("System benchmark: payload_bytes=$(bytes)")
-            run_system_bench(config, duration_s; payload_bytes = bytes)
-            println()
-        end
-    else
-        run_system_bench(config, duration_s; payload_bytes = payload_bytes)
-    end
+    run_system_bench(
+        config,
+        duration_s;
+        payload_bytes = payload_bytes,
+        payload_bytes_list = payload_bytes_list,
+    )
 end

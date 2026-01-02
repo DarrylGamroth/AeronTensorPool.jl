@@ -7,6 +7,37 @@ function ensure_shm_dir(uri::AbstractString)
     return nothing
 end
 
+function close_producer!(producer)
+    close(producer.runtime.pub_descriptor)
+    close(producer.runtime.pub_control)
+    close(producer.runtime.pub_qos)
+    close(producer.runtime.pub_metadata)
+    close(producer.runtime.sub_control)
+    close(producer.runtime.client)
+    close(producer.runtime.ctx)
+    return nothing
+end
+
+function close_consumer!(consumer)
+    close(consumer.runtime.pub_control)
+    close(consumer.runtime.pub_qos)
+    close(consumer.runtime.sub_descriptor)
+    close(consumer.runtime.sub_control)
+    close(consumer.runtime.sub_qos)
+    close(consumer.runtime.client)
+    close(consumer.runtime.ctx)
+    return nothing
+end
+
+function close_supervisor!(supervisor)
+    close(supervisor.runtime.pub_control)
+    close(supervisor.runtime.sub_control)
+    close(supervisor.runtime.sub_qos)
+    close(supervisor.runtime.client)
+    close(supervisor.runtime.ctx)
+    return nothing
+end
+
 function apply_canonical_layout(
     config::ProducerConfig,
     base_dir::String;
@@ -81,59 +112,75 @@ function apply_canonical_layout(config::ConsumerConfig, base_dir::String)
     )
 end
 
-function run_system_bench(config_path::AbstractString, duration_s::Float64; payload_bytes::Int = 1024)
+function run_system_bench(
+    config_path::AbstractString,
+    duration_s::Float64;
+    payload_bytes::Int = 1024,
+    payload_bytes_list::Vector{Int} = Int[],
+)
     Aeron.MediaDriver.launch_embedded() do driver
-        GC.@preserve driver mktempdir() do dir
+        GC.@preserve driver begin
             env = Dict(ENV)
             env["AERON_DIR"] = Aeron.MediaDriver.aeron_dir(driver)
             system = load_system_config(config_path; env = env)
-            producer_cfg = apply_canonical_layout(system.producer, dir)
-            consumer_cfg = apply_canonical_layout(system.consumer, dir)
-            supervisor_cfg = system.supervisor
+            sizes = isempty(payload_bytes_list) ? [payload_bytes] : payload_bytes_list
+            for bytes in sizes
+                bytes > 0 || error("payload_bytes must be > 0")
+                mktempdir() do dir
+                    producer_cfg = apply_canonical_layout(system.producer, dir)
+                    consumer_cfg = apply_canonical_layout(system.consumer, dir)
+                    supervisor_cfg = system.supervisor
 
-            producer = init_producer(producer_cfg)
-            consumer = init_consumer(consumer_cfg)
-            supervisor = init_supervisor(supervisor_cfg)
+                    producer = init_producer(producer_cfg)
+                    consumer = init_consumer(consumer_cfg)
+                    supervisor = init_supervisor(supervisor_cfg)
 
-            prod_ctrl = make_control_assembler(producer)
-            cons_ctrl = make_control_assembler(consumer)
-            sup_ctrl = make_control_assembler(supervisor)
-            sup_qos = make_qos_assembler(supervisor)
+                    prod_ctrl = make_control_assembler(producer)
+                    cons_ctrl = make_control_assembler(consumer)
+                    sup_ctrl = make_control_assembler(supervisor)
+                    sup_qos = make_qos_assembler(supervisor)
 
-            consumed = Ref(0)
-            cons_desc = Aeron.FragmentAssembler(Aeron.FragmentHandler(consumer) do st, buffer, _
-                header = MessageHeader.Decoder(buffer, 0)
-                if MessageHeader.templateId(header) == AeronTensorPool.TEMPLATE_FRAME_DESCRIPTOR
-                    FrameDescriptor.wrap!(st.runtime.desc_decoder, buffer, 0; header = header)
-                    try_read_frame!(st, st.runtime.desc_decoder) && (consumed[] += 1)
+                    consumed = Ref(0)
+                    cons_desc = Aeron.FragmentAssembler(Aeron.FragmentHandler(consumer) do st, buffer, _
+                        header = MessageHeader.Decoder(buffer, 0)
+                        if MessageHeader.templateId(header) == AeronTensorPool.TEMPLATE_FRAME_DESCRIPTOR
+                            FrameDescriptor.wrap!(st.runtime.desc_decoder, buffer, 0; header = header)
+                            try_read_frame!(st, st.runtime.desc_decoder) && (consumed[] += 1)
+                        end
+                        nothing
+                    end)
+
+                    payload = fill(UInt8(1), bytes)
+                    shape = Int32[bytes]
+                    strides = Int32[1]
+                    published = 0
+                    start = time()
+
+                    while time() - start < duration_s
+                        producer_do_work!(producer, prod_ctrl)
+                        consumer_do_work!(consumer, cons_desc, cons_ctrl)
+                        supervisor_do_work!(supervisor, sup_ctrl, sup_qos)
+
+                        if consumer.mappings.header_mmap !== nothing
+                            publish_frame!(producer, payload, shape, strides, Dtype.UINT8, UInt32(0))
+                            published += 1
+                        end
+                        yield()
+                    end
+
+                    elapsed = time() - start
+                    println("System benchmark: payload_bytes=$(bytes)")
+                    println("Published: $(published) frames in $(round(elapsed, digits=3))s")
+                    println("Consumed:  $(consumed[]) frames in $(round(elapsed, digits=3))s")
+                    println("Publish rate: $(round(published / elapsed, digits=1)) fps")
+                    println("Consume rate: $(round(consumed[] / elapsed, digits=1)) fps")
+                    println()
+
+                    close_supervisor!(supervisor)
+                    close_consumer!(consumer)
+                    close_producer!(producer)
                 end
-                nothing
-            end)
-
-            payload_bytes > 0 || error("payload_bytes must be > 0")
-            payload = fill(UInt8(1), payload_bytes)
-            shape = Int32[payload_bytes]
-            strides = Int32[1]
-            published = 0
-            start = time()
-
-            while time() - start < duration_s
-                producer_do_work!(producer, prod_ctrl)
-                consumer_do_work!(consumer, cons_desc, cons_ctrl)
-                supervisor_do_work!(supervisor, sup_ctrl, sup_qos)
-
-                if consumer.mappings.header_mmap !== nothing
-                    publish_frame!(producer, payload, shape, strides, Dtype.UINT8, UInt32(0))
-                    published += 1
-                end
-                yield()
             end
-
-            elapsed = time() - start
-            println("Published: $(published) frames in $(round(elapsed, digits=3))s")
-            println("Consumed:  $(consumed[]) frames in $(round(elapsed, digits=3))s")
-            println("Publish rate: $(round(published / elapsed, digits=1)) fps")
-            println("Consume rate: $(round(consumed[] / elapsed, digits=1)) fps")
             return nothing
         end
     end
