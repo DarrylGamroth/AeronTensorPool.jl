@@ -12,7 +12,7 @@ control_stream_id = 3001
 metadata_channel = "aeron:udp?endpoint=239.1.1.1:40458"
 metadata_stream_id = 3002
 source_metadata_stream_id = 1300
-# control_channel carries forwarded ShmPoolAnnounce and optional QoS.
+# control_channel carries forwarded ShmPoolAnnounce and optional QoS/FrameProgress.
 mtu_bytes = 1408
 chunk_bytes = 1200
 max_chunk_bytes = 65535
@@ -21,30 +21,37 @@ assembly_timeout_ms = 250
 forward_metadata = true
 forward_qos = false
 forward_progress = false
-source_qos_stream_id = 1200
-dest_qos_stream_id = 2200
 
 [[mappings]]
 source_stream_id = 1001
 dest_stream_id = 2001
 profile = "processed_profile"
 metadata_stream_id = 2001
+source_control_stream_id = 1201
+dest_control_stream_id = 2201
 
 [[mappings]]
 source_stream_id = 1002
 dest_stream_id = 2002
 profile = "processed_profile"
 metadata_stream_id = 2002
+source_control_stream_id = 1202
+dest_control_stream_id = 2202
 
 # Bidirectional example: add reverse mappings to the same bridge instance
+# Note: reverse mappings swap source/dest control stream IDs.
 [[mappings]]
 source_stream_id = 1101
 dest_stream_id = 2101
 profile = "processed_profile"
 metadata_stream_id = 2101
+source_control_stream_id = 2201
+dest_control_stream_id = 1201
 
 [[mappings]]
 source_stream_id = 1102
 dest_stream_id = 2102
 profile = "processed_profile"
 metadata_stream_id = 2102
+source_control_stream_id = 2202
+dest_control_stream_id = 1202

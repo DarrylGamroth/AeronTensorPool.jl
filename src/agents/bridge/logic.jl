@@ -66,13 +66,19 @@ end
 Initialize a bridge sender using an existing consumer mapping.
 """
 function init_bridge_sender(consumer_state::ConsumerState, config::BridgeConfig, mapping::BridgeMapping)
+    if (config.forward_progress || config.forward_qos) &&
+       (mapping.source_control_stream_id == 0 || mapping.dest_control_stream_id == 0)
+        throw(ArgumentError("bridge mapping requires nonzero control stream IDs for progress/QoS forwarding"))
+    end
     ctx = Aeron.Context()
     set_aeron_dir!(ctx, config.aeron_dir)
     client = Aeron.Client(ctx)
 
     pub_payload = Aeron.add_publication(client, config.payload_channel, config.payload_stream_id)
     pub_control = Aeron.add_publication(client, config.control_channel, config.control_stream_id)
-    sub_control = Aeron.add_subscription(client, consumer_state.config.aeron_uri, consumer_state.config.control_stream_id)
+    source_control = mapping.source_control_stream_id == 0 ? consumer_state.config.control_stream_id :
+        mapping.source_control_stream_id
+    sub_control = Aeron.add_subscription(client, consumer_state.config.aeron_uri, source_control)
     pub_metadata = nothing
     sub_metadata = nothing
     metadata_assembler = nothing
@@ -80,12 +86,6 @@ function init_bridge_sender(consumer_state::ConsumerState, config::BridgeConfig,
         pub_metadata = Aeron.add_publication(client, config.metadata_channel, config.metadata_stream_id)
         sub_metadata = Aeron.add_subscription(client, consumer_state.config.aeron_uri, config.source_metadata_stream_id)
     end
-    sub_qos = nothing
-    qos_assembler = nothing
-    if config.forward_qos && config.source_qos_stream_id != 0
-        sub_qos = Aeron.add_subscription(client, consumer_state.config.aeron_uri, config.source_qos_stream_id)
-    end
-
     state = BridgeSenderState(
         consumer_state,
         config,
@@ -114,18 +114,15 @@ function init_bridge_sender(consumer_state::ConsumerState, config::BridgeConfig,
         metadata_assembler,
         DataSourceAnnounce.Decoder(UnsafeArrays.UnsafeArray{UInt8, 1}),
         DataSourceMeta.Decoder(UnsafeArrays.UnsafeArray{UInt8, 1}),
-        sub_qos,
-        qos_assembler,
         QosProducer.Decoder(UnsafeArrays.UnsafeArray{UInt8, 1}),
         QosConsumer.Decoder(UnsafeArrays.UnsafeArray{UInt8, 1}),
         QosProducer.Encoder(UnsafeArrays.UnsafeArray{UInt8, 1}),
         QosConsumer.Encoder(UnsafeArrays.UnsafeArray{UInt8, 1}),
+        FrameProgress.Decoder(UnsafeArrays.UnsafeArray{UInt8, 1}),
+        FrameProgress.Encoder(UnsafeArrays.UnsafeArray{UInt8, 1}),
     )
     if sub_metadata !== nothing
         state.metadata_assembler = make_bridge_metadata_sender_assembler(state)
-    end
-    if sub_qos !== nothing
-        state.qos_assembler = make_bridge_qos_sender_assembler(state)
     end
     state.control_assembler = make_bridge_control_sender_assembler(state)
     return state
@@ -139,6 +136,10 @@ function init_bridge_receiver(
     mapping::BridgeMapping;
     producer_state::Union{Nothing, ProducerState} = nothing,
 )
+    if (config.forward_progress || config.forward_qos) &&
+       (mapping.source_control_stream_id == 0 || mapping.dest_control_stream_id == 0)
+        throw(ArgumentError("bridge mapping requires nonzero control stream IDs for progress/QoS forwarding"))
+    end
     ctx = Aeron.Context()
     set_aeron_dir!(ctx, config.aeron_dir)
     client = Aeron.Client(ctx)
@@ -176,9 +177,9 @@ function init_bridge_receiver(
         sub_metadata = Aeron.add_subscription(client, config.metadata_channel, config.metadata_stream_id)
         pub_metadata_local = Aeron.add_publication(client, "aeron:ipc", dest_metadata_stream_id)
     end
-    pub_qos_local = nothing
-    if config.forward_qos && config.dest_qos_stream_id != 0
-        pub_qos_local = Aeron.add_publication(client, "aeron:ipc", config.dest_qos_stream_id)
+    pub_control_local = nothing
+    if (config.forward_qos || config.forward_progress) && mapping.dest_control_stream_id != 0
+        pub_control_local = Aeron.add_publication(client, "aeron:ipc", mapping.dest_control_stream_id)
     end
 
     state = BridgeReceiverState(
@@ -201,12 +202,14 @@ function init_bridge_receiver(
         DataSourceMeta.Encoder(UnsafeArrays.UnsafeArray{UInt8, 1}),
         DataSourceAnnounce.Decoder(UnsafeArrays.UnsafeArray{UInt8, 1}),
         DataSourceMeta.Decoder(UnsafeArrays.UnsafeArray{UInt8, 1}),
-        pub_qos_local,
+        pub_control_local,
         Aeron.BufferClaim(),
         QosProducer.Encoder(UnsafeArrays.UnsafeArray{UInt8, 1}),
         QosConsumer.Encoder(UnsafeArrays.UnsafeArray{UInt8, 1}),
         QosProducer.Decoder(UnsafeArrays.UnsafeArray{UInt8, 1}),
         QosConsumer.Decoder(UnsafeArrays.UnsafeArray{UInt8, 1}),
+        FrameProgress.Encoder(UnsafeArrays.UnsafeArray{UInt8, 1}),
+        FrameProgress.Decoder(UnsafeArrays.UnsafeArray{UInt8, 1}),
         BridgeFrameChunk.Decoder(UnsafeArrays.UnsafeArray{UInt8, 1}),
         ShmPoolAnnounce.Decoder(UnsafeArrays.UnsafeArray{UInt8, 1}),
         TensorSlotHeader256.Decoder(Vector{UInt8}),
@@ -416,15 +419,36 @@ function bridge_forward_qos_consumer!(state::BridgeSenderState, msg::QosConsumer
 end
 
 """
+Forward a FrameProgress from source to bridge control channel.
+"""
+function bridge_forward_progress!(state::BridgeSenderState, msg::FrameProgress.Decoder)
+    state.config.forward_progress || return false
+    FrameProgress.streamId(msg) == state.mapping.source_stream_id || return false
+    msg_len = MESSAGE_HEADER_LEN + Int(FrameProgress.sbe_decoded_length(msg))
+    sent = try_claim_sbe!(state.pub_control, state.control_claim, msg_len) do buf
+        enc = state.progress_encoder
+        FrameProgress.wrap_and_apply_header!(enc, buf, 0)
+        FrameProgress.streamId!(enc, FrameProgress.streamId(msg))
+        FrameProgress.epoch!(enc, FrameProgress.epoch(msg))
+        FrameProgress.frameId!(enc, FrameProgress.frameId(msg))
+        FrameProgress.headerIndex!(enc, FrameProgress.headerIndex(msg))
+        FrameProgress.payloadBytesFilled!(enc, FrameProgress.payloadBytesFilled(msg))
+        FrameProgress.state!(enc, FrameProgress.state(msg))
+        FrameProgress.rowsFilled!(enc, FrameProgress.rowsFilled(msg))
+    end
+    return sent
+end
+
+"""
 Publish a forwarded QosProducer on the local QoS stream.
 """
 function bridge_publish_qos_producer!(state::BridgeReceiverState, msg::QosProducer.Decoder)
     state.config.forward_qos || return false
-    state.pub_qos_local === nothing && return false
+    state.pub_control_local === nothing && return false
     QosProducer.streamId(msg) == state.mapping.source_stream_id || return false
 
     msg_len = MESSAGE_HEADER_LEN + Int(QosProducer.sbe_decoded_length(msg))
-    sent = try_claim_sbe!(state.pub_qos_local, state.qos_claim, msg_len) do buf
+    sent = try_claim_sbe!(state.pub_control_local, state.control_claim, msg_len) do buf
         enc = state.qos_producer_encoder
         QosProducer.wrap_and_apply_header!(enc, buf, 0)
         QosProducer.streamId!(enc, UInt32(state.mapping.dest_stream_id))
@@ -440,11 +464,11 @@ Publish a forwarded QosConsumer on the local QoS stream.
 """
 function bridge_publish_qos_consumer!(state::BridgeReceiverState, msg::QosConsumer.Decoder)
     state.config.forward_qos || return false
-    state.pub_qos_local === nothing && return false
+    state.pub_control_local === nothing && return false
     QosConsumer.streamId(msg) == state.mapping.source_stream_id || return false
 
     msg_len = MESSAGE_HEADER_LEN + Int(QosConsumer.sbe_decoded_length(msg))
-    sent = try_claim_sbe!(state.pub_qos_local, state.qos_claim, msg_len) do buf
+    sent = try_claim_sbe!(state.pub_control_local, state.control_claim, msg_len) do buf
         enc = state.qos_consumer_encoder
         QosConsumer.wrap_and_apply_header!(enc, buf, 0)
         QosConsumer.streamId!(enc, UInt32(state.mapping.dest_stream_id))
@@ -454,6 +478,35 @@ function bridge_publish_qos_consumer!(state::BridgeReceiverState, msg::QosConsum
         QosConsumer.dropsGap!(enc, QosConsumer.dropsGap(msg))
         QosConsumer.dropsLate!(enc, QosConsumer.dropsLate(msg))
         QosConsumer.mode!(enc, QosConsumer.mode(msg))
+    end
+    return sent
+end
+
+"""
+Publish a forwarded FrameProgress on the local control stream.
+"""
+function bridge_publish_progress!(state::BridgeReceiverState, msg::FrameProgress.Decoder)
+    state.config.forward_progress || return false
+    state.pub_control_local === nothing && return false
+    FrameProgress.streamId(msg) == state.mapping.source_stream_id || return false
+    state.producer_state === nothing && return false
+
+    nslots = state.producer_state.config.nslots
+    nslots == 0 && return false
+    seq = FrameProgress.frameId(msg)
+    header_index = UInt32(seq & (UInt64(nslots) - 1))
+
+    msg_len = MESSAGE_HEADER_LEN + Int(FrameProgress.sbe_decoded_length(msg))
+    sent = try_claim_sbe!(state.pub_control_local, state.control_claim, msg_len) do buf
+        enc = state.progress_encoder
+        FrameProgress.wrap_and_apply_header!(enc, buf, 0)
+        FrameProgress.streamId!(enc, UInt32(state.mapping.dest_stream_id))
+        FrameProgress.epoch!(enc, FrameProgress.epoch(msg))
+        FrameProgress.frameId!(enc, seq)
+        FrameProgress.headerIndex!(enc, header_index)
+        FrameProgress.payloadBytesFilled!(enc, FrameProgress.payloadBytesFilled(msg))
+        FrameProgress.state!(enc, FrameProgress.state(msg))
+        FrameProgress.rowsFilled!(enc, FrameProgress.rowsFilled(msg))
     end
     return sent
 end
@@ -828,6 +881,9 @@ function make_bridge_control_assembler(state::BridgeReceiverState)
         elseif template_id == TEMPLATE_QOS_CONSUMER
             QosConsumer.wrap!(st.qos_consumer_decoder, buffer, 0; header = header)
             bridge_publish_qos_consumer!(st, st.qos_consumer_decoder)
+        elseif template_id == TEMPLATE_FRAME_PROGRESS
+            FrameProgress.wrap!(st.progress_decoder, buffer, 0; header = header)
+            bridge_publish_progress!(st, st.progress_decoder)
         end
         nothing
     end
@@ -840,9 +896,19 @@ Create a FragmentAssembler for forwarding control messages on the sender.
 function make_bridge_control_sender_assembler(state::BridgeSenderState)
     handler = Aeron.FragmentHandler(state) do st, buffer, _
         header = MessageHeader.Decoder(buffer, 0)
-        if MessageHeader.templateId(header) == TEMPLATE_SHM_POOL_ANNOUNCE
+        template_id = MessageHeader.templateId(header)
+        if template_id == TEMPLATE_SHM_POOL_ANNOUNCE
             ShmPoolAnnounce.wrap!(st.announce_decoder, buffer, 0; header = header)
             bridge_forward_announce!(st, st.announce_decoder)
+        elseif template_id == TEMPLATE_QOS_PRODUCER
+            QosProducer.wrap!(st.qos_producer_decoder, buffer, 0; header = header)
+            bridge_forward_qos_producer!(st, st.qos_producer_decoder)
+        elseif template_id == TEMPLATE_QOS_CONSUMER
+            QosConsumer.wrap!(st.qos_consumer_decoder, buffer, 0; header = header)
+            bridge_forward_qos_consumer!(st, st.qos_consumer_decoder)
+        elseif template_id == TEMPLATE_FRAME_PROGRESS
+            FrameProgress.wrap!(st.progress_decoder, buffer, 0; header = header)
+            bridge_forward_progress!(st, st.progress_decoder)
         end
         nothing
     end
@@ -888,25 +954,6 @@ function make_bridge_metadata_receiver_assembler(state::BridgeReceiverState)
 end
 
 """
-Create a FragmentAssembler for forwarding QoS on the sender.
-"""
-function make_bridge_qos_sender_assembler(state::BridgeSenderState)
-    handler = Aeron.FragmentHandler(state) do st, buffer, _
-        header = MessageHeader.Decoder(buffer, 0)
-        template_id = MessageHeader.templateId(header)
-        if template_id == TEMPLATE_QOS_PRODUCER
-            QosProducer.wrap!(st.qos_producer_decoder, buffer, 0; header = header)
-            bridge_forward_qos_producer!(st, st.qos_producer_decoder)
-        elseif template_id == TEMPLATE_QOS_CONSUMER
-            QosConsumer.wrap!(st.qos_consumer_decoder, buffer, 0; header = header)
-            bridge_forward_qos_consumer!(st, st.qos_consumer_decoder)
-        end
-        nothing
-    end
-    return Aeron.FragmentAssembler(handler)
-end
-
-"""
 Poll metadata subscription for a bridge sender.
 """
 function bridge_sender_do_work!(
@@ -917,9 +964,6 @@ function bridge_sender_do_work!(
     work_count += Aeron.poll(state.sub_control, state.control_assembler, fragment_limit)
     if state.sub_metadata !== nothing && state.metadata_assembler !== nothing
         work_count += Aeron.poll(state.sub_metadata, state.metadata_assembler, fragment_limit)
-    end
-    if state.sub_qos !== nothing && state.qos_assembler !== nothing
-        work_count += Aeron.poll(state.sub_qos, state.qos_assembler, fragment_limit)
     end
     return work_count
 end

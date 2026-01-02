@@ -35,6 +35,12 @@ The Bridge Sender reads frames from a local SHM pool as a consumer and publishes
 
 The Bridge Receiver subscribes to bridge payload chunks, reconstructs frames, writes them into local SHM pools as a producer, and publishes local `FrameDescriptor` messages for local consumers.
 
+### 2.3 Bidirectional Bridge Instances (Informative)
+
+A single bridge instance MAY host mappings in both directions (A→B and B→A). In this case, each mapping is independent; stream IDs MUST be distinct, and deployments SHOULD avoid creating feedback loops (e.g., bridging a stream back to its origin with the same IDs). If the same UDP channels are reused for both directions, stream IDs MUST disambiguate all payload/control/metadata traffic.
+
+**Note:** Do not map `1000→2000` and `2000→1000` on the same bridge control channel unless payload/control/metadata stream IDs are carefully segregated to prevent feedback loops.
+
 ---
 
 ## 3. Transport Model
@@ -154,7 +160,7 @@ Bridge instances MUST support forwarding `DataSourceAnnounce` and `DataSourceMet
 
 ## 7.2 Source Pool Announce Forwarding (Normative)
 
-Bridge instances MUST forward `ShmPoolAnnounce` for each mapped source stream to the receiver host on the bridge control channel. The receiver MUST use the most recent forwarded announce to validate `headerBytes.pool_id` and MUST NOT republish the source `ShmPoolAnnounce` to local consumers. Metadata forwarding does not use the bridge control channel; implementations SHOULD use a dedicated bridge metadata channel for transport.
+Bridge instances MUST forward `ShmPoolAnnounce` for each mapped source stream to the receiver host on the bridge control channel. The receiver MUST use the most recent forwarded announce to validate `headerBytes.pool_id` and MUST NOT republish the source `ShmPoolAnnounce` to local consumers. Metadata forwarding does not use the bridge control channel; implementations SHOULD use a dedicated bridge metadata channel for transport. When enabled, QoS and FrameProgress MUST be carried on the bridge control channel.
 
 ---
 
@@ -167,11 +173,24 @@ Bridge instances MUST forward `ShmPoolAnnounce` for each mapped source stream to
 
 ---
 
-## 9. Control and QoS (Informative)
+## 9. Control and QoS (Normative)
 
-Bridge instances MAY forward or translate `QosProducer`/`QosConsumer` messages; when `bridge.forward_qos=true`, they SHOULD do so. A minimal bridge only handles payload and local descriptor publication.
+Bridge instances MAY forward or translate `QosProducer`/`QosConsumer` messages; when `bridge.forward_qos=true`, they SHOULD do so on the bridge control channel using the per-mapping `source_control_stream_id` and `dest_control_stream_id`. A minimal bridge only handles payload and local descriptor publication.
 
-Bridge instances MAY forward `FrameProgress`; when `bridge.forward_progress=true`, they SHOULD forward it on the destination host's local control stream. Consumers MUST still treat `FrameDescriptor` as the canonical availability signal.
+Bridge instances MAY forward `FrameProgress`; when `bridge.forward_progress=true`, they MUST:
+1. Subscribe to the source host's local control stream at `source_control_stream_id` (per mapping).
+2. Forward `FrameProgress` messages over `bridge.control_channel` with the following rewrites:
+   - `FrameProgress.streamId` MUST be set to `source_stream_id` (sender) and rewritten to `dest_stream_id` (receiver).
+   - `FrameProgress.epoch`, `frameId`, `payloadBytesFilled`, `state`, and `rowsFilled` MUST be preserved as received from the source.
+3. Receiver MUST republish forwarded `FrameProgress` on the destination host's local IPC control stream at `dest_control_stream_id` (per mapping).
+
+`FrameProgress.headerIndex` is source-side; receivers MUST remap it to the local header index before republishing. If the mapping cannot be determined, the receiver MUST drop the forwarded progress for that frame.
+
+Progress forwarding is sender-side (as observed from the source stream) and independent of whether the receiver has finished re-materialization. Receivers SHOULD drop forwarded progress that refers to unknown or expired assembly state.
+
+If `bridge.forward_progress=true`, both `source_control_stream_id` and `dest_control_stream_id` MUST be nonzero for each mapping. If either is unset, the mapping is invalid and the bridge MUST drop forwarded progress for that mapping (and SHOULD fail fast at startup if possible).
+
+Consumers MUST still treat `FrameDescriptor` as the canonical availability signal.
 
 ---
 
@@ -184,7 +203,7 @@ Required keys:
 - `bridge.instance_id` (string): identifier for logging/diagnostics.
 - `bridge.payload_channel` (string): Aeron UDP channel for `BridgeFrameChunk`.
 - `bridge.payload_stream_id` (uint32): stream ID for `BridgeFrameChunk`.
-- `bridge.control_channel` (string): Aeron channel for control messages (e.g., forwarded `ShmPoolAnnounce`).
+- `bridge.control_channel` (string): Aeron channel for control messages (forwarded `ShmPoolAnnounce`, and when enabled, `Qos*` and `FrameProgress`).
 - `bridge.control_stream_id` (uint32): stream ID for bridge control messages.
 - `mappings` (array): one or more stream mappings.
 
@@ -199,9 +218,8 @@ Optional keys and defaults:
 - `bridge.metadata_stream_id` (uint32): stream ID for forwarded metadata over `bridge.metadata_channel`. Default: deployment-specific.
 - `bridge.source_metadata_stream_id` (uint32): source metadata stream ID to subscribe on the sender host. Default: deployment-specific.
 - `bridge.forward_qos` (bool): forward QoS messages. Default: `false`.
-- `bridge.forward_progress` (bool): forward `FrameProgress` messages. Default: `false`.
-- `bridge.source_qos_stream_id` (uint32): source QoS stream ID to subscribe on the sender host. Default: `0` (disabled).
-- `bridge.dest_qos_stream_id` (uint32): destination QoS stream ID for local IPC publish on the receiver host. Default: `0` (disabled).
+- `bridge.forward_progress` (bool): forward `FrameProgress` messages. Default: `false`. Progress forwarding increases control-plane traffic; enable only when remote consumers require partial-availability hints.
+- QoS forwarding uses `source_control_stream_id` and `dest_control_stream_id` (per mapping); there is no global QoS stream.
 - `bridge.assembly_timeout_ms` (uint32): per-stream frame assembly timeout. Default: `250`.
 
 The bridge control channel is used for forwarding `ShmPoolAnnounce` and, when enabled, QoS messages. Metadata forwarding uses the destination host's local IPC metadata stream.
@@ -212,6 +230,10 @@ Each `mappings` entry:
 - `dest_stream_id` (uint32): stream ID produced on the destination host.
 - `profile` (string): destination profile name or pool mapping policy.
 - `metadata_stream_id` (uint32, optional): stream ID for forwarded metadata on the destination host. Default: `dest_stream_id`.
+- `source_control_stream_id` (uint32, optional): source control stream ID to subscribe for progress/QoS forwarding. Default: `0` (disabled).
+- `dest_control_stream_id` (uint32, optional): destination control stream ID to publish forwarded progress/QoS. Default: `0` (disabled).
+
+The bridge control channel carries `ShmPoolAnnounce`, `QosProducer`, `QosConsumer`, and `FrameProgress` messages from the main wire schema (id=900) alongside bridge-specific messages (schema id=902).
 
 Example config: `docs/examples/bridge_config_example.toml`.
 

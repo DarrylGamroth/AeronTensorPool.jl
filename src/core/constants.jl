@@ -56,6 +56,7 @@ const QOS_CONSUMER_LEN = MESSAGE_HEADER_LEN + Int(QosConsumer.sbe_block_length(Q
 const CONSUMER_HELLO_LEN = MESSAGE_HEADER_LEN + Int(ConsumerHello.sbe_block_length(ConsumerHello.Decoder))
 
 const TEMPLATE_FRAME_DESCRIPTOR = FrameDescriptor.sbe_template_id(FrameDescriptor.Decoder)
+const TEMPLATE_FRAME_PROGRESS = FrameProgress.sbe_template_id(FrameProgress.Decoder)
 const TEMPLATE_SHM_POOL_ANNOUNCE = ShmPoolAnnounce.sbe_template_id(ShmPoolAnnounce.Decoder)
 const TEMPLATE_CONSUMER_CONFIG = ConsumerConfigMsg.sbe_template_id(ConsumerConfigMsg.Decoder)
 const TEMPLATE_CONSUMER_HELLO = ConsumerHello.sbe_template_id(ConsumerHello.Decoder)

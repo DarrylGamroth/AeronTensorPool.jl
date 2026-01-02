@@ -73,6 +73,8 @@ function parse_bridge_mappings(cfg::Dict, env::AbstractDict)
     for mapping in mappings_tbl
         profile = expand_vars(String(get(mapping, "profile", "")), env)
         metadata_stream_id = UInt32(get(mapping, "metadata_stream_id", 0))
+        source_control_stream_id = Int32(get(mapping, "source_control_stream_id", 0))
+        dest_control_stream_id = Int32(get(mapping, "dest_control_stream_id", 0))
         push!(
             mappings,
             BridgeMapping(
@@ -80,6 +82,8 @@ function parse_bridge_mappings(cfg::Dict, env::AbstractDict)
                 UInt32(mapping["dest_stream_id"]),
                 profile,
                 metadata_stream_id,
+                source_control_stream_id,
+                dest_control_stream_id,
             ),
         )
     end
@@ -307,14 +311,13 @@ function load_bridge_config(path::AbstractString; env::AbstractDict = ENV)
     metadata_channel = expand_vars(String(get(bridge, "metadata_channel", "")), env)
     metadata_stream_id = Int32(get(bridge, "metadata_stream_id", 0))
     source_metadata_stream_id = Int32(get(bridge, "source_metadata_stream_id", metadata_stream_id))
-    source_qos_stream_id = Int32(get(bridge, "source_qos_stream_id", 0))
-    dest_qos_stream_id = Int32(get(bridge, "dest_qos_stream_id", 0))
     mtu_bytes = UInt32(get(bridge, "mtu_bytes", 0))
     chunk_bytes = UInt32(get(bridge, "chunk_bytes", 0))
     max_chunk_bytes = UInt32(get(bridge, "max_chunk_bytes", 65535))
     max_payload_bytes = UInt32(get(bridge, "max_payload_bytes", 1073741824))
     forward_metadata = Bool(get(bridge, "forward_metadata", true))
     forward_qos = Bool(get(bridge, "forward_qos", false))
+    forward_progress = Bool(get(bridge, "forward_progress", false))
     assembly_timeout_ms = UInt64(get(bridge, "assembly_timeout_ms", 250))
 
     bridge_config = BridgeConfig(
@@ -327,14 +330,13 @@ function load_bridge_config(path::AbstractString; env::AbstractDict = ENV)
         metadata_channel,
         metadata_stream_id,
         source_metadata_stream_id,
-        source_qos_stream_id,
-        dest_qos_stream_id,
         mtu_bytes,
         chunk_bytes,
         max_chunk_bytes,
         max_payload_bytes,
         forward_metadata,
         forward_qos,
+        forward_progress,
         assembly_timeout_ms * UInt64(1_000_000),
     )
 
