@@ -1,10 +1,11 @@
 @hsmdef mutable struct LeaseLifecycle end
 
-@statedef LeaseLifecycle :Init
-@statedef LeaseLifecycle :Active
-@statedef LeaseLifecycle :Detached
-@statedef LeaseLifecycle :Expired
-@statedef LeaseLifecycle :Revoked
+@statedef LeaseLifecycle :Live
+@statedef LeaseLifecycle :Init :Live
+@statedef LeaseLifecycle :Active :Live
+@statedef LeaseLifecycle :Detached :Live
+@statedef LeaseLifecycle :Expired :Live
+@statedef LeaseLifecycle :Revoked :Live
 @statedef LeaseLifecycle :Closed
 
 @on_initial function(sm::LeaseLifecycle, ::Root)
@@ -13,10 +14,6 @@ end
 
 @on_event function(sm::LeaseLifecycle, ::Init, ::AttachOk, _)
     return Hsm.transition!(sm, :Active)
-end
-
-@on_event function(sm::LeaseLifecycle, ::Init, ::Close, _)
-    return Hsm.transition!(sm, :Closed)
 end
 
 @on_event function(sm::LeaseLifecycle, ::Active, ::Keepalive, _)
@@ -35,19 +32,7 @@ end
     return Hsm.transition!(sm, :Revoked)
 end
 
-@on_event function(sm::LeaseLifecycle, ::Active, ::Close, _)
-    return Hsm.transition!(sm, :Closed)
-end
-
-@on_event function(sm::LeaseLifecycle, ::Detached, ::Close, _)
-    return Hsm.transition!(sm, :Closed)
-end
-
-@on_event function(sm::LeaseLifecycle, ::Expired, ::Close, _)
-    return Hsm.transition!(sm, :Closed)
-end
-
-@on_event function(sm::LeaseLifecycle, ::Revoked, ::Close, _)
+@on_event function(sm::LeaseLifecycle, ::Live, ::Close, _)
     return Hsm.transition!(sm, :Closed)
 end
 
