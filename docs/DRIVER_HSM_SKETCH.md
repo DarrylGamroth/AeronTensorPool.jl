@@ -155,7 +155,7 @@ end
 ## Mapping from Current Code
 
 - `handle_attach_request!` → dispatch `AttachOk` or `AttachReject` to the per‑lease HSM, and
-  `Provision`/`ProducerAttach` to the per‑stream HSM.
+  stream provisioning and producer attach handled directly in driver logic.
 - `handle_keepalive!` → `Keepalive`.
 - `check_leases!` → `LeaseTimeout` events.
 - `handle_detach_request!` → `Detach`.

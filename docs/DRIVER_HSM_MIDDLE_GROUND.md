@@ -86,7 +86,7 @@ end
 If/when the driver grows:
 - Reuse the existing `LeaseStatus`/`StreamStatus` enums as HSM state names.
 - Convert existing procedural handlers (`handle_attach_request!`, `handle_keepalive!`, `revoke_lease!`)
-  into `@on_event` handlers for per‑lease/per‑stream HSMs.
+  into `@on_event` handlers for the per‑lease HSM.
 - Keep event names stable (`:AttachOk`, `:Keepalive`, `:LeaseTimeout`, `:Detach`, `:Revoke`) so the
   top‑level HSM can dispatch into child HSMs without renaming.
 

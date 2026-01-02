@@ -1,7 +1,7 @@
 # Implementation Phases: Driver Per-Lease HSM
 
 Scope: introduce per-lease HSMs while keeping the existing top-level `DriverLifecycle` HSM.
-Per-stream HSMs are explicitly deferred to a later stage.
+Per-stream HSMs are not planned; the per-lease HSM provides the needed lifecycle tracking.
 
 References:
 - `docs/DRIVER_HSM_PER_LEASE_PLAN.md`

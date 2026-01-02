@@ -65,7 +65,7 @@ Liveness:
 ## Where Hsm.jl Fits
 
 If adopted, each `DriverLease` becomes its own sub‑HSM owned by the driver’s `Running` state.
-The per‑stream HSM is another sub‑HSM keyed by `stream_id`, handling epoch/provisioning.
+Stream provisioning and epoch bumps are handled directly in driver logic.
 Timers become explicit `announce_timer_fired` and `lease_check_timer_fired` events
 instead of implicit checks inside `driver_do_work!`.
 

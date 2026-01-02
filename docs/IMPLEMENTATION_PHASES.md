@@ -173,7 +173,7 @@ Status
 ## Phase 6a - Driver Lifecycle HSM (Middle-Ground)
 
 Goals
-- Introduce a minimal driver lifecycle state machine without per-lease/per-stream HSMs.
+- Introduce a minimal driver lifecycle state machine without per-stream HSMs.
 - Replace flag-driven lifecycle transitions with explicit states.
 
 Deliverables
