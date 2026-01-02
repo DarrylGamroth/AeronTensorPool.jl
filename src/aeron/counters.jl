@@ -85,6 +85,7 @@ struct DriverCounters
     keepalives::Aeron.Counter
     lease_revoked::Aeron.Counter
     announces::Aeron.Counter
+    lease_hsm_unhandled::Aeron.Counter
 end
 
 """
@@ -149,6 +150,7 @@ function DriverCounters(client::Aeron.Client, agent_id, agent_name)
         add_counter(client, agent_id, agent_name, 6, "Keepalives"),
         add_counter(client, agent_id, agent_name, 7, "LeaseRevoked"),
         add_counter(client, agent_id, agent_name, 8, "Announces"),
+        add_counter(client, agent_id, agent_name, 9, "LeaseHsmUnhandled"),
     )
 end
 
@@ -196,10 +198,12 @@ end
 
 function Base.close(counters::DriverCounters)
     close(counters.attach_responses)
+    close(counters.attach_response_drops)
     close(counters.detach_responses)
     close(counters.keepalives)
     close(counters.lease_revoked)
     close(counters.announces)
+    close(counters.lease_hsm_unhandled)
     close(counters.base)
 end
 

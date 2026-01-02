@@ -60,6 +60,7 @@ mutable struct DriverMetrics
     keepalives::UInt64
     lease_revoked::UInt64
     announces::UInt64
+    lease_hsm_unhandled::UInt64
 end
 
 """

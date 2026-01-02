@@ -33,6 +33,7 @@ function Agent.do_work(agent::DriverAgent)
     agent.counters.keepalives[] = Int64(agent.state.metrics.keepalives)
     agent.counters.lease_revoked[] = Int64(agent.state.metrics.lease_revoked)
     agent.counters.announces[] = Int64(agent.state.metrics.announces)
+    agent.counters.lease_hsm_unhandled[] = Int64(agent.state.metrics.lease_hsm_unhandled)
     return work_done
 end
 

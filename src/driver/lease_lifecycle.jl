@@ -54,3 +54,10 @@ end
 @on_event function(sm::LeaseLifecycle, ::Closed, ::Close, _)
     return Hsm.EventHandled
 end
+
+@on_event function(sm::LeaseLifecycle, ::Root, event::Any, arg)
+    if arg !== nothing && hasproperty(arg, :lease_hsm_unhandled)
+        arg.lease_hsm_unhandled += 1
+    end
+    return Hsm.EventHandled
+end

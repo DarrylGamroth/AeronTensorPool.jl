@@ -34,10 +34,20 @@
                 @test sup.config_published isa Aeron.Counter
                 @test sup.liveness_checks isa Aeron.Counter
 
+                driver = DriverCounters(client, 5, "Driver")
+                @test driver.attach_responses isa Aeron.Counter
+                @test driver.attach_response_drops isa Aeron.Counter
+                @test driver.detach_responses isa Aeron.Counter
+                @test driver.keepalives isa Aeron.Counter
+                @test driver.lease_revoked isa Aeron.Counter
+                @test driver.announces isa Aeron.Counter
+                @test driver.lease_hsm_unhandled isa Aeron.Counter
+
                 close(base)
                 close(prod)
                 close(cons)
                 close(sup)
+                close(driver)
             end
         end
     end
