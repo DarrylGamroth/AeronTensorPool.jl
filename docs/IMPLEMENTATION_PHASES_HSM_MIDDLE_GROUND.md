@@ -22,7 +22,7 @@ Validation
 - Design review only (no code changes).
 
 Status
-- Pending.
+- Complete (event list and lifecycle mapping captured in HSM docs).
 
 ## Phase MG‑1: HSM Scaffolding
 
@@ -38,7 +38,7 @@ Validation
 - Existing driver tests pass unchanged.
 
 Status
-- Pending.
+- Complete (DriverLifecycle added; driver loop dispatches Tick).
 
 ## Phase MG‑2: Draining Semantics
 
@@ -54,7 +54,7 @@ Validation
 - Driver shutdown tests updated or added to cover Draining behavior.
 
 Status
-- Pending.
+- Complete (Draining rejects attaches; timer-driven shutdown emits notice).
 
 ## Phase MG‑3: Timer Event Wiring
 
@@ -69,7 +69,7 @@ Validation
 - Existing integration tests pass; timing behavior unchanged.
 
 Status
-- Pending.
+- Complete (Tick dispatches poll_timers!; announce/lease-check handled).
 
 ## Phase MG‑4: Documentation and Migration Notes
 
@@ -82,6 +82,23 @@ Deliverables
 
 Validation
 - Documentation review only.
+
+Status
+- Complete (IMPLEMENTATION_PHASES.md updated; HSM docs aligned).
+
+## Phase MG‑5: Optional Enhancements
+
+Goals
+- Prepare follow-on lifecycle features without altering core behavior.
+
+Deliverables
+- Note potential admin `ShutdownRequested` control message integration.
+- Define any additional gating for control-plane ops during Draining.
+- Optional final announce/QoS snapshot on Draining entry.
+- Optional degraded/maintenance state sketch (no implementation).
+
+Validation
+- Design review only.
 
 Status
 - Pending.
