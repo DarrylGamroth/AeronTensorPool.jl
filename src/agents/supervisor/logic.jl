@@ -184,10 +184,14 @@ function emit_consumer_config!(
     payload_fallback_uri::String = "",
 )
     payload_len = sizeof(payload_fallback_uri)
+    descriptor_len = 0
+    control_len = 0
     msg_len = MESSAGE_HEADER_LEN +
         Int(ConsumerConfigMsg.sbe_block_length(ConsumerConfigMsg.Decoder)) +
         Int(ConsumerConfigMsg.payloadFallbackUri_header_length) +
-        payload_len
+        Int(ConsumerConfigMsg.descriptorChannel_header_length) +
+        Int(ConsumerConfigMsg.controlChannel_header_length) +
+        payload_len + descriptor_len + control_len
 
     sent = let st = state,
         consumer_id = consumer_id,
@@ -205,7 +209,17 @@ function emit_consumer_config!(
             )
             ConsumerConfigMsg.mode!(st.runtime.config_encoder, mode)
             ConsumerConfigMsg.decimation!(st.runtime.config_encoder, decimation)
+            ConsumerConfigMsg.descriptorStreamId!(
+                st.runtime.config_encoder,
+                ConsumerConfigMsg.descriptorStreamId_null_value(ConsumerConfigMsg.Encoder),
+            )
+            ConsumerConfigMsg.controlStreamId!(
+                st.runtime.config_encoder,
+                ConsumerConfigMsg.controlStreamId_null_value(ConsumerConfigMsg.Encoder),
+            )
             ConsumerConfigMsg.payloadFallbackUri!(st.runtime.config_encoder, payload_fallback_uri)
+            ConsumerConfigMsg.descriptorChannel_length!(st.runtime.config_encoder, 0)
+            ConsumerConfigMsg.controlChannel_length!(st.runtime.config_encoder, 0)
         end
     end
 

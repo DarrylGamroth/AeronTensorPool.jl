@@ -46,7 +46,9 @@ using UnsafeArrays
         claim = Aeron.BufferClaim()
         cfg_len = AeronTensorPool.MESSAGE_HEADER_LEN +
             Int(ConsumerConfigMsg.sbe_block_length(ConsumerConfigMsg.Decoder)) +
-            Int(ConsumerConfigMsg.payloadFallbackUri_header_length)
+            Int(ConsumerConfigMsg.payloadFallbackUri_header_length) +
+            Int(ConsumerConfigMsg.descriptorChannel_header_length) +
+            Int(ConsumerConfigMsg.controlChannel_header_length)
         sent_cfg = AeronTensorPool.try_claim_sbe!(pub_control, claim, cfg_len) do buf
             enc = ConsumerConfigMsg.Encoder(UnsafeArrays.UnsafeArray{UInt8, 1})
             ConsumerConfigMsg.wrap_and_apply_header!(enc, buf, 0)
@@ -55,7 +57,17 @@ using UnsafeArrays
             ConsumerConfigMsg.useShm!(enc, AeronTensorPool.ShmTensorpoolControl.Bool_.TRUE)
             ConsumerConfigMsg.mode!(enc, Mode.LATEST)
             ConsumerConfigMsg.decimation!(enc, UInt16(1))
+            ConsumerConfigMsg.descriptorStreamId!(
+                enc,
+                ConsumerConfigMsg.descriptorStreamId_null_value(ConsumerConfigMsg.Encoder),
+            )
+            ConsumerConfigMsg.controlStreamId!(
+                enc,
+                ConsumerConfigMsg.controlStreamId_null_value(ConsumerConfigMsg.Encoder),
+            )
             ConsumerConfigMsg.payloadFallbackUri_length!(enc, 0)
+            ConsumerConfigMsg.descriptorChannel_length!(enc, 0)
+            ConsumerConfigMsg.controlChannel_length!(enc, 0)
         end
         @test sent_cfg
 

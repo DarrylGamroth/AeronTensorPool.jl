@@ -59,6 +59,16 @@
         ConsumerHello.mode!(hello_enc, Mode.STREAM)
         ConsumerHello.maxRateHz!(hello_enc, UInt16(0))
         ConsumerHello.expectedLayoutVersion!(hello_enc, UInt32(1))
+        ConsumerHello.descriptorStreamId!(
+            hello_enc,
+            ConsumerHello.descriptorStreamId_null_value(ConsumerHello.Encoder),
+        )
+        ConsumerHello.controlStreamId!(
+            hello_enc,
+            ConsumerHello.controlStreamId_null_value(ConsumerHello.Encoder),
+        )
+        ConsumerHello.descriptorChannel_length!(hello_enc, 0)
+        ConsumerHello.controlChannel_length!(hello_enc, 0)
         Aeron.offer(pub_control, view(hello_buf, 1:sbe_message_length(hello_enc)))
 
         ok = wait_for() do

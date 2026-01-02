@@ -607,6 +607,16 @@ function emit_consumer_hello!(state::ConsumerState)
             ConsumerHello.progressIntervalUs!(st.runtime.hello_encoder, interval)
             ConsumerHello.progressBytesDelta!(st.runtime.hello_encoder, bytes)
             ConsumerHello.progressRowsDelta!(st.runtime.hello_encoder, rows)
+            ConsumerHello.descriptorStreamId!(
+                st.runtime.hello_encoder,
+                ConsumerHello.descriptorStreamId_null_value(ConsumerHello.Encoder),
+            )
+            ConsumerHello.controlStreamId!(
+                st.runtime.hello_encoder,
+                ConsumerHello.controlStreamId_null_value(ConsumerHello.Encoder),
+            )
+            ConsumerHello.descriptorChannel_length!(st.runtime.hello_encoder, 0)
+            ConsumerHello.controlChannel_length!(st.runtime.hello_encoder, 0)
         end
     end
     sent || return false

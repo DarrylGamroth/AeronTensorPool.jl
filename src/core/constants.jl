@@ -53,7 +53,10 @@ const FRAME_DESCRIPTOR_LEN = MESSAGE_HEADER_LEN + Int(FrameDescriptor.sbe_block_
 const FRAME_PROGRESS_LEN = MESSAGE_HEADER_LEN + Int(FrameProgress.sbe_block_length(FrameProgress.Decoder))
 const QOS_PRODUCER_LEN = MESSAGE_HEADER_LEN + Int(QosProducer.sbe_block_length(QosProducer.Decoder))
 const QOS_CONSUMER_LEN = MESSAGE_HEADER_LEN + Int(QosConsumer.sbe_block_length(QosConsumer.Decoder))
-const CONSUMER_HELLO_LEN = MESSAGE_HEADER_LEN + Int(ConsumerHello.sbe_block_length(ConsumerHello.Decoder))
+const CONSUMER_HELLO_LEN = MESSAGE_HEADER_LEN +
+    Int(ConsumerHello.sbe_block_length(ConsumerHello.Decoder)) +
+    Int(ConsumerHello.descriptorChannel_header_length) +
+    Int(ConsumerHello.controlChannel_header_length)
 
 const TEMPLATE_FRAME_DESCRIPTOR = FrameDescriptor.sbe_template_id(FrameDescriptor.Decoder)
 const TEMPLATE_FRAME_PROGRESS = FrameProgress.sbe_template_id(FrameProgress.Decoder)
