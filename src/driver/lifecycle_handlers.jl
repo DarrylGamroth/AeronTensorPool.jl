@@ -10,6 +10,13 @@
     return Hsm.EventHandled
 end
 
+@inline function broadcast_stream_event!(state::DriverState, event::Symbol)
+    for stream_state in values(state.streams)
+        Hsm.dispatch!(stream_state.lifecycle, event, state.metrics)
+    end
+    return nothing
+end
+
 @on_event function(sm::DriverLifecycle, ::Running, ::AttachRequest, state::DriverState)
     handle_attach_request!(state, state.runtime.attach_decoder)
     return Hsm.EventHandled
@@ -24,6 +31,7 @@ end
     timer = driver_shutdown_timer(state)
     set_interval!(timer, timeout_ns)
     reset!(timer, state.now_ns)
+    broadcast_stream_event!(state, :DriverDraining)
     announce_all_streams!(state)
     return Hsm.transition!(sm, :Draining)
 end
@@ -33,6 +41,7 @@ end
 end
 
 @on_event function(sm::DriverLifecycle, ::Draining, ::ShutdownTimeout, state::DriverState)
+    broadcast_stream_event!(state, :DriverShutdown)
     emit_driver_shutdown!(state, state.shutdown_reason, state.shutdown_message)
     set_interval!(driver_shutdown_timer(state), UInt64(0))
     return Hsm.transition!(sm, :Stopped)

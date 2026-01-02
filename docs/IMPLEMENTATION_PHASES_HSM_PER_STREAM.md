@@ -17,7 +17,7 @@ Validation
 - Reviewed against driver spec sections for stream provisioning.
 
 Status
-- Pending.
+- Complete (states and events defined; integration plan executed).
 
 ## Phase S-1: HSM Scaffolding
 
@@ -33,7 +33,7 @@ Validation
 - Unit tests for state transitions (Init -> Active, Active -> Draining -> Closed).
 
 Status
-- Pending.
+- Complete (StreamLifecycle HSM implemented with Live parent and tests).
 
 ## Phase S-2: Attach/Detach Integration
 
@@ -50,7 +50,7 @@ Validation
 - No allocations in hot paths after init.
 
 Status
-- Pending.
+- Complete (attach/detach integration wired to stream lifecycle).
 
 ## Phase S-3: Epoch/Remap Integration
 
@@ -65,7 +65,7 @@ Validation
 - Existing epoch bump tests still pass.
 
 Status
-- Pending.
+- Complete (epoch bump events dispatched; tests remain green).
 
 ## Phase S-4: Shutdown/Draining Integration
 
@@ -80,4 +80,4 @@ Validation
 - Driver shutdown tests pass; stream HSM transitions observed.
 
 Status
-- Pending.
+- Complete (driver draining/shutdown broadcasts to stream lifecycle).

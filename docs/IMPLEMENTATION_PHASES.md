@@ -205,7 +205,7 @@ Validation
 - Unit tests in the per-stream plan.
 
 Status
-- Pending (plan drafted; implementation not started).
+- Complete (stream lifecycle HSM implemented; integration and tests complete).
 
 ## Phase 7 - Driver Integration (Producer/Consumer)
 

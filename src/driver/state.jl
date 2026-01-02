@@ -25,6 +25,7 @@ mutable struct DriverStreamState
     pool_uris::Dict{UInt16, String}
     producer_lease_id::UInt64
     consumer_lease_ids::Set{UInt64}
+    lifecycle::StreamLifecycle
 end
 
 """

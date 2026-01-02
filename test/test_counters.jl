@@ -42,6 +42,7 @@
                 @test driver.lease_revoked isa Aeron.Counter
                 @test driver.announces isa Aeron.Counter
                 @test driver.lease_hsm_unhandled isa Aeron.Counter
+                @test driver.stream_hsm_unhandled isa Aeron.Counter
 
                 close(base)
                 close(prod)

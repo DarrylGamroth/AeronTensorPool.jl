@@ -37,7 +37,7 @@ function init_driver(config::DriverConfig; client::Aeron.Client)
 
     streams = Dict{UInt32, DriverStreamState}()
     leases = Dict{UInt64, DriverLease}()
-    metrics = DriverMetrics(0, 0, 0, 0, 0, 0, 0)
+    metrics = DriverMetrics(0, 0, 0, 0, 0, 0, 0, 0)
     timer_set = TimerSet(
         (
             PolledTimer(UInt64(config.policies.announce_period_ms) * 1_000_000),
@@ -110,10 +110,14 @@ end
 """
 Lookup or create stream state based on config and publishMode.
 """
-function get_or_create_stream!(state::DriverState, stream_id::UInt32, publish_mode::DriverPublishMode.SbeEnum)
+function get_or_create_stream!(
+    state::DriverState,
+    stream_id::UInt32,
+    publish_mode::DriverPublishMode.SbeEnum,
+)
     stream_state = get(state.streams, stream_id, nothing)
     if !isnothing(stream_state)
-        return stream_state
+        return stream_state, false
     end
 
     stream_config = nothing
@@ -125,18 +129,18 @@ function get_or_create_stream!(state::DriverState, stream_id::UInt32, publish_mo
     end
 
     if isnothing(stream_config) && !state.config.policies.allow_dynamic_streams
-        return nothing
+        return nothing, false
     end
     if isnothing(stream_config)
         if publish_mode != DriverPublishMode.EXISTING_OR_CREATE
-            return nothing
+            return nothing, false
         end
         profile_name = state.config.policies.default_profile
     else
         profile_name = stream_config.profile
     end
     profile = get(state.config.profiles, profile_name, nothing)
-    isnothing(profile) && return nothing
+    isnothing(profile) && return nothing, false
 
     stream_state = DriverStreamState(
         stream_id,
@@ -146,9 +150,10 @@ function get_or_create_stream!(state::DriverState, stream_id::UInt32, publish_mo
         Dict{UInt16, String}(),
         UInt64(0),
         Set{UInt64}(),
+        StreamLifecycle(),
     )
     state.streams[stream_id] = stream_state
-    return stream_state
+    return stream_state, true
 end
 
 @inline function next_lease_id!(state::DriverState)
@@ -219,7 +224,7 @@ function handle_attach_request!(state::DriverState, msg::ShmAttachRequest.Decode
         end
     end
 
-    stream_state = get_or_create_stream!(state, stream_id, publish_mode)
+    stream_state, stream_created = get_or_create_stream!(state, stream_id, publish_mode)
     if isnothing(stream_state)
         return emit_attach_response!(
             state,
@@ -228,6 +233,9 @@ function handle_attach_request!(state::DriverState, msg::ShmAttachRequest.Decode
             "stream not provisioned",
             nothing,
         )
+    end
+    if stream_created
+        Hsm.dispatch!(stream_state.lifecycle, :StreamProvisioned, state.metrics)
     end
 
     if expected_layout_version != 0 && expected_layout_version != UInt32(1)
@@ -309,8 +317,10 @@ function handle_attach_request!(state::DriverState, msg::ShmAttachRequest.Decode
 
     if role == DriverRole.PRODUCER
         stream_state.producer_lease_id = lease_id
+        Hsm.dispatch!(stream_state.lifecycle, :ProducerAttached, state.metrics)
     else
         push!(stream_state.consumer_lease_ids, lease_id)
+        Hsm.dispatch!(stream_state.lifecycle, :ConsumerAttached, state.metrics)
     end
 
     Hsm.dispatch!(lease.lifecycle, :AttachOk, state.metrics)
@@ -385,11 +395,13 @@ function revoke_lease!(state::DriverState, lease_id::UInt64, reason::DriverLease
     if !isnothing(stream_state)
         if lease.role == DriverRole.PRODUCER
             stream_state.producer_lease_id = 0
+            Hsm.dispatch!(stream_state.lifecycle, :ProducerDetached, state.metrics)
             emit_lease_revoked!(state, lease, reason, now_ns)
             bump_epoch!(state, stream_state)
             emit_driver_announce!(state, stream_state)
         else
             delete!(stream_state.consumer_lease_ids, lease_id)
+            Hsm.dispatch!(stream_state.lifecycle, :ConsumerDetached, state.metrics)
         end
     end
 
@@ -402,6 +414,7 @@ end
 function bump_epoch!(state::DriverState, stream_state::DriverStreamState)
     stream_state.epoch = stream_state.epoch == 0 ? UInt64(1) : stream_state.epoch + 1
     provision_stream_epoch!(state, stream_state)
+    Hsm.dispatch!(stream_state.lifecycle, :EpochBumped, state.metrics)
     return nothing
 end
 
