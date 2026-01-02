@@ -38,6 +38,7 @@ mutable struct DriverRuntime
     attach_decoder::ShmAttachRequest.Decoder{UnsafeArrays.UnsafeArray{UInt8, 1}}
     detach_decoder::ShmDetachRequest.Decoder{UnsafeArrays.UnsafeArray{UInt8, 1}}
     keepalive_decoder::ShmLeaseKeepalive.Decoder{UnsafeArrays.UnsafeArray{UInt8, 1}}
+    shutdown_request_decoder::ShmDriverShutdownRequest.Decoder{UnsafeArrays.UnsafeArray{UInt8, 1}}
     attach_encoder::ShmAttachResponse.Encoder{UnsafeArrays.UnsafeArray{UInt8, 1}}
     detach_encoder::ShmDetachResponse.Encoder{UnsafeArrays.UnsafeArray{UInt8, 1}}
     revoke_encoder::ShmLeaseRevoked.Encoder{UnsafeArrays.UnsafeArray{UInt8, 1}}
@@ -76,5 +77,7 @@ mutable struct DriverState{ClockT<:Clocks.AbstractClock}
         Tuple{DriverAnnounceHandler, DriverLeaseCheckHandler, DriverShutdownHandler},
     }
     work_count::Int
+    shutdown_reason::DriverShutdownReason.SbeEnum
+    shutdown_message::String
     lifecycle::DriverLifecycle
 end

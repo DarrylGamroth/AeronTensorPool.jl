@@ -2,6 +2,7 @@
 
 @statedef DriverLifecycle :Init
 @statedef DriverLifecycle :Running
+@statedef DriverLifecycle :Maintenance
 @statedef DriverLifecycle :Draining
 @statedef DriverLifecycle :Stopped
 

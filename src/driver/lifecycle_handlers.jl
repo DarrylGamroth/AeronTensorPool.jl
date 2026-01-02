@@ -21,6 +21,11 @@ end
     return Hsm.EventHandled
 end
 
+@on_event function(sm::DriverLifecycle, ::Maintenance, ::AttachRequest, state::DriverState)
+    handle_attach_request!(state, state.runtime.attach_decoder)
+    return Hsm.EventHandled
+end
+
 @on_event function(sm::DriverLifecycle, ::Draining, ::AttachRequest, state::DriverState)
     return reject_attach!(state, state.runtime.attach_decoder)
 end
@@ -29,19 +34,40 @@ end
     return driver_lifecycle_tick!(state)
 end
 
+@on_event function(sm::DriverLifecycle, ::Maintenance, ::Tick, state::DriverState)
+    return driver_lifecycle_tick!(state)
+end
+
 @on_event function(sm::DriverLifecycle, ::Draining, ::Tick, state::DriverState)
     return driver_lifecycle_tick!(state)
 end
 
-@on_event function(sm::DriverLifecycle, ::Running, ::ShutdownRequested, state::DriverState)
+@on_event function(sm::DriverLifecycle, ::Running, ::MaintenanceRequested, ::DriverState)
+    return Hsm.transition!(sm, :Maintenance)
+end
+
+@on_event function(sm::DriverLifecycle, ::Maintenance, ::MaintenanceCleared, ::DriverState)
+    return Hsm.transition!(sm, :Running)
+end
+
+@inline function begin_draining!(state::DriverState, sm::DriverLifecycle)
     timeout_ns = UInt64(state.config.policies.shutdown_timeout_ms) * 1_000_000
     set_interval!(state.timer_set.timers[3], timeout_ns)
     reset!(state.timer_set.timers[3], state.now_ns)
+    announce_all_streams!(state)
     return Hsm.transition!(sm, :Draining)
 end
 
+@on_event function(sm::DriverLifecycle, ::Running, ::ShutdownRequested, state::DriverState)
+    return begin_draining!(state, sm)
+end
+
+@on_event function(sm::DriverLifecycle, ::Maintenance, ::ShutdownRequested, state::DriverState)
+    return begin_draining!(state, sm)
+end
+
 @on_event function(sm::DriverLifecycle, ::Draining, ::ShutdownTimeout, state::DriverState)
-    emit_driver_shutdown!(state)
+    emit_driver_shutdown!(state, state.shutdown_reason, state.shutdown_message)
     set_interval!(state.timer_set.timers[3], UInt64(0))
     return Hsm.transition!(sm, :Stopped)
 end

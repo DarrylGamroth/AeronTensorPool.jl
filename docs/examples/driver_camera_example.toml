@@ -24,6 +24,7 @@ announce_period_ms = 1000
 lease_keepalive_interval_ms = 1000
 lease_expiry_grace_intervals = 3
 shutdown_timeout_ms = 2000
+shutdown_token = ""
 
 
 [profiles.raw_profile]

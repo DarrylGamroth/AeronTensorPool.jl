@@ -140,4 +140,11 @@
     <data  name="errorMessage" id="7" type="varAsciiEncoding" presence="optional"/>
   </sbe:message>
 
+  <sbe:message name="ShmDriverShutdownRequest" id="8">
+    <field name="correlationId" id="1" type="int64"/>
+    <field name="reason"        id="2" type="ShutdownReason"/>
+    <data  name="token"         id="3" type="varAsciiEncoding"/>
+    <data  name="errorMessage"  id="4" type="varAsciiEncoding" presence="optional"/>
+  </sbe:message>
+
 </sbe:messageSchema>

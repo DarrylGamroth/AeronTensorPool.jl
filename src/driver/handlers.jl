@@ -14,6 +14,9 @@ function handle_driver_control!(state::DriverState, buffer::AbstractVector{UInt8
     elseif template_id == TEMPLATE_SHM_LEASE_KEEPALIVE
         ShmLeaseKeepalive.wrap!(state.runtime.keepalive_decoder, buffer, 0; header = header)
         handle_keepalive!(state, state.runtime.keepalive_decoder)
+    elseif template_id == TEMPLATE_SHM_DRIVER_SHUTDOWN_REQUEST
+        ShmDriverShutdownRequest.wrap!(state.runtime.shutdown_request_decoder, buffer, 0; header = header)
+        handle_shutdown_request!(state, state.runtime.shutdown_request_decoder)
     else
         return false
     end

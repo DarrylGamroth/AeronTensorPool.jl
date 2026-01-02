@@ -234,6 +234,10 @@ When the driver is embedded, deployments SHOULD still expose a well-known contro
 
 The driver MAY support an administrative termination mechanism. If implemented, it SHOULD require an authorization token configured out-of-band and MUST reject unauthenticated requests.
 
+If implemented, the driver MUST accept a `ShmDriverShutdownRequest` on the control-plane stream. The request MUST include a `token` that matches the configured shutdown token. The driver MUST reject (ignore) shutdown requests with missing or invalid tokens.
+
+If a shutdown request is accepted, the driver SHOULD transition to `Draining`, emit a final `ShmPoolAnnounce`, and publish `ShmDriverShutdown` after the shutdown timeout expires. The `ShmDriverShutdown.reason` SHOULD reflect the request.
+
 On graceful shutdown, the driver SHOULD publish a `ShmDriverShutdown` notice on the control-plane stream before exiting. Clients MUST treat this notice as immediate lease invalidation, stop using mapped regions, and reattach after restart.
 
 If a shutdown notice is not observed, clients MUST still rely on lease expiry and epoch changes via `ShmPoolAnnounce` to detect driver loss and MUST fail closed on stale mappings.
@@ -348,6 +352,7 @@ Optional keys and defaults:
 - `policies.lease_keepalive_interval_ms` (uint32): client keepalive interval. Default: `1000`.
 - `policies.lease_expiry_grace_intervals` (uint32): missed keepalives before expiry. Default: `3`.
 - `policies.shutdown_timeout_ms` (uint32): drain period before shutdown completes. Default: `2000`.
+- `policies.shutdown_token` (string): admin shutdown token. Default: empty (disabled).
 
 Profile fields:
 
@@ -508,6 +513,13 @@ See `docs/examples/driver_camera_example.toml` for a concrete example.
     <field name="role"        id="5" type="Role"/>
     <field name="reason"      id="6" type="LeaseRevokeReason"/>
     <data  name="errorMessage" id="7" type="varAsciiEncoding" presence="optional"/>
+  </sbe:message>
+
+  <sbe:message name="ShmDriverShutdownRequest" id="8">
+    <field name="correlationId" id="1" type="int64"/>
+    <field name="reason"        id="2" type="ShutdownReason"/>
+    <data  name="token"         id="3" type="varAsciiEncoding"/>
+    <data  name="errorMessage"  id="4" type="varAsciiEncoding" presence="optional"/>
   </sbe:message>
 
 </sbe:messageSchema>

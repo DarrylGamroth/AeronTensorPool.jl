@@ -25,6 +25,15 @@ mutable struct DetachRequestProxy
     encoder::ShmDetachRequest.Encoder{UnsafeArrays.UnsafeArray{UInt8, 1}}
 end
 
+"""
+Proxy for issuing ShmDriverShutdownRequest messages to the driver.
+"""
+mutable struct ShutdownRequestProxy
+    pub::Aeron.Publication
+    claim::Aeron.BufferClaim
+    encoder::ShmDriverShutdownRequest.Encoder{UnsafeArrays.UnsafeArray{UInt8, 1}}
+end
+
 function AttachRequestProxy(pub::Aeron.Publication)
     return AttachRequestProxy(pub, Aeron.BufferClaim(), ShmAttachRequest.Encoder(UnsafeArrays.UnsafeArray{UInt8, 1}))
 end
@@ -35,6 +44,14 @@ end
 
 function DetachRequestProxy(pub::Aeron.Publication)
     return DetachRequestProxy(pub, Aeron.BufferClaim(), ShmDetachRequest.Encoder(UnsafeArrays.UnsafeArray{UInt8, 1}))
+end
+
+function ShutdownRequestProxy(pub::Aeron.Publication)
+    return ShutdownRequestProxy(
+        pub,
+        Aeron.BufferClaim(),
+        ShmDriverShutdownRequest.Encoder(UnsafeArrays.UnsafeArray{UInt8, 1}),
+    )
 end
 
 @inline hugepages_policy_value(value::DriverHugepagesPolicy.SbeEnum) = value
@@ -142,6 +159,37 @@ function send_detach!(
             ShmDetachRequest.streamId!(p.encoder, stream_id)
             ShmDetachRequest.clientId!(p.encoder, client_id)
             ShmDetachRequest.role!(p.encoder, role)
+        end
+    end
+end
+
+"""
+Send a shutdown request.
+"""
+function send_shutdown_request!(
+    proxy::ShutdownRequestProxy;
+    correlation_id::Int64,
+    reason::DriverShutdownReason.SbeEnum,
+    token::AbstractString,
+    error_message::AbstractString = "",
+)
+    msg_len = DRIVER_MESSAGE_HEADER_LEN +
+        Int(ShmDriverShutdownRequest.sbe_block_length(ShmDriverShutdownRequest.Decoder)) +
+        ShmDriverShutdownRequest.token_header_length +
+        sizeof(token) +
+        ShmDriverShutdownRequest.errorMessage_header_length +
+        sizeof(error_message)
+    return let p = proxy,
+        correlation_id = correlation_id,
+        reason = reason,
+        token = token,
+        error_message = error_message
+        try_claim_sbe!(p.pub, p.claim, msg_len) do buf
+            ShmDriverShutdownRequest.wrap_and_apply_header!(p.encoder, buf, 0)
+            ShmDriverShutdownRequest.correlationId!(p.encoder, correlation_id)
+            ShmDriverShutdownRequest.reason!(p.encoder, reason)
+            ShmDriverShutdownRequest.token!(p.encoder, token)
+            ShmDriverShutdownRequest.errorMessage!(p.encoder, error_message)
         end
     end
 end

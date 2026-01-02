@@ -4399,6 +4399,553 @@ end
         return
     end
 end
+module ShmDriverShutdownRequest
+export AbstractShmDriverShutdownRequest, Decoder, Encoder
+using SBE: AbstractSbeMessage, PositionPointer, to_string
+import SBE: sbe_buffer, sbe_offset, sbe_position_ptr, sbe_position, sbe_position!
+import SBE: sbe_block_length, sbe_template_id, sbe_schema_id, sbe_schema_version
+import SBE: sbe_acting_block_length, sbe_acting_version, sbe_rewind!
+import SBE: sbe_encoded_length, sbe_decoded_length, sbe_semantic_type
+abstract type AbstractShmDriverShutdownRequest{T} <: AbstractSbeMessage{T} end
+using ..MessageHeader
+using StringViews: StringView
+using ..ShutdownReason
+begin
+    import SBE: encode_value_le, decode_value_le, encode_array_le, decode_array_le
+    const encode_value = encode_value_le
+    const decode_value = decode_value_le
+    const encode_array = encode_array_le
+    const decode_array = decode_array_le
+end
+@inline function rstrip_nul(a::Union{AbstractString, AbstractArray})
+        pos = findfirst(iszero, a)
+        len = if pos !== nothing
+                pos - 1
+            else
+                Base.length(a)
+            end
+        return view(a, 1:len)
+    end
+mutable struct Decoder{T <: AbstractArray{UInt8}} <: AbstractShmDriverShutdownRequest{T}
+    buffer::T
+    offset::Int64
+    position_ptr::PositionPointer
+    acting_block_length::UInt16
+    acting_version::UInt16
+    function Decoder{T}() where T <: AbstractArray{UInt8}
+        obj = new{T}()
+        obj.offset = Int64(0)
+        obj.position_ptr = PositionPointer()
+        obj.acting_block_length = UInt16(0)
+        obj.acting_version = UInt16(0)
+        return obj
+    end
+end
+mutable struct Encoder{T <: AbstractArray{UInt8}} <: AbstractShmDriverShutdownRequest{T}
+    buffer::T
+    offset::Int64
+    position_ptr::PositionPointer
+    function Encoder{T}() where T <: AbstractArray{UInt8}
+        obj = new{T}()
+        obj.offset = Int64(0)
+        obj.position_ptr = PositionPointer()
+        return obj
+    end
+end
+@inline function Decoder(::Type{T}) where T <: AbstractArray{UInt8}
+        return Decoder{T}()
+    end
+@inline function Encoder(::Type{T}) where T <: AbstractArray{UInt8}
+        return Encoder{T}()
+    end
+@inline function wrap!(m::Decoder{T}, buffer::T, offset::Integer, acting_block_length::Integer, acting_version::Integer) where T
+        m.buffer = buffer
+        m.offset = Int64(offset)
+        m.acting_block_length = UInt16(acting_block_length)
+        m.acting_version = UInt16(acting_version)
+        m.position_ptr[] = m.offset + m.acting_block_length
+        return m
+    end
+@inline function wrap!(m::Decoder, buffer::AbstractArray, offset::Integer = 0; header = MessageHeader.Decoder(buffer, offset))
+        if MessageHeader.templateId(header) != UInt16(8) || MessageHeader.schemaId(header) != UInt16(901)
+            throw(DomainError("Template id or schema id mismatch"))
+        end
+        return wrap!(m, buffer, offset + sbe_encoded_length(header), MessageHeader.blockLength(header), MessageHeader.version(header))
+    end
+@inline function wrap!(m::Encoder{T}, buffer::T, offset::Integer) where T
+        m.buffer = buffer
+        m.offset = Int64(offset)
+        m.position_ptr[] = m.offset + UInt16(9)
+        return m
+    end
+@inline function wrap_and_apply_header!(m::Encoder, buffer::AbstractArray, offset::Integer = 0; header = MessageHeader.Encoder(buffer, offset))
+        MessageHeader.blockLength!(header, UInt16(9))
+        MessageHeader.templateId!(header, UInt16(8))
+        MessageHeader.schemaId!(header, UInt16(901))
+        MessageHeader.version!(header, UInt16(1))
+        return wrap!(m, buffer, offset + sbe_encoded_length(header))
+    end
+sbe_buffer(m::AbstractShmDriverShutdownRequest) = begin
+        m.buffer
+    end
+sbe_offset(m::AbstractShmDriverShutdownRequest) = begin
+        m.offset
+    end
+sbe_position_ptr(m::AbstractShmDriverShutdownRequest) = begin
+        m.position_ptr
+    end
+sbe_position(m::AbstractShmDriverShutdownRequest) = begin
+        m.position_ptr[]
+    end
+sbe_position!(m::AbstractShmDriverShutdownRequest, position) = begin
+        m.position_ptr[] = position
+    end
+sbe_block_length(::AbstractShmDriverShutdownRequest) = begin
+        UInt16(9)
+    end
+sbe_block_length(::Type{<:AbstractShmDriverShutdownRequest}) = begin
+        UInt16(9)
+    end
+sbe_template_id(::AbstractShmDriverShutdownRequest) = begin
+        UInt16(8)
+    end
+sbe_template_id(::Type{<:AbstractShmDriverShutdownRequest}) = begin
+        UInt16(8)
+    end
+sbe_schema_id(::AbstractShmDriverShutdownRequest) = begin
+        UInt16(901)
+    end
+sbe_schema_id(::Type{<:AbstractShmDriverShutdownRequest}) = begin
+        UInt16(901)
+    end
+sbe_schema_version(::AbstractShmDriverShutdownRequest) = begin
+        UInt16(1)
+    end
+sbe_schema_version(::Type{<:AbstractShmDriverShutdownRequest}) = begin
+        UInt16(1)
+    end
+sbe_semantic_type(::AbstractShmDriverShutdownRequest) = begin
+        ""
+    end
+sbe_acting_block_length(m::Decoder) = begin
+        m.acting_block_length
+    end
+sbe_acting_block_length(::Encoder) = begin
+        UInt16(9)
+    end
+sbe_acting_version(m::Decoder) = begin
+        m.acting_version
+    end
+sbe_acting_version(::Encoder) = begin
+        UInt16(1)
+    end
+sbe_rewind!(m::AbstractShmDriverShutdownRequest) = begin
+        sbe_position!(m, m.offset + sbe_acting_block_length(m))
+    end
+sbe_encoded_length(m::AbstractShmDriverShutdownRequest) = begin
+        sbe_position(m) - m.offset
+    end
+Base.sizeof(m::AbstractShmDriverShutdownRequest) = begin
+        sbe_encoded_length(m)
+    end
+begin
+    correlationId_id(::AbstractShmDriverShutdownRequest) = begin
+            UInt16(1)
+        end
+    correlationId_id(::Type{<:AbstractShmDriverShutdownRequest}) = begin
+            UInt16(1)
+        end
+    correlationId_since_version(::AbstractShmDriverShutdownRequest) = begin
+            UInt16(0)
+        end
+    correlationId_since_version(::Type{<:AbstractShmDriverShutdownRequest}) = begin
+            UInt16(0)
+        end
+    correlationId_in_acting_version(m::AbstractShmDriverShutdownRequest) = begin
+            sbe_acting_version(m) >= UInt16(0)
+        end
+    correlationId_encoding_offset(::AbstractShmDriverShutdownRequest) = begin
+            Int(0)
+        end
+    correlationId_encoding_offset(::Type{<:AbstractShmDriverShutdownRequest}) = begin
+            Int(0)
+        end
+    correlationId_encoding_length(::AbstractShmDriverShutdownRequest) = begin
+            Int(8)
+        end
+    correlationId_encoding_length(::Type{<:AbstractShmDriverShutdownRequest}) = begin
+            Int(8)
+        end
+    correlationId_null_value(::AbstractShmDriverShutdownRequest) = begin
+            Int64(-9223372036854775808)
+        end
+    correlationId_null_value(::Type{<:AbstractShmDriverShutdownRequest}) = begin
+            Int64(-9223372036854775808)
+        end
+    correlationId_min_value(::AbstractShmDriverShutdownRequest) = begin
+            Int64(-9223372036854775807)
+        end
+    correlationId_min_value(::Type{<:AbstractShmDriverShutdownRequest}) = begin
+            Int64(-9223372036854775807)
+        end
+    correlationId_max_value(::AbstractShmDriverShutdownRequest) = begin
+            Int64(9223372036854775807)
+        end
+    correlationId_max_value(::Type{<:AbstractShmDriverShutdownRequest}) = begin
+            Int64(9223372036854775807)
+        end
+end
+begin
+    function correlationId_meta_attribute(::AbstractShmDriverShutdownRequest, meta_attribute)
+        meta_attribute === :presence && return Symbol("required")
+        meta_attribute === :semanticType && return Symbol("")
+        return Symbol("")
+    end
+    function correlationId_meta_attribute(::Type{<:AbstractShmDriverShutdownRequest}, meta_attribute)
+        meta_attribute === :presence && return Symbol("required")
+        meta_attribute === :semanticType && return Symbol("")
+        return Symbol("")
+    end
+end
+begin
+    @inline function correlationId(m::Decoder)
+            return decode_value(Int64, m.buffer, m.offset + 0)
+        end
+    @inline correlationId!(m::Encoder, val) = begin
+                encode_value(Int64, m.buffer, m.offset + 0, val)
+            end
+    export correlationId, correlationId!
+end
+begin
+    reason_id(::AbstractShmDriverShutdownRequest) = begin
+            UInt16(2)
+        end
+    reason_id(::Type{<:AbstractShmDriverShutdownRequest}) = begin
+            UInt16(2)
+        end
+    reason_since_version(::AbstractShmDriverShutdownRequest) = begin
+            UInt16(0)
+        end
+    reason_since_version(::Type{<:AbstractShmDriverShutdownRequest}) = begin
+            UInt16(0)
+        end
+    reason_in_acting_version(m::AbstractShmDriverShutdownRequest) = begin
+            sbe_acting_version(m) >= UInt16(0)
+        end
+    reason_encoding_offset(::AbstractShmDriverShutdownRequest) = begin
+            Int(8)
+        end
+    reason_encoding_offset(::Type{<:AbstractShmDriverShutdownRequest}) = begin
+            Int(8)
+        end
+    reason_encoding_length(::AbstractShmDriverShutdownRequest) = begin
+            Int(1)
+        end
+    reason_encoding_length(::Type{<:AbstractShmDriverShutdownRequest}) = begin
+            Int(1)
+        end
+    reason_null_value(::AbstractShmDriverShutdownRequest) = begin
+            UInt8(255)
+        end
+    reason_null_value(::Type{<:AbstractShmDriverShutdownRequest}) = begin
+            UInt8(255)
+        end
+    reason_min_value(::AbstractShmDriverShutdownRequest) = begin
+            UInt8(0)
+        end
+    reason_min_value(::Type{<:AbstractShmDriverShutdownRequest}) = begin
+            UInt8(0)
+        end
+    reason_max_value(::AbstractShmDriverShutdownRequest) = begin
+            UInt8(254)
+        end
+    reason_max_value(::Type{<:AbstractShmDriverShutdownRequest}) = begin
+            UInt8(254)
+        end
+end
+begin
+    function reason_meta_attribute(::AbstractShmDriverShutdownRequest, meta_attribute)
+        meta_attribute === :presence && return Symbol("required")
+        meta_attribute === :semanticType && return Symbol("")
+        return Symbol("")
+    end
+    function reason_meta_attribute(::Type{<:AbstractShmDriverShutdownRequest}, meta_attribute)
+        meta_attribute === :presence && return Symbol("required")
+        meta_attribute === :semanticType && return Symbol("")
+        return Symbol("")
+    end
+end
+begin
+    @inline function reason(m::Decoder, ::Type{Integer})
+            return decode_value(UInt8, m.buffer, m.offset + 8)
+        end
+    @inline function reason(m::Decoder)
+            raw = decode_value(UInt8, m.buffer, m.offset + 8)
+            return ShutdownReason.SbeEnum(raw)
+        end
+    @inline function reason!(m::Encoder, value::ShutdownReason.SbeEnum)
+            encode_value(UInt8, m.buffer, m.offset + 8, UInt8(value))
+        end
+    export reason, reason!
+end
+begin
+    function token_meta_attribute(::AbstractShmDriverShutdownRequest, meta_attribute)
+        meta_attribute === :presence && return Symbol("required")
+        meta_attribute === :semanticType && return Symbol("")
+        return Symbol("")
+    end
+    function token_meta_attribute(::Type{<:AbstractShmDriverShutdownRequest}, meta_attribute)
+        meta_attribute === :presence && return Symbol("required")
+        meta_attribute === :semanticType && return Symbol("")
+        return Symbol("")
+    end
+end
+begin
+    const token_id = UInt16(3)
+    const token_since_version = UInt16(0)
+    const token_header_length = 4
+    token_in_acting_version(m::AbstractShmDriverShutdownRequest) = begin
+            sbe_acting_version(m) >= UInt16(0)
+        end
+end
+begin
+    @inline function token_length(m::AbstractShmDriverShutdownRequest)
+            return decode_value(UInt32, m.buffer, sbe_position(m))
+        end
+end
+begin
+    @inline function token_length!(m::Encoder, n)
+            @boundscheck n > 1073741824 && throw(ArgumentError("length exceeds schema limit"))
+            @boundscheck checkbounds(m.buffer, sbe_position(m) + 4 + n)
+            return encode_value(UInt32, m.buffer, sbe_position(m), UInt32(n))
+        end
+end
+begin
+    @inline function skip_token!(m::Decoder)
+            len = token_length(m)
+            pos = sbe_position(m) + 4
+            sbe_position!(m, pos + len)
+            return len
+        end
+end
+begin
+    @inline function token(m::Decoder)
+            len = token_length(m)
+            pos = sbe_position(m) + 4
+            sbe_position!(m, pos + len)
+            return view(m.buffer, pos + 1:pos + len)
+        end
+end
+begin
+    @inline function token_buffer!(m::Encoder, len)
+            token_length!(m, len)
+            pos = sbe_position(m) + 4
+            sbe_position!(m, pos + len)
+            return view(m.buffer, pos + 1:pos + len)
+        end
+end
+begin
+    @inline function token!(m::Encoder, src::AbstractArray)
+            len = sizeof(eltype(src)) * Base.length(src)
+            token_length!(m, len)
+            pos = sbe_position(m) + 4
+            sbe_position!(m, pos + len)
+            dest = view(m.buffer, pos + 1:pos + len)
+            copyto!(dest, reinterpret(UInt8, src))
+        end
+end
+begin
+    @inline function token!(m::Encoder, src::NTuple)
+            len = sizeof(src)
+            token_length!(m, len)
+            pos = sbe_position(m) + 4
+            sbe_position!(m, pos + len)
+            dest = view(m.buffer, pos + 1:pos + len)
+            copyto!(dest, reinterpret(NTuple{len, UInt8}, src))
+        end
+end
+begin
+    @inline function token!(m::Encoder, src::AbstractString)
+            len = sizeof(src)
+            token_length!(m, len)
+            pos = sbe_position(m) + 4
+            sbe_position!(m, pos + len)
+            dest = view(m.buffer, pos + 1:pos + len)
+            copyto!(dest, codeunits(src))
+        end
+end
+begin
+    @inline token!(m::Encoder, src::Symbol) = begin
+                token!(m, to_string(src))
+            end
+    @inline token!(m::Encoder, src::Real) = begin
+                token!(m, Tuple(src))
+            end
+    @inline token!(m::Encoder, ::Nothing) = begin
+                token_buffer!(m, 0)
+            end
+end
+begin
+    @inline function token(m::Decoder, ::Type{T}) where T <: AbstractString
+            return T(StringView(rstrip_nul(token(m))))
+        end
+    @inline function token(m::Decoder, ::Type{T}) where T <: Symbol
+            return Symbol(token(m, StringView))
+        end
+    @inline function token(m::Decoder, ::Type{T}) where T <: Real
+            return (reinterpret(T, token(m)))[]
+        end
+    @inline function token(m::Decoder, ::Type{AbstractArray{T}}) where T <: Real
+            return reinterpret(T, token(m))
+        end
+    @inline function token(m::Decoder, ::Type{NTuple{N, T}}) where {N, T <: Real}
+            x = reinterpret(T, token(m))
+            return ntuple((i->begin
+                            x[i]
+                        end), Val(N))
+        end
+    @inline function token(m::Decoder, ::Type{T}) where T <: Nothing
+            skip_token!(m)
+            return nothing
+        end
+end
+begin
+    function errorMessage_meta_attribute(::AbstractShmDriverShutdownRequest, meta_attribute)
+        meta_attribute === :presence && return Symbol("optional")
+        meta_attribute === :semanticType && return Symbol("")
+        return Symbol("")
+    end
+    function errorMessage_meta_attribute(::Type{<:AbstractShmDriverShutdownRequest}, meta_attribute)
+        meta_attribute === :presence && return Symbol("optional")
+        meta_attribute === :semanticType && return Symbol("")
+        return Symbol("")
+    end
+end
+begin
+    const errorMessage_id = UInt16(4)
+    const errorMessage_since_version = UInt16(0)
+    const errorMessage_header_length = 4
+    errorMessage_in_acting_version(m::AbstractShmDriverShutdownRequest) = begin
+            sbe_acting_version(m) >= UInt16(0)
+        end
+end
+begin
+    @inline function errorMessage_length(m::AbstractShmDriverShutdownRequest)
+            return decode_value(UInt32, m.buffer, sbe_position(m))
+        end
+end
+begin
+    @inline function errorMessage_length!(m::Encoder, n)
+            @boundscheck n > 1073741824 && throw(ArgumentError("length exceeds schema limit"))
+            @boundscheck checkbounds(m.buffer, sbe_position(m) + 4 + n)
+            return encode_value(UInt32, m.buffer, sbe_position(m), UInt32(n))
+        end
+end
+begin
+    @inline function skip_errorMessage!(m::Decoder)
+            len = errorMessage_length(m)
+            pos = sbe_position(m) + 4
+            sbe_position!(m, pos + len)
+            return len
+        end
+end
+begin
+    @inline function errorMessage(m::Decoder)
+            len = errorMessage_length(m)
+            pos = sbe_position(m) + 4
+            sbe_position!(m, pos + len)
+            return view(m.buffer, pos + 1:pos + len)
+        end
+end
+begin
+    @inline function errorMessage_buffer!(m::Encoder, len)
+            errorMessage_length!(m, len)
+            pos = sbe_position(m) + 4
+            sbe_position!(m, pos + len)
+            return view(m.buffer, pos + 1:pos + len)
+        end
+end
+begin
+    @inline function errorMessage!(m::Encoder, src::AbstractArray)
+            len = sizeof(eltype(src)) * Base.length(src)
+            errorMessage_length!(m, len)
+            pos = sbe_position(m) + 4
+            sbe_position!(m, pos + len)
+            dest = view(m.buffer, pos + 1:pos + len)
+            copyto!(dest, reinterpret(UInt8, src))
+        end
+end
+begin
+    @inline function errorMessage!(m::Encoder, src::NTuple)
+            len = sizeof(src)
+            errorMessage_length!(m, len)
+            pos = sbe_position(m) + 4
+            sbe_position!(m, pos + len)
+            dest = view(m.buffer, pos + 1:pos + len)
+            copyto!(dest, reinterpret(NTuple{len, UInt8}, src))
+        end
+end
+begin
+    @inline function errorMessage!(m::Encoder, src::AbstractString)
+            len = sizeof(src)
+            errorMessage_length!(m, len)
+            pos = sbe_position(m) + 4
+            sbe_position!(m, pos + len)
+            dest = view(m.buffer, pos + 1:pos + len)
+            copyto!(dest, codeunits(src))
+        end
+end
+begin
+    @inline errorMessage!(m::Encoder, src::Symbol) = begin
+                errorMessage!(m, to_string(src))
+            end
+    @inline errorMessage!(m::Encoder, src::Real) = begin
+                errorMessage!(m, Tuple(src))
+            end
+    @inline errorMessage!(m::Encoder, ::Nothing) = begin
+                errorMessage_buffer!(m, 0)
+            end
+end
+begin
+    @inline function errorMessage(m::Decoder, ::Type{T}) where T <: AbstractString
+            return T(StringView(rstrip_nul(errorMessage(m))))
+        end
+    @inline function errorMessage(m::Decoder, ::Type{T}) where T <: Symbol
+            return Symbol(errorMessage(m, StringView))
+        end
+    @inline function errorMessage(m::Decoder, ::Type{T}) where T <: Real
+            return (reinterpret(T, errorMessage(m)))[]
+        end
+    @inline function errorMessage(m::Decoder, ::Type{AbstractArray{T}}) where T <: Real
+            return reinterpret(T, errorMessage(m))
+        end
+    @inline function errorMessage(m::Decoder, ::Type{NTuple{N, T}}) where {N, T <: Real}
+            x = reinterpret(T, errorMessage(m))
+            return ntuple((i->begin
+                            x[i]
+                        end), Val(N))
+        end
+    @inline function errorMessage(m::Decoder, ::Type{T}) where T <: Nothing
+            skip_errorMessage!(m)
+            return nothing
+        end
+end
+@inline function sbe_decoded_length(m::AbstractShmDriverShutdownRequest)
+        skipper = Decoder(typeof(sbe_buffer(m)))
+        skipper.position_ptr = PositionPointer()
+        wrap!(skipper, sbe_buffer(m), sbe_offset(m), sbe_acting_block_length(m), sbe_acting_version(m))
+        sbe_skip!(skipper)
+        return sbe_encoded_length(skipper)
+    end
+@inline function sbe_skip!(m::Decoder)
+        sbe_rewind!(m)
+        begin
+            skip_token!(m)
+            skip_errorMessage!(m)
+        end
+        return
+    end
+end
 module ShmDetachRequest
 export AbstractShmDetachRequest, Decoder, Encoder
 using SBE: AbstractSbeMessage, PositionPointer, to_string

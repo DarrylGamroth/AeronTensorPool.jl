@@ -22,6 +22,7 @@ function init_driver(config::DriverConfig; client::Aeron.Client)
         ShmAttachRequest.Decoder(UnsafeArrays.UnsafeArray{UInt8, 1}),
         ShmDetachRequest.Decoder(UnsafeArrays.UnsafeArray{UInt8, 1}),
         ShmLeaseKeepalive.Decoder(UnsafeArrays.UnsafeArray{UInt8, 1}),
+        ShmDriverShutdownRequest.Decoder(UnsafeArrays.UnsafeArray{UInt8, 1}),
         ShmAttachResponse.Encoder(UnsafeArrays.UnsafeArray{UInt8, 1}),
         ShmDetachResponse.Encoder(UnsafeArrays.UnsafeArray{UInt8, 1}),
         ShmLeaseRevoked.Encoder(UnsafeArrays.UnsafeArray{UInt8, 1}),
@@ -58,6 +59,8 @@ function init_driver(config::DriverConfig; client::Aeron.Client)
         metrics,
         timer_set,
         0,
+        DriverShutdownReason.NORMAL,
+        "",
         lifecycle,
     )
     state.runtime.control_assembler = make_driver_control_assembler(state)
@@ -342,6 +345,22 @@ function handle_keepalive!(state::DriverState, msg::ShmLeaseKeepalive.Decoder)
     now_ns = UInt64(Clocks.time_nanos(state.clock))
     lease.expiry_ns = lease_expiry_ns(state, now_ns)
     state.metrics.keepalives += 1
+    return true
+end
+
+function handle_shutdown_request!(state::DriverState, msg::ShmDriverShutdownRequest.Decoder)
+    token = String(ShmDriverShutdownRequest.token(msg))
+    if isempty(state.config.policies.shutdown_token)
+        return false
+    end
+    if token != state.config.policies.shutdown_token
+        return false
+    end
+
+    state.shutdown_reason = ShmDriverShutdownRequest.reason(msg)
+    msg_error = ShmDriverShutdownRequest.errorMessage(msg)
+    state.shutdown_message = isempty(msg_error) ? "" : String(msg_error)
+    driver_lifecycle_dispatch!(state, :ShutdownRequested)
     return true
 end
 
