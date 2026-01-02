@@ -46,6 +46,10 @@ end
     return Hsm.transition!(sm, :Closed)
 end
 
+@on_event function(sm::StreamLifecycle, ::Live, ::StreamIdle, _)
+    return Hsm.transition!(sm, :Closed)
+end
+
 @on_event function(sm::StreamLifecycle, ::Live, ::Close, _)
     return Hsm.transition!(sm, :Closed)
 end

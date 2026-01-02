@@ -13,7 +13,7 @@ using Test
 
     AeronTensorPool.Hsm.dispatch!(stream, :DriverDraining, metrics)
     @test AeronTensorPool.Hsm.current(stream) == :Draining
-    AeronTensorPool.Hsm.dispatch!(stream, :Close, metrics)
+    AeronTensorPool.Hsm.dispatch!(stream, :StreamIdle, metrics)
     @test AeronTensorPool.Hsm.current(stream) == :Closed
 
     stream2 = AeronTensorPool.StreamLifecycle()

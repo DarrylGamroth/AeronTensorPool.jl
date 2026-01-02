@@ -408,6 +408,13 @@ function revoke_lease!(state::DriverState, lease_id::UInt64, reason::DriverLease
     lease.role == DriverRole.PRODUCER || emit_lease_revoked!(state, lease, reason, now_ns)
     Hsm.dispatch!(lease.lifecycle, :Close, state.metrics)
     delete!(state.leases, lease_id)
+    if !isnothing(stream_state) &&
+       stream_state.producer_lease_id == 0 &&
+       isempty(stream_state.consumer_lease_ids) &&
+       state.config.policies.allow_dynamic_streams
+        Hsm.dispatch!(stream_state.lifecycle, :StreamIdle, state.metrics)
+        delete!(state.streams, stream_state.stream_id)
+    end
     return true
 end
 
