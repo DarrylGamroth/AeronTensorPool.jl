@@ -10,8 +10,12 @@ end
 """
 Construct a ProducerAgent from a ProducerConfig.
 """
-function ProducerAgent(config::ProducerConfig)
-    state = init_producer(config)
+function ProducerAgent(
+    config::ProducerConfig;
+    aeron_ctx::Union{Nothing, Aeron.Context} = nothing,
+    aeron_client::Union{Nothing, Aeron.Client} = nothing,
+)
+    state = init_producer(config; aeron_ctx = aeron_ctx, aeron_client = aeron_client)
     control_assembler = make_control_assembler(state)
     counters = ProducerCounters(state.runtime.client, Int(config.producer_id), "Producer")
     return ProducerAgent(state, control_assembler, counters)
@@ -39,8 +43,8 @@ function Agent.on_close(agent::ProducerAgent)
         close(agent.state.runtime.pub_qos)
         close(agent.state.runtime.pub_metadata)
         close(agent.state.runtime.sub_control)
-        close(agent.state.runtime.client)
-        close(agent.state.runtime.ctx)
+        agent.state.runtime.owns_client && close(agent.state.runtime.client)
+        agent.state.runtime.owns_ctx && close(agent.state.runtime.ctx)
     catch
     end
     return nothing

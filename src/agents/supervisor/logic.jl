@@ -1,12 +1,18 @@
 """
 Initialize a supervisor: create Aeron resources and timers.
 """
-function init_supervisor(config::SupervisorConfig)
+function init_supervisor(
+    config::SupervisorConfig;
+    aeron_ctx::Union{Nothing, Aeron.Context} = nothing,
+    aeron_client::Union{Nothing, Aeron.Client} = nothing,
+)
     clock = Clocks.CachedEpochClock(Clocks.MonotonicClock())
 
-    ctx = Aeron.Context()
-    set_aeron_dir!(ctx, config.aeron_dir)
-    client = Aeron.Client(ctx)
+    ctx, client, owns_ctx, owns_client = acquire_aeron(
+        config.aeron_dir;
+        ctx = aeron_ctx,
+        client = aeron_client,
+    )
 
     pub_control = Aeron.add_publication(client, config.aeron_uri, config.control_stream_id)
     sub_control = Aeron.add_subscription(client, config.aeron_uri, config.control_stream_id)
@@ -20,6 +26,8 @@ function init_supervisor(config::SupervisorConfig)
     runtime = SupervisorRuntime(
         ctx,
         client,
+        owns_ctx,
+        owns_client,
         pub_control,
         sub_control,
         sub_qos,

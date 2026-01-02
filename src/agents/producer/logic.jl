@@ -16,7 +16,11 @@ end
 """
 Initialize a producer: map SHM regions, write superblocks, and create Aeron resources.
 """
-function init_producer(config::ProducerConfig)
+function init_producer(
+    config::ProducerConfig;
+    aeron_ctx::Union{Nothing, Aeron.Context} = nothing,
+    aeron_client::Union{Nothing, Aeron.Client} = nothing,
+)
     ispow2(config.nslots) || throw(ArgumentError("header nslots must be power of two"))
     for pool in config.payload_pools
         pool.nslots == config.nslots || throw(ArgumentError("payload nslots must match header nslots"))
@@ -73,9 +77,11 @@ function init_producer(config::ProducerConfig)
         payload_mmaps[pool.pool_id] = pmmap
     end
 
-    ctx = Aeron.Context()
-    set_aeron_dir!(ctx, config.aeron_dir)
-    client = Aeron.Client(ctx)
+    ctx, client, owns_ctx, owns_client = acquire_aeron(
+        config.aeron_dir;
+        ctx = aeron_ctx,
+        client = aeron_client,
+    )
 
     pub_descriptor = Aeron.add_publication(client, config.aeron_uri, config.descriptor_stream_id)
     pub_control = Aeron.add_publication(client, config.aeron_uri, config.control_stream_id)
@@ -91,6 +97,8 @@ function init_producer(config::ProducerConfig)
     runtime = ProducerRuntime(
         ctx,
         client,
+        owns_ctx,
+        owns_client,
         pub_descriptor,
         pub_control,
         pub_qos,
@@ -234,6 +242,8 @@ function init_producer_from_attach(
     config::ProducerConfig,
     attach::AttachResponseInfo;
     driver_client::Union{DriverClientState, Nothing} = nothing,
+    aeron_ctx::Union{Nothing, Aeron.Context} = nothing,
+    aeron_client::Union{Nothing, Aeron.Client} = nothing,
 )
     attach.code == DriverResponseCode.OK || throw(ArgumentError("attach failed"))
     attach.header_slot_bytes == UInt16(HEADER_SLOT_BYTES) || throw(ArgumentError("header_slot_bytes mismatch"))
@@ -249,9 +259,11 @@ function init_producer_from_attach(
     mappings = map_producer_from_attach(driver_config, attach)
     mappings === nothing && throw(ArgumentError("payload superblock validation failed"))
 
-    ctx = Aeron.Context()
-    set_aeron_dir!(ctx, driver_config.aeron_dir)
-    client = Aeron.Client(ctx)
+    ctx, client, owns_ctx, owns_client = acquire_aeron(
+        driver_config.aeron_dir;
+        ctx = aeron_ctx,
+        client = aeron_client,
+    )
 
     pub_descriptor = Aeron.add_publication(client, driver_config.aeron_uri, driver_config.descriptor_stream_id)
     pub_control = Aeron.add_publication(client, driver_config.aeron_uri, driver_config.control_stream_id)
@@ -267,6 +279,8 @@ function init_producer_from_attach(
     runtime = ProducerRuntime(
         ctx,
         client,
+        owns_ctx,
+        owns_client,
         pub_descriptor,
         pub_control,
         pub_qos,

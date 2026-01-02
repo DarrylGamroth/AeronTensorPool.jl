@@ -65,14 +65,22 @@ end
 """
 Initialize a bridge sender using an existing consumer mapping.
 """
-function init_bridge_sender(consumer_state::ConsumerState, config::BridgeConfig, mapping::BridgeMapping)
+function init_bridge_sender(
+    consumer_state::ConsumerState,
+    config::BridgeConfig,
+    mapping::BridgeMapping;
+    aeron_ctx::Union{Nothing, Aeron.Context} = nothing,
+    aeron_client::Union{Nothing, Aeron.Client} = nothing,
+)
     if (config.forward_progress || config.forward_qos) &&
        (mapping.source_control_stream_id == 0 || mapping.dest_control_stream_id == 0)
         throw(ArgumentError("bridge mapping requires nonzero control stream IDs for progress/QoS forwarding"))
     end
-    ctx = Aeron.Context()
-    set_aeron_dir!(ctx, config.aeron_dir)
-    client = Aeron.Client(ctx)
+    ctx, client, owns_ctx, owns_client = acquire_aeron(
+        config.aeron_dir;
+        ctx = aeron_ctx,
+        client = aeron_client,
+    )
 
     pub_payload = Aeron.add_publication(client, config.payload_channel, config.payload_stream_id)
     pub_control = Aeron.add_publication(client, config.control_channel, config.control_stream_id)
@@ -92,6 +100,8 @@ function init_bridge_sender(consumer_state::ConsumerState, config::BridgeConfig,
         mapping,
         ctx,
         client,
+        owns_ctx,
+        owns_client,
         pub_payload,
         pub_control,
         pub_metadata,
@@ -135,14 +145,18 @@ function init_bridge_receiver(
     config::BridgeConfig,
     mapping::BridgeMapping;
     producer_state::Union{Nothing, ProducerState} = nothing,
+    aeron_ctx::Union{Nothing, Aeron.Context} = nothing,
+    aeron_client::Union{Nothing, Aeron.Client} = nothing,
 )
     if (config.forward_progress || config.forward_qos) &&
        (mapping.source_control_stream_id == 0 || mapping.dest_control_stream_id == 0)
         throw(ArgumentError("bridge mapping requires nonzero control stream IDs for progress/QoS forwarding"))
     end
-    ctx = Aeron.Context()
-    set_aeron_dir!(ctx, config.aeron_dir)
-    client = Aeron.Client(ctx)
+    ctx, client, owns_ctx, owns_client = acquire_aeron(
+        config.aeron_dir;
+        ctx = aeron_ctx,
+        client = aeron_client,
+    )
     clock = Clocks.CachedEpochClock(Clocks.MonotonicClock())
 
     sub_payload = Aeron.add_subscription(client, config.payload_channel, config.payload_stream_id)
@@ -187,6 +201,8 @@ function init_bridge_receiver(
         mapping,
         ctx,
         client,
+        owns_ctx,
+        owns_client,
         clock,
         UInt64(0),
         producer_state,

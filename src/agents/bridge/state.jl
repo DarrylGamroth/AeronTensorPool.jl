@@ -80,6 +80,8 @@ mutable struct BridgeSenderState
     mapping::BridgeMapping
     ctx::Aeron.Context
     client::Aeron.Client
+    owns_ctx::Bool
+    owns_client::Bool
     pub_payload::Aeron.Publication
     pub_control::Aeron.Publication
     pub_metadata::Union{Nothing, Aeron.Publication}
@@ -118,6 +120,8 @@ mutable struct BridgeReceiverState
     mapping::BridgeMapping
     ctx::Aeron.Context
     client::Aeron.Client
+    owns_ctx::Bool
+    owns_client::Bool
     clock::Clocks.AbstractClock
     now_ns::UInt64
     producer_state::Union{Nothing, ProducerState}

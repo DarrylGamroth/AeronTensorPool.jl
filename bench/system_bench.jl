@@ -14,8 +14,8 @@ function close_producer!(producer)
     close(producer.runtime.pub_qos)
     close(producer.runtime.pub_metadata)
     close(producer.runtime.sub_control)
-    close(producer.runtime.client)
-    close(producer.runtime.ctx)
+    producer.runtime.owns_client && close(producer.runtime.client)
+    producer.runtime.owns_ctx && close(producer.runtime.ctx)
     return nothing
 end
 
@@ -25,8 +25,8 @@ function close_consumer!(consumer)
     close(consumer.runtime.sub_descriptor)
     close(consumer.runtime.sub_control)
     close(consumer.runtime.sub_qos)
-    close(consumer.runtime.client)
-    close(consumer.runtime.ctx)
+    consumer.runtime.owns_client && close(consumer.runtime.client)
+    consumer.runtime.owns_ctx && close(consumer.runtime.ctx)
     return nothing
 end
 
@@ -34,8 +34,8 @@ function close_supervisor!(supervisor)
     close(supervisor.runtime.pub_control)
     close(supervisor.runtime.sub_control)
     close(supervisor.runtime.sub_qos)
-    close(supervisor.runtime.client)
-    close(supervisor.runtime.ctx)
+    supervisor.runtime.owns_client && close(supervisor.runtime.client)
+    supervisor.runtime.owns_ctx && close(supervisor.runtime.ctx)
     return nothing
 end
 

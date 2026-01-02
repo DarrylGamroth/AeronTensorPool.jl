@@ -1,10 +1,17 @@
 """
 Initialize a decimator using an existing consumer mapping.
 """
-function init_decimator(consumer_state::ConsumerState, config::DecimatorConfig)
-    ctx = Aeron.Context()
-    set_aeron_dir!(ctx, config.aeron_dir)
-    client = Aeron.Client(ctx)
+function init_decimator(
+    consumer_state::ConsumerState,
+    config::DecimatorConfig;
+    aeron_ctx::Union{Nothing, Aeron.Context} = nothing,
+    aeron_client::Union{Nothing, Aeron.Client} = nothing,
+)
+    ctx, client, owns_ctx, owns_client = acquire_aeron(
+        config.aeron_dir;
+        ctx = aeron_ctx,
+        client = aeron_client,
+    )
 
     pub_descriptor = Aeron.add_publication(client, config.aeron_uri, config.descriptor_stream_id)
 
@@ -13,6 +20,8 @@ function init_decimator(consumer_state::ConsumerState, config::DecimatorConfig)
         config,
         ctx,
         client,
+        owns_ctx,
+        owns_client,
         pub_descriptor,
         Vector{UInt8}(undef, CONTROL_BUF_BYTES),
         FrameDescriptor.Encoder(UnsafeArrays.UnsafeArray{UInt8, 1}),

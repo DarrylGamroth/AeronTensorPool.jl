@@ -7,6 +7,8 @@ Mutable producer runtime resources (Aeron publications/subscriptions and codecs)
 mutable struct ProducerRuntime
     ctx::Aeron.Context
     client::Aeron.Client
+    owns_ctx::Bool
+    owns_client::Bool
     pub_descriptor::Aeron.Publication
     pub_control::Aeron.Publication
     pub_qos::Aeron.Publication

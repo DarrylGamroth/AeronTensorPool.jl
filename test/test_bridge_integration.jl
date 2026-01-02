@@ -304,8 +304,8 @@
                 close(bridge_sender.sub_control)
                 bridge_sender.sub_metadata === nothing || close(bridge_sender.sub_metadata)
                 bridge_sender.sub_qos === nothing || close(bridge_sender.sub_qos)
-                close(bridge_sender.client)
-                close(bridge_sender.ctx)
+                bridge_sender.owns_client && close(bridge_sender.client)
+                bridge_sender.owns_ctx && close(bridge_sender.ctx)
             catch
             end
             try
@@ -314,8 +314,8 @@
                 bridge_receiver.sub_metadata === nothing || close(bridge_receiver.sub_metadata)
                 bridge_receiver.pub_metadata_local === nothing || close(bridge_receiver.pub_metadata_local)
                 bridge_receiver.pub_qos_local === nothing || close(bridge_receiver.pub_qos_local)
-                close(bridge_receiver.client)
-                close(bridge_receiver.ctx)
+                bridge_receiver.owns_client && close(bridge_receiver.client)
+                bridge_receiver.owns_ctx && close(bridge_receiver.ctx)
             catch
             end
         end

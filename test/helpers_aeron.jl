@@ -76,8 +76,8 @@ function close_consumer_state!(state::ConsumerState)
         close(state.runtime.sub_descriptor)
         close(state.runtime.sub_control)
         close(state.runtime.sub_qos)
-        close(state.runtime.client)
-        close(state.runtime.ctx)
+        state.runtime.owns_client && close(state.runtime.client)
+        state.runtime.owns_ctx && close(state.runtime.ctx)
     catch
     end
     return nothing
@@ -90,8 +90,8 @@ function close_producer_state!(state::ProducerState)
         close(state.runtime.pub_qos)
         close(state.runtime.pub_metadata)
         close(state.runtime.sub_control)
-        close(state.runtime.client)
-        close(state.runtime.ctx)
+        state.runtime.owns_client && close(state.runtime.client)
+        state.runtime.owns_ctx && close(state.runtime.ctx)
     catch
     end
     return nothing
@@ -102,8 +102,8 @@ function close_supervisor_state!(state::SupervisorState)
         close(state.runtime.pub_control)
         close(state.runtime.sub_control)
         close(state.runtime.sub_qos)
-        close(state.runtime.client)
-        close(state.runtime.ctx)
+        state.runtime.owns_client && close(state.runtime.client)
+        state.runtime.owns_ctx && close(state.runtime.ctx)
     catch
     end
     return nothing
@@ -115,8 +115,8 @@ function close_driver_state!(state::DriverState)
         close(state.runtime.pub_announce)
         close(state.runtime.pub_qos)
         close(state.runtime.sub_control)
-        close(state.runtime.client)
-        close(state.runtime.ctx)
+        state.runtime.owns_client && close(state.runtime.client)
+        state.runtime.owns_ctx && close(state.runtime.ctx)
     catch
     end
     return nothing

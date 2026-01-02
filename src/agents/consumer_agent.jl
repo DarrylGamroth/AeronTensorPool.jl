@@ -11,8 +11,12 @@ end
 """
 Construct a ConsumerAgent from a ConsumerConfig.
 """
-function ConsumerAgent(config::ConsumerConfig)
-    state = init_consumer(config)
+function ConsumerAgent(
+    config::ConsumerConfig;
+    aeron_ctx::Union{Nothing, Aeron.Context} = nothing,
+    aeron_client::Union{Nothing, Aeron.Client} = nothing,
+)
+    state = init_consumer(config; aeron_ctx = aeron_ctx, aeron_client = aeron_client)
     descriptor_assembler = make_descriptor_assembler(state)
     control_assembler = make_control_assembler(state)
     counters = ConsumerCounters(state.runtime.client, Int(config.consumer_id), "Consumer")
@@ -48,8 +52,8 @@ function Agent.on_close(agent::ConsumerAgent)
         close(agent.state.runtime.sub_descriptor)
         close(agent.state.runtime.sub_control)
         close(agent.state.runtime.sub_qos)
-        close(agent.state.runtime.client)
-        close(agent.state.runtime.ctx)
+        agent.state.runtime.owns_client && close(agent.state.runtime.client)
+        agent.state.runtime.owns_ctx && close(agent.state.runtime.ctx)
     catch
     end
     return nothing

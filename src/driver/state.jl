@@ -31,6 +31,8 @@ Driver runtime resources (Aeron client, pubs/subs, codecs).
 mutable struct DriverRuntime
     ctx::Aeron.Context
     client::Aeron.Client
+    owns_ctx::Bool
+    owns_client::Bool
     pub_control::Aeron.Publication
     pub_announce::Aeron.Publication
     pub_qos::Aeron.Publication

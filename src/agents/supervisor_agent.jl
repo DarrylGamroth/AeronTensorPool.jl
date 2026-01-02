@@ -11,8 +11,12 @@ end
 """
 Construct a SupervisorAgent from a SupervisorConfig.
 """
-function SupervisorAgent(config::SupervisorConfig)
-    state = init_supervisor(config)
+function SupervisorAgent(
+    config::SupervisorConfig;
+    aeron_ctx::Union{Nothing, Aeron.Context} = nothing,
+    aeron_client::Union{Nothing, Aeron.Client} = nothing,
+)
+    state = init_supervisor(config; aeron_ctx = aeron_ctx, aeron_client = aeron_client)
     control_assembler = make_control_assembler(state)
     qos_assembler = make_qos_assembler(state)
     counters = SupervisorCounters(state.runtime.client, Int(config.stream_id), "Supervisor")
@@ -36,8 +40,8 @@ function Agent.on_close(agent::SupervisorAgent)
         close(agent.state.runtime.pub_control)
         close(agent.state.runtime.sub_control)
         close(agent.state.runtime.sub_qos)
-        close(agent.state.runtime.client)
-        close(agent.state.runtime.ctx)
+        agent.state.runtime.owns_client && close(agent.state.runtime.client)
+        agent.state.runtime.owns_ctx && close(agent.state.runtime.ctx)
     catch
     end
     return nothing

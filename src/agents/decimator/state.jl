@@ -18,6 +18,8 @@ mutable struct DecimatorState
     config::DecimatorConfig
     ctx::Aeron.Context
     client::Aeron.Client
+    owns_ctx::Bool
+    owns_client::Bool
     pub_descriptor::Aeron.Publication
     descriptor_buf::Vector{UInt8}
     descriptor_encoder::FrameDescriptor.Encoder{UnsafeArrays.UnsafeArray{UInt8, 1}}

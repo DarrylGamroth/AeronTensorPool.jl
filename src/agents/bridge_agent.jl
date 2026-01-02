@@ -32,12 +32,26 @@ function BridgeAgent(
     bridge_config::BridgeConfig,
     mapping::BridgeMapping,
     consumer_config::ConsumerConfig,
-    producer_config::ProducerConfig,
+    producer_config::ProducerConfig;
+    aeron_ctx::Union{Nothing, Aeron.Context} = nothing,
+    aeron_client::Union{Nothing, Aeron.Client} = nothing,
 )
-    consumer_state = init_consumer(consumer_config)
-    producer_state = init_producer(producer_config)
-    sender = init_bridge_sender(consumer_state, bridge_config, mapping)
-    receiver = init_bridge_receiver(bridge_config, mapping; producer_state = producer_state)
+    consumer_state = init_consumer(consumer_config; aeron_ctx = aeron_ctx, aeron_client = aeron_client)
+    producer_state = init_producer(producer_config; aeron_ctx = aeron_ctx, aeron_client = aeron_client)
+    sender = init_bridge_sender(
+        consumer_state,
+        bridge_config,
+        mapping;
+        aeron_ctx = aeron_ctx,
+        aeron_client = aeron_client,
+    )
+    receiver = init_bridge_receiver(
+        bridge_config,
+        mapping;
+        producer_state = producer_state,
+        aeron_ctx = aeron_ctx,
+        aeron_client = aeron_client,
+    )
 
     control_assembler = make_control_assembler(consumer_state)
     descriptor_assembler = make_bridge_descriptor_assembler(sender)
@@ -77,24 +91,24 @@ function Agent.on_close(agent::BridgeAgent)
         agent.sender.pub_metadata === nothing || close(agent.sender.pub_metadata)
         close(agent.sender.sub_control)
         agent.sender.sub_metadata === nothing || close(agent.sender.sub_metadata)
-        close(agent.sender.client)
-        close(agent.sender.ctx)
+        agent.sender.owns_client && close(agent.sender.client)
+        agent.sender.owns_ctx && close(agent.sender.ctx)
 
         close(agent.receiver.sub_payload)
         close(agent.receiver.sub_control)
         agent.receiver.sub_metadata === nothing || close(agent.receiver.sub_metadata)
         agent.receiver.pub_metadata_local === nothing || close(agent.receiver.pub_metadata_local)
         agent.receiver.pub_control_local === nothing || close(agent.receiver.pub_control_local)
-        close(agent.receiver.client)
-        close(agent.receiver.ctx)
+        agent.receiver.owns_client && close(agent.receiver.client)
+        agent.receiver.owns_ctx && close(agent.receiver.ctx)
 
         close(consumer.runtime.pub_control)
         close(consumer.runtime.pub_qos)
         close(consumer.runtime.sub_descriptor)
         close(consumer.runtime.sub_control)
         close(consumer.runtime.sub_qos)
-        close(consumer.runtime.client)
-        close(consumer.runtime.ctx)
+        consumer.runtime.owns_client && close(consumer.runtime.client)
+        consumer.runtime.owns_ctx && close(consumer.runtime.ctx)
 
         if producer !== nothing
             close(producer.runtime.pub_descriptor)
@@ -102,8 +116,8 @@ function Agent.on_close(agent::BridgeAgent)
             close(producer.runtime.pub_qos)
             close(producer.runtime.pub_metadata)
             close(producer.runtime.sub_control)
-            close(producer.runtime.client)
-            close(producer.runtime.ctx)
+            producer.runtime.owns_client && close(producer.runtime.client)
+            producer.runtime.owns_ctx && close(producer.runtime.ctx)
         end
     catch
     end
