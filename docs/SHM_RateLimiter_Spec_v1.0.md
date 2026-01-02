@@ -53,7 +53,7 @@ Only one rate-limit policy is active per mapping. `rate_limiter.mode` applies to
 
 The rate limiter MUST preserve `frame_id`/`seq` identity when republishing.
 
-When operating per-consumer, the rate limiter MAY honor `ConsumerHello`/`ConsumerConfig` settings for the consumer it serves, treating those as its local rate-limit policy. It MUST NOT aggregate or apply policies across multiple consumers.
+When operating per-consumer, the rate limiter MUST treat `ConsumerHello.max_rate_hz` as the authoritative rate limit for that consumer when `mode=rate_limit`. `ConsumerConfig` MAY override the rate limiter mode (e.g., force `latest`), but `max_rate_hz` is sourced from `ConsumerHello`. The rate limiter MUST NOT aggregate or apply policies across multiple consumers.
 
 When `mode=latest`, `max_rate_hz` MUST be ignored.
 
@@ -114,7 +114,7 @@ Optional keys and defaults:
 - `rate_limiter.forward_progress` (bool): forward `FrameProgress`. Default: `false`.
 - `rate_limiter.forward_qos` (bool): forward QoS messages. Default: `false`.
 - `rate_limiter.mode` (string): `rate_limit` or `latest`. Default: `rate_limit`.
-- `rate_limiter.max_rate_hz` (uint16): maximum publish rate when `mode=rate_limit`. Default: `0` (unlimited).
+- `rate_limiter.max_rate_hz` (uint16): fallback publish rate when `ConsumerHello.max_rate_hz` is absent. Default: `0` (unlimited).
 - `rate_limiter.control_channel` (string): local IPC control channel for forwarded progress. Default: `"aeron:ipc"`.
 - `rate_limiter.source_control_stream_id` (uint32): source control stream ID to subscribe for `FrameProgress`. Default: `0` (disabled).
 - `rate_limiter.dest_control_stream_id` (uint32): destination control stream ID for forwarded `FrameProgress`. Default: `0` (disabled).
@@ -129,7 +129,7 @@ Each `mappings` entry:
 - `source_stream_id` (uint32)
 - `dest_stream_id` (uint32)
 - `profile` (string): destination profile name or pool mapping policy.
-- `max_rate_hz` (uint16, optional): per-mapping override for `rate_limiter.max_rate_hz`. Default: inherit `rate_limiter.max_rate_hz`.
+- `max_rate_hz` (uint16, optional): per-mapping fallback when `ConsumerHello.max_rate_hz` is absent. Default: inherit `rate_limiter.max_rate_hz`.
 - `metadata_stream_id` (uint32, optional): destination metadata stream_id. Default: `dest_stream_id`.
 
 Example config: `docs/examples/rate_limiter_config_example.toml`.

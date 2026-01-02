@@ -108,6 +108,10 @@ Per `stream_id` (data source), define these logical streams (how you map to Aero
 
 A simple deployment can multiplex these message types on one Aeron channel/stream ID, but separating them improves observability.
 
+Per-consumer descriptor streams (optional): producers MAY publish `FrameDescriptor` on per-consumer channels/stream IDs when requested. If used, the producer MUST return the assigned descriptor channel/stream in `ConsumerConfig`, and the consumer MUST subscribe to that stream instead of the shared descriptor stream. Producers MUST stop publishing and close per-consumer descriptor publications when the consumer disconnects or times out.
+When per-consumer descriptor streams are used, producers MAY apply `ConsumerHello.max_rate_hz` as a per-consumer descriptor rate cap; if `max_rate_hz` is 0, descriptors are unthrottled. `max_rate_hz` MUST be ignored when only the shared descriptor stream is used.
+Per-consumer control streams (optional): producers MAY publish `FrameProgress` on per-consumer control channels/stream IDs when requested. If used, the producer MUST return the assigned control channel/stream in `ConsumerConfig`, and the consumer MUST subscribe to that control stream for `FrameProgress`. Consumers MUST continue to subscribe to the shared control stream for all other control-plane messages.
+
 ---
 
 ## 6. SHM Region Structure
@@ -300,6 +304,10 @@ Sent on startup and optionally periodically.
 - `mode : enum { STREAM=1, LATEST=2, DECIMATED=3 }`
 - `max_rate_hz : u16` (0 = unlimited; mainly for GUI)
 - `expected_layout_version : u32`
+- `descriptor_channel : string` (optional; request per-consumer descriptor stream)
+- `descriptor_stream_id : u32` (optional; preferred stream ID, or 0 to let producer choose)
+- `control_channel : string` (optional; request per-consumer control stream)
+- `control_stream_id : u32` (optional; preferred stream ID, or 0 to let producer choose)
 - optional progress policy hints (producer may coarsen across consumers):
   - `progress_interval_us : u32` (minimum interval between `PROGRESS` messages; optional; if absent, producer defaults apply; **recommended default**: 250 µs)
   - `progress_bytes_delta : u32` (minimum byte delta to report; optional; if absent, producer defaults apply; **recommended default**: 65,536 bytes)
@@ -309,6 +317,8 @@ Sent on startup and optionally periodically.
 - Advertise consumer capabilities.
 - Enables management decisions (e.g., instruct remote consumers to use a bridge).
 - Provides optional per-consumer progress throttling hints; producer aggregates hints (e.g., smallest intervals/deltas within producer safety floors) and retains final authority.
+- Optionally request a per-consumer descriptor stream when `descriptor_channel`/`descriptor_stream_id` are provided.
+- Optionally request a per-consumer control stream when `control_channel`/`control_stream_id` are provided.
 - Consumer IDs: recommended to be assigned by supervisor/authority per stream; if self-assigned, use randomized IDs and treat collisions (detected via `QosConsumer`) as a reason to reconnect with a new ID.
 
 #### 10.1.3 ConsumerConfig (producer/supervisor → consumer) [optional]
@@ -319,12 +329,22 @@ Sent on startup and optionally periodically.
 - `use_shm : bool`
 - `mode : enum { STREAM, LATEST, DECIMATED }`
 - `decimation : u16` (valid when mode=DECIMATED; 1=none)
+- `descriptor_channel : string` (optional; assigned per-consumer descriptor channel)
+- `descriptor_stream_id : u32` (optional; assigned per-consumer descriptor stream ID)
+- `control_channel : string` (optional; assigned per-consumer control channel)
+- `control_stream_id : u32` (optional; assigned per-consumer control stream ID)
 - `payload_fallback_uri : string` (optional; e.g., bridge channel/stream info)
   - URI SHOULD follow Aeron channel syntax when bridged over Aeron (e.g., `aeron:udp?...`) or a documented scheme such as `bridge://<id>` when using a custom bridge; undefined schemes MUST be treated as unsupported.
 
 **Purpose**
 - Central authority can force GUI into LATEST or DECIMATED.
 - Can redirect non-local consumers to bridged payload.
+- Can assign per-consumer descriptor streams when requested.
+- Can assign per-consumer control streams when requested.
+
+**Per-consumer stream request rules**
+- Empty `descriptor_channel`/`control_channel` strings MUST be treated as “not requested/assigned”.
+- If a producer declines a per-consumer stream request, it MUST return empty channel and null/zero stream ID in `ConsumerConfig`, and the consumer MUST remain on the shared stream.
 
 ### 10.2 Data Availability
 
@@ -976,6 +996,10 @@ Reference schema patterned after Aeron archive control style; adjust IDs and fie
     <field name="progressIntervalUs"    id="8" type="uint32" presence="optional" nullValue="4294967295"/>
     <field name="progressBytesDelta"    id="9" type="uint32" presence="optional" nullValue="4294967295"/>
     <field name="progressRowsDelta"     id="10" type="uint32" presence="optional" nullValue="4294967295"/>
+    <field name="descriptorStreamId"    id="11" type="uint32" presence="optional" nullValue="4294967295"/>
+    <data  name="descriptorChannel"     id="12" type="varAsciiEncoding"/>
+    <field name="controlStreamId"       id="13" type="uint32" presence="optional" nullValue="4294967295"/>
+    <data  name="controlChannel"        id="14" type="varAsciiEncoding"/>
   </sbe:message>
 
   <sbe:message name="ConsumerConfig" id="3">
@@ -985,6 +1009,10 @@ Reference schema patterned after Aeron archive control style; adjust IDs and fie
     <field name="mode"               id="4" type="Mode"/>
     <field name="decimation"         id="5" type="uint16"/>
     <data  name="payloadFallbackUri" id="6" type="varAsciiEncoding"/>
+    <field name="descriptorStreamId" id="7" type="uint32" presence="optional" nullValue="4294967295"/>
+    <data  name="descriptorChannel"  id="8" type="varAsciiEncoding"/>
+    <field name="controlStreamId"    id="9" type="uint32" presence="optional" nullValue="4294967295"/>
+    <data  name="controlChannel"     id="10" type="varAsciiEncoding"/>
   </sbe:message>
 
   <sbe:message name="FrameDescriptor" id="4">
