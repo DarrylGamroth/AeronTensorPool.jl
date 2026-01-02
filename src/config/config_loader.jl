@@ -216,6 +216,12 @@ function load_consumer_config(path::AbstractString; env::AbstractDict = ENV)
     supports_shm = Bool(get(cons, "supports_shm", true))
     supports_progress = Bool(get(cons, "supports_progress", false))
     max_rate_hz = UInt16(get(cons, "max_rate_hz", 0))
+    requested_descriptor_channel =
+        expand_vars(String(get(cons, "request_descriptor_channel", "")), env)
+    requested_descriptor_stream_id = UInt32(get(cons, "request_descriptor_stream_id", 0))
+    requested_control_channel =
+        expand_vars(String(get(cons, "request_control_channel", "")), env)
+    requested_control_stream_id = UInt32(get(cons, "request_control_stream_id", 0))
     payload_fallback_uri = expand_vars(String(get(cons, "payload_fallback_uri", "")), env)
     shm_base_dir = expand_vars(String(get(cons, "shm_base_dir", "")), env)
     allowed_base_dirs = parse_allowed_base_dirs(cons, env)
@@ -255,6 +261,10 @@ function load_consumer_config(path::AbstractString; env::AbstractDict = ENV)
         progress_rows_delta,
         hello_interval_ns,
         qos_interval_ns,
+        requested_descriptor_channel,
+        requested_descriptor_stream_id,
+        requested_control_channel,
+        requested_control_stream_id,
     )
 end
 

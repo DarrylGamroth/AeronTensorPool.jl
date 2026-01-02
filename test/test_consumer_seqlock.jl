@@ -81,10 +81,14 @@
             false,
                 UInt32(250),
                 UInt32(65536),
-                UInt32(0),
-                UInt64(1_000_000_000),
-                UInt64(1_000_000_000),
-            )
+            UInt32(0),
+            UInt64(1_000_000_000),
+            UInt64(1_000_000_000),
+            "",
+            UInt32(0),
+            "",
+            UInt32(0),
+        )
             state = init_consumer(consumer_cfg; client = client)
             try
 

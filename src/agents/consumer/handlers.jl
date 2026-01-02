@@ -26,6 +26,22 @@ function make_control_assembler(state::ConsumerState)
         elseif template_id == TEMPLATE_CONSUMER_CONFIG
             ConsumerConfigMsg.wrap!(st.runtime.config_decoder, buffer, 0; header = header)
             apply_consumer_config!(st, st.runtime.config_decoder)
+        elseif template_id == TEMPLATE_FRAME_PROGRESS
+            FrameProgress.wrap!(st.runtime.progress_decoder, buffer, 0; header = header)
+        end
+        nothing
+    end
+    return Aeron.FragmentAssembler(handler)
+end
+
+"""
+Create a FragmentAssembler for the per-consumer progress subscription.
+"""
+function make_progress_assembler(state::ConsumerState)
+    handler = Aeron.FragmentHandler(state) do st, buffer, _
+        header = MessageHeader.Decoder(buffer, 0)
+        if MessageHeader.templateId(header) == TEMPLATE_FRAME_PROGRESS
+            FrameProgress.wrap!(st.runtime.progress_decoder, buffer, 0; header = header)
         end
         nothing
     end
@@ -52,6 +68,19 @@ Poll the control subscription and apply mapping/config updates.
     fragment_limit::Int32 = DEFAULT_FRAGMENT_LIMIT,
 )
     return Aeron.poll(state.runtime.control.sub_control, assembler, fragment_limit)
+end
+
+"""
+Poll the per-consumer progress subscription when assigned.
+"""
+@inline function poll_progress!(
+    state::ConsumerState,
+    assembler::Aeron.FragmentAssembler,
+    fragment_limit::Int32 = DEFAULT_FRAGMENT_LIMIT,
+)
+    sub = state.runtime.sub_progress
+    sub === nothing && return 0
+    return Aeron.poll(sub, assembler, fragment_limit)
 end
 
 @inline function (handler::ConsumerHelloHandler)(state::ConsumerState, now_ns::UInt64)
@@ -82,6 +111,7 @@ function consumer_do_work!(
     work_count = 0
     work_count += poll_descriptor!(state, descriptor_assembler, fragment_limit)
     work_count += poll_control!(state, control_assembler, fragment_limit)
+    work_count += poll_progress!(state, state.progress_assembler, fragment_limit)
     work_count += poll_timers!(state, now_ns)
     if !isnothing(state.driver_client)
         work_count += driver_client_do_work!(state.driver_client, now_ns)

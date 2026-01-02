@@ -125,6 +125,10 @@ end
                 UInt32(0),
                 UInt64(1_000_000_000),
                 UInt64(1_000_000_000),
+                "",
+                UInt32(0),
+                "",
+                UInt32(0),
             )
 
             producer_state = init_producer_from_attach(

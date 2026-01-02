@@ -33,6 +33,10 @@ using UnsafeArrays
             UInt32(0),
             UInt64(1_000_000_000),
             UInt64(1_000_000_000),
+            "",
+            UInt32(0),
+            "",
+            UInt32(0),
         )
         consumer_state = init_consumer(consumer_cfg; client = client)
         ctrl_asm = make_control_assembler(consumer_state)

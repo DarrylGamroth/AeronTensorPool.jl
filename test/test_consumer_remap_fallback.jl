@@ -57,10 +57,14 @@
                 false,
                 UInt32(250),
                 UInt32(65536),
-                UInt32(0),
-                UInt64(1_000_000_000),
-                UInt64(1_000_000_000),
-            )
+            UInt32(0),
+            UInt64(1_000_000_000),
+            UInt64(1_000_000_000),
+            "",
+            UInt32(0),
+            "",
+            UInt32(0),
+        )
             state = init_consumer(consumer_cfg; client = client)
             fallback_state = nothing
             maxdims_state = nothing
@@ -197,10 +201,14 @@
                         false,
                         UInt32(250),
                         UInt32(65536),
-                        UInt32(0),
-                        UInt64(1_000_000_000),
-                        UInt64(1_000_000_000),
-                    )
+                    UInt32(0),
+                    UInt64(1_000_000_000),
+                    UInt64(1_000_000_000),
+                    "",
+                    UInt32(0),
+                    "",
+                    UInt32(0),
+                )
                     fallback_state = init_consumer(fallback_cfg; client = client)
                     (_, announce_dec_bad) = build_announce(epoch2, header_uri2, bad_pool_uri)
                     @test handle_shm_pool_announce!(fallback_state, announce_dec_bad)
@@ -230,10 +238,14 @@
                         false,
                         UInt32(250),
                         UInt32(65536),
-                        UInt32(0),
-                        UInt64(1_000_000_000),
-                        UInt64(1_000_000_000),
-                    )
+                    UInt32(0),
+                    UInt64(1_000_000_000),
+                    UInt64(1_000_000_000),
+                    "",
+                    UInt32(0),
+                    "",
+                    UInt32(0),
+                )
                     maxdims_state = init_consumer(maxdims_cfg; client = client)
                     (_, announce_dec_good) = build_announce(epoch2, header_uri2, pool_uri2)
                     @test handle_shm_pool_announce!(maxdims_state, announce_dec_good)

@@ -108,6 +108,10 @@
                 UInt32(0),
                 UInt64(1_000_000_000),
                 UInt64(1_000_000_000),
+                "",
+                UInt32(0),
+                "",
+                UInt32(0),
             )
 
             dst_consumer = ConsumerSettings(
@@ -136,6 +140,10 @@
                 UInt32(0),
                 UInt64(1_000_000_000),
                 UInt64(1_000_000_000),
+                "",
+                UInt32(0),
+                "",
+                UInt32(0),
             )
 
             producer_src = init_producer(src_config; client = client)

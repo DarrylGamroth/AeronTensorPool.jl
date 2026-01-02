@@ -71,6 +71,7 @@ function producer_do_work!(
     work_count = 0
     work_count += poll_control!(state, control_assembler, fragment_limit)
     work_count += poll_timers!(state, now_ns)
+    work_count += cleanup_consumer_streams!(state, now_ns)
     if !isnothing(state.driver_client)
         work_count += driver_client_do_work!(state.driver_client, now_ns)
         work_count += handle_driver_events!(state, now_ns)

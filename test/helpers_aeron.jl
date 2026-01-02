@@ -84,6 +84,7 @@ function close_consumer_state!(state::ConsumerState)
         close(state.runtime.sub_descriptor)
         close(state.runtime.control.sub_control)
         close(state.runtime.sub_qos)
+        state.runtime.sub_progress === nothing || close(state.runtime.sub_progress)
     catch
     end
     return nothing
@@ -96,6 +97,10 @@ function close_producer_state!(state::ProducerState)
         close(state.runtime.pub_qos)
         close(state.runtime.pub_metadata)
         close(state.runtime.control.sub_control)
+        for entry in values(state.consumer_streams)
+            entry.descriptor_pub === nothing || close(entry.descriptor_pub)
+            entry.control_pub === nothing || close(entry.control_pub)
+        end
     catch
     end
     return nothing

@@ -100,6 +100,8 @@ function init_producer(config::ProducerConfig; client::Aeron.Client)
         FrameProgress.Encoder(UnsafeArrays.UnsafeArray{UInt8, 1}),
         ShmPoolAnnounce.Encoder(UnsafeArrays.UnsafeArray{UInt8, 1}),
         QosProducer.Encoder(UnsafeArrays.UnsafeArray{UInt8, 1}),
+        ConsumerConfigMsg.Encoder(UnsafeArrays.UnsafeArray{UInt8, 1}),
+        Aeron.BufferClaim(),
         Aeron.BufferClaim(),
         Aeron.BufferClaim(),
         Aeron.BufferClaim(),
@@ -123,6 +125,7 @@ function init_producer(config::ProducerConfig; client::Aeron.Client)
         nothing,
         Int64(0),
         timer_set,
+        Dict{UInt32, ProducerConsumerStream}(),
     )
 
     emit_announce!(state)
@@ -271,6 +274,8 @@ function init_producer_from_attach(
         FrameProgress.Encoder(UnsafeArrays.UnsafeArray{UInt8, 1}),
         ShmPoolAnnounce.Encoder(UnsafeArrays.UnsafeArray{UInt8, 1}),
         QosProducer.Encoder(UnsafeArrays.UnsafeArray{UInt8, 1}),
+        ConsumerConfigMsg.Encoder(UnsafeArrays.UnsafeArray{UInt8, 1}),
+        Aeron.BufferClaim(),
         Aeron.BufferClaim(),
         Aeron.BufferClaim(),
         Aeron.BufferClaim(),
@@ -293,6 +298,7 @@ function init_producer_from_attach(
         driver_client,
         Int64(0),
         timer_set,
+        Dict{UInt32, ProducerConsumerStream}(),
     )
     return state
 end
@@ -437,7 +443,7 @@ function publish_frame!(
     seqlock_commit_write!(commit_ptr, frame_id)
 
     now_ns = UInt64(Clocks.time_nanos(state.clock))
-    sent = let st = state,
+    shared_sent = let st = state,
         seq = seq,
         header_index = header_index,
         meta_version = meta_version,
@@ -452,7 +458,8 @@ function publish_frame!(
             encode_frame_descriptor!(st.runtime.descriptor_encoder, st, seq, header_index, meta_version, now_ns)
         end
     end
-    sent || return false
+    per_consumer_sent = publish_descriptor_to_consumers!(state, seq, header_index, meta_version, now_ns)
+    (shared_sent || per_consumer_sent) || return false
 
     if state.supports_progress && should_emit_progress!(state, UInt64(values_len), true)
         emit_progress_complete!(state, frame_id, header_index, UInt64(values_len))
@@ -642,7 +649,7 @@ function publish_reservation!(
     seqlock_commit_write!(commit_ptr, frame_id)
 
     now_ns = UInt64(Clocks.time_nanos(state.clock))
-    sent = let st = state,
+    shared_sent = let st = state,
         seq = reservation.seq,
         header_index = reservation.header_index,
         meta_version = meta_version,
@@ -652,7 +659,9 @@ function publish_reservation!(
             encode_frame_descriptor!(st.runtime.descriptor_encoder, st, seq, header_index, meta_version, now_ns)
         end
     end
-    sent || return false
+    per_consumer_sent =
+        publish_descriptor_to_consumers!(state, reservation.seq, reservation.header_index, meta_version, now_ns)
+    (shared_sent || per_consumer_sent) || return false
 
     if state.supports_progress && should_emit_progress!(state, UInt64(values_len), true)
         emit_progress_complete!(state, frame_id, reservation.header_index, UInt64(values_len))
@@ -709,7 +718,7 @@ function publish_frame_from_slot!(
     seqlock_commit_write!(commit_ptr, frame_id)
 
     now_ns = UInt64(Clocks.time_nanos(state.clock))
-    sent = let st = state,
+    shared_sent = let st = state,
         seq = seq,
         header_index = header_index,
         meta_version = meta_version,
@@ -719,7 +728,8 @@ function publish_frame_from_slot!(
             encode_frame_descriptor!(st.runtime.descriptor_encoder, st, seq, header_index, meta_version, now_ns)
         end
     end
-    sent || return false
+    per_consumer_sent = publish_descriptor_to_consumers!(state, seq, header_index, meta_version, now_ns)
+    (shared_sent || per_consumer_sent) || return false
 
     if state.supports_progress && should_emit_progress!(state, UInt64(values_len), true)
         emit_progress_complete!(state, frame_id, header_index, UInt64(values_len))
@@ -755,6 +765,7 @@ function emit_progress_complete!(
     sent || return false
     state.metrics.last_progress_ns = UInt64(Clocks.time_nanos(state.clock))
     state.metrics.last_progress_bytes = bytes_filled
+    publish_progress_to_consumers!(state, frame_id, header_index, bytes_filled)
     return true
 end
 
@@ -819,6 +830,266 @@ function emit_qos!(state::ProducerState)
     return true
 end
 
+@inline function consumer_stream_timeout_ns(state::ProducerState)
+    base = max(state.config.announce_interval_ns, state.config.qos_interval_ns)
+    return base * 5
+end
+
+function clear_consumer_stream!(entry::ProducerConsumerStream)
+    entry.descriptor_pub === nothing || close(entry.descriptor_pub)
+    entry.control_pub === nothing || close(entry.control_pub)
+    entry.descriptor_pub = nothing
+    entry.control_pub = nothing
+    entry.descriptor_channel = ""
+    entry.control_channel = ""
+    entry.descriptor_stream_id = UInt32(0)
+    entry.control_stream_id = UInt32(0)
+    entry.max_rate_hz = UInt16(0)
+    entry.next_descriptor_ns = UInt64(0)
+    entry.last_hello_ns = UInt64(0)
+    return nothing
+end
+
+function cleanup_consumer_streams!(state::ProducerState, now_ns::UInt64)
+    timeout_ns = consumer_stream_timeout_ns(state)
+    closed = 0
+    for entry in values(state.consumer_streams)
+        entry.last_hello_ns == 0 && continue
+        if now_ns - entry.last_hello_ns > timeout_ns
+            clear_consumer_stream!(entry)
+            closed += 1
+        end
+    end
+    return closed
+end
+
+function emit_consumer_config!(
+    state::ProducerState,
+    consumer_id::UInt32;
+    use_shm::Bool = state.config.nslots > 0,
+    mode::Mode.SbeEnum = Mode.STREAM,
+    decimation::UInt16 = UInt16(1),
+    payload_fallback_uri::AbstractString = "",
+    descriptor_channel::AbstractString = "",
+    descriptor_stream_id::UInt32 = UInt32(0),
+    control_channel::AbstractString = "",
+    control_stream_id::UInt32 = UInt32(0),
+)
+    msg_len = MESSAGE_HEADER_LEN +
+        Int(ConsumerConfigMsg.sbe_block_length(ConsumerConfigMsg.Decoder)) +
+        Int(ConsumerConfigMsg.payloadFallbackUri_header_length) +
+        Int(ConsumerConfigMsg.descriptorChannel_header_length) +
+        Int(ConsumerConfigMsg.controlChannel_header_length) +
+        sizeof(payload_fallback_uri) +
+        sizeof(descriptor_channel) +
+        sizeof(control_channel)
+
+    sent = let st = state,
+        consumer_id = consumer_id,
+        use_shm = use_shm,
+        mode = mode,
+        decimation = decimation,
+        payload_fallback_uri = payload_fallback_uri,
+        descriptor_channel = descriptor_channel,
+        descriptor_stream_id = descriptor_stream_id,
+        control_channel = control_channel,
+        control_stream_id = control_stream_id
+        try_claim_sbe!(st.runtime.control.pub_control, st.runtime.config_claim, msg_len) do buf
+            ConsumerConfigMsg.wrap_and_apply_header!(st.runtime.config_encoder, buf, 0)
+            ConsumerConfigMsg.streamId!(st.runtime.config_encoder, st.config.stream_id)
+            ConsumerConfigMsg.consumerId!(st.runtime.config_encoder, consumer_id)
+            ConsumerConfigMsg.useShm!(
+                st.runtime.config_encoder,
+                use_shm ? ShmTensorpoolControl.Bool_.TRUE : ShmTensorpoolControl.Bool_.FALSE,
+            )
+            ConsumerConfigMsg.mode!(st.runtime.config_encoder, mode)
+            ConsumerConfigMsg.decimation!(st.runtime.config_encoder, decimation)
+            ConsumerConfigMsg.descriptorStreamId!(
+                st.runtime.config_encoder,
+                descriptor_stream_id != 0 ?
+                descriptor_stream_id :
+                ConsumerConfigMsg.descriptorStreamId_null_value(ConsumerConfigMsg.Encoder),
+            )
+            ConsumerConfigMsg.controlStreamId!(
+                st.runtime.config_encoder,
+                control_stream_id != 0 ?
+                control_stream_id :
+                ConsumerConfigMsg.controlStreamId_null_value(ConsumerConfigMsg.Encoder),
+            )
+            ConsumerConfigMsg.payloadFallbackUri!(st.runtime.config_encoder, payload_fallback_uri)
+            if isempty(descriptor_channel)
+                ConsumerConfigMsg.descriptorChannel_length!(st.runtime.config_encoder, 0)
+            else
+                ConsumerConfigMsg.descriptorChannel!(st.runtime.config_encoder, descriptor_channel)
+            end
+            if isempty(control_channel)
+                ConsumerConfigMsg.controlChannel_length!(st.runtime.config_encoder, 0)
+            else
+                ConsumerConfigMsg.controlChannel!(st.runtime.config_encoder, control_channel)
+            end
+        end
+    end
+    return sent
+end
+
+function update_consumer_streams!(state::ProducerState, msg::ConsumerHello.Decoder)
+    consumer_id = ConsumerHello.consumerId(msg)
+    now_ns = UInt64(Clocks.time_nanos(state.clock))
+    descriptor_stream_id = ConsumerHello.descriptorStreamId(msg)
+    control_stream_id = ConsumerHello.controlStreamId(msg)
+    descriptor_null = ConsumerHello.descriptorStreamId_null_value(ConsumerHello.Decoder)
+    control_null = ConsumerHello.controlStreamId_null_value(ConsumerHello.Decoder)
+    descriptor_channel = String(ConsumerHello.descriptorChannel(msg))
+    control_channel = String(ConsumerHello.controlChannel(msg))
+    descriptor_requested =
+        !isempty(descriptor_channel) && descriptor_stream_id != 0 && descriptor_stream_id != descriptor_null
+    control_requested =
+        !isempty(control_channel) && control_stream_id != 0 && control_stream_id != control_null
+
+    if !descriptor_requested && !control_requested
+        return false
+    end
+
+    entry = get(state.consumer_streams, consumer_id, nothing)
+    if entry === nothing
+        entry = ProducerConsumerStream(
+            nothing,
+            nothing,
+            "",
+            "",
+            UInt32(0),
+            UInt32(0),
+            UInt16(0),
+            UInt64(0),
+            now_ns,
+        )
+        state.consumer_streams[consumer_id] = entry
+    end
+
+    entry.last_hello_ns = now_ns
+    entry.max_rate_hz = ConsumerHello.maxRateHz(msg)
+
+    changed = false
+    if descriptor_requested
+        if entry.descriptor_pub === nothing ||
+            entry.descriptor_stream_id != descriptor_stream_id ||
+            entry.descriptor_channel != descriptor_channel
+            entry.descriptor_pub === nothing || close(entry.descriptor_pub)
+            entry.descriptor_pub =
+                Aeron.add_publication(state.runtime.control.client, descriptor_channel, Int32(descriptor_stream_id))
+            entry.descriptor_stream_id = descriptor_stream_id
+            entry.descriptor_channel = descriptor_channel
+            entry.next_descriptor_ns = now_ns
+            changed = true
+        end
+    elseif entry.descriptor_pub !== nothing
+        close(entry.descriptor_pub)
+        entry.descriptor_pub = nothing
+        entry.descriptor_channel = ""
+        entry.descriptor_stream_id = UInt32(0)
+        changed = true
+    end
+
+    if control_requested
+        if entry.control_pub === nothing ||
+            entry.control_stream_id != control_stream_id ||
+            entry.control_channel != control_channel
+            entry.control_pub === nothing || close(entry.control_pub)
+            entry.control_pub =
+                Aeron.add_publication(state.runtime.control.client, control_channel, Int32(control_stream_id))
+            entry.control_stream_id = control_stream_id
+            entry.control_channel = control_channel
+            changed = true
+        end
+    elseif entry.control_pub !== nothing
+        close(entry.control_pub)
+        entry.control_pub = nothing
+        entry.control_channel = ""
+        entry.control_stream_id = UInt32(0)
+        changed = true
+    end
+
+    if changed
+        emit_consumer_config!(
+            state,
+            consumer_id;
+            use_shm = true,
+            mode = ConsumerHello.mode(msg),
+            decimation = UInt16(1),
+            payload_fallback_uri = "",
+            descriptor_channel = descriptor_requested ? descriptor_channel : "",
+            descriptor_stream_id = descriptor_requested ? descriptor_stream_id : UInt32(0),
+            control_channel = control_requested ? control_channel : "",
+            control_stream_id = control_requested ? control_stream_id : UInt32(0),
+        )
+    end
+    return changed
+end
+
+function publish_descriptor_to_consumers!(
+    state::ProducerState,
+    seq::UInt64,
+    header_index::UInt32,
+    meta_version::UInt32,
+    now_ns::UInt64,
+)
+    any_sent = false
+    for entry in values(state.consumer_streams)
+        pub = entry.descriptor_pub
+        pub === nothing && continue
+        if entry.max_rate_hz != 0 && now_ns < entry.next_descriptor_ns
+            continue
+        end
+        sent = let st = state,
+            seq = seq,
+            header_index = header_index,
+            meta_version = meta_version,
+            now_ns = now_ns,
+            pub = pub
+            try_claim_sbe!(pub, st.runtime.descriptor_claim, FRAME_DESCRIPTOR_LEN) do buf
+                FrameDescriptor.wrap_and_apply_header!(st.runtime.descriptor_encoder, buf, 0)
+                encode_frame_descriptor!(st.runtime.descriptor_encoder, st, seq, header_index, meta_version, now_ns)
+            end
+        end
+        if sent
+            any_sent = true
+        end
+        if sent && entry.max_rate_hz != 0
+            period_ns = UInt64(1_000_000_000) ÷ UInt64(entry.max_rate_hz)
+            entry.next_descriptor_ns = now_ns + period_ns
+        end
+    end
+    return any_sent
+end
+
+function publish_progress_to_consumers!(
+    state::ProducerState,
+    frame_id::UInt64,
+    header_index::UInt32,
+    bytes_filled::UInt64,
+)
+    for entry in values(state.consumer_streams)
+        pub = entry.control_pub
+        pub === nothing && continue
+        let st = state,
+            frame_id = frame_id,
+            header_index = header_index,
+            bytes_filled = bytes_filled,
+            pub = pub
+            try_claim_sbe!(pub, st.runtime.progress_claim, FRAME_PROGRESS_LEN) do buf
+                FrameProgress.wrap_and_apply_header!(st.runtime.progress_encoder, buf, 0)
+                FrameProgress.streamId!(st.runtime.progress_encoder, st.config.stream_id)
+                FrameProgress.epoch!(st.runtime.progress_encoder, st.epoch)
+                FrameProgress.frameId!(st.runtime.progress_encoder, frame_id)
+                FrameProgress.headerIndex!(st.runtime.progress_encoder, header_index)
+                FrameProgress.payloadBytesFilled!(st.runtime.progress_encoder, bytes_filled)
+                FrameProgress.state!(st.runtime.progress_encoder, FrameProgressState.COMPLETE)
+            end
+        end
+    end
+    return nothing
+end
+
 """
 Update progress settings based on a ConsumerHello message.
 """
@@ -843,5 +1114,6 @@ function handle_consumer_hello!(state::ProducerState, msg::ConsumerHello.Decoder
             )
         end
     end
+    update_consumer_streams!(state, msg)
     return nothing
 end

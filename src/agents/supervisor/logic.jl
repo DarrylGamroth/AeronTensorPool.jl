@@ -181,23 +181,28 @@ function emit_consumer_config!(
     mode::Mode.SbeEnum = Mode.STREAM,
     decimation::UInt16 = UInt16(1),
     payload_fallback_uri::String = "",
+    descriptor_channel::AbstractString = "",
+    descriptor_stream_id::UInt32 = UInt32(0),
+    control_channel::AbstractString = "",
+    control_stream_id::UInt32 = UInt32(0),
 )
-    payload_len = sizeof(payload_fallback_uri)
-    descriptor_len = 0
-    control_len = 0
     msg_len = MESSAGE_HEADER_LEN +
         Int(ConsumerConfigMsg.sbe_block_length(ConsumerConfigMsg.Decoder)) +
         Int(ConsumerConfigMsg.payloadFallbackUri_header_length) +
         Int(ConsumerConfigMsg.descriptorChannel_header_length) +
         Int(ConsumerConfigMsg.controlChannel_header_length) +
-        payload_len + descriptor_len + control_len
+        sizeof(payload_fallback_uri) + sizeof(descriptor_channel) + sizeof(control_channel)
 
     sent = let st = state,
         consumer_id = consumer_id,
         use_shm = use_shm,
         mode = mode,
         decimation = decimation,
-        payload_fallback_uri = payload_fallback_uri
+        payload_fallback_uri = payload_fallback_uri,
+        descriptor_channel = descriptor_channel,
+        descriptor_stream_id = descriptor_stream_id,
+        control_channel = control_channel,
+        control_stream_id = control_stream_id
         try_claim_sbe!(st.runtime.control.pub_control, st.runtime.config_claim, msg_len) do buf
             ConsumerConfigMsg.wrap_and_apply_header!(st.runtime.config_encoder, buf, 0)
             ConsumerConfigMsg.streamId!(st.runtime.config_encoder, st.config.stream_id)
@@ -210,15 +215,27 @@ function emit_consumer_config!(
             ConsumerConfigMsg.decimation!(st.runtime.config_encoder, decimation)
             ConsumerConfigMsg.descriptorStreamId!(
                 st.runtime.config_encoder,
+                descriptor_stream_id != 0 ?
+                descriptor_stream_id :
                 ConsumerConfigMsg.descriptorStreamId_null_value(ConsumerConfigMsg.Encoder),
             )
             ConsumerConfigMsg.controlStreamId!(
                 st.runtime.config_encoder,
+                control_stream_id != 0 ?
+                control_stream_id :
                 ConsumerConfigMsg.controlStreamId_null_value(ConsumerConfigMsg.Encoder),
             )
             ConsumerConfigMsg.payloadFallbackUri!(st.runtime.config_encoder, payload_fallback_uri)
-            ConsumerConfigMsg.descriptorChannel_length!(st.runtime.config_encoder, 0)
-            ConsumerConfigMsg.controlChannel_length!(st.runtime.config_encoder, 0)
+            if isempty(descriptor_channel)
+                ConsumerConfigMsg.descriptorChannel_length!(st.runtime.config_encoder, 0)
+            else
+                ConsumerConfigMsg.descriptorChannel!(st.runtime.config_encoder, descriptor_channel)
+            end
+            if isempty(control_channel)
+                ConsumerConfigMsg.controlChannel_length!(st.runtime.config_encoder, 0)
+            else
+                ConsumerConfigMsg.controlChannel!(st.runtime.config_encoder, control_channel)
+            end
         end
     end
 

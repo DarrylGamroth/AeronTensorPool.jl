@@ -42,6 +42,10 @@ function Agent.on_close(agent::ProducerAgent)
         close(agent.state.runtime.pub_qos)
         close(agent.state.runtime.pub_metadata)
         close(agent.state.runtime.control.sub_control)
+        for entry in values(agent.state.consumer_streams)
+            entry.descriptor_pub === nothing || close(entry.descriptor_pub)
+            entry.control_pub === nothing || close(entry.control_pub)
+        end
     catch
     end
     return nothing

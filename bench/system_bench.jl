@@ -104,6 +104,10 @@ function apply_canonical_layout(config::ConsumerSettings, base_dir::String)
         config.progress_rows_delta,
         config.hello_interval_ns,
         config.qos_interval_ns,
+        config.requested_descriptor_channel,
+        config.requested_descriptor_stream_id,
+        config.requested_control_channel,
+        config.requested_control_stream_id,
     )
 end
 

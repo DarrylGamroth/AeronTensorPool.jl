@@ -9,6 +9,7 @@ mutable struct ConsumerRuntime
     pub_qos::Aeron.Publication
     sub_descriptor::Aeron.Subscription
     sub_qos::Aeron.Subscription
+    sub_progress::Union{Aeron.Subscription, Nothing}
     hello_buf::Vector{UInt8}
     qos_buf::Vector{UInt8}
     hello_encoder::ConsumerHello.Encoder{UnsafeArrays.UnsafeArray{UInt8, 1}}
@@ -18,6 +19,7 @@ mutable struct ConsumerRuntime
     desc_decoder::FrameDescriptor.Decoder{UnsafeArrays.UnsafeArray{UInt8, 1}}
     announce_decoder::ShmPoolAnnounce.Decoder{UnsafeArrays.UnsafeArray{UInt8, 1}}
     config_decoder::ConsumerConfigMsg.Decoder{UnsafeArrays.UnsafeArray{UInt8, 1}}
+    progress_decoder::FrameProgress.Decoder{UnsafeArrays.UnsafeArray{UInt8, 1}}
     header_decoder::TensorSlotHeader256.Decoder{Vector{UInt8}}
     scratch_dims::Vector{Int64}
     scratch_strides::Vector{Int64}
@@ -69,4 +71,9 @@ mutable struct ConsumerState{ClockT<:Clocks.AbstractClock}
     driver_active::Bool
     pending_attach_id::Int64
     timer_set::TimerSet{Tuple{PolledTimer, PolledTimer}, Tuple{ConsumerHelloHandler, ConsumerQosHandler}}
+    assigned_descriptor_channel::String
+    assigned_descriptor_stream_id::UInt32
+    assigned_control_channel::String
+    assigned_control_stream_id::UInt32
+    progress_assembler::Aeron.FragmentAssembler
 end

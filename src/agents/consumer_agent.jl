@@ -51,6 +51,7 @@ function Agent.on_close(agent::ConsumerAgent)
         close(agent.state.runtime.sub_descriptor)
         close(agent.state.runtime.control.sub_control)
         close(agent.state.runtime.sub_qos)
+        agent.state.runtime.sub_progress === nothing || close(agent.state.runtime.sub_progress)
     catch
     end
     return nothing

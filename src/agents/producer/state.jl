@@ -19,9 +19,11 @@ mutable struct ProducerRuntime
     progress_encoder::FrameProgress.Encoder{UnsafeArrays.UnsafeArray{UInt8, 1}}
     announce_encoder::ShmPoolAnnounce.Encoder{UnsafeArrays.UnsafeArray{UInt8, 1}}
     qos_encoder::QosProducer.Encoder{UnsafeArrays.UnsafeArray{UInt8, 1}}
+    config_encoder::ConsumerConfigMsg.Encoder{UnsafeArrays.UnsafeArray{UInt8, 1}}
     descriptor_claim::Aeron.BufferClaim
     progress_claim::Aeron.BufferClaim
     qos_claim::Aeron.BufferClaim
+    config_claim::Aeron.BufferClaim
     hello_decoder::ConsumerHello.Decoder{UnsafeArrays.UnsafeArray{UInt8, 1}}
 end
 
@@ -44,6 +46,21 @@ mutable struct ProducerMetrics
 end
 
 """
+Per-consumer descriptor/control stream assignments.
+"""
+mutable struct ProducerConsumerStream
+    descriptor_pub::Union{Aeron.Publication, Nothing}
+    control_pub::Union{Aeron.Publication, Nothing}
+    descriptor_channel::String
+    control_channel::String
+    descriptor_stream_id::UInt32
+    control_stream_id::UInt32
+    max_rate_hz::UInt16
+    next_descriptor_ns::UInt64
+    last_hello_ns::UInt64
+end
+
+"""
 Mutable producer runtime state including Aeron resources and SHM mappings.
 """
 mutable struct ProducerState{ClockT<:Clocks.AbstractClock}
@@ -62,4 +79,5 @@ mutable struct ProducerState{ClockT<:Clocks.AbstractClock}
     driver_client::Union{DriverClientState, Nothing}
     pending_attach_id::Int64
     timer_set::TimerSet{Tuple{PolledTimer, PolledTimer}, Tuple{ProducerAnnounceHandler, ProducerQosHandler}}
+    consumer_streams::Dict{UInt32, ProducerConsumerStream}
 end

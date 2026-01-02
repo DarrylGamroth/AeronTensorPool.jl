@@ -101,22 +101,29 @@ Status
 
 Goals
 - Implement ConsumerHello, ConsumerConfig, QosProducer, QosConsumer.
-- Apply progress throttling rules.
+- Heartbeat remains optional in spec and is not planned for initial implementation.
+- Apply progress throttling rules and per-consumer stream requests.
 
 Deliverables
 - ConsumerHello publishing with progress hint aggregation.
+- ConsumerHello request fields for per-consumer descriptor/control streams.
 - QosProducer/QosConsumer periodic publish.
 - ConsumerConfig handling (mode and fallback URI).
+- ConsumerConfig assigned per-consumer descriptor/control streams (or explicit decline).
+- Per-consumer descriptor stream publishing and optional max_rate_hz gating when assigned.
+- Optional Heartbeat on shared control stream is deferred.
 
 Validation
 - Progress emission gated by supports_progress.
 - QoS counters track drops_gap and drops_late.
+- Per-consumer streams honored only when requested; otherwise shared streams used.
+- Heartbeat coverage deferred.
 
 Spec refs
-- Wire: 10.1, 10.4, 15.14, 15.18
+- Wire: 10.1, 10.4, 15.14, 15.16, 15.18
 
 Status
-- Complete (ConsumerHello, ConsumerConfig, QosProducer/QosConsumer, progress floors).
+- Complete (ConsumerHello/ConsumerConfig/QoS done; per-consumer descriptor/control streams implemented; Heartbeat deferred).
 
 ## Phase 5 - Supervisor Agent
 
@@ -215,6 +222,8 @@ Deliverables
 - Integration tests for producer/consumer/supervisor flow.
 - Driver protocol integration tests with lease expiry.
 - Allocation tests for hot paths.
+- Per-consumer stream assignment tests (descriptor + progress).
+- Heartbeat emission tests deferred.
 
 Validation
 - End-to-end test with embedded media driver.
@@ -225,7 +234,7 @@ Spec refs
 - Driver: 4.7, 4.7a
 
 Status
-- Complete (driver protocol lease-expiry test added; system smoke test available via TP_RUN_SYSTEM_SMOKE).
+- Complete (core compliance done; per-consumer stream coverage added; Heartbeat deferred).
 
 ## Phase 10 - Documentation and Examples
 

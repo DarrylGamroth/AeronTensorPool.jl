@@ -10,6 +10,7 @@ function init_consumer(config::ConsumerSettings; client::Aeron.Client)
     sub_descriptor = Aeron.add_subscription(client, config.aeron_uri, config.descriptor_stream_id)
     sub_control = Aeron.add_subscription(client, config.aeron_uri, config.control_stream_id)
     sub_qos = Aeron.add_subscription(client, config.aeron_uri, config.qos_stream_id)
+    sub_progress = nothing
 
     timer_set = TimerSet(
         (PolledTimer(config.hello_interval_ns), PolledTimer(config.qos_interval_ns)),
@@ -22,6 +23,7 @@ function init_consumer(config::ConsumerSettings; client::Aeron.Client)
         pub_qos,
         sub_descriptor,
         sub_qos,
+        sub_progress,
         Vector{UInt8}(undef, CONTROL_BUF_BYTES),
         Vector{UInt8}(undef, CONTROL_BUF_BYTES),
         ConsumerHello.Encoder(UnsafeArrays.UnsafeArray{UInt8, 1}),
@@ -31,6 +33,7 @@ function init_consumer(config::ConsumerSettings; client::Aeron.Client)
         FrameDescriptor.Decoder(UnsafeArrays.UnsafeArray{UInt8, 1}),
         ShmPoolAnnounce.Decoder(UnsafeArrays.UnsafeArray{UInt8, 1}),
         ConsumerConfigMsg.Decoder(UnsafeArrays.UnsafeArray{UInt8, 1}),
+        FrameProgress.Decoder(UnsafeArrays.UnsafeArray{UInt8, 1}),
         TensorSlotHeader256.Decoder(Vector{UInt8}),
         Vector{Int64}(undef, MAX_DIMS),
         Vector{Int64}(undef, MAX_DIMS),
@@ -78,7 +81,28 @@ function init_consumer(config::ConsumerSettings; client::Aeron.Client)
         UInt64(0),
         UInt64(0),
     )
-    return ConsumerState(config, clock, runtime, mappings, metrics, nothing, true, Int64(0), timer_set)
+    dummy_handler = Aeron.FragmentHandler(nothing) do _, _, _
+        nothing
+    end
+    dummy_assembler = Aeron.FragmentAssembler(dummy_handler)
+    state = ConsumerState(
+        config,
+        clock,
+        runtime,
+        mappings,
+        metrics,
+        nothing,
+        true,
+        Int64(0),
+        timer_set,
+        "",
+        UInt32(0),
+        "",
+        UInt32(0),
+        dummy_assembler,
+    )
+    state.progress_assembler = make_progress_assembler(state)
+    return state
 end
 
 """
@@ -566,6 +590,63 @@ function apply_consumer_config!(state::ConsumerState, msg::ConsumerConfigMsg.Dec
     state.config.decimation = ConsumerConfigMsg.decimation(msg)
     state.config.payload_fallback_uri = String(ConsumerConfigMsg.payloadFallbackUri(msg))
 
+    descriptor_channel = String(ConsumerConfigMsg.descriptorChannel(msg))
+    descriptor_stream_id = ConsumerConfigMsg.descriptorStreamId(msg)
+    descriptor_null = ConsumerConfigMsg.descriptorStreamId_null_value(ConsumerConfigMsg.Decoder)
+    descriptor_assigned =
+        !isempty(descriptor_channel) && descriptor_stream_id != 0 && descriptor_stream_id != descriptor_null
+
+    if descriptor_assigned
+        if state.assigned_descriptor_stream_id != descriptor_stream_id ||
+            state.assigned_descriptor_channel != descriptor_channel
+            new_sub = Aeron.add_subscription(
+                state.runtime.control.client,
+                descriptor_channel,
+                Int32(descriptor_stream_id),
+            )
+            close(state.runtime.sub_descriptor)
+            state.runtime.sub_descriptor = new_sub
+            state.assigned_descriptor_channel = descriptor_channel
+            state.assigned_descriptor_stream_id = descriptor_stream_id
+        end
+    elseif state.assigned_descriptor_stream_id != 0
+        new_sub = Aeron.add_subscription(
+            state.runtime.control.client,
+            state.config.aeron_uri,
+            state.config.descriptor_stream_id,
+        )
+        close(state.runtime.sub_descriptor)
+        state.runtime.sub_descriptor = new_sub
+        state.assigned_descriptor_channel = ""
+        state.assigned_descriptor_stream_id = UInt32(0)
+    end
+
+    control_channel = String(ConsumerConfigMsg.controlChannel(msg))
+    control_stream_id = ConsumerConfigMsg.controlStreamId(msg)
+    control_null = ConsumerConfigMsg.controlStreamId_null_value(ConsumerConfigMsg.Decoder)
+    control_assigned =
+        !isempty(control_channel) && control_stream_id != 0 && control_stream_id != control_null
+
+    if control_assigned
+        if state.assigned_control_stream_id != control_stream_id ||
+            state.assigned_control_channel != control_channel
+            new_sub = Aeron.add_subscription(
+                state.runtime.control.client,
+                control_channel,
+                Int32(control_stream_id),
+            )
+            state.runtime.sub_progress === nothing || close(state.runtime.sub_progress)
+            state.runtime.sub_progress = new_sub
+            state.assigned_control_channel = control_channel
+            state.assigned_control_stream_id = control_stream_id
+        end
+    elseif state.runtime.sub_progress !== nothing
+        close(state.runtime.sub_progress)
+        state.runtime.sub_progress = nothing
+        state.assigned_control_channel = ""
+        state.assigned_control_stream_id = UInt32(0)
+    end
+
     if !state.config.use_shm
         reset_mappings!(state)
     end
@@ -584,11 +665,34 @@ function emit_consumer_hello!(state::ConsumerState)
         progress_bytes = typemax(UInt32)
         progress_rows = typemax(UInt32)
     end
+
+    requested_descriptor_channel = state.config.requested_descriptor_channel
+    requested_descriptor_stream_id = state.config.requested_descriptor_stream_id
+    requested_control_channel = state.config.requested_control_channel
+    requested_control_stream_id = state.config.requested_control_stream_id
+
+    descriptor_requested =
+        !isempty(requested_descriptor_channel) && requested_descriptor_stream_id != 0
+    control_requested = !isempty(requested_control_channel) && requested_control_stream_id != 0
+
+    msg_len = MESSAGE_HEADER_LEN +
+        Int(ConsumerHello.sbe_block_length(ConsumerHello.Decoder)) +
+        Int(ConsumerHello.descriptorChannel_header_length) +
+        (descriptor_requested ? sizeof(requested_descriptor_channel) : 0) +
+        Int(ConsumerHello.controlChannel_header_length) +
+        (control_requested ? sizeof(requested_control_channel) : 0)
+
     sent = let st = state,
         interval = progress_interval,
         bytes = progress_bytes,
-        rows = progress_rows
-        try_claim_sbe!(st.runtime.control.pub_control, st.runtime.hello_claim, CONSUMER_HELLO_LEN) do buf
+        rows = progress_rows,
+        descriptor_requested = descriptor_requested,
+        control_requested = control_requested,
+        requested_descriptor_channel = requested_descriptor_channel,
+        requested_descriptor_stream_id = requested_descriptor_stream_id,
+        requested_control_channel = requested_control_channel,
+        requested_control_stream_id = requested_control_stream_id
+        try_claim_sbe!(st.runtime.control.pub_control, st.runtime.hello_claim, msg_len) do buf
             ConsumerHello.wrap_and_apply_header!(st.runtime.hello_encoder, buf, 0)
             ConsumerHello.streamId!(st.runtime.hello_encoder, st.config.stream_id)
             ConsumerHello.consumerId!(st.runtime.hello_encoder, st.config.consumer_id)
@@ -608,14 +712,25 @@ function emit_consumer_hello!(state::ConsumerState)
             ConsumerHello.progressRowsDelta!(st.runtime.hello_encoder, rows)
             ConsumerHello.descriptorStreamId!(
                 st.runtime.hello_encoder,
+                descriptor_requested ?
+                requested_descriptor_stream_id :
                 ConsumerHello.descriptorStreamId_null_value(ConsumerHello.Encoder),
             )
             ConsumerHello.controlStreamId!(
                 st.runtime.hello_encoder,
+                control_requested ? requested_control_stream_id :
                 ConsumerHello.controlStreamId_null_value(ConsumerHello.Encoder),
             )
-            ConsumerHello.descriptorChannel_length!(st.runtime.hello_encoder, 0)
-            ConsumerHello.controlChannel_length!(st.runtime.hello_encoder, 0)
+            if descriptor_requested
+                ConsumerHello.descriptorChannel!(st.runtime.hello_encoder, requested_descriptor_channel)
+            else
+                ConsumerHello.descriptorChannel_length!(st.runtime.hello_encoder, 0)
+            end
+            if control_requested
+                ConsumerHello.controlChannel!(st.runtime.hello_encoder, requested_control_channel)
+            else
+                ConsumerHello.controlChannel_length!(st.runtime.hello_encoder, 0)
+            end
         end
     end
     sent || return false

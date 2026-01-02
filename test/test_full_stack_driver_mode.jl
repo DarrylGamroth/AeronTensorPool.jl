@@ -134,6 +134,10 @@ end
                 UInt32(0),
                 UInt64(10_000_000),
                 UInt64(10_000_000),
+                "",
+                UInt32(0),
+                "",
+                UInt32(0),
             )
             supervisor_cfg = SupervisorConfig(
                 Aeron.MediaDriver.aeron_dir(media_driver),

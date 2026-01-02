@@ -32,6 +32,7 @@ include("test_driver_shutdown.jl")
 include("test_driver_integration.jl")
 include("test_driver_reattach.jl")
 include("test_driver_lease_expiry.jl")
+include("test_per_consumer_streams.jl")
 include("test_bridge_integration.jl")
 include("test_full_stack_driver_mode.jl")
 if get(ENV, "TP_RUN_SYSTEM_SMOKE", "false") == "true"
