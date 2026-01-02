@@ -356,7 +356,7 @@ One per produced tensor/frame.
 **Fields**
 - `stream_id : u32`
 - `epoch : u64`
-- `seq : u64` (monotonic; may equal `frame_id`)
+- `seq : u64` (monotonic; MUST equal `frame_id` in v1.1)
 - `header_index : u32` (`seq & (header_nslots - 1)`)
 
 Optional fields (may reduce SHM reads for filtering):
@@ -575,7 +575,7 @@ End of specification.
 - Do not implement NUMA policy in-protocol; placement is an ops/deployment concern. Co-locate producers and their SHM pools; prefer consumers on the same node when low latency matters.
 
 ### 15.8 Enum and Type Registry
-- Define and version registries for `dtype`, `major_order`, and set `MAX_DIMS` (recommend 8 or 16). Unknown enum values MUST cause rejection of the frame (or fallback) rather than silent misinterpretation.
+- Define and version registries for `dtype`, `major_order`, and set `MAX_DIMS` (v1.1 fixed at 8). Changing `MAX_DIMS` requires a new `layout_version` and schema rebuild. Unknown enum values MUST cause rejection of the frame (or fallback) rather than silent misinterpretation.
 - Document evolution: add new enum values with bumped `layout_version`; keep wire encoding stable; avoid reuse of retired values.
 - Normative numeric values (v1.1): `Dtype.UNKNOWN=0, UINT8=1, INT8=2, UINT16=3, INT16=4, UINT32=5, INT32=6, UINT64=7, INT64=8, FLOAT32=9, FLOAT64=10, BOOLEAN=11, BYTES=13, BIT=14`; `MajorOrder.UNKNOWN=0, ROW=1, COLUMN=2`. These values MUST NOT change within v1.x.
 
@@ -871,7 +871,6 @@ during startup or supervision.
 Reference schema patterned after Aeron archive control style; adjust IDs and fields as needed. Keep `schemaId` and `version` aligned with `layout_version`/doc version.
 
 ```xml
-<?xml version="1.0" encoding="UTF-8"?>
 <sbe:messageSchema xmlns:sbe="http://fixprotocol.io/2016/sbe"
                    package="shm.tensorpool.control"
                    id="900"
@@ -903,11 +902,11 @@ Reference schema patterned after Aeron archive control style; adjust IDs and fie
     </composite>
 
     <!-- Constant used for array sizing in generated code -->
-    <type name="MAX_DIMS" primitiveType="uint8" presence="constant">8</type>
+    <type name="MaxDimsConst" primitiveType="uint8" presence="constant">8</type>
 
-    <!-- Fixed-length arrays for TensorSlotHeader256 (set length to MAX_DIMS) -->
-    <type name="DimsArray"     primitiveType="int32" length="MAX_DIMS"/>
-    <type name="StridesArray"  primitiveType="int32" length="MAX_DIMS"/>
+    <!-- Fixed-length arrays for TensorSlotHeader256 (length matches MaxDimsConst) -->
+    <type name="DimsArray"     primitiveType="int32" length="8"/>
+    <type name="StridesArray"  primitiveType="int32" length="8"/>
     <type name="Pad144"        primitiveType="uint8" length="144"/>
 
     <enum name="Bool" encodingType="uint8">
@@ -1081,6 +1080,7 @@ Reference schema patterned after Aeron archive control style; adjust IDs and fie
     <field name="dtype"          id="9" type="Dtype"/>
     <field name="majorOrder"     id="10" type="MajorOrder"/>
     <field name="ndims"          id="11" type="uint8"/>
+    <field name="maxDims"        id="16" type="MaxDimsConst"/>
     <field name="padAlign"       id="12" type="uint8"/>
     <field name="dims"           id="13" type="DimsArray"/>
     <field name="strides"        id="14" type="StridesArray"/>
