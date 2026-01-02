@@ -1,11 +1,5 @@
 @hsmdef mutable struct StreamLifecycle end
 
-struct StreamLifecycleContext{StreamsT}
-    streams::StreamsT
-    stream_id::UInt32
-    metrics::DriverMetrics
-end
-
 @statedef StreamLifecycle :Live
 @statedef StreamLifecycle :Init :Live
 @statedef StreamLifecycle :Active :Live
@@ -56,11 +50,6 @@ end
     return Hsm.transition!(sm, :Closed)
 end
 
-@on_event function(sm::StreamLifecycle, ::Live, ::StreamIdle, ctx::StreamLifecycleContext)
-    delete!(ctx.streams, ctx.stream_id)
-    return Hsm.transition!(sm, :Closed)
-end
-
 @on_event function(sm::StreamLifecycle, ::Live, ::Close, _)
     return Hsm.transition!(sm, :Closed)
 end
@@ -71,10 +60,5 @@ end
 
 @on_event function(sm::StreamLifecycle, ::Root, event::Any, arg::DriverMetrics)
     arg.stream_hsm_unhandled += 1
-    return Hsm.EventHandled
-end
-
-@on_event function(sm::StreamLifecycle, ::Root, event::Any, ctx::StreamLifecycleContext)
-    ctx.metrics.stream_hsm_unhandled += 1
     return Hsm.EventHandled
 end

@@ -412,8 +412,8 @@ function revoke_lease!(state::DriverState, lease_id::UInt64, reason::DriverLease
        stream_state.producer_lease_id == 0 &&
        isempty(stream_state.consumer_lease_ids) &&
        state.config.policies.allow_dynamic_streams
-        ctx = StreamLifecycleContext(state.streams, stream_state.stream_id, state.metrics)
-        Hsm.dispatch!(stream_state.lifecycle, :StreamIdle, ctx)
+        Hsm.dispatch!(stream_state.lifecycle, :StreamIdle, state.metrics)
+        delete!(state.streams, stream_state.stream_id)
     end
     return true
 end
