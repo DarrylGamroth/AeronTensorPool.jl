@@ -108,6 +108,10 @@ Per `stream_id` (data source), define these logical streams (how you map to Aero
 
 A simple deployment can multiplex these message types on one Aeron channel/stream ID, but separating them improves observability.
 
+Per-consumer descriptor streams (optional): producers MAY publish `FrameDescriptor` on per-consumer channels/stream IDs when requested. If used, the producer MUST return the assigned descriptor channel/stream in `ConsumerConfig`, and the consumer MUST subscribe to that stream instead of the shared descriptor stream. Producers MUST stop publishing and close per-consumer descriptor publications when the consumer disconnects or times out.
+When per-consumer descriptor streams are used, producers MAY apply `ConsumerHello.max_rate_hz` as a per-consumer descriptor rate cap; if `max_rate_hz` is 0, descriptors are unthrottled. `max_rate_hz` MUST be ignored when only the shared descriptor stream is used.
+Per-consumer control streams (optional): producers MAY publish `FrameProgress` on per-consumer control channels/stream IDs when requested. If used, the producer MUST return the assigned control channel/stream in `ConsumerConfig`, and the consumer MUST subscribe to that control stream for `FrameProgress`. Consumers MUST continue to subscribe to the shared control stream for all other control-plane messages. Producers MUST NOT publish other control-plane messages on per-consumer control streams.
+
 ---
 
 ## 6. SHM Region Structure
@@ -176,7 +180,7 @@ slot_offset(i) =
 
 This header represents “almost fixed-size TensorMessage metadata” with the large `values` buffer stored out-of-line in a payload pool.
 
-SBE definition: `TensorSlotHeader256` message in the schema appendix (using `MAX_DIMS=8`; adjust `length` if you pick a different `MAX_DIMS`).
+SBE definition: `TensorSlotHeader256` message in the schema appendix (using `MAX_DIMS=8`; adjust `length` if you pick a different `MAX_DIMS`). The schema includes a `maxDims` constant field for codegen alignment; it is not encoded on the wire and MUST be treated as a compile-time constant.
 
 **Fields** (in wire/layout order)
 - `commit_word : u64` (commit sentinel, written last)
@@ -264,6 +268,8 @@ All messages below are SBE encoded and transported over Aeron.
 - All primitive fields marked `presence="optional"` use explicit null sentinels in the schema: `uint32 nullValue = 0xFFFFFFFF`, `uint64 nullValue = 0xFFFFFFFFFFFFFFFF`.
 - Producers MUST encode “absent” optional primitives using the nullValue; consumers MUST interpret those null values as “not provided”.
 - Implementations MAY instead choose to always populate fields and omit `presence="optional"`; keep schema and prose aligned.
+- Variable-length `data` fields are optional by encoding an empty value (length = 0). Producers MUST use length 0 to indicate absence; consumers MUST treat length 0 as “not provided”.
+- SBE requires variable-length `data` fields to appear at the end of a message. Field IDs are assigned sequentially to fixed fields first, then sequentially to `data` fields.
 
 #### 10.1.1 ShmPoolAnnounce (producer → all)
 
@@ -304,11 +310,17 @@ Sent on startup and optionally periodically.
   - `progress_interval_us : u32` (minimum interval between `PROGRESS` messages; optional; if absent, producer defaults apply; **recommended default**: 250 µs)
   - `progress_bytes_delta : u32` (minimum byte delta to report; optional; if absent, producer defaults apply; **recommended default**: 65,536 bytes)
   - `progress_rows_delta : u32` (minimum row delta to report; optional; 0/absent if not row-major; **recommended default**: 0 when not row-major)
+- `descriptor_stream_id : u32` (optional; preferred stream ID, or 0 to let producer choose)
+- `control_stream_id : u32` (optional; preferred stream ID, or 0 to let producer choose)
+- `descriptor_channel : string` (optional; request per-consumer descriptor stream)
+- `control_channel : string` (optional; request per-consumer control stream)
 
 **Purpose**
 - Advertise consumer capabilities.
 - Enables management decisions (e.g., instruct remote consumers to use a bridge).
 - Provides optional per-consumer progress throttling hints; producer aggregates hints (e.g., smallest intervals/deltas within producer safety floors) and retains final authority.
+- Optionally request a per-consumer descriptor stream when `descriptor_channel` and `descriptor_stream_id` are both provided (non-empty channel, non-zero stream id).
+- Optionally request a per-consumer control stream when `control_channel` and `control_stream_id` are both provided (non-empty channel, non-zero stream id).
 - Consumer IDs: recommended to be assigned by supervisor/authority per stream; if self-assigned, use randomized IDs and treat collisions (detected via `QosConsumer`) as a reason to reconnect with a new ID.
 
 #### 10.1.3 ConsumerConfig (producer/supervisor → consumer) [optional]
@@ -319,12 +331,24 @@ Sent on startup and optionally periodically.
 - `use_shm : bool`
 - `mode : enum { STREAM, LATEST, DECIMATED }`
 - `decimation : u16` (valid when mode=DECIMATED; 1=none)
+- `descriptor_stream_id : u32` (optional; assigned per-consumer descriptor stream ID)
+- `control_stream_id : u32` (optional; assigned per-consumer control stream ID)
 - `payload_fallback_uri : string` (optional; e.g., bridge channel/stream info)
   - URI SHOULD follow Aeron channel syntax when bridged over Aeron (e.g., `aeron:udp?...`) or a documented scheme such as `bridge://<id>` when using a custom bridge; undefined schemes MUST be treated as unsupported.
+- `descriptor_channel : string` (optional; assigned per-consumer descriptor channel)
+- `control_channel : string` (optional; assigned per-consumer control channel)
 
 **Purpose**
 - Central authority can force GUI into LATEST or DECIMATED.
 - Can redirect non-local consumers to bridged payload.
+- Can assign per-consumer descriptor streams when requested.
+- Can assign per-consumer control streams when requested.
+
+**Per-consumer stream request rules**
+- Empty `descriptor_channel`/`control_channel` strings MUST be treated as “not requested/assigned”.
+- If only one of channel/stream_id is provided, the request MUST be treated as absent.
+- If a producer declines a per-consumer stream request, it MUST return empty channel and null/zero stream ID in `ConsumerConfig`, and the consumer MUST remain on the shared stream.
+- Per-consumer descriptor/control publications MUST be closed when the consumer is stale (no `QosConsumer` or `ConsumerHello` for 3–5× the configured hello/qos interval) or explicitly disconnected.
 
 ### 10.2 Data Availability
 
@@ -335,7 +359,7 @@ One per produced tensor/frame.
 **Fields**
 - `stream_id : u32`
 - `epoch : u64`
-- `seq : u64` (monotonic; may equal `frame_id`)
+- `seq : u64` (monotonic; MUST equal `frame_id` in v1.1)
 - `header_index : u32` (`seq & (header_nslots - 1)`)
 
 Optional fields (may reduce SHM reads for filtering):
@@ -554,7 +578,7 @@ End of specification.
 - Do not implement NUMA policy in-protocol; placement is an ops/deployment concern. Co-locate producers and their SHM pools; prefer consumers on the same node when low latency matters.
 
 ### 15.8 Enum and Type Registry
-- Define and version registries for `dtype`, `major_order`, and set `MAX_DIMS` (recommend 8 or 16). Unknown enum values MUST cause rejection of the frame (or fallback) rather than silent misinterpretation.
+- Define and version registries for `dtype`, `major_order`, and set `MAX_DIMS` (v1.1 fixed at 8). Changing `MAX_DIMS` requires a new `layout_version` and schema rebuild. Unknown enum values MUST cause rejection of the frame (or fallback) rather than silent misinterpretation.
 - Document evolution: add new enum values with bumped `layout_version`; keep wire encoding stable; avoid reuse of retired values.
 - Normative numeric values (v1.1): `Dtype.UNKNOWN=0, UINT8=1, INT8=2, UINT16=3, INT16=4, UINT32=5, INT32=6, UINT64=7, INT64=8, FLOAT32=9, FLOAT64=10, BOOLEAN=11, BYTES=13, BIT=14`; `MajorOrder.UNKNOWN=0, ROW=1, COLUMN=2`. These values MUST NOT change within v1.x.
 
@@ -882,11 +906,11 @@ Reference schema patterned after Aeron archive control style; adjust IDs and fie
     </composite>
 
     <!-- Constant used for array sizing in generated code -->
-    <type name="MAX_DIMS" primitiveType="uint8" presence="constant">8</type>
+    <type name="MaxDimsConst" primitiveType="uint8" presence="constant">8</type>
 
-    <!-- Fixed-length arrays for TensorSlotHeader256 (set length to MAX_DIMS) -->
-    <type name="DimsArray"     primitiveType="int32" length="MAX_DIMS"/>
-    <type name="StridesArray"  primitiveType="int32" length="MAX_DIMS"/>
+    <!-- Fixed-length arrays for TensorSlotHeader256 (length matches MaxDimsConst) -->
+    <type name="DimsArray"     primitiveType="int32" length="8"/>
+    <type name="StridesArray"  primitiveType="int32" length="8"/>
     <type name="Pad144"        primitiveType="uint8" length="144"/>
 
     <enum name="Bool" encodingType="uint8">
@@ -976,6 +1000,10 @@ Reference schema patterned after Aeron archive control style; adjust IDs and fie
     <field name="progressIntervalUs"    id="8" type="uint32" presence="optional" nullValue="4294967295"/>
     <field name="progressBytesDelta"    id="9" type="uint32" presence="optional" nullValue="4294967295"/>
     <field name="progressRowsDelta"     id="10" type="uint32" presence="optional" nullValue="4294967295"/>
+    <field name="descriptorStreamId"    id="11" type="uint32" presence="optional" nullValue="4294967295"/>
+    <field name="controlStreamId"       id="12" type="uint32" presence="optional" nullValue="4294967295"/>
+    <data  name="descriptorChannel"     id="13" type="varAsciiEncoding"/>
+    <data  name="controlChannel"        id="14" type="varAsciiEncoding"/>
   </sbe:message>
 
   <sbe:message name="ConsumerConfig" id="3">
@@ -984,7 +1012,11 @@ Reference schema patterned after Aeron archive control style; adjust IDs and fie
     <field name="useShm"             id="3" type="Bool"/>
     <field name="mode"               id="4" type="Mode"/>
     <field name="decimation"         id="5" type="uint16"/>
-    <data  name="payloadFallbackUri" id="6" type="varAsciiEncoding"/>
+    <field name="descriptorStreamId" id="6" type="uint32" presence="optional" nullValue="4294967295"/>
+    <field name="controlStreamId"    id="7" type="uint32" presence="optional" nullValue="4294967295"/>
+    <data  name="payloadFallbackUri" id="8" type="varAsciiEncoding"/>
+    <data  name="descriptorChannel"  id="9" type="varAsciiEncoding"/>
+    <data  name="controlChannel"     id="10" type="varAsciiEncoding"/>
   </sbe:message>
 
   <sbe:message name="FrameDescriptor" id="4">
@@ -1052,6 +1084,7 @@ Reference schema patterned after Aeron archive control style; adjust IDs and fie
     <field name="dtype"          id="9" type="Dtype"/>
     <field name="majorOrder"     id="10" type="MajorOrder"/>
     <field name="ndims"          id="11" type="uint8"/>
+    <field name="maxDims"        id="16" type="MaxDimsConst"/>
     <field name="padAlign"       id="12" type="uint8"/>
     <field name="dims"           id="13" type="DimsArray"/>
     <field name="strides"        id="14" type="StridesArray"/>
@@ -1063,8 +1096,8 @@ Reference schema patterned after Aeron archive control style; adjust IDs and fie
     <field name="producerId"  id="2" type="uint32"/>
     <field name="epoch"       id="3" type="epoch_t"/>
     <field name="metaVersion" id="4" type="version_t"/>
-    <data  name="name"        id="5" type="varAsciiEncoding" presence="optional"/>
-    <data  name="summary"     id="6" type="varAsciiEncoding" presence="optional"/>
+    <data  name="name"        id="5" type="varAsciiEncoding"/>
+    <data  name="summary"     id="6" type="varAsciiEncoding"/>
   </sbe:message>
 
   <sbe:message name="DataSourceMeta" id="8">
@@ -1088,7 +1121,7 @@ Reference schema patterned after Aeron archive control style; adjust IDs and fie
   <sbe:message name="ControlResponse" id="9">
     <field name="correlationId" id="1" type="int64"/>
     <field name="code"          id="2" type="ResponseCode"/>
-    <data  name="errorMessage"  id="3" type="varAsciiEncoding" presence="optional"/>
+    <data  name="errorMessage"  id="3" type="varAsciiEncoding"/>
   </sbe:message>
 
 </sbe:messageSchema>
