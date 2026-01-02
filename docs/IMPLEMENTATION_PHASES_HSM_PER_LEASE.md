@@ -85,4 +85,4 @@ Validation
 - Tests pass; no allocation regressions.
 
 Status
-- Pending.
+- Complete (unit tests added; no additional metrics required).
