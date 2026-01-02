@@ -190,7 +190,7 @@ Spec refs
 - Driver: 2-4 (lifecycle coordination; no wire changes).
 
 Status
-- Complete (lifecycle HSM scaffolding wired into driver loop; shutdown transitions wired).
+- Complete (lifecycle HSM scaffolding wired into driver loop; draining rejects attaches and timer-driven shutdown emits notice).
 
 ## Phase 7 - Driver Integration (Producer/Consumer)
 
