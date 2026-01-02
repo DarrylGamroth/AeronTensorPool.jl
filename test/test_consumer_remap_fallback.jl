@@ -1,5 +1,5 @@
 @testset "Consumer remap and fallback handling" begin
-    with_embedded_driver() do driver
+    with_driver_and_client() do driver, client
         mktempdir("/dev/shm") do dir
             nslots = UInt32(8)
             stride = UInt32(4096)
@@ -34,7 +34,7 @@
 
             sb_enc = ShmRegionSuperblock.Encoder(Vector{UInt8})
 
-            consumer_cfg = ConsumerConfig(
+            consumer_cfg = ConsumerSettings(
                 Aeron.MediaDriver.aeron_dir(driver),
                 "aeron:ipc",
                 Int32(12012),
@@ -61,11 +61,10 @@
                 UInt64(1_000_000_000),
                 UInt64(1_000_000_000),
             )
-            with_client(; driver = driver) do client
-                state = init_consumer(consumer_cfg; client = client)
-                fallback_state = nothing
-                maxdims_state = nothing
-                try
+            state = init_consumer(consumer_cfg; client = client)
+            fallback_state = nothing
+            maxdims_state = nothing
+            try
                     function build_announce(epoch::UInt64, header_region_uri::String, pool_region_uri::String)
                         buf = Vector{UInt8}(undef, 2048)
                         enc = AeronTensorPool.ShmPoolAnnounce.Encoder(Vector{UInt8})
@@ -175,7 +174,7 @@
 
                     bad_pool_uri = "shm:file?path=$(pool_path2)|require_hugepages=true"
 
-                    fallback_cfg = ConsumerConfig(
+                    fallback_cfg = ConsumerSettings(
                         Aeron.MediaDriver.aeron_dir(driver),
                         "aeron:ipc",
                         Int32(12022),
@@ -208,7 +207,7 @@
                     @test fallback_state.config.use_shm == false
                     @test fallback_state.mappings.header_mmap === nothing
 
-                    maxdims_cfg = ConsumerConfig(
+                    maxdims_cfg = ConsumerSettings(
                         Aeron.MediaDriver.aeron_dir(driver),
                         "aeron:ipc",
                         Int32(12032),
@@ -240,15 +239,14 @@
                     @test handle_shm_pool_announce!(maxdims_state, announce_dec_good)
                     @test maxdims_state.config.use_shm == false
                     @test maxdims_state.mappings.header_mmap === nothing
-                finally
-                    if maxdims_state !== nothing
-                        close_consumer_state!(maxdims_state)
-                    end
-                    if fallback_state !== nothing
-                        close_consumer_state!(fallback_state)
-                    end
-                    close_consumer_state!(state)
+            finally
+                if maxdims_state !== nothing
+                    close_consumer_state!(maxdims_state)
                 end
+                if fallback_state !== nothing
+                    close_consumer_state!(fallback_state)
+                end
+                close_consumer_state!(state)
             end
         end
     end

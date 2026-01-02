@@ -29,11 +29,9 @@ end
 Driver runtime resources (Aeron client, pubs/subs, codecs).
 """
 mutable struct DriverRuntime
-    client::Aeron.Client
-    pub_control::Aeron.Publication
+    control::ControlPlaneRuntime
     pub_announce::Aeron.Publication
     pub_qos::Aeron.Publication
-    sub_control::Aeron.Subscription
     control_buf::Vector{UInt8}
     announce_buf::Vector{UInt8}
     attach_decoder::ShmAttachRequest.Decoder{UnsafeArrays.UnsafeArray{UInt8, 1}}

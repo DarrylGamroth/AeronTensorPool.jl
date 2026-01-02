@@ -4,7 +4,7 @@
     DataSourceAnnounce = AeronTensorPool.DataSourceAnnounce
     DataSourceMeta = AeronTensorPool.DataSourceMeta
     template_frame_descriptor = AeronTensorPool.TEMPLATE_FRAME_DESCRIPTOR
-    with_embedded_driver() do driver
+    with_driver_and_client() do driver, client
         mktempdir("/dev/shm") do dir
             aeron_dir = Aeron.MediaDriver.aeron_dir(driver)
 
@@ -82,7 +82,7 @@
                 UInt64(65536),
             )
 
-            src_consumer = ConsumerConfig(
+            src_consumer = ConsumerSettings(
                 aeron_dir,
                 "aeron:ipc",
                 Int32(1100),
@@ -110,7 +110,7 @@
                 UInt64(1_000_000_000),
             )
 
-            dst_consumer = ConsumerConfig(
+            dst_consumer = ConsumerSettings(
                 aeron_dir,
                 "aeron:ipc",
                 Int32(2100),
@@ -138,11 +138,10 @@
                 UInt64(1_000_000_000),
             )
 
-            with_client(; driver = driver) do client
-                producer_src = init_producer(src_config; client = client)
-                producer_dst = init_producer(dst_config; client = client)
-                consumer_src = init_consumer(src_consumer; client = client)
-                consumer_dst = init_consumer(dst_consumer; client = client)
+            producer_src = init_producer(src_config; client = client)
+            producer_dst = init_producer(dst_config; client = client)
+            consumer_src = init_consumer(src_consumer; client = client)
+            consumer_dst = init_consumer(dst_consumer; client = client)
 
             mapping = BridgeMapping(UInt32(1), UInt32(2), "default", UInt32(2300), Int32(0), Int32(0))
             bridge_config = BridgeConfig(
@@ -220,8 +219,8 @@
                 emit_announce!(producer_src)
                 emit_announce!(producer_dst)
 
-                Aeron.poll(consumer_src.runtime.sub_control, src_control, fragment_limit)
-                Aeron.poll(consumer_dst.runtime.sub_control, dst_control, fragment_limit)
+                Aeron.poll(consumer_src.runtime.control.sub_control, src_control, fragment_limit)
+                Aeron.poll(consumer_dst.runtime.control.sub_control, dst_control, fragment_limit)
                 bridge_sender_do_work!(bridge_sender)
                 bridge_receiver_do_work!(bridge_receiver)
 
@@ -316,7 +315,6 @@
                     bridge_receiver.pub_qos_local === nothing || close(bridge_receiver.pub_qos_local)
                 catch
                 end
-            end
         end
     end
 end

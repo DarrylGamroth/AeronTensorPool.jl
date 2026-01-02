@@ -141,22 +141,3 @@ function poll_attach!(
     end
     return nothing
 end
-
-"""
-Poll until an attach response with the given correlation id is received.
-"""
-function await_attach!(
-    state::DriverClientState,
-    correlation_id::Int64;
-    timeout_ns::UInt64 = 5_000_000_000,
-)
-    now_ns = time_ns()
-    deadline = now_ns + timeout_ns
-    while now_ns < deadline
-        attach = poll_attach!(state, correlation_id, now_ns)
-        attach !== nothing && return attach
-        yield()
-        now_ns = time_ns()
-    end
-    return nothing
-end

@@ -1,34 +1,3 @@
-"""
-Mutable consumer configuration (can be updated by ConsumerConfig messages).
-"""
-mutable struct ConsumerConfig
-    aeron_dir::String
-    aeron_uri::String
-    descriptor_stream_id::Int32
-    control_stream_id::Int32
-    qos_stream_id::Int32
-    stream_id::UInt32
-    consumer_id::UInt32
-    expected_layout_version::UInt32
-    max_dims::UInt8
-    mode::Mode.SbeEnum
-    decimation::UInt16
-    max_outstanding_seq_gap::UInt32
-    use_shm::Bool
-    supports_shm::Bool
-    supports_progress::Bool
-    max_rate_hz::UInt16
-    payload_fallback_uri::String
-    shm_base_dir::String
-    allowed_base_dirs::Vector{String}
-    require_hugepages::Bool
-    progress_interval_us::UInt32
-    progress_bytes_delta::UInt32
-    progress_rows_delta::UInt32
-    hello_interval_ns::UInt64
-    qos_interval_ns::UInt64
-end
-
 struct ConsumerHelloHandler end
 struct ConsumerQosHandler end
 
@@ -36,11 +5,9 @@ struct ConsumerQosHandler end
 Mutable consumer runtime resources (Aeron publications/subscriptions and codecs).
 """
 mutable struct ConsumerRuntime
-    client::Aeron.Client
-    pub_control::Aeron.Publication
+    control::ControlPlaneRuntime
     pub_qos::Aeron.Publication
     sub_descriptor::Aeron.Subscription
-    sub_control::Aeron.Subscription
     sub_qos::Aeron.Subscription
     hello_buf::Vector{UInt8}
     qos_buf::Vector{UInt8}
@@ -93,7 +60,7 @@ end
 Mutable consumer runtime state including SHM mappings and QoS counters.
 """
 mutable struct ConsumerState{ClockT<:Clocks.AbstractClock}
-    config::ConsumerConfig
+    config::ConsumerSettings
     clock::ClockT
     runtime::ConsumerRuntime
     mappings::ConsumerMappings

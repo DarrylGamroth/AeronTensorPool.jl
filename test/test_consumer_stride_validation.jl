@@ -1,6 +1,6 @@
 @testset "Consumer stride validation" begin
-    with_embedded_driver() do driver
-        consumer_cfg = ConsumerConfig(
+    with_driver_and_client() do driver, client
+        consumer_cfg = ConsumerSettings(
             Aeron.MediaDriver.aeron_dir(driver),
             "aeron:ipc",
             Int32(12052),
@@ -27,9 +27,8 @@
             UInt64(1_000_000_000),
             UInt64(1_000_000_000),
         )
-        with_client(; driver = driver) do client
-            state = init_consumer(consumer_cfg; client = client)
-            try
+        state = init_consumer(consumer_cfg; client = client)
+        try
             dims = (Int32(2), Int32(2), Int32(0), Int32(0), Int32(0), Int32(0), Int32(0), Int32(0))
             ok_strides = (Int32(0), Int32(0), Int32(0), Int32(0), Int32(0), Int32(0), Int32(0), Int32(0))
             bad_strides = (Int32(4), Int32(2), Int32(0), Int32(0), Int32(0), Int32(0), Int32(0), Int32(0))
@@ -69,9 +68,8 @@
 
             @test AeronTensorPool.validate_strides!(state, header_ok, Int64(4))
             @test !AeronTensorPool.validate_strides!(state, header_bad, Int64(4))
-            finally
-                close_consumer_state!(state)
-            end
+        finally
+            close_consumer_state!(state)
         end
     end
 end

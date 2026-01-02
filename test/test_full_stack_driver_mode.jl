@@ -25,9 +25,8 @@ function wait_for_attach_full!(
 end
 
 @testset "Full stack driver mode" begin
-    with_embedded_driver() do media_driver
-        with_client(; driver = media_driver) do client
-            base_dir = mktempdir()
+    with_driver_and_client() do media_driver, client
+        base_dir = mktempdir()
 
             driver_control_stream = Int32(15010)
             pool_control_stream = Int32(15011)
@@ -109,7 +108,7 @@ end
                 UInt64(250_000),
                 UInt64(65536),
             )
-            consumer_cfg = ConsumerConfig(
+            consumer_cfg = ConsumerSettings(
                 Aeron.MediaDriver.aeron_dir(media_driver),
                 uri,
                 descriptor_stream,
@@ -196,10 +195,9 @@ end
             end
             @test ok
 
-            close_producer_state!(producer_state)
-            close_consumer_state!(consumer_state)
-            close_supervisor_state!(supervisor_state)
-            close_driver_state!(driver_state)
-        end
+        close_producer_state!(producer_state)
+        close_consumer_state!(consumer_state)
+        close_supervisor_state!(supervisor_state)
+        close_driver_state!(driver_state)
     end
 end

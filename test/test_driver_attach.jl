@@ -1,9 +1,8 @@
 using Test
 
 @testset "Driver attach/detach" begin
-    with_embedded_driver() do media_driver
-        with_client(; driver = media_driver) do client
-            base_dir = mktempdir()
+    with_driver_and_client() do media_driver, client
+        base_dir = mktempdir()
 
             endpoints = DriverEndpoints(
                 "driver-test",
@@ -147,9 +146,8 @@ using Test
             @test ok == true
             @test poller.last_detach.code == DriverResponseCode.OK
 
-            close_driver_state!(driver_state)
-            close(pub)
-            close(sub)
-        end
+        close_driver_state!(driver_state)
+        close(pub)
+        close(sub)
     end
 end

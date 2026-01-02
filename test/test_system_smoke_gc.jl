@@ -1,5 +1,5 @@
 @testset "System smoke GC monitoring" begin
-    with_embedded_driver() do driver
+    with_driver_and_client() do driver, client
         mktempdir("/dev/shm") do dir
             config_path = joinpath(dir, "config.toml")
             open(config_path, "w") do io
@@ -75,10 +75,9 @@ liveness_check_interval_ns = 1000000000
             env["AERON_DIR"] = Aeron.MediaDriver.aeron_dir(driver)
             system = load_system_config(config_path; env = env)
 
-            with_client(; driver = driver) do client
-                producer = init_producer(system.producer; client = client)
-                consumer = init_consumer(system.consumer; client = client)
-                supervisor = init_supervisor(system.supervisor; client = client)
+            producer = init_producer(system.producer; client = client)
+            consumer = init_consumer(system.consumer; client = client)
+            supervisor = init_supervisor(system.supervisor; client = client)
                 try
 
             prod_ctrl = make_control_assembler(producer)
@@ -119,11 +118,10 @@ liveness_check_interval_ns = 1000000000
                     @test allocd_delta <= limit
                     @test live_delta <= live_limit
                 finally
-                    close_producer_state!(producer)
-                    close_consumer_state!(consumer)
-                    close_supervisor_state!(supervisor)
-                end
-            end
+            close_producer_state!(producer)
+            close_consumer_state!(consumer)
+            close_supervisor_state!(supervisor)
         end
     end
+end
 end

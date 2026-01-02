@@ -1,5 +1,5 @@
 @testset "Supervisor integration handlers" begin
-    with_embedded_driver() do driver
+    with_driver_and_client() do driver, client
         control_stream = Int32(12101)
         qos_stream = Int32(12102)
         uri = "aeron:ipc"
@@ -14,16 +14,15 @@
             UInt64(2_000_000_000),
             UInt64(200_000_000),
         )
-        with_client(; driver = driver) do client
-            supervisor_state = init_supervisor(supervisor_cfg; client = client)
-            ctrl_asm = make_control_assembler(supervisor_state)
-            qos_asm = AeronTensorPool.make_qos_assembler(supervisor_state)
+        supervisor_state = init_supervisor(supervisor_cfg; client = client)
+        ctrl_asm = make_control_assembler(supervisor_state)
+        qos_asm = AeronTensorPool.make_qos_assembler(supervisor_state)
 
-            pub_control = Aeron.add_publication(client, uri, control_stream)
-            pub_qos = Aeron.add_publication(client, uri, qos_stream)
-            sub_cfg = nothing
+        pub_control = Aeron.add_publication(client, uri, control_stream)
+        pub_qos = Aeron.add_publication(client, uri, qos_stream)
+        sub_cfg = nothing
 
-            try
+        try
             announce_buf = Vector{UInt8}(undef, 1024)
             announce_enc = AeronTensorPool.ShmPoolAnnounce.Encoder(Vector{UInt8})
             AeronTensorPool.ShmPoolAnnounce.wrap_and_apply_header!(announce_enc, announce_buf, 0)
@@ -72,7 +71,11 @@
         Aeron.offer(pub_control, view(hello_buf, 1:sbe_message_length(hello_enc)))
 
         ok = wait_for() do
-            Aeron.poll(supervisor_state.runtime.sub_control, ctrl_asm, AeronTensorPool.DEFAULT_FRAGMENT_LIMIT) > 0
+            Aeron.poll(
+                supervisor_state.runtime.control.sub_control,
+                ctrl_asm,
+                AeronTensorPool.DEFAULT_FRAGMENT_LIMIT,
+            ) > 0
         end
         @test ok
         @test haskey(supervisor_state.tracking.producers, UInt32(11))
@@ -137,20 +140,19 @@
         end
         @test ok_cfg
         @test got_cfg[]
-            finally
-                if sub_cfg !== nothing
-                    try
-                        close(sub_cfg)
-                    catch
-                    end
-                end
+        finally
+            if sub_cfg !== nothing
                 try
-                    close(pub_control)
-                    close(pub_qos)
+                    close(sub_cfg)
                 catch
                 end
-                close_supervisor_state!(supervisor_state)
             end
+            try
+                close(pub_control)
+                close(pub_qos)
+            catch
+            end
+            close_supervisor_state!(supervisor_state)
         end
     end
 end

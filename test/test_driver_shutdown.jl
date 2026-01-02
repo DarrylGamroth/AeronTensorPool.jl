@@ -1,12 +1,11 @@
 using Test
 
 @testset "Driver shutdown notice" begin
-    with_embedded_driver() do media_driver
-        with_client(; driver = media_driver) do client
-            base_dir = mktempdir()
-            endpoints = DriverEndpoints(
-                "driver-test",
-                Aeron.MediaDriver.aeron_dir(media_driver),
+    with_driver_and_client() do media_driver, client
+        base_dir = mktempdir()
+        endpoints = DriverEndpoints(
+            "driver-test",
+            Aeron.MediaDriver.aeron_dir(media_driver),
                 "aeron:ipc",
                 1000,
                 "aeron:ipc",
@@ -50,8 +49,7 @@ using Test
             @test poller.last_shutdown.reason == DriverShutdownReason.ADMIN
             @test poller.last_shutdown.error_message == "maintenance"
 
-            close_driver_state!(driver_state)
-            close(sub)
-        end
+        close_driver_state!(driver_state)
+        close(sub)
     end
 end

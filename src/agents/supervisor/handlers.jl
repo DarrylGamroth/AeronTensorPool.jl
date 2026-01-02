@@ -49,7 +49,7 @@ end
     assembler::Aeron.FragmentAssembler,
     fragment_limit::Int32 = DEFAULT_FRAGMENT_LIMIT,
 )
-    return Aeron.poll(state.runtime.sub_control, assembler, fragment_limit)
+    return Aeron.poll(state.runtime.control.sub_control, assembler, fragment_limit)
 end
 
 @inline function poll_qos!(

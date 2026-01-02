@@ -10,25 +10,25 @@ end
 
 function close_producer!(producer)
     close(producer.runtime.pub_descriptor)
-    close(producer.runtime.pub_control)
+    close(producer.runtime.control.pub_control)
     close(producer.runtime.pub_qos)
     close(producer.runtime.pub_metadata)
-    close(producer.runtime.sub_control)
+    close(producer.runtime.control.sub_control)
     return nothing
 end
 
 function close_consumer!(consumer)
-    close(consumer.runtime.pub_control)
+    close(consumer.runtime.control.pub_control)
     close(consumer.runtime.pub_qos)
     close(consumer.runtime.sub_descriptor)
-    close(consumer.runtime.sub_control)
+    close(consumer.runtime.control.sub_control)
     close(consumer.runtime.sub_qos)
     return nothing
 end
 
 function close_supervisor!(supervisor)
-    close(supervisor.runtime.pub_control)
-    close(supervisor.runtime.sub_control)
+    close(supervisor.runtime.control.pub_control)
+    close(supervisor.runtime.control.sub_control)
     close(supervisor.runtime.sub_qos)
     return nothing
 end
@@ -77,8 +77,8 @@ function apply_canonical_layout(
     )
 end
 
-function apply_canonical_layout(config::ConsumerConfig, base_dir::String)
-    return ConsumerConfig(
+function apply_canonical_layout(config::ConsumerSettings, base_dir::String)
+    return ConsumerSettings(
         config.aeron_dir,
         config.aeron_uri,
         config.descriptor_stream_id,

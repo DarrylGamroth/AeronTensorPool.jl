@@ -15,6 +15,8 @@ include("gen/ShmTensorpoolBridge.jl")
 using .ShmTensorpoolBridge
 
 include("core/constants.jl")
+include("core/messages.jl")
+include("core/types.jl")
 include("core/errors.jl")
 include("shm/uri.jl")
 include("shm/linux.jl")
@@ -26,26 +28,16 @@ include("shm/superblock.jl")
 include("aeron/aeron_utils.jl")
 include("aeron/counters.jl")
 include("timers/polled_timer.jl")
-include("driver/config.jl")
-include("driver/state.jl")
-include("driver/handlers.jl")
-include("driver/logic.jl")
+include("agents/common/runtime.jl")
+include("driver/driver.jl")
 include("client/driver_proxies.jl")
 include("client/driver_poller.jl")
 include("client/driver_client.jl")
-include("agents/producer/state.jl")
-include("agents/producer/handlers.jl")
-include("agents/producer/logic.jl")
-include("agents/consumer/state.jl")
-include("agents/consumer/handlers.jl")
-include("agents/consumer/logic.jl")
-include("agents/supervisor/state.jl")
-include("agents/supervisor/handlers.jl")
-include("agents/supervisor/logic.jl")
-include("agents/bridge/state.jl")
-include("agents/bridge/logic.jl")
-include("agents/decimator/state.jl")
-include("agents/decimator/logic.jl")
+include("agents/producer/producer.jl")
+include("agents/consumer/consumer.jl")
+include("agents/supervisor/supervisor.jl")
+include("agents/bridge/bridge.jl")
+include("agents/decimator/decimator.jl")
 include("agents/producer_agent.jl")
 include("agents/consumer_agent.jl")
 include("agents/supervisor_agent.jl")
@@ -78,7 +70,7 @@ export Dtype,
     ProducerState,
     ProducerAgent,
     ProducerInfo,
-    ConsumerConfig,
+    ConsumerSettings,
     ConsumerConfigMsg,
     ConsumerState,
     ConsumerAgent,
@@ -248,7 +240,6 @@ export Dtype,
     DriverClientState,
     init_driver_client,
     send_attach_request!,
-    driver_client_do_work!,
-    await_attach!
+    driver_client_do_work!
 
 end

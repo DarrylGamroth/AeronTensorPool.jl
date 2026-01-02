@@ -16,7 +16,7 @@ function ProducerAgent(
 )
     state = init_producer(config; client = client)
     control_assembler = make_control_assembler(state)
-    counters = ProducerCounters(state.runtime.client, Int(config.producer_id), "Producer")
+    counters = ProducerCounters(state.runtime.control.client, Int(config.producer_id), "Producer")
     return ProducerAgent(state, control_assembler, counters)
 end
 
@@ -38,10 +38,10 @@ function Agent.on_close(agent::ProducerAgent)
     try
         close(agent.counters)
         close(agent.state.runtime.pub_descriptor)
-        close(agent.state.runtime.pub_control)
+        close(agent.state.runtime.control.pub_control)
         close(agent.state.runtime.pub_qos)
         close(agent.state.runtime.pub_metadata)
-        close(agent.state.runtime.sub_control)
+        close(agent.state.runtime.control.sub_control)
     catch
     end
     return nothing

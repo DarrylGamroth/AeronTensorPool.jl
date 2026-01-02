@@ -1,5 +1,5 @@
 @testset "Slot reservation" begin
-    with_embedded_driver() do driver
+    with_driver_and_client() do driver, client
         mktempdir("/dev/shm") do base_dir
             namespace = "tensorpool"
             producer_instance_id = "test-producer"
@@ -32,18 +32,16 @@
                 UInt64(65536),
             )
 
-            with_client(; driver = driver) do client
-                state = init_producer(cfg; client = client)
-                try
+            state = init_producer(cfg; client = client)
+            try
                 res = reserve_slot!(state, UInt16(1))
                 @test res.seq == UInt64(0)
                 @test res.header_index == UInt32(0)
                 @test res.payload_slot == UInt32(0)
                 @test res.stride_bytes == 64
                 @test state.seq == UInt64(1)
-                finally
-                    close_producer_state!(state)
-                end
+            finally
+                close_producer_state!(state)
             end
         end
     end

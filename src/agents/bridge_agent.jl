@@ -31,7 +31,7 @@ Construct a BridgeAgent from configs and mapping.
 function BridgeAgent(
     bridge_config::BridgeConfig,
     mapping::BridgeMapping,
-    consumer_config::ConsumerConfig,
+    consumer_config::ConsumerSettings,
     producer_config::ProducerConfig;
     client::Aeron.Client,
 )
@@ -63,7 +63,11 @@ function Agent.do_work(agent::BridgeAgent)
     Aeron.increment!(agent.counters.base.total_duty_cycles)
     work_count = 0
     consumer = agent.sender.consumer_state
-    work_count += Aeron.poll(consumer.runtime.sub_control, agent.control_assembler, DEFAULT_FRAGMENT_LIMIT)
+    work_count += Aeron.poll(
+        consumer.runtime.control.sub_control,
+        agent.control_assembler,
+        DEFAULT_FRAGMENT_LIMIT,
+    )
     work_count += Aeron.poll(consumer.runtime.sub_descriptor, agent.descriptor_assembler, DEFAULT_FRAGMENT_LIMIT)
     work_count += bridge_sender_do_work!(agent.sender)
     work_count += bridge_receiver_do_work!(agent.receiver)
@@ -95,18 +99,18 @@ function Agent.on_close(agent::BridgeAgent)
         agent.receiver.pub_metadata_local === nothing || close(agent.receiver.pub_metadata_local)
         agent.receiver.pub_control_local === nothing || close(agent.receiver.pub_control_local)
 
-        close(consumer.runtime.pub_control)
+        close(consumer.runtime.control.pub_control)
         close(consumer.runtime.pub_qos)
         close(consumer.runtime.sub_descriptor)
-        close(consumer.runtime.sub_control)
+        close(consumer.runtime.control.sub_control)
         close(consumer.runtime.sub_qos)
 
         if producer !== nothing
             close(producer.runtime.pub_descriptor)
-            close(producer.runtime.pub_control)
+            close(producer.runtime.control.pub_control)
             close(producer.runtime.pub_qos)
             close(producer.runtime.pub_metadata)
-            close(producer.runtime.sub_control)
+            close(producer.runtime.control.sub_control)
         end
     catch
     end

@@ -9,16 +9,16 @@ struct ConsumerAgent
 end
 
 """
-Construct a ConsumerAgent from a ConsumerConfig.
+Construct a ConsumerAgent from a ConsumerSettings.
 """
 function ConsumerAgent(
-    config::ConsumerConfig;
+    config::ConsumerSettings;
     client::Aeron.Client,
 )
     state = init_consumer(config; client = client)
     descriptor_assembler = make_descriptor_assembler(state)
     control_assembler = make_control_assembler(state)
-    counters = ConsumerCounters(state.runtime.client, Int(config.consumer_id), "Consumer")
+    counters = ConsumerCounters(state.runtime.control.client, Int(config.consumer_id), "Consumer")
     return ConsumerAgent(state, descriptor_assembler, control_assembler, counters)
 end
 
@@ -46,10 +46,10 @@ end
 function Agent.on_close(agent::ConsumerAgent)
     try
         close(agent.counters)
-        close(agent.state.runtime.pub_control)
+        close(agent.state.runtime.control.pub_control)
         close(agent.state.runtime.pub_qos)
         close(agent.state.runtime.sub_descriptor)
-        close(agent.state.runtime.sub_control)
+        close(agent.state.runtime.control.sub_control)
         close(agent.state.runtime.sub_qos)
     catch
     end

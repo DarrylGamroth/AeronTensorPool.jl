@@ -5,12 +5,10 @@ struct ProducerQosHandler end
 Mutable producer runtime resources (Aeron publications/subscriptions and codecs).
 """
 mutable struct ProducerRuntime
-    client::Aeron.Client
+    control::ControlPlaneRuntime
     pub_descriptor::Aeron.Publication
-    pub_control::Aeron.Publication
     pub_qos::Aeron.Publication
     pub_metadata::Aeron.Publication
-    sub_control::Aeron.Subscription
     descriptor_buf::Vector{UInt8}
     progress_buf::Vector{UInt8}
     announce_buf::Vector{UInt8}

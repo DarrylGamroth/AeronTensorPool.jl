@@ -12,12 +12,11 @@ function init_driver(config::DriverConfig; client::Aeron.Client)
     pub_qos = Aeron.add_publication(client, config.endpoints.qos_channel, config.endpoints.qos_stream_id)
     sub_control = Aeron.add_subscription(client, config.endpoints.control_channel, config.endpoints.control_stream_id)
 
+    control = ControlPlaneRuntime(client, pub_control, sub_control)
     runtime = DriverRuntime(
-        client,
-        pub_control,
+        control,
         pub_announce,
         pub_qos,
-        sub_control,
         Vector{UInt8}(undef, CONTROL_BUF_BYTES),
         Vector{UInt8}(undef, ANNOUNCE_BUF_BYTES),
         ShmAttachRequest.Decoder(UnsafeArrays.UnsafeArray{UInt8, 1}),
@@ -55,7 +54,7 @@ end
 Poll the driver control subscription.
 """
 function poll_driver_control!(state::DriverState, fragment_limit::Int32 = DEFAULT_FRAGMENT_LIMIT)
-    return Aeron.poll(state.runtime.sub_control, state.runtime.control_assembler, fragment_limit)
+    return Aeron.poll(state.runtime.control.sub_control, state.runtime.control_assembler, fragment_limit)
 end
 
 """
@@ -510,7 +509,7 @@ function emit_attach_response!(
         stream_state = stream_state,
         error_message = error_message,
         payload_count = payload_count
-        try_claim_sbe!(st.runtime.pub_control, st.runtime.control_claim, msg_len) do buf
+        try_claim_sbe!(st.runtime.control.pub_control, st.runtime.control_claim, msg_len) do buf
             ShmAttachResponse.wrap_and_apply_header!(st.runtime.attach_encoder, buf, 0)
             ShmAttachResponse.correlationId!(st.runtime.attach_encoder, correlation_id)
             ShmAttachResponse.code!(st.runtime.attach_encoder, code)
@@ -567,7 +566,7 @@ function emit_detach_response!(
         correlation_id = correlation_id,
         code = code,
         error_message = error_message
-        try_claim_sbe!(st.runtime.pub_control, st.runtime.control_claim, msg_len) do buf
+        try_claim_sbe!(st.runtime.control.pub_control, st.runtime.control_claim, msg_len) do buf
             ShmDetachResponse.wrap_and_apply_header!(st.runtime.detach_encoder, buf, 0)
             ShmDetachResponse.correlationId!(st.runtime.detach_encoder, correlation_id)
             ShmDetachResponse.code!(st.runtime.detach_encoder, code)
@@ -589,7 +588,7 @@ function emit_lease_revoked!(
         lease = lease,
         reason = reason,
         now_ns = now_ns
-        try_claim_sbe!(st.runtime.pub_control, st.runtime.control_claim, msg_len) do buf
+        try_claim_sbe!(st.runtime.control.pub_control, st.runtime.control_claim, msg_len) do buf
             ShmLeaseRevoked.wrap_and_apply_header!(st.runtime.revoke_encoder, buf, 0)
             ShmLeaseRevoked.timestampNs!(st.runtime.revoke_encoder, now_ns)
             ShmLeaseRevoked.leaseId!(st.runtime.revoke_encoder, lease.lease_id)
@@ -655,7 +654,7 @@ function emit_driver_shutdown!(
         now_ns = now_ns,
         reason = reason,
         error_message = error_message
-        try_claim_sbe!(st.runtime.pub_control, st.runtime.control_claim, msg_len) do buf
+        try_claim_sbe!(st.runtime.control.pub_control, st.runtime.control_claim, msg_len) do buf
             ShmDriverShutdown.wrap_and_apply_header!(st.runtime.shutdown_encoder, buf, 0)
             ShmDriverShutdown.timestampNs!(st.runtime.shutdown_encoder, now_ns)
             ShmDriverShutdown.reason!(st.runtime.shutdown_encoder, reason)

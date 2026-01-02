@@ -60,6 +60,14 @@ function with_embedded_driver(f::Function)
     end
 end
 
+function with_driver_and_client(f::Function)
+    with_embedded_driver() do driver
+        with_client(; driver = driver) do client
+            f(driver, client)
+        end
+    end
+end
+
 function with_client(f::Function; driver)
     Aeron.Context() do context
         Aeron.aeron_dir!(context, Aeron.MediaDriver.aeron_dir(driver))
@@ -71,10 +79,10 @@ end
 
 function close_consumer_state!(state::ConsumerState)
     try
-        close(state.runtime.pub_control)
+        close(state.runtime.control.pub_control)
         close(state.runtime.pub_qos)
         close(state.runtime.sub_descriptor)
-        close(state.runtime.sub_control)
+        close(state.runtime.control.sub_control)
         close(state.runtime.sub_qos)
     catch
     end
@@ -84,10 +92,10 @@ end
 function close_producer_state!(state::ProducerState)
     try
         close(state.runtime.pub_descriptor)
-        close(state.runtime.pub_control)
+        close(state.runtime.control.pub_control)
         close(state.runtime.pub_qos)
         close(state.runtime.pub_metadata)
-        close(state.runtime.sub_control)
+        close(state.runtime.control.sub_control)
     catch
     end
     return nothing
@@ -95,8 +103,8 @@ end
 
 function close_supervisor_state!(state::SupervisorState)
     try
-        close(state.runtime.pub_control)
-        close(state.runtime.sub_control)
+        close(state.runtime.control.pub_control)
+        close(state.runtime.control.sub_control)
         close(state.runtime.sub_qos)
     catch
     end
@@ -105,11 +113,30 @@ end
 
 function close_driver_state!(state::DriverState)
     try
-        close(state.runtime.pub_control)
+        close(state.runtime.control.pub_control)
         close(state.runtime.pub_announce)
         close(state.runtime.pub_qos)
-        close(state.runtime.sub_control)
+        close(state.runtime.control.sub_control)
     catch
+    end
+    return nothing
+end
+
+"""
+Poll until an attach response with the given correlation id is received.
+"""
+function await_attach!(
+    state::DriverClientState,
+    correlation_id::Int64;
+    timeout_ns::UInt64 = 5_000_000_000,
+)
+    now_ns = time_ns()
+    deadline = now_ns + timeout_ns
+    while now_ns < deadline
+        attach = poll_attach!(state, correlation_id, now_ns)
+        attach !== nothing && return attach
+        yield()
+        now_ns = time_ns()
     end
     return nothing
 end

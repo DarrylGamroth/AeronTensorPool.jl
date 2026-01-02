@@ -43,9 +43,7 @@ struct SupervisorLivenessHandler end
 Mutable supervisor runtime resources (Aeron publications/subscriptions and codecs).
 """
 mutable struct SupervisorRuntime
-    client::Aeron.Client
-    pub_control::Aeron.Publication
-    sub_control::Aeron.Subscription
+    control::ControlPlaneRuntime
     sub_qos::Aeron.Subscription
     config_buf::Vector{UInt8}
     config_encoder::ConsumerConfigMsg.Encoder{UnsafeArrays.UnsafeArray{UInt8, 1}}

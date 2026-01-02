@@ -84,13 +84,12 @@ function init_producer(config::ProducerConfig; client::Aeron.Client)
         (ProducerAnnounceHandler(), ProducerQosHandler()),
     )
 
+    control = ControlPlaneRuntime(client, pub_control, sub_control)
     runtime = ProducerRuntime(
-        client,
+        control,
         pub_descriptor,
-        pub_control,
         pub_qos,
         pub_metadata,
-        sub_control,
         Vector{UInt8}(undef, CONTROL_BUF_BYTES),
         Vector{UInt8}(undef, CONTROL_BUF_BYTES),
         Vector{UInt8}(undef, ANNOUNCE_BUF_BYTES),
@@ -256,13 +255,12 @@ function init_producer_from_attach(
         (ProducerAnnounceHandler(), ProducerQosHandler()),
     )
 
+    control = ControlPlaneRuntime(client, pub_control, sub_control)
     runtime = ProducerRuntime(
-        client,
+        control,
         pub_descriptor,
-        pub_control,
         pub_qos,
         pub_metadata,
-        sub_control,
         Vector{UInt8}(undef, CONTROL_BUF_BYTES),
         Vector{UInt8}(undef, CONTROL_BUF_BYTES),
         Vector{UInt8}(undef, ANNOUNCE_BUF_BYTES),
@@ -744,7 +742,7 @@ function emit_progress_complete!(
         frame_id = frame_id,
         header_index = header_index,
         bytes_filled = bytes_filled
-        try_claim_sbe!(st.runtime.pub_control, st.runtime.progress_claim, FRAME_PROGRESS_LEN) do buf
+        try_claim_sbe!(st.runtime.control.pub_control, st.runtime.progress_claim, FRAME_PROGRESS_LEN) do buf
             FrameProgress.wrap_and_apply_header!(st.runtime.progress_encoder, buf, 0)
             FrameProgress.streamId!(st.runtime.progress_encoder, st.config.stream_id)
             FrameProgress.epoch!(st.runtime.progress_encoder, st.epoch)
@@ -777,7 +775,7 @@ function emit_announce!(state::ProducerState)
 
     sent = let st = state,
         payload_count = payload_count
-        try_claim_sbe!(st.runtime.pub_control, st.runtime.progress_claim, msg_len) do buf
+        try_claim_sbe!(st.runtime.control.pub_control, st.runtime.progress_claim, msg_len) do buf
             ShmPoolAnnounce.wrap_and_apply_header!(st.runtime.announce_encoder, buf, 0)
             ShmPoolAnnounce.streamId!(st.runtime.announce_encoder, st.config.stream_id)
             ShmPoolAnnounce.producerId!(st.runtime.announce_encoder, st.config.producer_id)

@@ -18,7 +18,7 @@ function SupervisorAgent(
     state = init_supervisor(config; client = client)
     control_assembler = make_control_assembler(state)
     qos_assembler = make_qos_assembler(state)
-    counters = SupervisorCounters(state.runtime.client, Int(config.stream_id), "Supervisor")
+    counters = SupervisorCounters(state.runtime.control.client, Int(config.stream_id), "Supervisor")
     return SupervisorAgent(state, control_assembler, qos_assembler, counters)
 end
 
@@ -36,8 +36,8 @@ end
 function Agent.on_close(agent::SupervisorAgent)
     try
         close(agent.counters)
-        close(agent.state.runtime.pub_control)
-        close(agent.state.runtime.sub_control)
+        close(agent.state.runtime.control.pub_control)
+        close(agent.state.runtime.control.sub_control)
         close(agent.state.runtime.sub_qos)
     catch
     end

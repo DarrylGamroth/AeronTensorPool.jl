@@ -1,5 +1,5 @@
 @testset "Consumer PID change handling" begin
-    with_embedded_driver() do driver
+    with_driver_and_client() do driver, client
         mktempdir("/dev/shm") do dir
             nslots = UInt32(8)
             stride = UInt32(4096)
@@ -59,7 +59,7 @@
                 ),
             )
 
-            consumer_cfg = ConsumerConfig(
+            consumer_cfg = ConsumerSettings(
                 Aeron.MediaDriver.aeron_dir(driver),
                 "aeron:ipc",
                 Int32(12002),
@@ -86,9 +86,8 @@
                 UInt64(1_000_000_000),
                 UInt64(1_000_000_000),
             )
-            with_client(; driver = driver) do client
-                state = init_consumer(consumer_cfg; client = client)
-                try
+            state = init_consumer(consumer_cfg; client = client)
+            try
 
             announce_buf = Vector{UInt8}(undef, 512)
             announce_enc = AeronTensorPool.ShmPoolAnnounce.Encoder(Vector{UInt8})
@@ -121,9 +120,8 @@
             @test AeronTensorPool.validate_mapped_superblocks!(state, announce_dec) == :pid_changed
             @test !handle_shm_pool_announce!(state, announce_dec)
             @test state.mappings.header_mmap === nothing
-                finally
-                    close_consumer_state!(state)
-                end
+            finally
+                close_consumer_state!(state)
             end
         end
     end

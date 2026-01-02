@@ -1,6 +1,6 @@
 @testset "Consumer seq gap resync" begin
-    with_embedded_driver() do driver
-        consumer_cfg = ConsumerConfig(
+    with_driver_and_client() do driver, client
+        consumer_cfg = ConsumerSettings(
             Aeron.MediaDriver.aeron_dir(driver),
             "aeron:ipc",
             Int32(12042),
@@ -27,9 +27,8 @@
             UInt64(1_000_000_000),
             UInt64(1_000_000_000),
         )
-        with_client(; driver = driver) do client
-            state = init_consumer(consumer_cfg; client = client)
-            try
+        state = init_consumer(consumer_cfg; client = client)
+        try
                 AeronTensorPool.maybe_track_gap!(state, UInt64(1))
                 @test state.metrics.drops_gap == 0
                 @test state.metrics.last_seq_seen == 1
@@ -44,9 +43,8 @@
                 @test state.metrics.drops_gap == 3
                 @test state.metrics.last_seq_seen == 6
                 @test state.metrics.seen_any == true
-            finally
-                close_consumer_state!(state)
-            end
+        finally
+            close_consumer_state!(state)
         end
     end
 end

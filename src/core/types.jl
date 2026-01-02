@@ -1,0 +1,133 @@
+"""
+Configuration for a payload pool in shared memory.
+"""
+struct PayloadPoolConfig
+    pool_id::UInt16
+    uri::String
+    stride_bytes::UInt32
+    nslots::UInt32
+end
+
+"""
+Static configuration for the producer role.
+"""
+struct ProducerConfig
+    aeron_dir::String
+    aeron_uri::String
+    descriptor_stream_id::Int32
+    control_stream_id::Int32
+    qos_stream_id::Int32
+    metadata_stream_id::Int32
+    stream_id::UInt32
+    producer_id::UInt32
+    layout_version::UInt32
+    nslots::UInt32
+    shm_base_dir::String
+    shm_namespace::String
+    producer_instance_id::String
+    header_uri::String
+    payload_pools::Vector{PayloadPoolConfig}
+    max_dims::UInt8
+    announce_interval_ns::UInt64
+    qos_interval_ns::UInt64
+    progress_interval_ns::UInt64
+    progress_bytes_delta::UInt64
+end
+
+"""
+Mutable consumer configuration (can be updated by ConsumerConfig messages).
+"""
+mutable struct ConsumerSettings
+    aeron_dir::String
+    aeron_uri::String
+    descriptor_stream_id::Int32
+    control_stream_id::Int32
+    qos_stream_id::Int32
+    stream_id::UInt32
+    consumer_id::UInt32
+    expected_layout_version::UInt32
+    max_dims::UInt8
+    mode::Mode.SbeEnum
+    decimation::UInt16
+    max_outstanding_seq_gap::UInt32
+    use_shm::Bool
+    supports_shm::Bool
+    supports_progress::Bool
+    max_rate_hz::UInt16
+    payload_fallback_uri::String
+    shm_base_dir::String
+    allowed_base_dirs::Vector{String}
+    require_hugepages::Bool
+    progress_interval_us::UInt32
+    progress_bytes_delta::UInt32
+    progress_rows_delta::UInt32
+    hello_interval_ns::UInt64
+    qos_interval_ns::UInt64
+end
+
+"""
+Decoded superblock fields for SHM validation and diagnostics.
+"""
+struct SuperblockFields
+    magic::UInt64
+    layout_version::UInt32
+    epoch::UInt64
+    stream_id::UInt32
+    region_type::RegionType.SbeEnum
+    pool_id::UInt16
+    nslots::UInt32
+    slot_bytes::UInt32
+    stride_bytes::UInt32
+    pid::UInt64
+    start_timestamp_ns::UInt64
+    activity_timestamp_ns::UInt64
+end
+
+"""
+Decoded slot header fields for consumer-side validation.
+"""
+struct TensorSlotHeader
+    commit_word::UInt64
+    frame_id::UInt64
+    timestamp_ns::UInt64
+    meta_version::UInt32
+    values_len_bytes::UInt32
+    payload_slot::UInt32
+    payload_offset::UInt32
+    pool_id::UInt16
+    dtype::Dtype.SbeEnum
+    major_order::MajorOrder.SbeEnum
+    ndims::UInt8
+    pad_align::UInt8
+    dims::NTuple{MAX_DIMS, Int32}
+    strides::NTuple{MAX_DIMS, Int32}
+end
+
+"""
+Reference to a payload region in shared memory.
+"""
+mutable struct PayloadSlice
+    mmap::Vector{UInt8}
+    offset::Int
+    len::Int
+end
+
+@inline function payload_view(slice::PayloadSlice)
+    return view(slice.mmap, slice.offset + 1: slice.offset + slice.len)
+end
+
+"""
+Decoded frame header and payload slice.
+"""
+mutable struct ConsumerFrameView
+    header::TensorSlotHeader
+    payload::PayloadSlice
+end
+
+"""
+Parsed shm:file URI components.
+"""
+struct ShmUri
+    path::String
+    require_hugepages::Bool
+end

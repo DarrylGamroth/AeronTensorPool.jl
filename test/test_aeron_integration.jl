@@ -1,13 +1,13 @@
 using UnsafeArrays
 
 @testset "Aeron integration handlers" begin
-    with_embedded_driver() do driver
+    with_driver_and_client() do driver, client
         control_stream = Int32(12001)
         descriptor_stream = Int32(12002)
         qos_stream = Int32(12003)
         uri = "aeron:ipc"
 
-        consumer_cfg = ConsumerConfig(
+        consumer_cfg = ConsumerSettings(
             Aeron.MediaDriver.aeron_dir(driver),
             uri,
             descriptor_stream,
@@ -34,14 +34,13 @@ using UnsafeArrays
             UInt64(1_000_000_000),
             UInt64(1_000_000_000),
         )
-        with_client(; driver = driver) do client
-            consumer_state = init_consumer(consumer_cfg; client = client)
-            ctrl_asm = make_control_assembler(consumer_state)
-            desc_asm = make_descriptor_assembler(consumer_state)
+        consumer_state = init_consumer(consumer_cfg; client = client)
+        ctrl_asm = make_control_assembler(consumer_state)
+        desc_asm = make_descriptor_assembler(consumer_state)
 
-            pub_control = Aeron.add_publication(client, uri, control_stream)
-            pub_descriptor = Aeron.add_publication(client, uri, descriptor_stream)
-            try
+        pub_control = Aeron.add_publication(client, uri, control_stream)
+        pub_descriptor = Aeron.add_publication(client, uri, descriptor_stream)
+        try
 
         claim = Aeron.BufferClaim()
         cfg_len = AeronTensorPool.MESSAGE_HEADER_LEN +
@@ -72,7 +71,11 @@ using UnsafeArrays
         @test sent_cfg
 
         ok = wait_for() do
-            Aeron.poll(consumer_state.runtime.sub_control, ctrl_asm, AeronTensorPool.DEFAULT_FRAGMENT_LIMIT) > 0
+            Aeron.poll(
+                consumer_state.runtime.control.sub_control,
+                ctrl_asm,
+                AeronTensorPool.DEFAULT_FRAGMENT_LIMIT,
+            ) > 0
         end
         @test ok
         @test consumer_state.config.use_shm == true
@@ -93,14 +96,13 @@ using UnsafeArrays
             Aeron.poll(consumer_state.runtime.sub_descriptor, desc_asm, AeronTensorPool.DEFAULT_FRAGMENT_LIMIT) > 0
         end
         @test ok_desc
-            finally
-                try
-                    close(pub_control)
-                    close(pub_descriptor)
-                catch
-                end
-                close_consumer_state!(consumer_state)
+        finally
+            try
+                close(pub_control)
+                close(pub_descriptor)
+            catch
             end
+            close_consumer_state!(consumer_state)
         end
     end
 end

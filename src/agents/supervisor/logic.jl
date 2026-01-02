@@ -13,10 +13,9 @@ function init_supervisor(config::SupervisorConfig; client::Aeron.Client)
         (SupervisorLivenessHandler(),),
     )
 
+    control = ControlPlaneRuntime(client, pub_control, sub_control)
     runtime = SupervisorRuntime(
-        client,
-        pub_control,
-        sub_control,
+        control,
         sub_qos,
         Vector{UInt8}(undef, CONTROL_BUF_BYTES),
         ConsumerConfigMsg.Encoder(UnsafeArrays.UnsafeArray{UInt8, 1}),
@@ -199,7 +198,7 @@ function emit_consumer_config!(
         mode = mode,
         decimation = decimation,
         payload_fallback_uri = payload_fallback_uri
-        try_claim_sbe!(st.runtime.pub_control, st.runtime.config_claim, msg_len) do buf
+        try_claim_sbe!(st.runtime.control.pub_control, st.runtime.config_claim, msg_len) do buf
             ConsumerConfigMsg.wrap_and_apply_header!(st.runtime.config_encoder, buf, 0)
             ConsumerConfigMsg.streamId!(st.runtime.config_encoder, st.config.stream_id)
             ConsumerConfigMsg.consumerId!(st.runtime.config_encoder, consumer_id)

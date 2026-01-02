@@ -1,7 +1,7 @@
 """
 Initialize a consumer: create Aeron resources and initial timers.
 """
-function init_consumer(config::ConsumerConfig; client::Aeron.Client)
+function init_consumer(config::ConsumerSettings; client::Aeron.Client)
     clock = Clocks.CachedEpochClock(Clocks.MonotonicClock())
 
     pub_control = Aeron.add_publication(client, config.aeron_uri, config.control_stream_id)
@@ -16,12 +16,11 @@ function init_consumer(config::ConsumerConfig; client::Aeron.Client)
         (ConsumerHelloHandler(), ConsumerQosHandler()),
     )
 
+    control = ControlPlaneRuntime(client, pub_control, sub_control)
     runtime = ConsumerRuntime(
-        client,
-        pub_control,
+        control,
         pub_qos,
         sub_descriptor,
-        sub_control,
         sub_qos,
         Vector{UInt8}(undef, CONTROL_BUF_BYTES),
         Vector{UInt8}(undef, CONTROL_BUF_BYTES),
@@ -86,7 +85,7 @@ end
 Initialize a consumer using driver-provisioned SHM regions.
 """
 function init_consumer_from_attach(
-    config::ConsumerConfig,
+    config::ConsumerSettings,
     attach::AttachResponseInfo;
     driver_client::Union{DriverClientState, Nothing} = nothing,
     client::Aeron.Client,
@@ -589,7 +588,7 @@ function emit_consumer_hello!(state::ConsumerState)
         interval = progress_interval,
         bytes = progress_bytes,
         rows = progress_rows
-        try_claim_sbe!(st.runtime.pub_control, st.runtime.hello_claim, CONSUMER_HELLO_LEN) do buf
+        try_claim_sbe!(st.runtime.control.pub_control, st.runtime.hello_claim, CONSUMER_HELLO_LEN) do buf
             ConsumerHello.wrap_and_apply_header!(st.runtime.hello_encoder, buf, 0)
             ConsumerHello.streamId!(st.runtime.hello_encoder, st.config.stream_id)
             ConsumerHello.consumerId!(st.runtime.hello_encoder, st.config.consumer_id)

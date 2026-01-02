@@ -15,7 +15,7 @@ function DriverAgent(
     client::Aeron.Client,
 )
     state = init_driver(config; client = client)
-    counters = DriverCounters(state.runtime.client, agent_id, "Driver")
+    counters = DriverCounters(state.runtime.control.client, agent_id, "Driver")
     return DriverAgent(state, counters)
 end
 
@@ -39,10 +39,10 @@ function Agent.on_close(agent::DriverAgent)
     try
         emit_driver_shutdown!(agent.state)
         close(agent.counters)
-        close(agent.state.runtime.pub_control)
+        close(agent.state.runtime.control.pub_control)
         close(agent.state.runtime.pub_announce)
         close(agent.state.runtime.pub_qos)
-        close(agent.state.runtime.sub_control)
+        close(agent.state.runtime.control.sub_control)
     catch
     end
     return nothing
