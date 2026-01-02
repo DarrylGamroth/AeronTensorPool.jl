@@ -230,7 +230,59 @@ Clients                       Driver
 
 When the driver is embedded, deployments SHOULD still expose a well-known control-plane endpoint (channel + stream ID) so external tools (supervisors, diagnostics) can attach. If the control-plane endpoint is dynamic, deployments SHOULD publish it via service discovery or out-of-band configuration.
 
-### 4.12 Driver Termination (Normative)
+### 4.12 Client State Machines (Informative)
+
+This section provides suggested state machines for implementers (e.g., a C client). These are informative and do not change normative requirements.
+
+#### 4.12.1 Driver Client (Attach/Detach)
+
+Suggested states:
+- `Unattached`: no active lease.
+- `Attaching`: attach request in flight.
+- `Attached`: lease active; keepalives running.
+- `Detaching`: detach request in flight.
+- `Backoff`: retry delay after rejection/revocation.
+
+Suggested transitions:
+- `Unattached` → `Attaching` on attach request; send `ShmAttachRequest`.
+- `Attaching` → `Attached` on `ShmAttachResponse(code=OK)`; start keepalive timer.
+- `Attaching` → `Backoff` on `ShmAttachResponse(code!=OK)`; schedule retry.
+- `Attached` → `Attached` on keepalive tick; send `ShmLeaseKeepalive`.
+- `Attached` → `Backoff` on `ShmLeaseRevoked` for own lease; stop using SHM and reattach.
+- `Attached` → `Detaching` on user close; send `ShmDetachRequest`.
+- `Detaching` → `Unattached` on `ShmDetachResponse`; stop keepalive.
+- Any → `Unattached` on `ShmDriverShutdown`; invalidate lease and stop.
+
+#### 4.12.2 Producer
+
+Suggested states:
+- `Idle`: no active lease.
+- `Active`: lease active; publishing allowed.
+- `Paused`: lease revoked/expired; publishing stopped.
+
+Suggested transitions:
+- `Idle` → `Active` on attach success; initialize SHM mapping and publishing.
+- `Active` → `Paused` on `ShmLeaseRevoked` for own lease; stop publishing and unmap.
+- `Paused` → `Active` on successful reattach; remap and resume publishing.
+- Any → `Idle` on shutdown or explicit detach.
+
+#### 4.12.3 Consumer
+
+Suggested states:
+- `Unmapped`: no SHM mapping.
+- `Mapped`: SHM mapped; consuming descriptors.
+- `Remapping`: awaiting new `ShmPoolAnnounce` after epoch change.
+- `Backoff`: retry delay after invalid mapping.
+
+Suggested transitions:
+- `Unmapped` → `Mapped` on attach success + successful SHM validation.
+- `Mapped` → `Remapping` on producer `ShmLeaseRevoked` or new `ShmPoolAnnounce` with higher epoch.
+- `Remapping` → `Mapped` on successful remap and validation.
+- `Mapped` → `Backoff` on SHM validation failure (per §15.22) when no fallback is available.
+- `Backoff` → `Unmapped` after retry delay; attempt reattach/remap.
+- Any → `Unmapped` on `ShmDriverShutdown`; drop in-flight frames and stop.
+
+### 4.13 Driver Termination (Normative)
 
 The driver MAY support an administrative termination mechanism. If implemented, it SHOULD require an authorization token configured out-of-band and MUST reject unauthenticated requests.
 
