@@ -1,5 +1,6 @@
 using Aeron
 using AeronTensorPool
+using Clocks
 
 function ensure_shm_dir(uri::AbstractString)
     parsed = AeronTensorPool.parse_shm_uri(uri)
@@ -120,6 +121,13 @@ function run_system_bench(
     warmup_s::Float64 = 0.2,
     alloc_sample::Bool = false,
     alloc_probe_iters::Int = 0,
+    fixed_iters::Int = 0,
+    alloc_breakdown::Bool = false,
+    noop_loop::Bool = false,
+    do_yield::Bool = true,
+    poll_timers::Bool = true,
+    do_publish::Bool = true,
+    poll_subs::Bool = true,
 )
     Aeron.MediaDriver.launch_embedded() do driver
         GC.@preserve driver begin
@@ -200,6 +208,86 @@ function run_system_bench(
                         println("Sample alloc per-iteration: $(sample_after - sample_before) bytes")
                     end
 
+                    if alloc_breakdown
+                        wait_start = time()
+                        while consumer.mappings.header_mmap === nothing && (time() - wait_start < 2.0)
+                            producer_do_work!(producer, prod_ctrl)
+                            consumer_do_work!(consumer, cons_desc, cons_ctrl)
+                            supervisor_do_work!(supervisor, sup_ctrl, sup_qos)
+                            yield()
+                        end
+                        for _ in 1:32
+                            producer_do_work!(producer, prod_ctrl)
+                            consumer_do_work!(consumer, cons_desc, cons_ctrl)
+                            supervisor_do_work!(supervisor, sup_ctrl, sup_qos)
+                            if consumer.mappings.header_mmap !== nothing
+                                publish_frame!(producer, payload, shape, strides, Dtype.UINT8, UInt32(0))
+                            end
+                            yield()
+                        end
+                        function measure_allocd(f::Function, label::String)
+                            before = Base.gc_num().allocd
+                            f()
+                            after = Base.gc_num().allocd
+                            println("Alloc breakdown $(label): $(after - before) bytes")
+                        end
+                        measure_allocd("GC.gc") do
+                            GC.gc()
+                        end
+                        measure_allocd("producer_do_work") do
+                            producer_do_work!(producer, prod_ctrl)
+                        end
+                        measure_allocd("consumer_do_work") do
+                            consumer_do_work!(consumer, cons_desc, cons_ctrl)
+                        end
+                        if consumer.mappings.header_mmap !== nothing
+                            publish_frame!(producer, payload, shape, strides, Dtype.UINT8, UInt32(0))
+                            measure_allocd("consumer_do_work (with frame)") do
+                                consumer_do_work!(consumer, cons_desc, cons_ctrl)
+                            end
+                        end
+                        measure_allocd("supervisor_do_work") do
+                            supervisor_do_work!(supervisor, sup_ctrl, sup_qos)
+                        end
+                        measure_allocd("publish_frame") do
+                            if consumer.mappings.header_mmap !== nothing
+                                publish_frame!(producer, payload, shape, strides, Dtype.UINT8, UInt32(0))
+                            end
+                        end
+                        measure_allocd("producer_poll_timers") do
+                            Clocks.fetch!(producer.clock)
+                            now_ns = UInt64(Clocks.time_nanos(producer.clock)) + producer.config.announce_interval_ns
+                            poll_timers!(producer, now_ns)
+                        end
+                        measure_allocd("consumer_poll_timers") do
+                            Clocks.fetch!(consumer.clock)
+                            now_ns = UInt64(Clocks.time_nanos(consumer.clock)) + consumer.config.hello_interval_ns
+                            poll_timers!(consumer, now_ns)
+                        end
+                        measure_allocd("emit_consumer_hello") do
+                            emit_consumer_hello!(consumer)
+                        end
+                        measure_allocd("emit_consumer_qos") do
+                            emit_qos!(consumer)
+                        end
+                        measure_allocd("supervisor_poll_timers") do
+                            Clocks.fetch!(supervisor.clock)
+                            now_ns = UInt64(Clocks.time_nanos(supervisor.clock)) + supervisor.config.liveness_check_interval_ns
+                            poll_timers!(supervisor, now_ns)
+                        end
+                        measure_allocd("yield") do
+                            yield()
+                        end
+                        if fixed_iters > 0
+                            empty_before = Base.gc_num().allocd
+                            for _ in 1:fixed_iters
+                                yield()
+                            end
+                            empty_after = Base.gc_num().allocd
+                            println("Alloc breakdown empty loop ($(fixed_iters) iters): $(empty_after - empty_before) bytes")
+                        end
+                    end
+
                     if alloc_probe_iters > 0
                         GC.gc()
                         probe_start = Base.gc_num().allocd
@@ -224,20 +312,84 @@ function run_system_bench(
                     GC.gc()
                     gc_num_overhead = Base.gc_num().allocd
                     gc_num_overhead = Base.gc_num().allocd - gc_num_overhead
+                    time_overhead = Base.gc_num().allocd
+                    _ = time()
+                    time_overhead = Base.gc_num().allocd - time_overhead
                     start_num = Base.gc_num()
                     start_live = Base.gc_live_bytes()
                     start = time()
+                    iter_count = 0
+                    if fixed_iters > 0
+                        while iter_count < fixed_iters
+                            if !noop_loop
+                                if poll_subs
+                                    work = 0
+                                    work += poll_control!(producer, prod_ctrl)
+                                    work += poll_descriptor!(consumer, cons_desc)
+                                    work += poll_control!(consumer, cons_ctrl)
+                                    work += poll_control!(supervisor, sup_ctrl)
+                                    work += poll_qos!(supervisor, sup_qos)
+                                end
+                                if poll_timers
+                                    Clocks.fetch!(producer.clock)
+                                    now_ns = UInt64(Clocks.time_nanos(producer.clock))
+                                    poll_timers!(producer, now_ns)
+                                    Clocks.fetch!(consumer.clock)
+                                    now_ns = UInt64(Clocks.time_nanos(consumer.clock))
+                                    poll_timers!(consumer, now_ns)
+                                    Clocks.fetch!(supervisor.clock)
+                                    now_ns = UInt64(Clocks.time_nanos(supervisor.clock))
+                                    poll_timers!(supervisor, now_ns)
+                                end
+                                if !poll_subs && !poll_timers
+                                    producer_do_work!(producer, prod_ctrl)
+                                    consumer_do_work!(consumer, cons_desc, cons_ctrl)
+                                    supervisor_do_work!(supervisor, sup_ctrl, sup_qos)
+                                end
 
-                    while time() - start < duration_s
-                        producer_do_work!(producer, prod_ctrl)
-                        consumer_do_work!(consumer, cons_desc, cons_ctrl)
-                        supervisor_do_work!(supervisor, sup_ctrl, sup_qos)
-
-                        if consumer.mappings.header_mmap !== nothing
-                            publish_frame!(producer, payload, shape, strides, Dtype.UINT8, UInt32(0))
-                            published += 1
+                                if do_publish && consumer.mappings.header_mmap !== nothing
+                                    publish_frame!(producer, payload, shape, strides, Dtype.UINT8, UInt32(0))
+                                    published += 1
+                                end
+                            end
+                            iter_count += 1
+                            do_yield && yield()
                         end
-                        yield()
+                    else
+                        while time() - start < duration_s
+                            if !noop_loop
+                                if poll_subs
+                                    work = 0
+                                    work += poll_control!(producer, prod_ctrl)
+                                    work += poll_descriptor!(consumer, cons_desc)
+                                    work += poll_control!(consumer, cons_ctrl)
+                                    work += poll_control!(supervisor, sup_ctrl)
+                                    work += poll_qos!(supervisor, sup_qos)
+                                end
+                                if poll_timers
+                                    Clocks.fetch!(producer.clock)
+                                    now_ns = UInt64(Clocks.time_nanos(producer.clock))
+                                    poll_timers!(producer, now_ns)
+                                    Clocks.fetch!(consumer.clock)
+                                    now_ns = UInt64(Clocks.time_nanos(consumer.clock))
+                                    poll_timers!(consumer, now_ns)
+                                    Clocks.fetch!(supervisor.clock)
+                                    now_ns = UInt64(Clocks.time_nanos(supervisor.clock))
+                                    poll_timers!(supervisor, now_ns)
+                                end
+                                if !poll_subs && !poll_timers
+                                    producer_do_work!(producer, prod_ctrl)
+                                    consumer_do_work!(consumer, cons_desc, cons_ctrl)
+                                    supervisor_do_work!(supervisor, sup_ctrl, sup_qos)
+                                end
+
+                                if do_publish && consumer.mappings.header_mmap !== nothing
+                                    publish_frame!(producer, payload, shape, strides, Dtype.UINT8, UInt32(0))
+                                    published += 1
+                                end
+                            end
+                            do_yield && yield()
+                        end
                     end
 
                     elapsed = time() - start
@@ -247,10 +399,10 @@ function run_system_bench(
                     end_num = Base.gc_num()
                     end_live = Base.gc_live_bytes()
                     allocd_loop_raw = mid_num.allocd - start_num.allocd
-                    allocd_loop = max(Int64(0), allocd_loop_raw - gc_num_overhead)
+                    allocd_loop = max(Int64(0), allocd_loop_raw - gc_num_overhead - time_overhead)
                     live_loop = mid_live - start_live
                     allocd_total_raw = end_num.allocd - start_num.allocd
-                    allocd_total = max(Int64(0), allocd_total_raw - 2 * gc_num_overhead)
+                    allocd_total = max(Int64(0), allocd_total_raw - (2 * gc_num_overhead + time_overhead))
                     live_total = end_live - start_live
                     println("System benchmark: payload_bytes=$(bytes)")
                     println("Published: $(published) frames in $(round(elapsed, digits=3))s")
@@ -258,6 +410,7 @@ function run_system_bench(
                     println("Publish rate: $(round(published / elapsed, digits=1)) fps")
                     println("Consume rate: $(round(consumed[] / elapsed, digits=1)) fps")
                     println("GC allocd overhead per sample: $(gc_num_overhead) bytes")
+                    println("GC allocd overhead per time(): $(time_overhead) bytes")
                     println("GC allocd delta (loop):  $(allocd_loop) bytes")
                     println("GC live delta (loop):   $(live_loop) bytes")
                     println("GC allocd delta (total): $(allocd_total) bytes")
