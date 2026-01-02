@@ -180,7 +180,7 @@ slot_offset(i) =
 
 This header represents “almost fixed-size TensorMessage metadata” with the large `values` buffer stored out-of-line in a payload pool.
 
-SBE definition: `TensorSlotHeader256` message in the schema appendix (using `MAX_DIMS=8`; adjust `length` if you pick a different `MAX_DIMS`). The schema includes a `maxDims` constant field for codegen alignment; it is not encoded on the wire and MUST be treated as a compile-time constant.
+SBE definition: `TensorSlotHeader256` message in the schema appendix (v1.1 `MAX_DIMS=8`). The schema includes a `maxDims` constant field for codegen alignment; it is not encoded on the wire and MUST be treated as a compile-time constant. Changing `MAX_DIMS` requires a new `layout_version` and schema rebuild.
 
 **Fields** (in wire/layout order)
 - `commit_word : u64` (commit sentinel, written last)
@@ -283,7 +283,7 @@ Sent periodically (e.g. 1 Hz) and on change.
 - `header_region_uri : string`
 - `header_nslots : u32`
 - `header_slot_bytes : u16` (must be 256)
-- `max_dims : u8`
+- `max_dims : u8` (v1.1 fixed at 8; changing it requires a new `layout_version` and schema rebuild)
 - repeating group `payload_pools`:
   - `pool_id : u16`
   - `region_uri : string`
@@ -524,7 +524,6 @@ Decimation can be consumer-side or via a tap/rate limiter service.
 
 ## 14. Open Parameters (fill these in)
 
-- `MAX_DIMS` (recommend 8 or 16)
 - Pool size classes and `stride_bytes` (e.g., 1 MiB, 16 MiB)
 - `header_nslots` and per-pool `nslots` (power-of-two)
 - `layout_version` initial value
