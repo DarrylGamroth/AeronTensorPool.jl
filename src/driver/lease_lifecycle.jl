@@ -10,3 +10,47 @@
 @on_initial function(sm::LeaseLifecycle, ::Root)
     return Hsm.transition!(sm, :Init)
 end
+
+@on_event function(sm::LeaseLifecycle, ::Init, ::AttachOk, _)
+    return Hsm.transition!(sm, :Active)
+end
+
+@on_event function(sm::LeaseLifecycle, ::Init, ::Close, _)
+    return Hsm.transition!(sm, :Closed)
+end
+
+@on_event function(sm::LeaseLifecycle, ::Active, ::Keepalive, _)
+    return Hsm.EventHandled
+end
+
+@on_event function(sm::LeaseLifecycle, ::Active, ::Detach, _)
+    return Hsm.transition!(sm, :Detached)
+end
+
+@on_event function(sm::LeaseLifecycle, ::Active, ::LeaseTimeout, _)
+    return Hsm.transition!(sm, :Expired)
+end
+
+@on_event function(sm::LeaseLifecycle, ::Active, ::Revoke, _)
+    return Hsm.transition!(sm, :Revoked)
+end
+
+@on_event function(sm::LeaseLifecycle, ::Active, ::Close, _)
+    return Hsm.transition!(sm, :Closed)
+end
+
+@on_event function(sm::LeaseLifecycle, ::Detached, ::Close, _)
+    return Hsm.transition!(sm, :Closed)
+end
+
+@on_event function(sm::LeaseLifecycle, ::Expired, ::Close, _)
+    return Hsm.transition!(sm, :Closed)
+end
+
+@on_event function(sm::LeaseLifecycle, ::Revoked, ::Close, _)
+    return Hsm.transition!(sm, :Closed)
+end
+
+@on_event function(sm::LeaseLifecycle, ::Closed, ::Close, _)
+    return Hsm.EventHandled
+end

@@ -37,7 +37,7 @@ Validation
 - Existing driver tests pass unchanged.
 
 Status
-- Pending.
+- Complete (LeaseLifecycle HSM integrated with attach/keepalive paths).
 
 ## Phase L‑2: Attach/Keepalive Integration
 
@@ -53,7 +53,7 @@ Validation
 - Allocation checks remain flat.
 
 Status
-- Pending.
+- Complete (detach/expiry/revoke now dispatch lifecycle events).
 
 ## Phase L‑3: Detach/Expiry/Revoke Integration
 
@@ -70,7 +70,7 @@ Validation
 - Revoke paths still bump epoch and emit revoke.
 
 Status
-- Pending.
+- Complete (lease HSM tests added; allocation posture unchanged).
 
 ## Phase L‑4: Tests and Metrics
 

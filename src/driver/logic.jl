@@ -313,6 +313,7 @@ function handle_attach_request!(state::DriverState, msg::ShmAttachRequest.Decode
         push!(stream_state.consumer_lease_ids, lease_id)
     end
 
+    Hsm.dispatch!(lease.lifecycle, :AttachOk)
     emit_attach_response!(state, correlation_id, DriverResponseCode.OK, "", stream_state, lease_id, expiry_ns)
     emit_driver_announce!(state, stream_state)
     return true
@@ -343,6 +344,7 @@ function handle_keepalive!(state::DriverState, msg::ShmLeaseKeepalive.Decoder)
     if isnothing(lease)
         return false
     end
+    Hsm.dispatch!(lease.lifecycle, :Keepalive)
     now_ns = UInt64(Clocks.time_nanos(state.clock))
     lease.expiry_ns = lease_expiry_ns(state, now_ns)
     state.metrics.keepalives += 1
@@ -370,6 +372,13 @@ function revoke_lease!(state::DriverState, lease_id::UInt64, reason::DriverLease
     isnothing(lease) && return false
 
     stream_state = get(state.streams, lease.stream_id, nothing)
+    if reason == DriverLeaseRevokeReason.DETACHED
+        Hsm.dispatch!(lease.lifecycle, :Detach)
+    elseif reason == DriverLeaseRevokeReason.EXPIRED
+        Hsm.dispatch!(lease.lifecycle, :LeaseTimeout)
+    else
+        Hsm.dispatch!(lease.lifecycle, :Revoke)
+    end
     if !isnothing(stream_state)
         if lease.role == DriverRole.PRODUCER
             stream_state.producer_lease_id = 0
@@ -382,6 +391,7 @@ function revoke_lease!(state::DriverState, lease_id::UInt64, reason::DriverLease
     end
 
     lease.role == DriverRole.PRODUCER || emit_lease_revoked!(state, lease, reason, now_ns)
+    Hsm.dispatch!(lease.lifecycle, :Close)
     delete!(state.leases, lease_id)
     return true
 end
