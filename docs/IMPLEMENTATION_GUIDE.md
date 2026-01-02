@@ -57,6 +57,12 @@ Control plane:
 - ConsumerConfig provides mode and fallback.
 - QosProducer/QosConsumer report drops and liveness.
 
+Per-consumer streams (optional):
+- Consumers may request per-consumer descriptor/control streams in ConsumerHello.
+- Producers may assign them via ConsumerConfig; if declined, consumers remain on shared streams.
+- Per-consumer descriptor streams may be rate-limited with max_rate_hz; shared descriptor streams are never gated.
+- Producers MUST close per-consumer publications when the consumer is stale (no ConsumerHello/QoS for 3–5× cadence).
+
 ## 3. Driver Model Integration Summary
 
 Driver responsibilities (Driver 3-4):
