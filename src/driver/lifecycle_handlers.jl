@@ -34,8 +34,9 @@ end
 
 @inline function begin_draining!(state::DriverState, sm::DriverLifecycle)
     timeout_ns = UInt64(state.config.policies.shutdown_timeout_ms) * 1_000_000
-    set_interval!(state.timer_set.timers[3], timeout_ns)
-    reset!(state.timer_set.timers[3], state.now_ns)
+    timer = driver_shutdown_timer(state)
+    set_interval!(timer, timeout_ns)
+    reset!(timer, state.now_ns)
     announce_all_streams!(state)
     return Hsm.transition!(sm, :Draining)
 end
@@ -50,7 +51,7 @@ end
 
 @on_event function(sm::DriverLifecycle, ::Draining, ::ShutdownTimeout, state::DriverState)
     emit_driver_shutdown!(state, state.shutdown_reason, state.shutdown_message)
-    set_interval!(state.timer_set.timers[3], UInt64(0))
+    set_interval!(driver_shutdown_timer(state), UInt64(0))
     return Hsm.transition!(sm, :Stopped)
 end
 

@@ -81,3 +81,9 @@ mutable struct DriverState{ClockT<:Clocks.AbstractClock}
     shutdown_message::String
     lifecycle::DriverLifecycle
 end
+
+const DRIVER_TIMER_ANNOUNCE = 1
+const DRIVER_TIMER_LEASE_CHECK = 2
+const DRIVER_TIMER_SHUTDOWN = 3
+
+@inline driver_shutdown_timer(state::DriverState) = state.timer_set.timers[DRIVER_TIMER_SHUTDOWN]
