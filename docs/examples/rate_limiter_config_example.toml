@@ -1,22 +1,31 @@
 # Example Decimator Configuration
 
-[decimator]
-instance_id = "decimator-01"
+[rate_limiter]
+instance_id = "rate-limiter-01"
 descriptor_channel = "aeron:ipc"
 descriptor_stream_id = 2100
 forward_metadata = true
-mode = "every_n"
+forward_progress = false
+forward_qos = false
+mode = "rate_limit"
+max_rate_hz = 30
+control_channel = "aeron:ipc"
+source_control_stream_id = 1000
+dest_control_stream_id = 2101
+qos_channel = "aeron:ipc"
+source_qos_stream_id = 1200
+dest_qos_stream_id = 2200
 
 [[mappings]]
 source_stream_id = 1001
 dest_stream_id = 2001
 profile = "processed_profile"
-decimation = 4
 metadata_stream_id = 2001
+max_rate_hz = 30
 
 [[mappings]]
 source_stream_id = 1002
 dest_stream_id = 2002
 profile = "processed_profile"
-decimation = 2
 metadata_stream_id = 2002
+max_rate_hz = 15

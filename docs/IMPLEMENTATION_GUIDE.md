@@ -17,7 +17,7 @@ Wire-level roles:
 - Producer: owns SHM regions and publishes descriptors/progress/QoS.
 - Consumer: maps SHM regions and reads frames based on descriptors.
 - Supervisor: aggregates QoS, issues ConsumerConfig.
-- Bridge/Decimator: optional scaffolds.
+- Bridge/RateLimiter: optional scaffolds.
 
 Driver-model roles:
 - SHM Driver: authoritative owner of SHM lifecycle, epochs, and URIs.

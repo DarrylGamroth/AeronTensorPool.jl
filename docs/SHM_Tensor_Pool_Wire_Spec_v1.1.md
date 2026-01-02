@@ -472,7 +472,7 @@ It may publish:
 
 Progress with DECIMATED: producers MAY emit `FrameProgress` for all frames; decimating consumers MAY ignore progress for dropped frames. Implementations MAY optionally suppress progress for frames that will be decimated to reduce control-plane load.
 
-Decimation can be consumer-side or via a tap/decimator service.
+Decimation can be consumer-side or via a tap/rate limiter service.
 
 ---
 
@@ -494,7 +494,7 @@ Decimation can be consumer-side or via a tap/decimator service.
 - Implement `commit_word` loads/stores with acquire/release semantics.
 - Avoid storing language-managed pointers/handles (GC/JVM/Rust lifetimes/Julia-managed) in SHM; only POD per schema.
 - Use Aeron transport via Aeron.jl and SBE encoding/decoding via SBE.jl.
-- Use Agent.jl for agent-style services (supervisor/console, bridge, decimator) to mirror Aeron/Agrona agents with structured lifecycle.
+- Use Agent.jl for agent-style services (supervisor/console, bridge, rate limiter) to mirror Aeron/Agrona agents with structured lifecycle.
 
 ---
 
@@ -602,7 +602,7 @@ End of specification.
 ### 15.15 Aeron Terminology Mapping
 - Producer service ≈ Aeron driver for this data source (owns SHM, publishes descriptors/QoS/meta over Aeron).
 - Supervisor/consumer coordination layer ≈ client conductor (tracks announces, epochs, remaps, issues configs, observes QoS).
-- Bridge/tap/decimator agents follow the Agent.jl pattern analogous to Agrona agents used by Aeron.
+- Bridge/tap/rate limiter agents follow the Agent.jl pattern analogous to Agrona agents used by Aeron.
 
 ### 15.16 Heartbeats
 - Primary liveness comes from periodic `ShmPoolAnnounce` plus `activity_timestamp_ns` updates in the superblock; `activity_timestamp_ns` acts as the heartbeat. Supervisors time out on stale timestamps.
@@ -611,7 +611,7 @@ End of specification.
 ### 15.17 Reuse Aeron Primitives (do not reinvent)
 - Keep all control/descriptor/QoS/metadata over Aeron IPC streams; avoid new SHM counter regions—use Aeron-style QoS messages and existing counter semantics for drops/health.
 - If you need counters/metrics, prefer Aeron Counters (driver/client) instead of adding custom SHM counters; expose QoS via Aeron messages.
-- Implement producer, supervisor, bridge/decimator as Aeron-style agents (Agent.jl mirrors Agrona agents) with single-writer ownership of SHM, matching Aeron driver patterns.
+- Implement producer, supervisor, bridge/rate limiter as Aeron-style agents (Agent.jl mirrors Agrona agents) with single-writer ownership of SHM, matching Aeron driver patterns.
 - Use the SBE toolchain for every control and descriptor message; multiplex by template ID when collapsing streams, or separate streams for observability—same choice pattern as Aeron archive/control.
 - Liveness and lifecycle mirror Aeron driver: mark/superblock with pid/start/activity timestamps, periodic announces, and timeouts to declare death/remap.
 - Optional bridge can mirror Aeron archive/tap behavior: subscribe to descriptor + SHM, then republish over UDP or record; keep it optional so the core remains SHM + Aeron IPC.

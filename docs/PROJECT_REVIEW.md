@@ -9,7 +9,7 @@ This document summarizes the current implementation against the spec and highlig
 - Canonical identity (frame_id == seq) is enforced; drops and resync logic are present.
 
 Open points:
-- Bridge/decimator are scaffold-only until a wire format is finalized.
+- Bridge/rate limiter are scaffold-only until a wire format is finalized.
 - No explicit handling for big-endian platforms beyond SBE’s default (acceptable per spec note).
 
 ## Julia Style
@@ -59,7 +59,7 @@ Open points:
 1) Phase 9 – Observability and Error Taxonomy
    - Optional exception hierarchy for init/mapping failures.
    - Structured logging fields and counter documentation.
-2) Phase 10 – Bridge/Decimator Completion
-   - Define wire format, implement full bridge/decimator tests.
+2) Phase 10 – Bridge/RateLimiter Completion
+   - Define wire format, implement full bridge/rate limiter tests.
 3) Phase 11 – Operational Playbooks
    - Deployment profiles, tuning knobs, and troubleshooting guides.

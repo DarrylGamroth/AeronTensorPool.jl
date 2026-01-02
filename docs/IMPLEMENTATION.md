@@ -109,7 +109,7 @@ For a combined wire + driver overview, see `docs/IMPLEMENTATION_GUIDE.md`.
 - Consumer: must not spin-wait for commit; on any failure, drop and continue.
 - Supervisor: detect stale activity_timestamp_ns or missing announces; issue ConsumerConfig; arbitrate consumer IDs.
 - Bridge (optional): validate before republishing; preserve seq/frame_id; maintain its own epoch/layout in announces.
-- Decimator/Tap (optional): consumes STREAM, republishes LATEST/DECIMATED; may suppress progress for dropped frames.
+- RateLimiter/Tap (optional): consumes STREAM, republishes LATEST/DECIMATED; may suppress progress for dropped frames.
 
 ## 13. Julia fast path guidance
 - Keep hot paths allocation-free and type-stable: preallocate buffers for decoded headers and reuse; avoid VarData/VarAscii decoding in the frame loop.
@@ -190,7 +190,7 @@ profile = "raw_profile"
   - Producer agent: publishes ShmPoolAnnounce, FrameDescriptor, optional FrameProgress.
   - Consumer agent(s): subscribe to descriptors/progress, mmap SHM, apply mode (STREAM/LATEST/DECIMATED).
   - Supervisor agent: receives announces, issues ConsumerConfig, aggregates QoS, liveness checks.
-  - Optional bridge/decimator/tap: republish or downsample while preserving seq/frame_id semantics.
+  - Optional bridge/rate limiter/tap: republish or downsample while preserving seq/frame_id semantics.
 
 ## 17. Operational playbook
 - See `docs/OPERATIONAL_PLAYBOOK.md` for startup order, tuning guidance, and failure playbooks.
@@ -280,9 +280,9 @@ profile = "raw_profile"
 - Fallback path: invalid SHM triggers fallback_uri usage.
 - Progress off/on: verify gating and throttling; COMPLETE does not bypass commit_word.
 
-## 22. Bridge/decimator specifics
+## 22. Bridge/rate limiter specifics
 - Bridge republishes with its own epoch/layout in announces; preserves seq/frame_id from source descriptors.
-- Decimator/Tap may suppress progress for dropped frames; must keep seq/frame_id identity and follow same commit_word rules on republished descriptors.
+- RateLimiter/Tap may suppress progress for dropped frames; must keep seq/frame_id identity and follow same commit_word rules on republished descriptors.
 
 ## 23. Device DMA integration (zero-copy)
 - Use the producer to allocate payload pools, then register each payload slot with your device SDK for DMA writes.

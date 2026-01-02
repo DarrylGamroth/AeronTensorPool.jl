@@ -251,10 +251,10 @@ Status
 ## Phase 11 - Optional Features
 
 Goals
-- Prepare optional bridge and decimator scaffolding.
+- Prepare optional bridge and rate limiter scaffolding.
 
 Deliverables
-- Bridge/decimator scaffolds and TODO notes until formats exist.
+- Bridge/rate limiter scaffolds and TODO notes until formats exist.
 - Optional UDP payload format placeholder.
 
 Validation

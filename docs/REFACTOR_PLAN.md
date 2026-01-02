@@ -47,7 +47,7 @@ src/
     bridge/
       state.jl
       logic.jl
-    decimator/
+    rate limiter/
       state.jl
       logic.jl
   agents/
