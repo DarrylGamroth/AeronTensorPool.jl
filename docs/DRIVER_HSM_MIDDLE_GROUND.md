@@ -89,3 +89,10 @@ If/when the driver grows:
   into `@on_event` handlers for per‑lease/per‑stream HSMs.
 - Keep event names stable (`:AttachOk`, `:Keepalive`, `:LeaseTimeout`, `:Detach`, `:Revoke`) so the
   top‑level HSM can dispatch into child HSMs without renaming.
+
+## Optional Enhancements (Design-Only)
+
+- Admin shutdown request message that maps to `ShutdownRequested`.
+- Control-plane gating during `Draining` (reject new stream creation, keep detaches/expiry).
+- Optional final announce/QoS snapshot on `Draining` entry.
+- Optional `Degraded` or `Maintenance` state for liveness warnings without stopping service.
