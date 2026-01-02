@@ -871,6 +871,7 @@ during startup or supervision.
 Reference schema patterned after Aeron archive control style; adjust IDs and fields as needed. Keep `schemaId` and `version` aligned with `layout_version`/doc version.
 
 ```xml
+<?xml version="1.0" encoding="UTF-8"?>
 <sbe:messageSchema xmlns:sbe="http://fixprotocol.io/2016/sbe"
                    package="shm.tensorpool.control"
                    id="900"
