@@ -507,45 +507,54 @@ function emit_attach_response!(
         (isempty(error_message) ? ShmAttachResponse.errorMessage_header_length :
          ShmAttachResponse.errorMessage_header_length + error_len)
 
-    return try_claim_sbe!(state.runtime.pub_control, state.runtime.control_claim, msg_len) do buf
-        ShmAttachResponse.wrap_and_apply_header!(state.runtime.attach_encoder, buf, 0)
-        ShmAttachResponse.correlationId!(state.runtime.attach_encoder, correlation_id)
-        ShmAttachResponse.code!(state.runtime.attach_encoder, code)
+    return let st = state,
+        correlation_id = correlation_id,
+        code = code,
+        lease_id = lease_id,
+        lease_expiry_ns = lease_expiry_ns,
+        stream_state = stream_state,
+        error_message = error_message,
+        payload_count = payload_count
+        try_claim_sbe!(st.runtime.pub_control, st.runtime.control_claim, msg_len) do buf
+            ShmAttachResponse.wrap_and_apply_header!(st.runtime.attach_encoder, buf, 0)
+            ShmAttachResponse.correlationId!(st.runtime.attach_encoder, correlation_id)
+            ShmAttachResponse.code!(st.runtime.attach_encoder, code)
 
-        if code == DriverResponseCode.OK && !isnothing(stream_state)
-            ShmAttachResponse.leaseId!(state.runtime.attach_encoder, lease_id)
-            ShmAttachResponse.leaseExpiryTimestampNs!(state.runtime.attach_encoder, lease_expiry_ns)
-            ShmAttachResponse.streamId!(state.runtime.attach_encoder, stream_state.stream_id)
-            ShmAttachResponse.epoch!(state.runtime.attach_encoder, stream_state.epoch)
-            ShmAttachResponse.layoutVersion!(state.runtime.attach_encoder, UInt32(1))
-            ShmAttachResponse.headerNslots!(state.runtime.attach_encoder, stream_state.profile.header_nslots)
-            ShmAttachResponse.headerSlotBytes!(state.runtime.attach_encoder, UInt16(HEADER_SLOT_BYTES))
-            ShmAttachResponse.maxDims!(state.runtime.attach_encoder, stream_state.profile.max_dims)
+            if code == DriverResponseCode.OK && !isnothing(stream_state)
+                ShmAttachResponse.leaseId!(st.runtime.attach_encoder, lease_id)
+                ShmAttachResponse.leaseExpiryTimestampNs!(st.runtime.attach_encoder, lease_expiry_ns)
+                ShmAttachResponse.streamId!(st.runtime.attach_encoder, stream_state.stream_id)
+                ShmAttachResponse.epoch!(st.runtime.attach_encoder, stream_state.epoch)
+                ShmAttachResponse.layoutVersion!(st.runtime.attach_encoder, UInt32(1))
+                ShmAttachResponse.headerNslots!(st.runtime.attach_encoder, stream_state.profile.header_nslots)
+                ShmAttachResponse.headerSlotBytes!(st.runtime.attach_encoder, UInt16(HEADER_SLOT_BYTES))
+                ShmAttachResponse.maxDims!(st.runtime.attach_encoder, stream_state.profile.max_dims)
 
-            pools_group = ShmAttachResponse.payloadPools!(state.runtime.attach_encoder, payload_count)
-            for pool in stream_state.profile.payload_pools
-                entry = ShmAttachResponse.PayloadPools.next!(pools_group)
-                ShmAttachResponse.PayloadPools.poolId!(entry, pool.pool_id)
-                ShmAttachResponse.PayloadPools.poolNslots!(entry, stream_state.profile.header_nslots)
-                ShmAttachResponse.PayloadPools.strideBytes!(entry, pool.stride_bytes)
-                ShmAttachResponse.PayloadPools.regionUri!(entry, stream_state.pool_uris[pool.pool_id])
+                pools_group = ShmAttachResponse.payloadPools!(st.runtime.attach_encoder, payload_count)
+                for pool in stream_state.profile.payload_pools
+                    entry = ShmAttachResponse.PayloadPools.next!(pools_group)
+                    ShmAttachResponse.PayloadPools.poolId!(entry, pool.pool_id)
+                    ShmAttachResponse.PayloadPools.poolNslots!(entry, stream_state.profile.header_nslots)
+                    ShmAttachResponse.PayloadPools.strideBytes!(entry, pool.stride_bytes)
+                    ShmAttachResponse.PayloadPools.regionUri!(entry, stream_state.pool_uris[pool.pool_id])
+                end
+                ShmAttachResponse.headerRegionUri!(st.runtime.attach_encoder, stream_state.header_uri)
+                ShmAttachResponse.errorMessage!(st.runtime.attach_encoder, error_message)
+            else
+                ShmAttachResponse.leaseId!(st.runtime.attach_encoder, typemax(UInt64))
+                ShmAttachResponse.leaseExpiryTimestampNs!(st.runtime.attach_encoder, typemax(UInt64))
+                ShmAttachResponse.streamId!(st.runtime.attach_encoder, typemax(UInt32))
+                ShmAttachResponse.epoch!(st.runtime.attach_encoder, typemax(UInt64))
+                ShmAttachResponse.layoutVersion!(st.runtime.attach_encoder, typemax(UInt32))
+                ShmAttachResponse.headerNslots!(st.runtime.attach_encoder, typemax(UInt32))
+                ShmAttachResponse.headerSlotBytes!(st.runtime.attach_encoder, typemax(UInt16))
+                ShmAttachResponse.maxDims!(st.runtime.attach_encoder, typemax(UInt8))
+                ShmAttachResponse.payloadPools!(st.runtime.attach_encoder, 0)
+                ShmAttachResponse.headerRegionUri!(st.runtime.attach_encoder, "")
+                ShmAttachResponse.errorMessage!(st.runtime.attach_encoder, error_message)
             end
-            ShmAttachResponse.headerRegionUri!(state.runtime.attach_encoder, stream_state.header_uri)
-            ShmAttachResponse.errorMessage!(state.runtime.attach_encoder, error_message)
-        else
-            ShmAttachResponse.leaseId!(state.runtime.attach_encoder, typemax(UInt64))
-            ShmAttachResponse.leaseExpiryTimestampNs!(state.runtime.attach_encoder, typemax(UInt64))
-            ShmAttachResponse.streamId!(state.runtime.attach_encoder, typemax(UInt32))
-            ShmAttachResponse.epoch!(state.runtime.attach_encoder, typemax(UInt64))
-            ShmAttachResponse.layoutVersion!(state.runtime.attach_encoder, typemax(UInt32))
-            ShmAttachResponse.headerNslots!(state.runtime.attach_encoder, typemax(UInt32))
-            ShmAttachResponse.headerSlotBytes!(state.runtime.attach_encoder, typemax(UInt16))
-            ShmAttachResponse.maxDims!(state.runtime.attach_encoder, typemax(UInt8))
-            ShmAttachResponse.payloadPools!(state.runtime.attach_encoder, 0)
-            ShmAttachResponse.headerRegionUri!(state.runtime.attach_encoder, "")
-            ShmAttachResponse.errorMessage!(state.runtime.attach_encoder, error_message)
-        end
-    end && (state.metrics.attach_responses += 1; true)
+        end && (st.metrics.attach_responses += 1; true)
+    end
 end
 
 function emit_detach_response!(
@@ -559,12 +568,17 @@ function emit_detach_response!(
         ShmDetachResponse.errorMessage_header_length +
         sizeof(error_message)
 
-    return try_claim_sbe!(state.runtime.pub_control, state.runtime.control_claim, msg_len) do buf
-        ShmDetachResponse.wrap_and_apply_header!(state.runtime.detach_encoder, buf, 0)
-        ShmDetachResponse.correlationId!(state.runtime.detach_encoder, correlation_id)
-        ShmDetachResponse.code!(state.runtime.detach_encoder, code)
-        ShmDetachResponse.errorMessage!(state.runtime.detach_encoder, error_message)
-    end && (state.metrics.detach_responses += 1; true)
+    return let st = state,
+        correlation_id = correlation_id,
+        code = code,
+        error_message = error_message
+        try_claim_sbe!(st.runtime.pub_control, st.runtime.control_claim, msg_len) do buf
+            ShmDetachResponse.wrap_and_apply_header!(st.runtime.detach_encoder, buf, 0)
+            ShmDetachResponse.correlationId!(st.runtime.detach_encoder, correlation_id)
+            ShmDetachResponse.code!(st.runtime.detach_encoder, code)
+            ShmDetachResponse.errorMessage!(st.runtime.detach_encoder, error_message)
+        end && (st.metrics.detach_responses += 1; true)
+    end
 end
 
 function emit_lease_revoked!(
@@ -576,16 +590,21 @@ function emit_lease_revoked!(
     msg_len = DRIVER_MESSAGE_HEADER_LEN +
         Int(ShmLeaseRevoked.sbe_block_length(ShmLeaseRevoked.Decoder)) +
         ShmLeaseRevoked.errorMessage_header_length
-    return try_claim_sbe!(state.runtime.pub_control, state.runtime.control_claim, msg_len) do buf
-        ShmLeaseRevoked.wrap_and_apply_header!(state.runtime.revoke_encoder, buf, 0)
-        ShmLeaseRevoked.timestampNs!(state.runtime.revoke_encoder, now_ns)
-        ShmLeaseRevoked.leaseId!(state.runtime.revoke_encoder, lease.lease_id)
-        ShmLeaseRevoked.streamId!(state.runtime.revoke_encoder, lease.stream_id)
-        ShmLeaseRevoked.clientId!(state.runtime.revoke_encoder, lease.client_id)
-        ShmLeaseRevoked.role!(state.runtime.revoke_encoder, lease.role)
-        ShmLeaseRevoked.reason!(state.runtime.revoke_encoder, reason)
-        ShmLeaseRevoked.errorMessage!(state.runtime.revoke_encoder, "")
-    end && (state.metrics.lease_revoked += 1; true)
+    return let st = state,
+        lease = lease,
+        reason = reason,
+        now_ns = now_ns
+        try_claim_sbe!(st.runtime.pub_control, st.runtime.control_claim, msg_len) do buf
+            ShmLeaseRevoked.wrap_and_apply_header!(st.runtime.revoke_encoder, buf, 0)
+            ShmLeaseRevoked.timestampNs!(st.runtime.revoke_encoder, now_ns)
+            ShmLeaseRevoked.leaseId!(st.runtime.revoke_encoder, lease.lease_id)
+            ShmLeaseRevoked.streamId!(st.runtime.revoke_encoder, lease.stream_id)
+            ShmLeaseRevoked.clientId!(st.runtime.revoke_encoder, lease.client_id)
+            ShmLeaseRevoked.role!(st.runtime.revoke_encoder, lease.role)
+            ShmLeaseRevoked.reason!(st.runtime.revoke_encoder, reason)
+            ShmLeaseRevoked.errorMessage!(st.runtime.revoke_encoder, "")
+        end && (st.metrics.lease_revoked += 1; true)
+    end
 end
 
 function emit_driver_announce!(state::DriverState, stream_state::DriverStreamState)
@@ -601,26 +620,30 @@ function emit_driver_announce!(state::DriverState, stream_state::DriverStreamSta
         ShmPoolAnnounce.headerRegionUri_header_length +
         sizeof(stream_state.header_uri)
 
-    return try_claim_sbe!(state.runtime.pub_announce, state.runtime.control_claim, msg_len) do buf
-        ShmPoolAnnounce.wrap_and_apply_header!(state.runtime.announce_encoder, buf, 0)
-        ShmPoolAnnounce.streamId!(state.runtime.announce_encoder, stream_state.stream_id)
-        ShmPoolAnnounce.producerId!(state.runtime.announce_encoder, UInt32(0))
-        ShmPoolAnnounce.epoch!(state.runtime.announce_encoder, stream_state.epoch)
-        ShmPoolAnnounce.layoutVersion!(state.runtime.announce_encoder, UInt32(1))
-        ShmPoolAnnounce.headerNslots!(state.runtime.announce_encoder, stream_state.profile.header_nslots)
-        ShmPoolAnnounce.headerSlotBytes!(state.runtime.announce_encoder, UInt16(HEADER_SLOT_BYTES))
-        ShmPoolAnnounce.maxDims!(state.runtime.announce_encoder, stream_state.profile.max_dims)
+    return let st = state,
+        stream_state = stream_state,
+        payload_count = payload_count
+        try_claim_sbe!(st.runtime.pub_announce, st.runtime.control_claim, msg_len) do buf
+            ShmPoolAnnounce.wrap_and_apply_header!(st.runtime.announce_encoder, buf, 0)
+            ShmPoolAnnounce.streamId!(st.runtime.announce_encoder, stream_state.stream_id)
+            ShmPoolAnnounce.producerId!(st.runtime.announce_encoder, UInt32(0))
+            ShmPoolAnnounce.epoch!(st.runtime.announce_encoder, stream_state.epoch)
+            ShmPoolAnnounce.layoutVersion!(st.runtime.announce_encoder, UInt32(1))
+            ShmPoolAnnounce.headerNslots!(st.runtime.announce_encoder, stream_state.profile.header_nslots)
+            ShmPoolAnnounce.headerSlotBytes!(st.runtime.announce_encoder, UInt16(HEADER_SLOT_BYTES))
+            ShmPoolAnnounce.maxDims!(st.runtime.announce_encoder, stream_state.profile.max_dims)
 
-        pools_group = ShmPoolAnnounce.payloadPools!(state.runtime.announce_encoder, payload_count)
-        for pool in stream_state.profile.payload_pools
-            entry = ShmPoolAnnounce.PayloadPools.next!(pools_group)
-            ShmPoolAnnounce.PayloadPools.poolId!(entry, pool.pool_id)
-            ShmPoolAnnounce.PayloadPools.poolNslots!(entry, stream_state.profile.header_nslots)
-            ShmPoolAnnounce.PayloadPools.strideBytes!(entry, pool.stride_bytes)
-            ShmPoolAnnounce.PayloadPools.regionUri!(entry, stream_state.pool_uris[pool.pool_id])
-        end
-        ShmPoolAnnounce.headerRegionUri!(state.runtime.announce_encoder, stream_state.header_uri)
-    end && (state.metrics.announces += 1; true)
+            pools_group = ShmPoolAnnounce.payloadPools!(st.runtime.announce_encoder, payload_count)
+            for pool in stream_state.profile.payload_pools
+                entry = ShmPoolAnnounce.PayloadPools.next!(pools_group)
+                ShmPoolAnnounce.PayloadPools.poolId!(entry, pool.pool_id)
+                ShmPoolAnnounce.PayloadPools.poolNslots!(entry, stream_state.profile.header_nslots)
+                ShmPoolAnnounce.PayloadPools.strideBytes!(entry, pool.stride_bytes)
+                ShmPoolAnnounce.PayloadPools.regionUri!(entry, stream_state.pool_uris[pool.pool_id])
+            end
+            ShmPoolAnnounce.headerRegionUri!(st.runtime.announce_encoder, stream_state.header_uri)
+        end && (st.metrics.announces += 1; true)
+    end
 end
 
 function emit_driver_shutdown!(
@@ -633,10 +656,15 @@ function emit_driver_shutdown!(
         ShmDriverShutdown.errorMessage_header_length +
         sizeof(error_message)
     now_ns = UInt64(Clocks.time_nanos(state.clock))
-    return try_claim_sbe!(state.runtime.pub_control, state.runtime.control_claim, msg_len) do buf
-        ShmDriverShutdown.wrap_and_apply_header!(state.runtime.shutdown_encoder, buf, 0)
-        ShmDriverShutdown.timestampNs!(state.runtime.shutdown_encoder, now_ns)
-        ShmDriverShutdown.reason!(state.runtime.shutdown_encoder, reason)
-        ShmDriverShutdown.errorMessage!(state.runtime.shutdown_encoder, error_message)
+    return let st = state,
+        now_ns = now_ns,
+        reason = reason,
+        error_message = error_message
+        try_claim_sbe!(st.runtime.pub_control, st.runtime.control_claim, msg_len) do buf
+            ShmDriverShutdown.wrap_and_apply_header!(st.runtime.shutdown_encoder, buf, 0)
+            ShmDriverShutdown.timestampNs!(st.runtime.shutdown_encoder, now_ns)
+            ShmDriverShutdown.reason!(st.runtime.shutdown_encoder, reason)
+            ShmDriverShutdown.errorMessage!(st.runtime.shutdown_encoder, error_message)
+        end
     end
 end

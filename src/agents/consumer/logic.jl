@@ -589,24 +589,29 @@ function emit_consumer_hello!(state::ConsumerState)
         progress_bytes = typemax(UInt32)
         progress_rows = typemax(UInt32)
     end
-    sent = try_claim_sbe!(state.runtime.pub_control, state.runtime.hello_claim, CONSUMER_HELLO_LEN) do buf
-        ConsumerHello.wrap_and_apply_header!(state.runtime.hello_encoder, buf, 0)
-        ConsumerHello.streamId!(state.runtime.hello_encoder, state.config.stream_id)
-        ConsumerHello.consumerId!(state.runtime.hello_encoder, state.config.consumer_id)
-        ConsumerHello.supportsShm!(
-            state.runtime.hello_encoder,
-            state.config.supports_shm ? ShmTensorpoolControl.Bool_.TRUE : ShmTensorpoolControl.Bool_.FALSE,
-        )
-        ConsumerHello.supportsProgress!(
-            state.runtime.hello_encoder,
-            state.config.supports_progress ? ShmTensorpoolControl.Bool_.TRUE : ShmTensorpoolControl.Bool_.FALSE,
-        )
-        ConsumerHello.mode!(state.runtime.hello_encoder, state.config.mode)
-        ConsumerHello.maxRateHz!(state.runtime.hello_encoder, state.config.max_rate_hz)
-        ConsumerHello.expectedLayoutVersion!(state.runtime.hello_encoder, state.config.expected_layout_version)
-        ConsumerHello.progressIntervalUs!(state.runtime.hello_encoder, progress_interval)
-        ConsumerHello.progressBytesDelta!(state.runtime.hello_encoder, progress_bytes)
-        ConsumerHello.progressRowsDelta!(state.runtime.hello_encoder, progress_rows)
+    sent = let st = state,
+        interval = progress_interval,
+        bytes = progress_bytes,
+        rows = progress_rows
+        try_claim_sbe!(st.runtime.pub_control, st.runtime.hello_claim, CONSUMER_HELLO_LEN) do buf
+            ConsumerHello.wrap_and_apply_header!(st.runtime.hello_encoder, buf, 0)
+            ConsumerHello.streamId!(st.runtime.hello_encoder, st.config.stream_id)
+            ConsumerHello.consumerId!(st.runtime.hello_encoder, st.config.consumer_id)
+            ConsumerHello.supportsShm!(
+                st.runtime.hello_encoder,
+                st.config.supports_shm ? ShmTensorpoolControl.Bool_.TRUE : ShmTensorpoolControl.Bool_.FALSE,
+            )
+            ConsumerHello.supportsProgress!(
+                st.runtime.hello_encoder,
+                st.config.supports_progress ? ShmTensorpoolControl.Bool_.TRUE : ShmTensorpoolControl.Bool_.FALSE,
+            )
+            ConsumerHello.mode!(st.runtime.hello_encoder, st.config.mode)
+            ConsumerHello.maxRateHz!(st.runtime.hello_encoder, st.config.max_rate_hz)
+            ConsumerHello.expectedLayoutVersion!(st.runtime.hello_encoder, st.config.expected_layout_version)
+            ConsumerHello.progressIntervalUs!(st.runtime.hello_encoder, interval)
+            ConsumerHello.progressBytesDelta!(st.runtime.hello_encoder, bytes)
+            ConsumerHello.progressRowsDelta!(st.runtime.hello_encoder, rows)
+        end
     end
     sent || return false
     state.metrics.hello_count += 1
@@ -617,15 +622,17 @@ end
 Emit a QosConsumer message with drop counters and last_seq_seen.
 """
 function emit_qos!(state::ConsumerState)
-    sent = try_claim_sbe!(state.runtime.pub_qos, state.runtime.qos_claim, QOS_CONSUMER_LEN) do buf
-        QosConsumer.wrap_and_apply_header!(state.runtime.qos_encoder, buf, 0)
-        QosConsumer.streamId!(state.runtime.qos_encoder, state.config.stream_id)
-        QosConsumer.consumerId!(state.runtime.qos_encoder, state.config.consumer_id)
-        QosConsumer.epoch!(state.runtime.qos_encoder, state.mappings.mapped_epoch)
-        QosConsumer.lastSeqSeen!(state.runtime.qos_encoder, state.metrics.last_seq_seen)
-        QosConsumer.dropsGap!(state.runtime.qos_encoder, state.metrics.drops_gap)
-        QosConsumer.dropsLate!(state.runtime.qos_encoder, state.metrics.drops_late)
-        QosConsumer.mode!(state.runtime.qos_encoder, state.config.mode)
+    sent = let st = state
+        try_claim_sbe!(st.runtime.pub_qos, st.runtime.qos_claim, QOS_CONSUMER_LEN) do buf
+            QosConsumer.wrap_and_apply_header!(st.runtime.qos_encoder, buf, 0)
+            QosConsumer.streamId!(st.runtime.qos_encoder, st.config.stream_id)
+            QosConsumer.consumerId!(st.runtime.qos_encoder, st.config.consumer_id)
+            QosConsumer.epoch!(st.runtime.qos_encoder, st.mappings.mapped_epoch)
+            QosConsumer.lastSeqSeen!(st.runtime.qos_encoder, st.metrics.last_seq_seen)
+            QosConsumer.dropsGap!(st.runtime.qos_encoder, st.metrics.drops_gap)
+            QosConsumer.dropsLate!(st.runtime.qos_encoder, st.metrics.drops_late)
+            QosConsumer.mode!(st.runtime.qos_encoder, st.config.mode)
+        end
     end
     sent || return false
     state.metrics.qos_count += 1

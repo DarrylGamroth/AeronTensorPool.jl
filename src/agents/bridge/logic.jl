@@ -237,26 +237,31 @@ function bridge_forward_announce!(state::BridgeSenderState, msg::ShmPoolAnnounce
     payloads = ShmPoolAnnounce.payloadPools(msg)
     payload_count = length(payloads)
 
-    sent = try_claim_sbe!(state.pub_control, state.control_claim, msg_len) do buf
-        enc = state.announce_encoder
-        ShmPoolAnnounce.wrap_and_apply_header!(enc, buf, 0)
-        ShmPoolAnnounce.streamId!(enc, ShmPoolAnnounce.streamId(msg))
-        ShmPoolAnnounce.producerId!(enc, ShmPoolAnnounce.producerId(msg))
-        ShmPoolAnnounce.epoch!(enc, ShmPoolAnnounce.epoch(msg))
-        ShmPoolAnnounce.layoutVersion!(enc, ShmPoolAnnounce.layoutVersion(msg))
-        ShmPoolAnnounce.headerNslots!(enc, ShmPoolAnnounce.headerNslots(msg))
-        ShmPoolAnnounce.headerSlotBytes!(enc, ShmPoolAnnounce.headerSlotBytes(msg))
-        ShmPoolAnnounce.maxDims!(enc, ShmPoolAnnounce.maxDims(msg))
+    sent = let st = state,
+        msg = msg,
+        payloads = payloads,
+        payload_count = payload_count
+        try_claim_sbe!(st.pub_control, st.control_claim, msg_len) do buf
+            enc = st.announce_encoder
+            ShmPoolAnnounce.wrap_and_apply_header!(enc, buf, 0)
+            ShmPoolAnnounce.streamId!(enc, ShmPoolAnnounce.streamId(msg))
+            ShmPoolAnnounce.producerId!(enc, ShmPoolAnnounce.producerId(msg))
+            ShmPoolAnnounce.epoch!(enc, ShmPoolAnnounce.epoch(msg))
+            ShmPoolAnnounce.layoutVersion!(enc, ShmPoolAnnounce.layoutVersion(msg))
+            ShmPoolAnnounce.headerNslots!(enc, ShmPoolAnnounce.headerNslots(msg))
+            ShmPoolAnnounce.headerSlotBytes!(enc, ShmPoolAnnounce.headerSlotBytes(msg))
+            ShmPoolAnnounce.maxDims!(enc, ShmPoolAnnounce.maxDims(msg))
 
-        group = ShmPoolAnnounce.payloadPools!(enc, payload_count)
-        for pool in payloads
-            entry = ShmPoolAnnounce.PayloadPools.next!(group)
-            ShmPoolAnnounce.PayloadPools.poolId!(entry, ShmPoolAnnounce.PayloadPools.poolId(pool))
-            ShmPoolAnnounce.PayloadPools.poolNslots!(entry, ShmPoolAnnounce.PayloadPools.poolNslots(pool))
-            ShmPoolAnnounce.PayloadPools.strideBytes!(entry, ShmPoolAnnounce.PayloadPools.strideBytes(pool))
-            ShmPoolAnnounce.PayloadPools.regionUri!(entry, String(ShmPoolAnnounce.PayloadPools.regionUri(pool)))
+            group = ShmPoolAnnounce.payloadPools!(enc, payload_count)
+            for pool in payloads
+                entry = ShmPoolAnnounce.PayloadPools.next!(group)
+                ShmPoolAnnounce.PayloadPools.poolId!(entry, ShmPoolAnnounce.PayloadPools.poolId(pool))
+                ShmPoolAnnounce.PayloadPools.poolNslots!(entry, ShmPoolAnnounce.PayloadPools.poolNslots(pool))
+                ShmPoolAnnounce.PayloadPools.strideBytes!(entry, ShmPoolAnnounce.PayloadPools.strideBytes(pool))
+                ShmPoolAnnounce.PayloadPools.regionUri!(entry, String(ShmPoolAnnounce.PayloadPools.regionUri(pool)))
+            end
+            ShmPoolAnnounce.headerRegionUri!(enc, String(ShmPoolAnnounce.headerRegionUri(msg)))
         end
-        ShmPoolAnnounce.headerRegionUri!(enc, String(ShmPoolAnnounce.headerRegionUri(msg)))
     end
     sent || return false
     state.last_announce_epoch = ShmPoolAnnounce.epoch(msg)
@@ -272,20 +277,23 @@ function bridge_forward_metadata_announce!(state::BridgeSenderState, msg::DataSo
     DataSourceAnnounce.streamId(msg) == state.mapping.source_stream_id || return false
 
     msg_len = MESSAGE_HEADER_LEN + Int(DataSourceAnnounce.sbe_decoded_length(msg))
-    sent = try_claim_sbe!(state.pub_metadata, state.metadata_claim, msg_len) do buf
-        enc = state.metadata_announce_encoder
-        DataSourceAnnounce.wrap_and_apply_header!(enc, buf, 0)
-        DataSourceAnnounce.streamId!(enc, DataSourceAnnounce.streamId(msg))
-        DataSourceAnnounce.producerId!(enc, DataSourceAnnounce.producerId(msg))
-        DataSourceAnnounce.epoch!(enc, DataSourceAnnounce.epoch(msg))
-        DataSourceAnnounce.metaVersion!(enc, DataSourceAnnounce.metaVersion(msg))
-        name_view = DataSourceAnnounce.name(msg)
-        summary_view = DataSourceAnnounce.summary(msg)
-        if !isempty(name_view)
-            DataSourceAnnounce.name!(enc, name_view)
-        end
-        if !isempty(summary_view)
-            DataSourceAnnounce.summary!(enc, summary_view)
+    sent = let st = state,
+        msg = msg
+        try_claim_sbe!(st.pub_metadata, st.metadata_claim, msg_len) do buf
+            enc = st.metadata_announce_encoder
+            DataSourceAnnounce.wrap_and_apply_header!(enc, buf, 0)
+            DataSourceAnnounce.streamId!(enc, DataSourceAnnounce.streamId(msg))
+            DataSourceAnnounce.producerId!(enc, DataSourceAnnounce.producerId(msg))
+            DataSourceAnnounce.epoch!(enc, DataSourceAnnounce.epoch(msg))
+            DataSourceAnnounce.metaVersion!(enc, DataSourceAnnounce.metaVersion(msg))
+            name_view = DataSourceAnnounce.name(msg)
+            summary_view = DataSourceAnnounce.summary(msg)
+            if !isempty(name_view)
+                DataSourceAnnounce.name!(enc, name_view)
+            end
+            if !isempty(summary_view)
+                DataSourceAnnounce.summary!(enc, summary_view)
+            end
         end
     end
     return sent
@@ -300,20 +308,23 @@ function bridge_forward_metadata_meta!(state::BridgeSenderState, msg::DataSource
     DataSourceMeta.streamId(msg) == state.mapping.source_stream_id || return false
 
     msg_len = MESSAGE_HEADER_LEN + Int(DataSourceMeta.sbe_decoded_length(msg))
-    sent = try_claim_sbe!(state.pub_metadata, state.metadata_claim, msg_len) do buf
-        enc = state.metadata_meta_encoder
-        DataSourceMeta.wrap_and_apply_header!(enc, buf, 0)
-        DataSourceMeta.streamId!(enc, DataSourceMeta.streamId(msg))
-        DataSourceMeta.metaVersion!(enc, DataSourceMeta.metaVersion(msg))
-        DataSourceMeta.timestampNs!(enc, DataSourceMeta.timestampNs(msg))
+    sent = let st = state,
+        msg = msg
+        try_claim_sbe!(st.pub_metadata, st.metadata_claim, msg_len) do buf
+            enc = st.metadata_meta_encoder
+            DataSourceMeta.wrap_and_apply_header!(enc, buf, 0)
+            DataSourceMeta.streamId!(enc, DataSourceMeta.streamId(msg))
+            DataSourceMeta.metaVersion!(enc, DataSourceMeta.metaVersion(msg))
+            DataSourceMeta.timestampNs!(enc, DataSourceMeta.timestampNs(msg))
 
-        attrs = DataSourceMeta.attributes(msg)
-        group = DataSourceMeta.attributes!(enc, length(attrs))
-        for attr in attrs
-            entry = DataSourceMeta.Attributes.next!(group)
-            DataSourceMeta.Attributes.key!(entry, DataSourceMeta.Attributes.key(attr))
-            DataSourceMeta.Attributes.format!(entry, DataSourceMeta.Attributes.format(attr))
-            DataSourceMeta.Attributes.value!(entry, DataSourceMeta.Attributes.value(attr))
+            attrs = DataSourceMeta.attributes(msg)
+            group = DataSourceMeta.attributes!(enc, length(attrs))
+            for attr in attrs
+                entry = DataSourceMeta.Attributes.next!(group)
+                DataSourceMeta.Attributes.key!(entry, DataSourceMeta.Attributes.key(attr))
+                DataSourceMeta.Attributes.format!(entry, DataSourceMeta.Attributes.format(attr))
+                DataSourceMeta.Attributes.value!(entry, DataSourceMeta.Attributes.value(attr))
+            end
         end
     end
     return sent
@@ -330,20 +341,24 @@ function bridge_publish_metadata_announce!(state::BridgeReceiverState, msg::Data
     dest_stream_id =
         state.mapping.metadata_stream_id == 0 ? UInt32(state.mapping.dest_stream_id) : state.mapping.metadata_stream_id
     msg_len = MESSAGE_HEADER_LEN + Int(DataSourceAnnounce.sbe_decoded_length(msg))
-    sent = try_claim_sbe!(state.pub_metadata_local, state.metadata_claim, msg_len) do buf
-        enc = state.metadata_announce_encoder
-        DataSourceAnnounce.wrap_and_apply_header!(enc, buf, 0)
-        DataSourceAnnounce.streamId!(enc, dest_stream_id)
-        DataSourceAnnounce.producerId!(enc, DataSourceAnnounce.producerId(msg))
-        DataSourceAnnounce.epoch!(enc, DataSourceAnnounce.epoch(msg))
-        DataSourceAnnounce.metaVersion!(enc, DataSourceAnnounce.metaVersion(msg))
-        name_view = DataSourceAnnounce.name(msg)
-        summary_view = DataSourceAnnounce.summary(msg)
-        if !isempty(name_view)
-            DataSourceAnnounce.name!(enc, name_view)
-        end
-        if !isempty(summary_view)
-            DataSourceAnnounce.summary!(enc, summary_view)
+    sent = let st = state,
+        msg = msg,
+        dest_stream_id = dest_stream_id
+        try_claim_sbe!(st.pub_metadata_local, st.metadata_claim, msg_len) do buf
+            enc = st.metadata_announce_encoder
+            DataSourceAnnounce.wrap_and_apply_header!(enc, buf, 0)
+            DataSourceAnnounce.streamId!(enc, dest_stream_id)
+            DataSourceAnnounce.producerId!(enc, DataSourceAnnounce.producerId(msg))
+            DataSourceAnnounce.epoch!(enc, DataSourceAnnounce.epoch(msg))
+            DataSourceAnnounce.metaVersion!(enc, DataSourceAnnounce.metaVersion(msg))
+            name_view = DataSourceAnnounce.name(msg)
+            summary_view = DataSourceAnnounce.summary(msg)
+            if !isempty(name_view)
+                DataSourceAnnounce.name!(enc, name_view)
+            end
+            if !isempty(summary_view)
+                DataSourceAnnounce.summary!(enc, summary_view)
+            end
         end
     end
     return sent
@@ -360,20 +375,24 @@ function bridge_publish_metadata_meta!(state::BridgeReceiverState, msg::DataSour
     dest_stream_id =
         state.mapping.metadata_stream_id == 0 ? UInt32(state.mapping.dest_stream_id) : state.mapping.metadata_stream_id
     msg_len = MESSAGE_HEADER_LEN + Int(DataSourceMeta.sbe_decoded_length(msg))
-    sent = try_claim_sbe!(state.pub_metadata_local, state.metadata_claim, msg_len) do buf
-        enc = state.metadata_meta_encoder
-        DataSourceMeta.wrap_and_apply_header!(enc, buf, 0)
-        DataSourceMeta.streamId!(enc, dest_stream_id)
-        DataSourceMeta.metaVersion!(enc, DataSourceMeta.metaVersion(msg))
-        DataSourceMeta.timestampNs!(enc, DataSourceMeta.timestampNs(msg))
+    sent = let st = state,
+        msg = msg,
+        dest_stream_id = dest_stream_id
+        try_claim_sbe!(st.pub_metadata_local, st.metadata_claim, msg_len) do buf
+            enc = st.metadata_meta_encoder
+            DataSourceMeta.wrap_and_apply_header!(enc, buf, 0)
+            DataSourceMeta.streamId!(enc, dest_stream_id)
+            DataSourceMeta.metaVersion!(enc, DataSourceMeta.metaVersion(msg))
+            DataSourceMeta.timestampNs!(enc, DataSourceMeta.timestampNs(msg))
 
-        attrs = DataSourceMeta.attributes(msg)
-        group = DataSourceMeta.attributes!(enc, length(attrs))
-        for attr in attrs
-            entry = DataSourceMeta.Attributes.next!(group)
-            DataSourceMeta.Attributes.key!(entry, DataSourceMeta.Attributes.key(attr))
-            DataSourceMeta.Attributes.format!(entry, DataSourceMeta.Attributes.format(attr))
-            DataSourceMeta.Attributes.value!(entry, DataSourceMeta.Attributes.value(attr))
+            attrs = DataSourceMeta.attributes(msg)
+            group = DataSourceMeta.attributes!(enc, length(attrs))
+            for attr in attrs
+                entry = DataSourceMeta.Attributes.next!(group)
+                DataSourceMeta.Attributes.key!(entry, DataSourceMeta.Attributes.key(attr))
+                DataSourceMeta.Attributes.format!(entry, DataSourceMeta.Attributes.format(attr))
+                DataSourceMeta.Attributes.value!(entry, DataSourceMeta.Attributes.value(attr))
+            end
         end
     end
     return sent
@@ -386,13 +405,16 @@ function bridge_forward_qos_producer!(state::BridgeSenderState, msg::QosProducer
     state.config.forward_qos || return false
     QosProducer.streamId(msg) == state.mapping.source_stream_id || return false
     msg_len = MESSAGE_HEADER_LEN + Int(QosProducer.sbe_decoded_length(msg))
-    sent = try_claim_sbe!(state.pub_control, state.control_claim, msg_len) do buf
-        enc = state.qos_producer_encoder
-        QosProducer.wrap_and_apply_header!(enc, buf, 0)
-        QosProducer.streamId!(enc, QosProducer.streamId(msg))
-        QosProducer.producerId!(enc, QosProducer.producerId(msg))
-        QosProducer.epoch!(enc, QosProducer.epoch(msg))
-        QosProducer.currentSeq!(enc, QosProducer.currentSeq(msg))
+    sent = let st = state,
+        msg = msg
+        try_claim_sbe!(st.pub_control, st.control_claim, msg_len) do buf
+            enc = st.qos_producer_encoder
+            QosProducer.wrap_and_apply_header!(enc, buf, 0)
+            QosProducer.streamId!(enc, QosProducer.streamId(msg))
+            QosProducer.producerId!(enc, QosProducer.producerId(msg))
+            QosProducer.epoch!(enc, QosProducer.epoch(msg))
+            QosProducer.currentSeq!(enc, QosProducer.currentSeq(msg))
+        end
     end
     return sent
 end
@@ -404,16 +426,19 @@ function bridge_forward_qos_consumer!(state::BridgeSenderState, msg::QosConsumer
     state.config.forward_qos || return false
     QosConsumer.streamId(msg) == state.mapping.source_stream_id || return false
     msg_len = MESSAGE_HEADER_LEN + Int(QosConsumer.sbe_decoded_length(msg))
-    sent = try_claim_sbe!(state.pub_control, state.control_claim, msg_len) do buf
-        enc = state.qos_consumer_encoder
-        QosConsumer.wrap_and_apply_header!(enc, buf, 0)
-        QosConsumer.streamId!(enc, QosConsumer.streamId(msg))
-        QosConsumer.consumerId!(enc, QosConsumer.consumerId(msg))
-        QosConsumer.epoch!(enc, QosConsumer.epoch(msg))
-        QosConsumer.lastSeqSeen!(enc, QosConsumer.lastSeqSeen(msg))
-        QosConsumer.dropsGap!(enc, QosConsumer.dropsGap(msg))
-        QosConsumer.dropsLate!(enc, QosConsumer.dropsLate(msg))
-        QosConsumer.mode!(enc, QosConsumer.mode(msg))
+    sent = let st = state,
+        msg = msg
+        try_claim_sbe!(st.pub_control, st.control_claim, msg_len) do buf
+            enc = st.qos_consumer_encoder
+            QosConsumer.wrap_and_apply_header!(enc, buf, 0)
+            QosConsumer.streamId!(enc, QosConsumer.streamId(msg))
+            QosConsumer.consumerId!(enc, QosConsumer.consumerId(msg))
+            QosConsumer.epoch!(enc, QosConsumer.epoch(msg))
+            QosConsumer.lastSeqSeen!(enc, QosConsumer.lastSeqSeen(msg))
+            QosConsumer.dropsGap!(enc, QosConsumer.dropsGap(msg))
+            QosConsumer.dropsLate!(enc, QosConsumer.dropsLate(msg))
+            QosConsumer.mode!(enc, QosConsumer.mode(msg))
+        end
     end
     return sent
 end
@@ -425,16 +450,19 @@ function bridge_forward_progress!(state::BridgeSenderState, msg::FrameProgress.D
     state.config.forward_progress || return false
     FrameProgress.streamId(msg) == state.mapping.source_stream_id || return false
     msg_len = MESSAGE_HEADER_LEN + Int(FrameProgress.sbe_decoded_length(msg))
-    sent = try_claim_sbe!(state.pub_control, state.control_claim, msg_len) do buf
-        enc = state.progress_encoder
-        FrameProgress.wrap_and_apply_header!(enc, buf, 0)
-        FrameProgress.streamId!(enc, FrameProgress.streamId(msg))
-        FrameProgress.epoch!(enc, FrameProgress.epoch(msg))
-        FrameProgress.frameId!(enc, FrameProgress.frameId(msg))
-        FrameProgress.headerIndex!(enc, FrameProgress.headerIndex(msg))
-        FrameProgress.payloadBytesFilled!(enc, FrameProgress.payloadBytesFilled(msg))
-        FrameProgress.state!(enc, FrameProgress.state(msg))
-        FrameProgress.rowsFilled!(enc, FrameProgress.rowsFilled(msg))
+    sent = let st = state,
+        msg = msg
+        try_claim_sbe!(st.pub_control, st.control_claim, msg_len) do buf
+            enc = st.progress_encoder
+            FrameProgress.wrap_and_apply_header!(enc, buf, 0)
+            FrameProgress.streamId!(enc, FrameProgress.streamId(msg))
+            FrameProgress.epoch!(enc, FrameProgress.epoch(msg))
+            FrameProgress.frameId!(enc, FrameProgress.frameId(msg))
+            FrameProgress.headerIndex!(enc, FrameProgress.headerIndex(msg))
+            FrameProgress.payloadBytesFilled!(enc, FrameProgress.payloadBytesFilled(msg))
+            FrameProgress.state!(enc, FrameProgress.state(msg))
+            FrameProgress.rowsFilled!(enc, FrameProgress.rowsFilled(msg))
+        end
     end
     return sent
 end
@@ -448,13 +476,16 @@ function bridge_publish_qos_producer!(state::BridgeReceiverState, msg::QosProduc
     QosProducer.streamId(msg) == state.mapping.source_stream_id || return false
 
     msg_len = MESSAGE_HEADER_LEN + Int(QosProducer.sbe_decoded_length(msg))
-    sent = try_claim_sbe!(state.pub_control_local, state.control_claim, msg_len) do buf
-        enc = state.qos_producer_encoder
-        QosProducer.wrap_and_apply_header!(enc, buf, 0)
-        QosProducer.streamId!(enc, UInt32(state.mapping.dest_stream_id))
-        QosProducer.producerId!(enc, QosProducer.producerId(msg))
-        QosProducer.epoch!(enc, QosProducer.epoch(msg))
-        QosProducer.currentSeq!(enc, QosProducer.currentSeq(msg))
+    sent = let st = state,
+        msg = msg
+        try_claim_sbe!(st.pub_control_local, st.control_claim, msg_len) do buf
+            enc = st.qos_producer_encoder
+            QosProducer.wrap_and_apply_header!(enc, buf, 0)
+            QosProducer.streamId!(enc, UInt32(st.mapping.dest_stream_id))
+            QosProducer.producerId!(enc, QosProducer.producerId(msg))
+            QosProducer.epoch!(enc, QosProducer.epoch(msg))
+            QosProducer.currentSeq!(enc, QosProducer.currentSeq(msg))
+        end
     end
     return sent
 end
@@ -468,16 +499,19 @@ function bridge_publish_qos_consumer!(state::BridgeReceiverState, msg::QosConsum
     QosConsumer.streamId(msg) == state.mapping.source_stream_id || return false
 
     msg_len = MESSAGE_HEADER_LEN + Int(QosConsumer.sbe_decoded_length(msg))
-    sent = try_claim_sbe!(state.pub_control_local, state.control_claim, msg_len) do buf
-        enc = state.qos_consumer_encoder
-        QosConsumer.wrap_and_apply_header!(enc, buf, 0)
-        QosConsumer.streamId!(enc, UInt32(state.mapping.dest_stream_id))
-        QosConsumer.consumerId!(enc, QosConsumer.consumerId(msg))
-        QosConsumer.epoch!(enc, QosConsumer.epoch(msg))
-        QosConsumer.lastSeqSeen!(enc, QosConsumer.lastSeqSeen(msg))
-        QosConsumer.dropsGap!(enc, QosConsumer.dropsGap(msg))
-        QosConsumer.dropsLate!(enc, QosConsumer.dropsLate(msg))
-        QosConsumer.mode!(enc, QosConsumer.mode(msg))
+    sent = let st = state,
+        msg = msg
+        try_claim_sbe!(st.pub_control_local, st.control_claim, msg_len) do buf
+            enc = st.qos_consumer_encoder
+            QosConsumer.wrap_and_apply_header!(enc, buf, 0)
+            QosConsumer.streamId!(enc, UInt32(st.mapping.dest_stream_id))
+            QosConsumer.consumerId!(enc, QosConsumer.consumerId(msg))
+            QosConsumer.epoch!(enc, QosConsumer.epoch(msg))
+            QosConsumer.lastSeqSeen!(enc, QosConsumer.lastSeqSeen(msg))
+            QosConsumer.dropsGap!(enc, QosConsumer.dropsGap(msg))
+            QosConsumer.dropsLate!(enc, QosConsumer.dropsLate(msg))
+            QosConsumer.mode!(enc, QosConsumer.mode(msg))
+        end
     end
     return sent
 end
@@ -497,16 +531,21 @@ function bridge_publish_progress!(state::BridgeReceiverState, msg::FrameProgress
     header_index = UInt32(seq & (UInt64(nslots) - 1))
 
     msg_len = MESSAGE_HEADER_LEN + Int(FrameProgress.sbe_decoded_length(msg))
-    sent = try_claim_sbe!(state.pub_control_local, state.control_claim, msg_len) do buf
-        enc = state.progress_encoder
-        FrameProgress.wrap_and_apply_header!(enc, buf, 0)
-        FrameProgress.streamId!(enc, UInt32(state.mapping.dest_stream_id))
-        FrameProgress.epoch!(enc, FrameProgress.epoch(msg))
-        FrameProgress.frameId!(enc, seq)
-        FrameProgress.headerIndex!(enc, header_index)
-        FrameProgress.payloadBytesFilled!(enc, FrameProgress.payloadBytesFilled(msg))
-        FrameProgress.state!(enc, FrameProgress.state(msg))
-        FrameProgress.rowsFilled!(enc, FrameProgress.rowsFilled(msg))
+    sent = let st = state,
+        msg = msg,
+        seq = seq,
+        header_index = header_index
+        try_claim_sbe!(st.pub_control_local, st.control_claim, msg_len) do buf
+            enc = st.progress_encoder
+            FrameProgress.wrap_and_apply_header!(enc, buf, 0)
+            FrameProgress.streamId!(enc, UInt32(st.mapping.dest_stream_id))
+            FrameProgress.epoch!(enc, FrameProgress.epoch(msg))
+            FrameProgress.frameId!(enc, seq)
+            FrameProgress.headerIndex!(enc, header_index)
+            FrameProgress.payloadBytesFilled!(enc, FrameProgress.payloadBytesFilled(msg))
+            FrameProgress.state!(enc, FrameProgress.state(msg))
+            FrameProgress.rowsFilled!(enc, FrameProgress.rowsFilled(msg))
+        end
     end
     return sent
 end
@@ -569,14 +608,26 @@ function bridge_rematerialize!(
     seqlock_commit_write!(commit_ptr, frame_id)
 
     now_ns = UInt64(Clocks.time_nanos(producer_state.clock))
-    sent = try_claim_sbe!(
-        producer_state.runtime.pub_descriptor,
-        producer_state.runtime.descriptor_claim,
-        FRAME_DESCRIPTOR_LEN,
-    ) do buf
-        FrameDescriptor.wrap_and_apply_header!(producer_state.runtime.descriptor_encoder, buf, 0)
-        encode_frame_descriptor!(producer_state.runtime.descriptor_encoder, producer_state, frame.seq, header_index,
-            TensorSlotHeader256.metaVersion(state.header_decoder), now_ns)
+    sent = let st = state,
+        producer_state = producer_state,
+        frame = frame,
+        header_index = header_index,
+        now_ns = now_ns
+        try_claim_sbe!(
+            producer_state.runtime.pub_descriptor,
+            producer_state.runtime.descriptor_claim,
+            FRAME_DESCRIPTOR_LEN,
+        ) do buf
+            FrameDescriptor.wrap_and_apply_header!(producer_state.runtime.descriptor_encoder, buf, 0)
+            encode_frame_descriptor!(
+                producer_state.runtime.descriptor_encoder,
+                producer_state,
+                frame.seq,
+                header_index,
+                TensorSlotHeader256.metaVersion(st.header_decoder),
+                now_ns,
+            )
+        end
     end
     sent || return false
 
@@ -656,32 +707,44 @@ function bridge_send_frame!(state::BridgeSenderState, desc::FrameDescriptor.Deco
         header_len = header_included ? HEADER_SLOT_BYTES : 0
         msg_len = bridge_chunk_message_length(header_len, chunk_len)
 
-        sent = try_claim_sbe!(state.pub_payload, state.chunk_claim, msg_len) do buf
-            BridgeFrameChunk.wrap_and_apply_header!(state.chunk_encoder, buf, 0)
-            BridgeFrameChunk.streamId!(state.chunk_encoder, state.mapping.source_stream_id)
-            BridgeFrameChunk.epoch!(state.chunk_encoder, epoch)
-            BridgeFrameChunk.seq!(state.chunk_encoder, seq)
-            BridgeFrameChunk.chunkIndex!(state.chunk_encoder, UInt32(chunk_index))
-            BridgeFrameChunk.chunkCount!(state.chunk_encoder, UInt32(chunk_count))
-            BridgeFrameChunk.chunkOffset!(state.chunk_encoder, UInt32(chunk_offset))
-            BridgeFrameChunk.chunkLength!(state.chunk_encoder, UInt32(chunk_len))
-            BridgeFrameChunk.payloadLength!(state.chunk_encoder, UInt32(payload_len))
-            BridgeFrameChunk.headerIncluded!(
-                state.chunk_encoder,
-                header_included ? BridgeBool.TRUE : BridgeBool.FALSE,
-            )
-            if header_included
-                BridgeFrameChunk.headerBytes!(state.chunk_encoder, state.header_buf)
-            else
-                BridgeFrameChunk.headerBytes!(state.chunk_encoder, nothing)
-            end
-            if chunk_len == 0
-                BridgeFrameChunk.payloadBytes!(state.chunk_encoder, nothing)
-            else
-                payload_view = @view payload_mmap[
-                    payload_base + chunk_offset + 1:payload_base + chunk_offset + chunk_len
-                ]
-                BridgeFrameChunk.payloadBytes!(state.chunk_encoder, payload_view)
+        sent = let st = state,
+            epoch = epoch,
+            seq = seq,
+            chunk_index = chunk_index,
+            chunk_count = chunk_count,
+            chunk_offset = chunk_offset,
+            chunk_len = chunk_len,
+            payload_len = payload_len,
+            header_included = header_included,
+            payload_mmap = payload_mmap,
+            payload_base = payload_base
+            try_claim_sbe!(st.pub_payload, st.chunk_claim, msg_len) do buf
+                BridgeFrameChunk.wrap_and_apply_header!(st.chunk_encoder, buf, 0)
+                BridgeFrameChunk.streamId!(st.chunk_encoder, st.mapping.source_stream_id)
+                BridgeFrameChunk.epoch!(st.chunk_encoder, epoch)
+                BridgeFrameChunk.seq!(st.chunk_encoder, seq)
+                BridgeFrameChunk.chunkIndex!(st.chunk_encoder, UInt32(chunk_index))
+                BridgeFrameChunk.chunkCount!(st.chunk_encoder, UInt32(chunk_count))
+                BridgeFrameChunk.chunkOffset!(st.chunk_encoder, UInt32(chunk_offset))
+                BridgeFrameChunk.chunkLength!(st.chunk_encoder, UInt32(chunk_len))
+                BridgeFrameChunk.payloadLength!(st.chunk_encoder, UInt32(payload_len))
+                BridgeFrameChunk.headerIncluded!(
+                    st.chunk_encoder,
+                    header_included ? BridgeBool.TRUE : BridgeBool.FALSE,
+                )
+                if header_included
+                    BridgeFrameChunk.headerBytes!(st.chunk_encoder, st.header_buf)
+                else
+                    BridgeFrameChunk.headerBytes!(st.chunk_encoder, nothing)
+                end
+                if chunk_len == 0
+                    BridgeFrameChunk.payloadBytes!(st.chunk_encoder, nothing)
+                else
+                    payload_view = @view payload_mmap[
+                        payload_base + chunk_offset + 1:payload_base + chunk_offset + chunk_len
+                    ]
+                    BridgeFrameChunk.payloadBytes!(st.chunk_encoder, payload_view)
+                end
             end
         end
         sent || return false

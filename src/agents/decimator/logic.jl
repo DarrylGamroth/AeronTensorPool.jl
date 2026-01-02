@@ -47,14 +47,17 @@ function republish_descriptor!(
     header::TensorSlotHeader,
     _payload::AbstractVector{UInt8},
 )
-    sent = try_claim_sbe!(state.pub_descriptor, state.descriptor_claim, FRAME_DESCRIPTOR_LEN) do buf
-        FrameDescriptor.wrap_and_apply_header!(state.descriptor_encoder, buf, 0)
-        FrameDescriptor.streamId!(state.descriptor_encoder, state.config.stream_id)
-        FrameDescriptor.epoch!(state.descriptor_encoder, state.config.epoch)
-        FrameDescriptor.seq!(state.descriptor_encoder, header.frame_id)
-        FrameDescriptor.headerIndex!(state.descriptor_encoder, UInt32(header.payload_slot))
-        FrameDescriptor.timestampNs!(state.descriptor_encoder, header.timestamp_ns)
-        FrameDescriptor.metaVersion!(state.descriptor_encoder, header.meta_version)
+    sent = let st = state,
+        header = header
+        try_claim_sbe!(st.pub_descriptor, st.descriptor_claim, FRAME_DESCRIPTOR_LEN) do buf
+            FrameDescriptor.wrap_and_apply_header!(st.descriptor_encoder, buf, 0)
+            FrameDescriptor.streamId!(st.descriptor_encoder, st.config.stream_id)
+            FrameDescriptor.epoch!(st.descriptor_encoder, st.config.epoch)
+            FrameDescriptor.seq!(st.descriptor_encoder, header.frame_id)
+            FrameDescriptor.headerIndex!(st.descriptor_encoder, UInt32(header.payload_slot))
+            FrameDescriptor.timestampNs!(st.descriptor_encoder, header.timestamp_ns)
+            FrameDescriptor.metaVersion!(st.descriptor_encoder, header.meta_version)
+        end
     end
     return sent
 end

@@ -59,22 +59,32 @@ function send_attach!(
     require_hugepages::Union{DriverHugepagesPolicy.SbeEnum, Bool, Nothing} = nothing,
 )
     msg_len = DRIVER_MESSAGE_HEADER_LEN + Int(ShmAttachRequest.sbe_block_length(ShmAttachRequest.Decoder))
-    return try_claim_sbe!(proxy.pub, proxy.claim, msg_len) do buf
-        ShmAttachRequest.wrap_and_apply_header!(proxy.encoder, buf, 0)
-        ShmAttachRequest.correlationId!(proxy.encoder, correlation_id)
-        ShmAttachRequest.streamId!(proxy.encoder, stream_id)
-        ShmAttachRequest.clientId!(proxy.encoder, client_id)
-        ShmAttachRequest.role!(proxy.encoder, role)
-        ShmAttachRequest.expectedLayoutVersion!(proxy.encoder, expected_layout_version)
-        ShmAttachRequest.maxDims!(proxy.encoder, max_dims)
+    return let p = proxy,
+        correlation_id = correlation_id,
+        stream_id = stream_id,
+        client_id = client_id,
+        role = role,
+        expected_layout_version = expected_layout_version,
+        max_dims = max_dims,
+        publish_mode = publish_mode,
+        require_hugepages = require_hugepages
+        try_claim_sbe!(p.pub, p.claim, msg_len) do buf
+            ShmAttachRequest.wrap_and_apply_header!(p.encoder, buf, 0)
+            ShmAttachRequest.correlationId!(p.encoder, correlation_id)
+            ShmAttachRequest.streamId!(p.encoder, stream_id)
+            ShmAttachRequest.clientId!(p.encoder, client_id)
+            ShmAttachRequest.role!(p.encoder, role)
+            ShmAttachRequest.expectedLayoutVersion!(p.encoder, expected_layout_version)
+            ShmAttachRequest.maxDims!(p.encoder, max_dims)
 
-        if isnothing(publish_mode)
-            ShmAttachRequest.publishMode!(proxy.encoder, DriverPublishMode.NULL_VALUE)
-        else
-            ShmAttachRequest.publishMode!(proxy.encoder, publish_mode)
+            if isnothing(publish_mode)
+                ShmAttachRequest.publishMode!(p.encoder, DriverPublishMode.NULL_VALUE)
+            else
+                ShmAttachRequest.publishMode!(p.encoder, publish_mode)
+            end
+
+            ShmAttachRequest.requireHugepages!(p.encoder, hugepages_policy_value(require_hugepages))
         end
-
-        ShmAttachRequest.requireHugepages!(proxy.encoder, hugepages_policy_value(require_hugepages))
     end
 end
 
@@ -90,13 +100,20 @@ function send_keepalive!(
     client_timestamp_ns::UInt64,
 )
     msg_len = DRIVER_MESSAGE_HEADER_LEN + Int(ShmLeaseKeepalive.sbe_block_length(ShmLeaseKeepalive.Decoder))
-    return try_claim_sbe!(proxy.pub, proxy.claim, msg_len) do buf
-        ShmLeaseKeepalive.wrap_and_apply_header!(proxy.encoder, buf, 0)
-        ShmLeaseKeepalive.leaseId!(proxy.encoder, lease_id)
-        ShmLeaseKeepalive.streamId!(proxy.encoder, stream_id)
-        ShmLeaseKeepalive.clientId!(proxy.encoder, client_id)
-        ShmLeaseKeepalive.role!(proxy.encoder, role)
-        ShmLeaseKeepalive.clientTimestampNs!(proxy.encoder, client_timestamp_ns)
+    return let p = proxy,
+        lease_id = lease_id,
+        stream_id = stream_id,
+        client_id = client_id,
+        role = role,
+        client_timestamp_ns = client_timestamp_ns
+        try_claim_sbe!(p.pub, p.claim, msg_len) do buf
+            ShmLeaseKeepalive.wrap_and_apply_header!(p.encoder, buf, 0)
+            ShmLeaseKeepalive.leaseId!(p.encoder, lease_id)
+            ShmLeaseKeepalive.streamId!(p.encoder, stream_id)
+            ShmLeaseKeepalive.clientId!(p.encoder, client_id)
+            ShmLeaseKeepalive.role!(p.encoder, role)
+            ShmLeaseKeepalive.clientTimestampNs!(p.encoder, client_timestamp_ns)
+        end
     end
 end
 
@@ -112,12 +129,19 @@ function send_detach!(
     role::DriverRole.SbeEnum,
 )
     msg_len = DRIVER_MESSAGE_HEADER_LEN + Int(ShmDetachRequest.sbe_block_length(ShmDetachRequest.Decoder))
-    return try_claim_sbe!(proxy.pub, proxy.claim, msg_len) do buf
-        ShmDetachRequest.wrap_and_apply_header!(proxy.encoder, buf, 0)
-        ShmDetachRequest.correlationId!(proxy.encoder, correlation_id)
-        ShmDetachRequest.leaseId!(proxy.encoder, lease_id)
-        ShmDetachRequest.streamId!(proxy.encoder, stream_id)
-        ShmDetachRequest.clientId!(proxy.encoder, client_id)
-        ShmDetachRequest.role!(proxy.encoder, role)
+    return let p = proxy,
+        correlation_id = correlation_id,
+        lease_id = lease_id,
+        stream_id = stream_id,
+        client_id = client_id,
+        role = role
+        try_claim_sbe!(p.pub, p.claim, msg_len) do buf
+            ShmDetachRequest.wrap_and_apply_header!(p.encoder, buf, 0)
+            ShmDetachRequest.correlationId!(p.encoder, correlation_id)
+            ShmDetachRequest.leaseId!(p.encoder, lease_id)
+            ShmDetachRequest.streamId!(p.encoder, stream_id)
+            ShmDetachRequest.clientId!(p.encoder, client_id)
+            ShmDetachRequest.role!(p.encoder, role)
+        end
     end
 end

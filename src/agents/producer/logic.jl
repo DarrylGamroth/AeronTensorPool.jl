@@ -448,14 +448,20 @@ function publish_frame!(
     seqlock_commit_write!(commit_ptr, frame_id)
 
     now_ns = UInt64(Clocks.time_nanos(state.clock))
-    sent = try_claim_sbe!(state.runtime.pub_descriptor, state.runtime.descriptor_claim, FRAME_DESCRIPTOR_LEN) do buf
-        header = MessageHeader.Encoder(buf, 0)
-        MessageHeader.blockLength!(header, FrameDescriptor.sbe_block_length(FrameDescriptor.Decoder))
-        MessageHeader.templateId!(header, FrameDescriptor.sbe_template_id(FrameDescriptor.Decoder))
-        MessageHeader.schemaId!(header, FrameDescriptor.sbe_schema_id(FrameDescriptor.Decoder))
-        MessageHeader.version!(header, FrameDescriptor.sbe_schema_version(FrameDescriptor.Decoder))
-        FrameDescriptor.wrap!(state.runtime.descriptor_encoder, buf, MESSAGE_HEADER_LEN)
-        encode_frame_descriptor!(state.runtime.descriptor_encoder, state, seq, header_index, meta_version, now_ns)
+    sent = let st = state,
+        seq = seq,
+        header_index = header_index,
+        meta_version = meta_version,
+        now_ns = now_ns
+        try_claim_sbe!(st.runtime.pub_descriptor, st.runtime.descriptor_claim, FRAME_DESCRIPTOR_LEN) do buf
+            header = MessageHeader.Encoder(buf, 0)
+            MessageHeader.blockLength!(header, FrameDescriptor.sbe_block_length(FrameDescriptor.Decoder))
+            MessageHeader.templateId!(header, FrameDescriptor.sbe_template_id(FrameDescriptor.Decoder))
+            MessageHeader.schemaId!(header, FrameDescriptor.sbe_schema_id(FrameDescriptor.Decoder))
+            MessageHeader.version!(header, FrameDescriptor.sbe_schema_version(FrameDescriptor.Decoder))
+            FrameDescriptor.wrap!(st.runtime.descriptor_encoder, buf, MESSAGE_HEADER_LEN)
+            encode_frame_descriptor!(st.runtime.descriptor_encoder, st, seq, header_index, meta_version, now_ns)
+        end
     end
     sent || return false
 
@@ -647,16 +653,15 @@ function publish_reservation!(
     seqlock_commit_write!(commit_ptr, frame_id)
 
     now_ns = UInt64(Clocks.time_nanos(state.clock))
-    sent = try_claim_sbe!(state.runtime.pub_descriptor, state.runtime.descriptor_claim, FRAME_DESCRIPTOR_LEN) do buf
-        FrameDescriptor.wrap_and_apply_header!(state.runtime.descriptor_encoder, buf, 0)
-        encode_frame_descriptor!(
-            state.runtime.descriptor_encoder,
-            state,
-            reservation.seq,
-            reservation.header_index,
-            meta_version,
-            now_ns,
-        )
+    sent = let st = state,
+        seq = reservation.seq,
+        header_index = reservation.header_index,
+        meta_version = meta_version,
+        now_ns = now_ns
+        try_claim_sbe!(st.runtime.pub_descriptor, st.runtime.descriptor_claim, FRAME_DESCRIPTOR_LEN) do buf
+            FrameDescriptor.wrap_and_apply_header!(st.runtime.descriptor_encoder, buf, 0)
+            encode_frame_descriptor!(st.runtime.descriptor_encoder, st, seq, header_index, meta_version, now_ns)
+        end
     end
     sent || return false
 
@@ -715,9 +720,15 @@ function publish_frame_from_slot!(
     seqlock_commit_write!(commit_ptr, frame_id)
 
     now_ns = UInt64(Clocks.time_nanos(state.clock))
-    sent = try_claim_sbe!(state.runtime.pub_descriptor, state.runtime.descriptor_claim, FRAME_DESCRIPTOR_LEN) do buf
-        FrameDescriptor.wrap_and_apply_header!(state.runtime.descriptor_encoder, buf, 0)
-        encode_frame_descriptor!(state.runtime.descriptor_encoder, state, seq, header_index, meta_version, now_ns)
+    sent = let st = state,
+        seq = seq,
+        header_index = header_index,
+        meta_version = meta_version,
+        now_ns = now_ns
+        try_claim_sbe!(st.runtime.pub_descriptor, st.runtime.descriptor_claim, FRAME_DESCRIPTOR_LEN) do buf
+            FrameDescriptor.wrap_and_apply_header!(st.runtime.descriptor_encoder, buf, 0)
+            encode_frame_descriptor!(st.runtime.descriptor_encoder, st, seq, header_index, meta_version, now_ns)
+        end
     end
     sent || return false
 
@@ -738,14 +749,19 @@ function emit_progress_complete!(
     header_index::UInt32,
     bytes_filled::UInt64,
 )
-    sent = try_claim_sbe!(state.runtime.pub_control, state.runtime.progress_claim, FRAME_PROGRESS_LEN) do buf
-        FrameProgress.wrap_and_apply_header!(state.runtime.progress_encoder, buf, 0)
-        FrameProgress.streamId!(state.runtime.progress_encoder, state.config.stream_id)
-        FrameProgress.epoch!(state.runtime.progress_encoder, state.epoch)
-        FrameProgress.frameId!(state.runtime.progress_encoder, frame_id)
-        FrameProgress.headerIndex!(state.runtime.progress_encoder, header_index)
-        FrameProgress.payloadBytesFilled!(state.runtime.progress_encoder, bytes_filled)
-        FrameProgress.state!(state.runtime.progress_encoder, FrameProgressState.COMPLETE)
+    sent = let st = state,
+        frame_id = frame_id,
+        header_index = header_index,
+        bytes_filled = bytes_filled
+        try_claim_sbe!(st.runtime.pub_control, st.runtime.progress_claim, FRAME_PROGRESS_LEN) do buf
+            FrameProgress.wrap_and_apply_header!(st.runtime.progress_encoder, buf, 0)
+            FrameProgress.streamId!(st.runtime.progress_encoder, st.config.stream_id)
+            FrameProgress.epoch!(st.runtime.progress_encoder, st.epoch)
+            FrameProgress.frameId!(st.runtime.progress_encoder, frame_id)
+            FrameProgress.headerIndex!(st.runtime.progress_encoder, header_index)
+            FrameProgress.payloadBytesFilled!(st.runtime.progress_encoder, bytes_filled)
+            FrameProgress.state!(st.runtime.progress_encoder, FrameProgressState.COMPLETE)
+        end
     end
     sent || return false
     state.metrics.last_progress_ns = UInt64(Clocks.time_nanos(state.clock))
@@ -768,25 +784,28 @@ function emit_announce!(state::ProducerState)
         ShmPoolAnnounce.headerRegionUri_header_length +
         sizeof(state.config.header_uri)
 
-    sent = try_claim_sbe!(state.runtime.pub_control, state.runtime.progress_claim, msg_len) do buf
-        ShmPoolAnnounce.wrap_and_apply_header!(state.runtime.announce_encoder, buf, 0)
-        ShmPoolAnnounce.streamId!(state.runtime.announce_encoder, state.config.stream_id)
-        ShmPoolAnnounce.producerId!(state.runtime.announce_encoder, state.config.producer_id)
-        ShmPoolAnnounce.epoch!(state.runtime.announce_encoder, state.epoch)
-        ShmPoolAnnounce.layoutVersion!(state.runtime.announce_encoder, state.config.layout_version)
-        ShmPoolAnnounce.headerNslots!(state.runtime.announce_encoder, state.config.nslots)
-        ShmPoolAnnounce.headerSlotBytes!(state.runtime.announce_encoder, UInt16(HEADER_SLOT_BYTES))
-        ShmPoolAnnounce.maxDims!(state.runtime.announce_encoder, state.config.max_dims)
+    sent = let st = state,
+        payload_count = payload_count
+        try_claim_sbe!(st.runtime.pub_control, st.runtime.progress_claim, msg_len) do buf
+            ShmPoolAnnounce.wrap_and_apply_header!(st.runtime.announce_encoder, buf, 0)
+            ShmPoolAnnounce.streamId!(st.runtime.announce_encoder, st.config.stream_id)
+            ShmPoolAnnounce.producerId!(st.runtime.announce_encoder, st.config.producer_id)
+            ShmPoolAnnounce.epoch!(st.runtime.announce_encoder, st.epoch)
+            ShmPoolAnnounce.layoutVersion!(st.runtime.announce_encoder, st.config.layout_version)
+            ShmPoolAnnounce.headerNslots!(st.runtime.announce_encoder, st.config.nslots)
+            ShmPoolAnnounce.headerSlotBytes!(st.runtime.announce_encoder, UInt16(HEADER_SLOT_BYTES))
+            ShmPoolAnnounce.maxDims!(st.runtime.announce_encoder, st.config.max_dims)
 
-        pools_group = ShmPoolAnnounce.payloadPools!(state.runtime.announce_encoder, payload_count)
-        for pool in state.config.payload_pools
-            entry = ShmPoolAnnounce.PayloadPools.next!(pools_group)
-            ShmPoolAnnounce.PayloadPools.poolId!(entry, pool.pool_id)
-            ShmPoolAnnounce.PayloadPools.poolNslots!(entry, pool.nslots)
-            ShmPoolAnnounce.PayloadPools.strideBytes!(entry, pool.stride_bytes)
-            ShmPoolAnnounce.PayloadPools.regionUri!(entry, pool.uri)
+            pools_group = ShmPoolAnnounce.payloadPools!(st.runtime.announce_encoder, payload_count)
+            for pool in st.config.payload_pools
+                entry = ShmPoolAnnounce.PayloadPools.next!(pools_group)
+                ShmPoolAnnounce.PayloadPools.poolId!(entry, pool.pool_id)
+                ShmPoolAnnounce.PayloadPools.poolNslots!(entry, pool.nslots)
+                ShmPoolAnnounce.PayloadPools.strideBytes!(entry, pool.stride_bytes)
+                ShmPoolAnnounce.PayloadPools.regionUri!(entry, pool.uri)
+            end
+            ShmPoolAnnounce.headerRegionUri!(st.runtime.announce_encoder, st.config.header_uri)
         end
-        ShmPoolAnnounce.headerRegionUri!(state.runtime.announce_encoder, state.config.header_uri)
     end
     sent || return false
     state.metrics.announce_count += 1
@@ -797,12 +816,14 @@ end
 Emit a QosProducer message for this producer.
 """
 function emit_qos!(state::ProducerState)
-    sent = try_claim_sbe!(state.runtime.pub_qos, state.runtime.qos_claim, QOS_PRODUCER_LEN) do buf
-        QosProducer.wrap_and_apply_header!(state.runtime.qos_encoder, buf, 0)
-        QosProducer.streamId!(state.runtime.qos_encoder, state.config.stream_id)
-        QosProducer.producerId!(state.runtime.qos_encoder, state.config.producer_id)
-        QosProducer.epoch!(state.runtime.qos_encoder, state.epoch)
-        QosProducer.currentSeq!(state.runtime.qos_encoder, state.seq)
+    sent = let st = state
+        try_claim_sbe!(st.runtime.pub_qos, st.runtime.qos_claim, QOS_PRODUCER_LEN) do buf
+            QosProducer.wrap_and_apply_header!(st.runtime.qos_encoder, buf, 0)
+            QosProducer.streamId!(st.runtime.qos_encoder, st.config.stream_id)
+            QosProducer.producerId!(st.runtime.qos_encoder, st.config.producer_id)
+            QosProducer.epoch!(st.runtime.qos_encoder, st.epoch)
+            QosProducer.currentSeq!(st.runtime.qos_encoder, st.seq)
+        end
     end
     sent || return false
     state.metrics.qos_count += 1

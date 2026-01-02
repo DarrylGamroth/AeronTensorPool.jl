@@ -194,17 +194,24 @@ function emit_consumer_config!(
         Int(ConsumerConfigMsg.payloadFallbackUri_header_length) +
         payload_len
 
-    sent = try_claim_sbe!(state.runtime.pub_control, state.runtime.config_claim, msg_len) do buf
-        ConsumerConfigMsg.wrap_and_apply_header!(state.runtime.config_encoder, buf, 0)
-        ConsumerConfigMsg.streamId!(state.runtime.config_encoder, state.config.stream_id)
-        ConsumerConfigMsg.consumerId!(state.runtime.config_encoder, consumer_id)
-        ConsumerConfigMsg.useShm!(
-            state.runtime.config_encoder,
-            use_shm ? ShmTensorpoolControl.Bool_.TRUE : ShmTensorpoolControl.Bool_.FALSE,
-        )
-        ConsumerConfigMsg.mode!(state.runtime.config_encoder, mode)
-        ConsumerConfigMsg.decimation!(state.runtime.config_encoder, decimation)
-        ConsumerConfigMsg.payloadFallbackUri!(state.runtime.config_encoder, payload_fallback_uri)
+    sent = let st = state,
+        consumer_id = consumer_id,
+        use_shm = use_shm,
+        mode = mode,
+        decimation = decimation,
+        payload_fallback_uri = payload_fallback_uri
+        try_claim_sbe!(st.runtime.pub_control, st.runtime.config_claim, msg_len) do buf
+            ConsumerConfigMsg.wrap_and_apply_header!(st.runtime.config_encoder, buf, 0)
+            ConsumerConfigMsg.streamId!(st.runtime.config_encoder, st.config.stream_id)
+            ConsumerConfigMsg.consumerId!(st.runtime.config_encoder, consumer_id)
+            ConsumerConfigMsg.useShm!(
+                st.runtime.config_encoder,
+                use_shm ? ShmTensorpoolControl.Bool_.TRUE : ShmTensorpoolControl.Bool_.FALSE,
+            )
+            ConsumerConfigMsg.mode!(st.runtime.config_encoder, mode)
+            ConsumerConfigMsg.decimation!(st.runtime.config_encoder, decimation)
+            ConsumerConfigMsg.payloadFallbackUri!(st.runtime.config_encoder, payload_fallback_uri)
+        end
     end
 
     sent || return false
