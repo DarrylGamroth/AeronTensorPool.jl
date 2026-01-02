@@ -627,11 +627,7 @@ End of specification.
 - Supervisor/consumer coordination layer ≈ client conductor (tracks announces, epochs, remaps, issues configs, observes QoS).
 - Bridge/tap/rate limiter agents follow the Agent.jl pattern analogous to Agrona agents used by Aeron.
 
-### 15.16 Heartbeats
-- Primary liveness comes from periodic `ShmPoolAnnounce` plus `activity_timestamp_ns` updates in the superblock; `activity_timestamp_ns` acts as the heartbeat. Supervisors time out on stale timestamps.
-- Optional control-plane heartbeat: a lightweight `Heartbeat` message on the control stream can signal liveness without touching SHM; define cadence alongside announce.
-
-### 15.17 Reuse Aeron Primitives (do not reinvent)
+### 15.16 Reuse Aeron Primitives (do not reinvent)
 - Keep all control/descriptor/QoS/metadata over Aeron IPC streams; avoid new SHM counter regions—use Aeron-style QoS messages and existing counter semantics for drops/health.
 - If you need counters/metrics, prefer Aeron Counters (driver/client) instead of adding custom SHM counters; expose QoS via Aeron messages.
 - Implement producer, supervisor, bridge/rate limiter as Aeron-style agents (Agent.jl mirrors Agrona agents) with single-writer ownership of SHM, matching Aeron driver patterns.
@@ -640,14 +636,14 @@ End of specification.
 - Optional bridge can mirror Aeron archive/tap behavior: subscribe to descriptor + SHM, then republish over UDP or record; keep it optional so the core remains SHM + Aeron IPC.
 - Operationally mirror Aeron: pin agents, place SHM on the local NUMA node, and apply restrictive permissions to SHM paths and driver directories.
 
-### 15.18 ControlResponse Error Codes (usage guidance)
+### 15.17 ControlResponse Error Codes (usage guidance)
 - `Ok`: request succeeded.
 - `Unsupported`: capability not implemented (e.g., progress hints on a producer that lacks support).
 - `InvalidParams`: malformed or incompatible request (bad stream_id/layout_version/mismatched nslots).
 - `Rejected`: policy-based refusal (e.g., unauthorized consumer_id, oversubscription).
 - `InternalError`: transient or unexpected server failure; requester MAY retry after backoff.
 
-### 15.19 Normative Algorithms (minimal, per role)
+### 15.18 Normative Algorithms (minimal, per role)
 - **Producer publish**
   1. Compute `header_index = seq & (nslots - 1)`.
   2. Store `commit_word = (frame_id << 1) | 1` (WRITING, release or relaxed).
@@ -1108,13 +1104,6 @@ Reference schema patterned after Aeron archive control style; adjust IDs and fie
       <data  name="format" id="2" type="varAsciiEncoding"/>
       <data  name="value"  id="3" type="varDataEncoding"/>
     </group>
-  </sbe:message>
-
-  <sbe:message name="Heartbeat" id="10">
-    <field name="streamId"    id="1" type="uint32"/>
-    <field name="producerId"  id="2" type="uint32"/>
-    <field name="epoch"       id="3" type="epoch_t"/>
-    <field name="timestampNs" id="4" type="uint64"/>
   </sbe:message>
 
   <sbe:message name="ControlResponse" id="9">
