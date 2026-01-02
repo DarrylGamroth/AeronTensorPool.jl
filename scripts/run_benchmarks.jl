@@ -12,6 +12,7 @@ function parse_args(args)
     payload_bytes = 1024
     payload_bytes_list = Int[]
     warmup_s = 0.2
+    alloc_sample = false
     run_system = false
     i = 1
     while i <= length(args)
@@ -33,13 +34,15 @@ function parse_args(args)
         elseif arg == "--warmup" && i < length(args)
             i += 1
             warmup_s = parse(Float64, args[i])
+        elseif arg == "--alloc-sample"
+            alloc_sample = true
         end
         i += 1
     end
-    return run_system, config, duration_s, payload_bytes, payload_bytes_list, warmup_s
+    return run_system, config, duration_s, payload_bytes, payload_bytes_list, warmup_s, alloc_sample
 end
 
-run_system, config, duration_s, payload_bytes, payload_bytes_list, warmup_s = parse_args(ARGS)
+run_system, config, duration_s, payload_bytes, payload_bytes_list, warmup_s, alloc_sample = parse_args(ARGS)
 
 run_benchmarks()
 
@@ -51,5 +54,6 @@ if run_system
         payload_bytes = payload_bytes,
         payload_bytes_list = payload_bytes_list,
         warmup_s = warmup_s,
+        alloc_sample = alloc_sample,
     )
 end

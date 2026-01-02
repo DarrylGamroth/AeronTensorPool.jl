@@ -118,6 +118,7 @@ function run_system_bench(
     payload_bytes::Int = 1024,
     payload_bytes_list::Vector{Int} = Int[],
     warmup_s::Float64 = 0.2,
+    alloc_sample::Bool = false,
 )
     Aeron.MediaDriver.launch_embedded() do driver
         GC.@preserve driver begin
@@ -168,6 +169,34 @@ function run_system_bench(
                         end
                         consumed[] = 0
                         published = 0
+                    end
+
+                    if alloc_sample
+                        wait_start = time()
+                        while consumer.mappings.header_mmap === nothing && (time() - wait_start < 2.0)
+                            producer_do_work!(producer, prod_ctrl)
+                            consumer_do_work!(consumer, cons_desc, cons_ctrl)
+                            supervisor_do_work!(supervisor, sup_ctrl, sup_qos)
+                            yield()
+                        end
+                        for _ in 1:32
+                            producer_do_work!(producer, prod_ctrl)
+                            consumer_do_work!(consumer, cons_desc, cons_ctrl)
+                            supervisor_do_work!(supervisor, sup_ctrl, sup_qos)
+                            if consumer.mappings.header_mmap !== nothing
+                                publish_frame!(producer, payload, shape, strides, Dtype.UINT8, UInt32(0))
+                            end
+                            yield()
+                        end
+                        sample_before = Base.gc_num().allocd
+                        producer_do_work!(producer, prod_ctrl)
+                        consumer_do_work!(consumer, cons_desc, cons_ctrl)
+                        supervisor_do_work!(supervisor, sup_ctrl, sup_qos)
+                        if consumer.mappings.header_mmap !== nothing
+                            publish_frame!(producer, payload, shape, strides, Dtype.UINT8, UInt32(0))
+                        end
+                        sample_after = Base.gc_num().allocd
+                        println("Sample alloc per-iteration: $(sample_after - sample_before) bytes")
                     end
 
                     GC.gc()
