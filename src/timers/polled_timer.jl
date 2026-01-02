@@ -25,6 +25,7 @@ end
 Return true if a timer has expired at now_ns.
 """
 @inline function expired(timer::PolledTimer, now_ns::UInt64)
+    timer.interval_ns == 0 && return false
     return now_ns - timer.last_ns >= timer.interval_ns
 end
 
@@ -32,11 +33,20 @@ end
 Check if a timer is due and advance last fire time when due.
 """
 @inline function due!(timer::PolledTimer, now_ns::UInt64)
+    timer.interval_ns == 0 && return false
     if now_ns - timer.last_ns >= timer.interval_ns
         timer.last_ns = now_ns
         return true
     end
     return false
+end
+
+"""
+Set a timer interval without changing last fire time.
+"""
+@inline function set_interval!(timer::PolledTimer, interval_ns::UInt64)
+    timer.interval_ns = interval_ns
+    return nothing
 end
 
 """

@@ -44,3 +44,8 @@ end
     check_leases!(state, now_ns)
     return 1
 end
+
+@inline function (handler::DriverShutdownHandler)(state::DriverState, now_ns::UInt64)
+    driver_lifecycle_dispatch!(state, :ShutdownTimeout)
+    return 1
+end

@@ -41,8 +41,9 @@ function init_driver(config::DriverConfig; client::Aeron.Client)
         (
             PolledTimer(UInt64(config.policies.announce_period_ms) * 1_000_000),
             PolledTimer(UInt64(config.policies.lease_keepalive_interval_ms) * 1_000_000),
+            PolledTimer(UInt64(0)),
         ),
-        (DriverAnnounceHandler(), DriverLeaseCheckHandler()),
+        (DriverAnnounceHandler(), DriverLeaseCheckHandler(), DriverShutdownHandler()),
     )
 
     lifecycle = DriverLifecycle()
@@ -57,7 +58,6 @@ function init_driver(config::DriverConfig; client::Aeron.Client)
         metrics,
         timer_set,
         0,
-        UInt64(0),
         lifecycle,
     )
     state.runtime.control_assembler = make_driver_control_assembler(state)

@@ -1,5 +1,6 @@
 struct DriverAnnounceHandler end
 struct DriverLeaseCheckHandler end
+struct DriverShutdownHandler end
 
 """
 Lease metadata tracked by the driver.
@@ -70,8 +71,10 @@ mutable struct DriverState{ClockT<:Clocks.AbstractClock}
     leases::Dict{UInt64, DriverLease}
     next_lease_id::UInt64
     metrics::DriverMetrics
-    timer_set::TimerSet{Tuple{PolledTimer, PolledTimer}, Tuple{DriverAnnounceHandler, DriverLeaseCheckHandler}}
+    timer_set::TimerSet{
+        Tuple{PolledTimer, PolledTimer, PolledTimer},
+        Tuple{DriverAnnounceHandler, DriverLeaseCheckHandler, DriverShutdownHandler},
+    }
     work_count::Int
-    shutdown_deadline_ns::UInt64
     lifecycle::DriverLifecycle
 end
