@@ -1,9 +1,3 @@
-@inline function driver_lifecycle_tick!(state::DriverState)
-    state.work_count += poll_driver_control!(state)
-    state.work_count += poll_timers!(state, state.now_ns)
-    return Hsm.EventHandled
-end
-
 @inline function reject_attach!(state::DriverState, msg::ShmAttachRequest.Decoder)
     correlation_id = ShmAttachRequest.correlationId(msg)
     emit_attach_response!(
@@ -28,18 +22,6 @@ end
 
 @on_event function(sm::DriverLifecycle, ::Draining, ::AttachRequest, state::DriverState)
     return reject_attach!(state, state.runtime.attach_decoder)
-end
-
-@on_event function(sm::DriverLifecycle, ::Running, ::Tick, state::DriverState)
-    return driver_lifecycle_tick!(state)
-end
-
-@on_event function(sm::DriverLifecycle, ::Maintenance, ::Tick, state::DriverState)
-    return driver_lifecycle_tick!(state)
-end
-
-@on_event function(sm::DriverLifecycle, ::Draining, ::Tick, state::DriverState)
-    return driver_lifecycle_tick!(state)
 end
 
 @on_event function(sm::DriverLifecycle, ::Running, ::MaintenanceRequested, ::DriverState)

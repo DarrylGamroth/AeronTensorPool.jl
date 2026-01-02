@@ -34,12 +34,10 @@ using Test
         sub = Aeron.add_subscription(client, "aeron:ipc", 1000)
         poller = DriverResponsePoller(sub)
 
-        driver_state.now_ns = UInt64(0)
         AeronTensorPool.driver_lifecycle_dispatch!(driver_state, :ShutdownRequested)
-        driver_state.now_ns = UInt64(1_000_000 + 1)
-        AeronTensorPool.driver_lifecycle_dispatch!(driver_state, :Tick)
 
         ok = wait_for() do
+            driver_do_work!(driver_state)
             poll_driver_responses!(poller)
             poller.last_shutdown !== nothing
         end
