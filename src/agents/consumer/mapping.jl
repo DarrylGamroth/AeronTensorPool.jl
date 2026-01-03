@@ -129,7 +129,7 @@ function map_from_attach_response!(state::ConsumerState, attach::AttachResponse)
     payload_mmaps = Dict{UInt16, Vector{UInt8}}()
     stride_bytes = Dict{UInt16, UInt32}()
 
-    header_uri = fixed_string_view(attach.header_region_uri)
+    header_uri = view(attach.header_region_uri)
     validate_uri(header_uri) || return false
     header_parsed = parse_shm_uri(header_uri)
     require_hugepages = state.config.require_hugepages
@@ -163,7 +163,7 @@ function map_from_attach_response!(state::ConsumerState, attach::AttachResponse)
     for i in 1:attach.pool_count
         pool = attach.pools[i]
         pool.pool_nslots == header_nslots || return false
-        pool_uri = fixed_string_view(pool.region_uri)
+        pool_uri = view(pool.region_uri)
         validate_uri(pool_uri) || return false
         pool_parsed = parse_shm_uri(pool_uri)
         pool_require_hugepages = pool_parsed.require_hugepages || require_hugepages

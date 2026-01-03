@@ -42,14 +42,10 @@ end
     return nothing
 end
 
-@inline function fixed_string_view(fs::FixedString)
+@inline function Base.view(fs::FixedString)
     len = fixed_string_len(fs)
     len == 0 && return StringView("")
     return StringView(view(fs.buf, 1:len))
-end
-
-@inline function fixed_string_string(fs::FixedString)
-    return String(fixed_string_view(fs))
 end
 
 Base.codeunit(::Type{FixedString}) = UInt8
@@ -58,14 +54,13 @@ Base.ncodeunits(fs::FixedString) = fixed_string_len(fs)
 Base.length(fs::FixedString) = fixed_string_len(fs)
 Base.isempty(fs::FixedString) = fixed_string_len(fs) == 0
 
-Base.iterate(fs::FixedString) = iterate(fixed_string_view(fs))
-Base.iterate(fs::FixedString, state) = iterate(fixed_string_view(fs), state)
-Base.getindex(fs::FixedString, i::Int) = fixed_string_view(fs)[i]
-Base.thisind(fs::FixedString, i::Int) = thisind(fixed_string_view(fs), i)
-Base.nextind(fs::FixedString, i::Int) = nextind(fixed_string_view(fs), i)
-Base.prevind(fs::FixedString, i::Int) = prevind(fixed_string_view(fs), i)
-Base.isvalid(fs::FixedString, i::Int) = isvalid(fixed_string_view(fs), i)
-Base.String(fs::FixedString) = fixed_string_string(fs)
+Base.iterate(fs::FixedString) = iterate(view(fs))
+Base.iterate(fs::FixedString, state::Int) = iterate(view(fs), state)
+Base.getindex(fs::FixedString, i::Int) = view(fs)[i]
+Base.thisind(fs::FixedString, i::Int) = thisind(view(fs), i)
+Base.nextind(fs::FixedString, i::Int) = nextind(view(fs), i)
+Base.prevind(fs::FixedString, i::Int) = prevind(view(fs), i)
+Base.isvalid(fs::FixedString, i::Int) = isvalid(view(fs), i)
 
 Base.@propagate_inbounds function Base.setindex!(fs::FixedString, value::UInt8, i::Int)
     fs.buf[i] = value

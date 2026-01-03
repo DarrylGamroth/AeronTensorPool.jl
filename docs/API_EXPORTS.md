@@ -41,7 +41,7 @@ This is the Phase 0 export inventory for AeronTensorPool. Public exports are def
 - wrap_superblock!, wrap_tensor_header!
 - make_control_assembler, make_descriptor_assembler, make_qos_assembler
 - poll_control!, poll_descriptor!, poll_qos!, poll_driver_control!
-- fixed_string_view, fixed_string_string
+- view (FixedString)
 - supervisor_do_work!, producer_do_work!, consumer_do_work!, driver_do_work!
 - next_header_index, payload_pool_config
 - inflight_empty, inflight_full, inflight_push!, inflight_peek, inflight_pop!
@@ -52,4 +52,4 @@ This is the Phase 0 export inventory for AeronTensorPool. Public exports are def
 - Counters, ProducerCounters, ConsumerCounters, SupervisorCounters, DriverCounters, BridgeCounters
 
 ## Internal-Only (Not Exported)
-- None (response string helpers are public: `fixed_string_view`, `fixed_string_string`)
+- None

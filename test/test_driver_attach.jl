@@ -63,11 +63,11 @@ using Test
             @test attach !== nothing
             @test attach.code == DriverResponseCode.OK
             @test attach.stream_id == UInt32(1001)
-            @test !isempty(fixed_string_view(attach.header_region_uri))
+            @test !isempty(view(attach.header_region_uri))
             @test attach.pool_count > 0
             producer_lease_id = attach.lease_id
 
-            header_uri = fixed_string_view(attach.header_region_uri)
+            header_uri = view(attach.header_region_uri)
             header_path = parse_shm_uri(header_uri).path
             @test isfile(header_path)
 

@@ -49,7 +49,7 @@ using Test
             shutdown = poller.last_shutdown
             @test shutdown !== nothing
             @test shutdown.reason == DriverShutdownReason.ADMIN
-            @test fixed_string_string(shutdown.error_message) == "maintenance"
+            @test String(shutdown.error_message) == "maintenance"
 
         close_driver_state!(driver_state)
         close(sub)
