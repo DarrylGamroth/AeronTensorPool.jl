@@ -105,13 +105,18 @@
 - Updated tests to use `view(fs)`/`String(fs)` and unified `*Response` types.
 - Updated docs to remove `materialize(poller)` references and reflect fixed-buffer usage.
 
-## Phase 6: Validation + Benchmarks — Pending
+## Phase 6: Validation + Benchmarks — Completed
 - Add allocation tests to ensure response polling remains allocation-free.
 - Verify no regressions in existing allocation and integration tests.
 - Add overflow tests for fixed buffers (URI/error message).
 - Add integration test: driver attach → consumer polls → remap triggered → new attach → verify no stale refs used in mapping.
 - Benchmark hot paths before/after to ensure no allocation regression.
 - Exit criteria: all new tests pass; allocations unchanged on hot paths; overflow tests green; integration test covers full remap flow; benchmark shows no regression.
+
+**Progress**:
+- Added allocation tests for driver response polling and overflow tests for fixed buffers.
+- Added attach/remap test that reuses response buffers and validates remapping.
+- Re-ran benchmarks (system bench + alloc breakdown) with `time_ns()` timing.
 
 ## Review Findings (Current)
 - String arena adds lifetime complexity and implicit invalidation; fixed buffers simplify ownership.

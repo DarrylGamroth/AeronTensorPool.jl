@@ -1,0 +1,80 @@
+@testset "Driver response fixed-buffer overflow" begin
+    buf = Vector{UInt8}(undef, 16384)
+    attach_enc = ShmAttachResponse.Encoder(Vector{UInt8})
+    attach_dec = ShmAttachResponse.Decoder(Vector{UInt8})
+    detach_enc = ShmDetachResponse.Encoder(Vector{UInt8})
+    detach_dec = ShmDetachResponse.Decoder(Vector{UInt8})
+    revoke_enc = ShmLeaseRevoked.Encoder(Vector{UInt8})
+    revoke_dec = ShmLeaseRevoked.Decoder(Vector{UInt8})
+    shutdown_enc = ShmDriverShutdown.Encoder(Vector{UInt8})
+    shutdown_dec = ShmDriverShutdown.Decoder(Vector{UInt8})
+
+    function encode_attach!(header_uri::String, pool_uri::String, error_message::String)
+        ShmAttachResponse.wrap_and_apply_header!(attach_enc, buf, 0)
+        ShmAttachResponse.correlationId!(attach_enc, Int64(1))
+        ShmAttachResponse.code!(attach_enc, DriverResponseCode.OK)
+        ShmAttachResponse.leaseId!(attach_enc, UInt64(10))
+        ShmAttachResponse.leaseExpiryTimestampNs!(attach_enc, UInt64(123))
+        ShmAttachResponse.streamId!(attach_enc, UInt32(1))
+        ShmAttachResponse.epoch!(attach_enc, UInt64(1))
+        ShmAttachResponse.layoutVersion!(attach_enc, UInt32(1))
+        ShmAttachResponse.headerNslots!(attach_enc, UInt32(8))
+        ShmAttachResponse.headerSlotBytes!(attach_enc, UInt16(HEADER_SLOT_BYTES))
+        ShmAttachResponse.maxDims!(attach_enc, UInt8(MAX_DIMS))
+        ShmAttachResponse.headerRegionUri!(attach_enc, header_uri)
+        pools = ShmAttachResponse.payloadPools!(attach_enc, 1)
+        entry = ShmAttachResponse.PayloadPools.next!(pools)
+        ShmAttachResponse.PayloadPools.poolId!(entry, UInt16(1))
+        ShmAttachResponse.PayloadPools.poolNslots!(entry, UInt32(8))
+        ShmAttachResponse.PayloadPools.strideBytes!(entry, UInt32(4096))
+        ShmAttachResponse.PayloadPools.regionUri!(entry, pool_uri)
+        ShmAttachResponse.errorMessage!(attach_enc, error_message)
+        return nothing
+    end
+
+    function wrap_attach!()
+        header = DriverMessageHeader.Decoder(buf, 0)
+        ShmAttachResponse.wrap!(attach_dec, buf, 0; header = header)
+        return attach_dec
+    end
+
+    long_uri = "x"^(AeronTensorPool.DRIVER_URI_MAX_BYTES + 1)
+    long_err = "e"^(AeronTensorPool.DRIVER_ERROR_MAX_BYTES + 1)
+
+    encode_attach!(long_uri, "shm:file?path=/tmp/pool", "")
+    @test_throws ArgumentError AeronTensorPool.snapshot_attach_response!(AttachResponse(), wrap_attach!())
+
+    encode_attach!("shm:file?path=/tmp/header", long_uri, "")
+    @test_throws ArgumentError AeronTensorPool.snapshot_attach_response!(AttachResponse(), wrap_attach!())
+
+    encode_attach!("shm:file?path=/tmp/header", "shm:file?path=/tmp/pool", long_err)
+    @test_throws ArgumentError AeronTensorPool.snapshot_attach_response!(AttachResponse(), wrap_attach!())
+
+    ShmDetachResponse.wrap_and_apply_header!(detach_enc, buf, 0)
+    ShmDetachResponse.correlationId!(detach_enc, Int64(2))
+    ShmDetachResponse.code!(detach_enc, DriverResponseCode.OK)
+    ShmDetachResponse.errorMessage!(detach_enc, long_err)
+    header = DriverMessageHeader.Decoder(buf, 0)
+    ShmDetachResponse.wrap!(detach_dec, buf, 0; header = header)
+    @test_throws ArgumentError AeronTensorPool.snapshot_detach_response!(DetachResponse(), detach_dec)
+
+    ShmLeaseRevoked.wrap_and_apply_header!(revoke_enc, buf, 0)
+    ShmLeaseRevoked.timestampNs!(revoke_enc, UInt64(10))
+    ShmLeaseRevoked.leaseId!(revoke_enc, UInt64(20))
+    ShmLeaseRevoked.streamId!(revoke_enc, UInt32(1))
+    ShmLeaseRevoked.clientId!(revoke_enc, UInt32(2))
+    ShmLeaseRevoked.role!(revoke_enc, DriverRole.CONSUMER)
+    ShmLeaseRevoked.reason!(revoke_enc, DriverLeaseRevokeReason.EXPIRED)
+    ShmLeaseRevoked.errorMessage!(revoke_enc, long_err)
+    header = DriverMessageHeader.Decoder(buf, 0)
+    ShmLeaseRevoked.wrap!(revoke_dec, buf, 0; header = header)
+    @test_throws ArgumentError AeronTensorPool.snapshot_lease_revoked!(LeaseRevoked(), revoke_dec)
+
+    ShmDriverShutdown.wrap_and_apply_header!(shutdown_enc, buf, 0)
+    ShmDriverShutdown.timestampNs!(shutdown_enc, UInt64(10))
+    ShmDriverShutdown.reason!(shutdown_enc, DriverShutdownReason.NORMAL)
+    ShmDriverShutdown.errorMessage!(shutdown_enc, long_err)
+    header = DriverMessageHeader.Decoder(buf, 0)
+    ShmDriverShutdown.wrap!(shutdown_dec, buf, 0; header = header)
+    @test_throws ArgumentError AeronTensorPool.snapshot_shutdown!(DriverShutdown(), shutdown_dec)
+end
