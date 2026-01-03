@@ -93,29 +93,77 @@ end
     return 1
 end
 
-function poll_timers!(state::ConsumerState, now_ns::UInt64)
-    return poll_timers!(state.timer_set, state, now_ns)
-end
+"""
+Apply a ConsumerConfig message to a live consumer.
+"""
+function apply_consumer_config!(state::ConsumerState, msg::ConsumerConfigMsg.Decoder)
+    ConsumerConfigMsg.streamId(msg) == state.config.stream_id || return false
+    ConsumerConfigMsg.consumerId(msg) == state.config.consumer_id || return false
 
-"""
-Consumer duty cycle: poll subscriptions, emit periodic messages, and return work count.
-"""
-function consumer_do_work!(
-    state::ConsumerState,
-    descriptor_assembler::Aeron.FragmentAssembler,
-    control_assembler::Aeron.FragmentAssembler;
-    fragment_limit::Int32 = DEFAULT_FRAGMENT_LIMIT,
-)
-    fetch!(state.clock)
-    now_ns = UInt64(Clocks.time_nanos(state.clock))
-    work_count = 0
-    work_count += poll_descriptor!(state, descriptor_assembler, fragment_limit)
-    work_count += poll_control!(state, control_assembler, fragment_limit)
-    work_count += poll_progress!(state, state.progress_assembler, fragment_limit)
-    work_count += poll_timers!(state, now_ns)
-    if !isnothing(state.driver_client)
-        work_count += driver_client_do_work!(state.driver_client, now_ns)
-        work_count += handle_driver_events!(state, now_ns)
+    state.config.use_shm = (ConsumerConfigMsg.useShm(msg) == ShmTensorpoolControl.Bool_.TRUE)
+    state.config.mode = ConsumerConfigMsg.mode(msg)
+    state.config.decimation = ConsumerConfigMsg.decimation(msg)
+    state.config.payload_fallback_uri = String(ConsumerConfigMsg.payloadFallbackUri(msg))
+
+    descriptor_channel = String(ConsumerConfigMsg.descriptorChannel(msg))
+    descriptor_stream_id = ConsumerConfigMsg.descriptorStreamId(msg)
+    descriptor_null = ConsumerConfigMsg.descriptorStreamId_null_value(ConsumerConfigMsg.Decoder)
+    descriptor_assigned =
+        !isempty(descriptor_channel) && descriptor_stream_id != 0 && descriptor_stream_id != descriptor_null
+
+    if descriptor_assigned
+        if state.assigned_descriptor_stream_id != descriptor_stream_id ||
+            state.assigned_descriptor_channel != descriptor_channel
+            new_sub = Aeron.add_subscription(
+                state.runtime.control.client,
+                descriptor_channel,
+                Int32(descriptor_stream_id),
+            )
+            close(state.runtime.sub_descriptor)
+            state.runtime.sub_descriptor = new_sub
+            state.assigned_descriptor_channel = descriptor_channel
+            state.assigned_descriptor_stream_id = descriptor_stream_id
+        end
+    elseif state.assigned_descriptor_stream_id != 0
+        new_sub = Aeron.add_subscription(
+            state.runtime.control.client,
+            state.config.aeron_uri,
+            state.config.descriptor_stream_id,
+        )
+        close(state.runtime.sub_descriptor)
+        state.runtime.sub_descriptor = new_sub
+        state.assigned_descriptor_channel = ""
+        state.assigned_descriptor_stream_id = UInt32(0)
     end
-    return work_count
+
+    control_channel = String(ConsumerConfigMsg.controlChannel(msg))
+    control_stream_id = ConsumerConfigMsg.controlStreamId(msg)
+    control_null = ConsumerConfigMsg.controlStreamId_null_value(ConsumerConfigMsg.Decoder)
+    control_assigned =
+        !isempty(control_channel) && control_stream_id != 0 && control_stream_id != control_null
+
+    if control_assigned
+        if state.assigned_control_stream_id != control_stream_id ||
+            state.assigned_control_channel != control_channel
+            new_sub = Aeron.add_subscription(
+                state.runtime.control.client,
+                control_channel,
+                Int32(control_stream_id),
+            )
+            state.runtime.sub_progress === nothing || close(state.runtime.sub_progress)
+            state.runtime.sub_progress = new_sub
+            state.assigned_control_channel = control_channel
+            state.assigned_control_stream_id = control_stream_id
+        end
+    elseif state.runtime.sub_progress !== nothing
+        close(state.runtime.sub_progress)
+        state.runtime.sub_progress = nothing
+        state.assigned_control_channel = ""
+        state.assigned_control_stream_id = UInt32(0)
+    end
+
+    if !state.config.use_shm
+        reset_mappings!(state)
+    end
+    return true
 end

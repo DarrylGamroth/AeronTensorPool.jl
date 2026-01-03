@@ -80,31 +80,230 @@ end
     return 1
 end
 
-function poll_timers!(state::ProducerState, now_ns::UInt64)
-    return poll_timers!(state.timer_set, state, now_ns)
+@inline function consumer_stream_timeout_ns(state::ProducerState)
+    base = max(state.config.announce_interval_ns, state.config.qos_interval_ns)
+    return base * 5
+end
+
+@inline function consumer_stream_last_seen_ns(entry::ProducerConsumerStream)
+    return max(entry.last_hello_ns, entry.last_qos_ns)
+end
+
+function clear_consumer_stream!(entry::ProducerConsumerStream)
+    entry.descriptor_pub === nothing || close(entry.descriptor_pub)
+    entry.control_pub === nothing || close(entry.control_pub)
+    entry.descriptor_pub = nothing
+    entry.control_pub = nothing
+    entry.descriptor_channel = ""
+    entry.control_channel = ""
+    entry.descriptor_stream_id = UInt32(0)
+    entry.control_stream_id = UInt32(0)
+    entry.max_rate_hz = UInt16(0)
+    entry.next_descriptor_ns = UInt64(0)
+    entry.last_hello_ns = UInt64(0)
+    entry.last_qos_ns = UInt64(0)
+    return nothing
+end
+
+function cleanup_consumer_streams!(state::ProducerState, now_ns::UInt64)
+    timeout_ns = consumer_stream_timeout_ns(state)
+    closed = 0
+    for entry in values(state.consumer_streams)
+        last_seen = consumer_stream_last_seen_ns(entry)
+        last_seen == 0 && continue
+        if now_ns - last_seen > timeout_ns
+            clear_consumer_stream!(entry)
+            closed += 1
+        end
+    end
+    return closed
+end
+
+function update_consumer_streams!(state::ProducerState, msg::ConsumerHello.Decoder)
+    consumer_id = ConsumerHello.consumerId(msg)
+    now_ns = UInt64(Clocks.time_nanos(state.clock))
+    descriptor_stream_id = ConsumerHello.descriptorStreamId(msg)
+    control_stream_id = ConsumerHello.controlStreamId(msg)
+    descriptor_null = ConsumerHello.descriptorStreamId_null_value(ConsumerHello.Decoder)
+    control_null = ConsumerHello.controlStreamId_null_value(ConsumerHello.Decoder)
+    descriptor_channel = String(ConsumerHello.descriptorChannel(msg))
+    control_channel = String(ConsumerHello.controlChannel(msg))
+    descriptor_stream_id_provided =
+        descriptor_stream_id != 0 && descriptor_stream_id != descriptor_null
+    control_stream_id_provided =
+        control_stream_id != 0 && control_stream_id != control_null
+    descriptor_channel_provided = !isempty(descriptor_channel)
+    control_channel_provided = !isempty(control_channel)
+    descriptor_requested = descriptor_channel_provided && descriptor_stream_id_provided
+    control_requested = control_channel_provided && control_stream_id_provided
+    invalid_descriptor_request = descriptor_channel_provided != descriptor_stream_id_provided
+    invalid_control_request = control_channel_provided != control_stream_id_provided
+
+    if !descriptor_requested && !control_requested && !invalid_descriptor_request && !invalid_control_request
+        return false
+    end
+
+    entry = get(state.consumer_streams, consumer_id, nothing)
+    if entry === nothing
+        entry = ProducerConsumerStream(
+            nothing,
+            nothing,
+            "",
+            "",
+            UInt32(0),
+            UInt32(0),
+            UInt16(0),
+            UInt64(0),
+            now_ns,
+            UInt64(0),
+        )
+        state.consumer_streams[consumer_id] = entry
+    end
+
+    entry.last_hello_ns = now_ns
+    entry.max_rate_hz = ConsumerHello.maxRateHz(msg)
+
+    changed = false
+    if descriptor_requested
+        if entry.descriptor_pub === nothing ||
+            entry.descriptor_stream_id != descriptor_stream_id ||
+            entry.descriptor_channel != descriptor_channel
+            entry.descriptor_pub === nothing || close(entry.descriptor_pub)
+            try
+                entry.descriptor_pub = Aeron.add_publication(
+                    state.runtime.control.client,
+                    descriptor_channel,
+                    Int32(descriptor_stream_id),
+                )
+                entry.descriptor_stream_id = descriptor_stream_id
+                entry.descriptor_channel = descriptor_channel
+                entry.next_descriptor_ns = now_ns
+                changed = true
+            catch
+                entry.descriptor_pub = nothing
+                entry.descriptor_stream_id = UInt32(0)
+                entry.descriptor_channel = ""
+                changed = true
+            end
+        end
+    elseif entry.descriptor_pub !== nothing
+        close(entry.descriptor_pub)
+        entry.descriptor_pub = nothing
+        entry.descriptor_channel = ""
+        entry.descriptor_stream_id = UInt32(0)
+        changed = true
+    end
+
+    if control_requested
+        if entry.control_pub === nothing ||
+            entry.control_stream_id != control_stream_id ||
+            entry.control_channel != control_channel
+            entry.control_pub === nothing || close(entry.control_pub)
+            try
+                entry.control_pub = Aeron.add_publication(
+                    state.runtime.control.client,
+                    control_channel,
+                    Int32(control_stream_id),
+                )
+                entry.control_stream_id = control_stream_id
+                entry.control_channel = control_channel
+                changed = true
+            catch
+                entry.control_pub = nothing
+                entry.control_stream_id = UInt32(0)
+                entry.control_channel = ""
+                changed = true
+            end
+        end
+    elseif entry.control_pub !== nothing
+        close(entry.control_pub)
+        entry.control_pub = nothing
+        entry.control_channel = ""
+        entry.control_stream_id = UInt32(0)
+        changed = true
+    end
+
+    if invalid_descriptor_request || invalid_control_request
+        emit_consumer_config!(
+            state,
+            consumer_id;
+            use_shm = true,
+            mode = ConsumerHello.mode(msg),
+            decimation = UInt16(1),
+            payload_fallback_uri = "",
+            descriptor_channel = "",
+            descriptor_stream_id = UInt32(0),
+            control_channel = "",
+            control_stream_id = UInt32(0),
+        )
+        return false
+    end
+
+    if changed
+        emit_consumer_config!(
+            state,
+            consumer_id;
+            use_shm = true,
+            mode = ConsumerHello.mode(msg),
+            decimation = UInt16(1),
+            payload_fallback_uri = "",
+            descriptor_channel = entry.descriptor_channel,
+            descriptor_stream_id = entry.descriptor_stream_id,
+            control_channel = entry.control_channel,
+            control_stream_id = entry.control_stream_id,
+        )
+    end
+    return changed
+end
+
+function handle_qos_consumer!(state::ProducerState, msg::QosConsumer.Decoder)
+    QosConsumer.streamId(msg) == state.config.stream_id || return false
+    consumer_id = QosConsumer.consumerId(msg)
+    now_ns = UInt64(Clocks.time_nanos(state.clock))
+    entry = get(state.consumer_streams, consumer_id, nothing)
+    if entry === nothing
+        entry = ProducerConsumerStream(
+            nothing,
+            nothing,
+            "",
+            "",
+            UInt32(0),
+            UInt32(0),
+            UInt16(0),
+            UInt64(0),
+            UInt64(0),
+            now_ns,
+        )
+        state.consumer_streams[consumer_id] = entry
+    end
+    entry.last_qos_ns = now_ns
+    return true
 end
 
 """
-Producer duty cycle: poll control, emit periodic messages, and return work count.
+Update progress settings based on a ConsumerHello message.
 """
-function producer_do_work!(
-    state::ProducerState,
-    control_assembler::Aeron.FragmentAssembler;
-    qos_assembler::Union{Aeron.FragmentAssembler, Nothing} = nothing,
-    fragment_limit::Int32 = DEFAULT_FRAGMENT_LIMIT,
-)
-    fetch!(state.clock)
-    now_ns = UInt64(Clocks.time_nanos(state.clock))
-    work_count = 0
-    work_count += poll_control!(state, control_assembler, fragment_limit)
-    if qos_assembler !== nothing
-        work_count += poll_qos!(state, qos_assembler, fragment_limit)
+function handle_consumer_hello!(state::ProducerState, msg::ConsumerHello.Decoder)
+    if ConsumerHello.supportsProgress(msg) == ShmTensorpoolControl.Bool_.TRUE
+        state.supports_progress = true
+        interval = ConsumerHello.progressIntervalUs(msg)
+        bytes_delta = ConsumerHello.progressBytesDelta(msg)
+
+        if interval != typemax(UInt32)
+            hint_ns = UInt64(interval) * 1000
+            state.progress_interval_ns = max(
+                state.config.progress_interval_ns,
+                min(state.progress_interval_ns, hint_ns),
+            )
+        end
+        if bytes_delta != typemax(UInt32)
+            hint_bytes = UInt64(bytes_delta)
+            state.progress_bytes_delta = max(
+                state.config.progress_bytes_delta,
+                min(state.progress_bytes_delta, hint_bytes),
+            )
+        end
     end
-    work_count += poll_timers!(state, now_ns)
-    work_count += cleanup_consumer_streams!(state, now_ns)
-    if !isnothing(state.driver_client)
-        work_count += driver_client_do_work!(state.driver_client, now_ns)
-        work_count += handle_driver_events!(state, now_ns)
-    end
-    return work_count
+    update_consumer_streams!(state, msg)
+    return nothing
 end

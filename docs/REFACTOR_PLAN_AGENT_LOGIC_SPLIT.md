@@ -2,6 +2,8 @@
 
 Goal: split `logic.jl` grab-bag files into focused modules for clarity and reference implementation readability.
 
+Status: completed; logic files have been decomposed into init/work/lifecycle (and handlers where appropriate).
+
 ## Guiding Principles
 - Preserve behavior and APIs; move functions only.
 - Keep hot-path code close to related types (minimize cross-file indirection).

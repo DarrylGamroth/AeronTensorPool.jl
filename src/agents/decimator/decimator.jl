@@ -1,2 +1,3 @@
 include("state.jl")
-include("logic.jl")
+include("work.jl")
+include("init.jl")
