@@ -87,6 +87,9 @@ function make_bridge_metadata_receiver_assembler(state::BridgeReceiverState)
     return Aeron.FragmentAssembler(handler)
 end
 
+"""
+Bridge sender duty cycle: poll control/metadata subscriptions and return work count.
+"""
 function bridge_sender_do_work!(
     state::BridgeSenderState;
     fragment_limit::Int32 = DEFAULT_FRAGMENT_LIMIT,
@@ -99,6 +102,9 @@ function bridge_sender_do_work!(
     return work_count
 end
 
+"""
+Bridge receiver duty cycle: poll control/payload/metadata subscriptions and return work count.
+"""
 function bridge_receiver_do_work!(
     state::BridgeReceiverState;
     fragment_limit::Int32 = DEFAULT_FRAGMENT_LIMIT,

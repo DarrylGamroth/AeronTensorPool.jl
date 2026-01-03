@@ -107,6 +107,9 @@ function emit_qos!(state::ProducerState)
     return true
 end
 
+"""
+Emit a ConsumerConfig message for a specific consumer.
+"""
 function emit_consumer_config!(
     state::ProducerState,
     consumer_id::UInt32;

@@ -117,6 +117,9 @@ mutable struct PayloadSlice
     len::Int
 end
 
+"""
+Return a view over the payload bytes for a PayloadSlice.
+"""
 @inline function payload_view(slice::PayloadSlice)
     return view(slice.mmap, slice.offset + 1: slice.offset + slice.len)
 end

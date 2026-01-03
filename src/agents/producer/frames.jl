@@ -112,6 +112,9 @@ function payload_pool_config(state::ProducerState, pool_id::UInt16)
     return nothing
 end
 
+"""
+Return a pointer to a payload slot for a producer pool.
+"""
 function payload_slot_ptr(state::ProducerState, pool_id::UInt16, slot::UInt32)
     pool = payload_pool_config(state, pool_id)
     pool === nothing && error("Unknown pool_id: $pool_id")
@@ -120,6 +123,9 @@ function payload_slot_ptr(state::ProducerState, pool_id::UInt16, slot::UInt32)
     return payload_slot_ptr(payload_mmap, pool.stride_bytes, slot)
 end
 
+"""
+Return a view into a producer payload slot.
+"""
 function payload_slot_view(
     state::ProducerState,
     pool_id::UInt16,

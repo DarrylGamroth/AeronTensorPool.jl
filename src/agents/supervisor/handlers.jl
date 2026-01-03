@@ -44,6 +44,9 @@ function make_qos_assembler(state::SupervisorState)
     return Aeron.FragmentAssembler(handler)
 end
 
+"""
+Poll the control subscription for announce and hello messages.
+"""
 @inline function poll_control!(
     state::SupervisorState,
     assembler::Aeron.FragmentAssembler,
@@ -52,6 +55,9 @@ end
     return Aeron.poll(state.runtime.control.sub_control, assembler, fragment_limit)
 end
 
+"""
+Poll the QoS subscription for producer/consumer QoS messages.
+"""
 @inline function poll_qos!(
     state::SupervisorState,
     assembler::Aeron.FragmentAssembler,

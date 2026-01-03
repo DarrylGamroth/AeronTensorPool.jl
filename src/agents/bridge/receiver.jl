@@ -97,6 +97,9 @@ function init_bridge_receiver(
     return state
 end
 
+"""
+Write an assembled bridge frame into the destination SHM and publish a descriptor.
+"""
 function bridge_rematerialize!(
     state::BridgeReceiverState,
     header::TensorSlotHeader,

@@ -64,6 +64,9 @@ function init_bridge_sender(
     return state
 end
 
+"""
+Chunk and forward a frame payload based on a FrameDescriptor.
+"""
 function bridge_send_frame!(state::BridgeSenderState, desc::FrameDescriptor.Decoder)
     FrameDescriptor.epoch(desc) == state.consumer_state.mappings.mapped_epoch || return false
     header_index = FrameDescriptor.headerIndex(desc)
