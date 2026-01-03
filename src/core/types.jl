@@ -131,11 +131,3 @@ mutable struct ConsumerFrameView
     header::TensorSlotHeader
     payload::PayloadView
 end
-
-"""
-Parsed shm:file URI components.
-"""
-struct ShmUri
-    path::String
-    require_hugepages::Bool
-end

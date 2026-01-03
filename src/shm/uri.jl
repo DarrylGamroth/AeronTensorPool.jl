@@ -1,4 +1,12 @@
 """
+Parsed shm:file URI components.
+"""
+struct ShmUri
+    path::String
+    require_hugepages::Bool
+end
+
+"""
 Parse a shm:file URI into a ShmUri.
 """
 function parse_shm_uri(uri::AbstractString)
