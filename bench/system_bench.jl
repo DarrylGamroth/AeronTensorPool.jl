@@ -168,8 +168,9 @@ function run_system_bench(
                     strides = Int32[1]
                     published = 0
                     if warmup_s > 0
-                        warmup_start = time()
-                        while time() - warmup_start < warmup_s
+                        warmup_start = time_ns()
+                        warmup_limit = warmup_start + Int64(round(warmup_s * 1e9))
+                        while time_ns() < warmup_limit
                             producer_do_work!(producer, prod_ctrl)
                             consumer_do_work!(consumer, cons_desc, cons_ctrl)
                             supervisor_do_work!(supervisor, sup_ctrl, sup_qos)
@@ -183,8 +184,9 @@ function run_system_bench(
                     end
 
                     if alloc_sample
-                        wait_start = time()
-                        while consumer.mappings.header_mmap === nothing && (time() - wait_start < 2.0)
+                        wait_start = time_ns()
+                        wait_limit = wait_start + Int64(2e9)
+                        while consumer.mappings.header_mmap === nothing && time_ns() < wait_limit
                             producer_do_work!(producer, prod_ctrl)
                             consumer_do_work!(consumer, cons_desc, cons_ctrl)
                             supervisor_do_work!(supervisor, sup_ctrl, sup_qos)
@@ -211,8 +213,9 @@ function run_system_bench(
                     end
 
                     if alloc_breakdown
-                        wait_start = time()
-                        while consumer.mappings.header_mmap === nothing && (time() - wait_start < 2.0)
+                        wait_start = time_ns()
+                        wait_limit = wait_start + Int64(2e9)
+                        while consumer.mappings.header_mmap === nothing && time_ns() < wait_limit
                             producer_do_work!(producer, prod_ctrl)
                             consumer_do_work!(consumer, cons_desc, cons_ctrl)
                             supervisor_do_work!(supervisor, sup_ctrl, sup_qos)
@@ -315,11 +318,11 @@ function run_system_bench(
                     gc_num_overhead = Base.gc_num().allocd
                     gc_num_overhead = Base.gc_num().allocd - gc_num_overhead
                     time_overhead = Base.gc_num().allocd
-                    _ = time()
+                    _ = time_ns()
                     time_overhead = Base.gc_num().allocd - time_overhead
                     start_num = Base.gc_num()
                     start_live = Base.gc_live_bytes()
-                    start = time()
+                    start = time_ns()
                     iter_count = 0
                     if fixed_iters > 0
                         while iter_count < fixed_iters
@@ -358,7 +361,8 @@ function run_system_bench(
                             do_yield && yield()
                         end
                     else
-                        while time() - start < duration_s
+                        end_limit = start + Int64(round(duration_s * 1e9))
+                        while time_ns() < end_limit
                             if !noop_loop
                                 if poll_subs
                                     work = 0
@@ -394,7 +398,7 @@ function run_system_bench(
                         end
                     end
 
-                    elapsed = time() - start
+                    elapsed = (time_ns() - start) / 1e9
                     mid_num = Base.gc_num()
                     mid_live = Base.gc_live_bytes()
                     GC.gc()
@@ -412,7 +416,7 @@ function run_system_bench(
                     println("Publish rate: $(round(published / elapsed, digits=1)) fps")
                     println("Consume rate: $(round(consumed[] / elapsed, digits=1)) fps")
                     println("GC allocd overhead per sample: $(gc_num_overhead) bytes")
-                    println("GC allocd overhead per time(): $(time_overhead) bytes")
+                    println("GC allocd overhead per time_ns(): $(time_overhead) bytes")
                     println("GC allocd delta (loop):  $(allocd_loop) bytes")
                     println("GC live delta (loop):   $(live_loop) bytes")
                     println("GC allocd delta (total): $(allocd_total) bytes")
