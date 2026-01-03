@@ -105,13 +105,13 @@
     <field name="headerNslots"    id="6" type="uint32"/>
     <field name="headerSlotBytes" id="7" type="uint16"/>
     <field name="maxDims"         id="8" type="uint8"/>
-    <group name="payloadPools"    id="10" dimensionType="groupSizeEncoding">
+    <group name="payloadPools"    id="9" dimensionType="groupSizeEncoding">
       <field name="poolId"      id="1" type="uint16"/>
       <field name="poolNslots"  id="2" type="uint32"/>
       <field name="strideBytes" id="3" type="uint32"/>
       <data  name="regionUri"   id="4" type="varAsciiEncoding"/>
     </group>
-    <data  name="headerRegionUri" id="9" type="varAsciiEncoding"/>
+    <data  name="headerRegionUri" id="10" type="varAsciiEncoding"/>
   </sbe:message>
 
   <sbe:message name="ConsumerHello" id="2">
