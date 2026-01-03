@@ -39,6 +39,12 @@
 - Add allocation tests to ensure view creation remains allocation-free.
 - Verify no regressions in existing allocation and integration tests.
 
+## Review Findings (Current)
+- String arena is fixed at 64 KiB and throws on overflow; consider configurability or a safe fallback to owned Strings when a response exceeds capacity.
+- StringRef lifetimes are only documented; add a generation counter or materialize helpers to prevent stale reads.
+- map_from_attach_response! consumes StringRef views; callers who map after another poll can see invalid URIs without warning.
+- string_ref_view creates a SubArray; consider a non-allocating accessor for hot-loop access if needed.
+
 ## Open Decisions
 - Whether view types should be exported or wrapped by higher-level API.
 - Whether to provide per-message arena sizing or keep fixed size.
