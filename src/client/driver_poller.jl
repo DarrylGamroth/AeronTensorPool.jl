@@ -1,49 +1,11 @@
 """
-Fixed-size string buffer for driver responses.
-"""
-mutable struct FixedString{N}
-    buf::FixedSizeVector{UInt8}
-    len::UInt16
-end
-
-@inline function FixedString{N}() where {N}
-    return FixedString{N}(FixedSizeVector{UInt8}(undef, N), UInt16(0))
-end
-
-@inline function fixed_string_clear!(fs::FixedString)
-    fs.len = 0
-    return nothing
-end
-
-@inline function fixed_string_set!(fs::FixedString{N}, value::AbstractString) where {N}
-    len = ncodeunits(value)
-    len <= N || throw(ArgumentError("string length $(len) exceeds max $(N)"))
-    len <= typemax(UInt16) || throw(ArgumentError("string length $(len) exceeds UInt16"))
-    if len > 0
-        copyto!(fs.buf, 1, codeunits(value), 1, len)
-    end
-    fs.len = UInt16(len)
-    return nothing
-end
-
-@inline function fixed_string_view(fs::FixedString)
-    len = Int(fs.len)
-    len == 0 && return StringView("")
-    return StringView(view(fs.buf, 1:len))
-end
-
-@inline function fixed_string_string(fs::FixedString)
-    return String(fixed_string_view(fs))
-end
-
-"""
 Payload pool metadata from ShmAttachResponse.
 """
 mutable struct DriverPool
     pool_id::UInt16
     pool_nslots::UInt32
     stride_bytes::UInt32
-    region_uri::FixedString{DRIVER_URI_MAX_BYTES}
+    region_uri::FixedString
 end
 
 """
@@ -60,10 +22,10 @@ mutable struct AttachResponse
     header_nslots::UInt32
     header_slot_bytes::UInt16
     max_dims::UInt8
-    header_region_uri::FixedString{DRIVER_URI_MAX_BYTES}
+    header_region_uri::FixedString
     pools::Vector{DriverPool}
     pool_count::Int
-    error_message::FixedString{DRIVER_ERROR_MAX_BYTES}
+    error_message::FixedString
 end
 
 """
@@ -72,7 +34,7 @@ Snapshot of a ShmDetachResponse.
 mutable struct DetachResponse
     correlation_id::Int64
     code::DriverResponseCode.SbeEnum
-    error_message::FixedString{DRIVER_ERROR_MAX_BYTES}
+    error_message::FixedString
 end
 
 """
@@ -85,7 +47,7 @@ mutable struct LeaseRevoked
     client_id::UInt32
     role::DriverRole.SbeEnum
     reason::DriverLeaseRevokeReason.SbeEnum
-    error_message::FixedString{DRIVER_ERROR_MAX_BYTES}
+    error_message::FixedString
 end
 
 """
@@ -94,7 +56,7 @@ Snapshot of a ShmDriverShutdown.
 mutable struct DriverShutdown
     timestamp_ns::UInt64
     reason::DriverShutdownReason.SbeEnum
-    error_message::FixedString{DRIVER_ERROR_MAX_BYTES}
+    error_message::FixedString
 end
 
 """
@@ -178,7 +140,7 @@ function handle_driver_response!(poller::DriverResponsePoller, buffer::AbstractV
 end
 
 @inline function DriverPool()
-    return DriverPool(UInt16(0), UInt32(0), UInt32(0), FixedString{DRIVER_URI_MAX_BYTES}())
+    return DriverPool(UInt16(0), UInt32(0), UInt32(0), FixedString(DRIVER_URI_MAX_BYTES))
 end
 
 @inline function AttachResponse()
@@ -193,10 +155,10 @@ end
         UInt32(0),
         UInt16(0),
         UInt8(0),
-        FixedString{DRIVER_URI_MAX_BYTES}(),
+        FixedString(DRIVER_URI_MAX_BYTES),
         DriverPool[],
         0,
-        FixedString{DRIVER_ERROR_MAX_BYTES}(),
+        FixedString(DRIVER_ERROR_MAX_BYTES),
     )
 end
 
@@ -204,7 +166,7 @@ end
     return DetachResponse(
         Int64(0),
         DriverResponseCode.NULL_VALUE,
-        FixedString{DRIVER_ERROR_MAX_BYTES}(),
+        FixedString(DRIVER_ERROR_MAX_BYTES),
     )
 end
 
@@ -216,7 +178,7 @@ end
         UInt32(0),
         DriverRole.NULL_VALUE,
         DriverLeaseRevokeReason.NULL_VALUE,
-        FixedString{DRIVER_ERROR_MAX_BYTES}(),
+        FixedString(DRIVER_ERROR_MAX_BYTES),
     )
 end
 
@@ -224,7 +186,7 @@ end
     return DriverShutdown(
         UInt64(0),
         DriverShutdownReason.NULL_VALUE,
-        FixedString{DRIVER_ERROR_MAX_BYTES}(),
+        FixedString(DRIVER_ERROR_MAX_BYTES),
     )
 end
 
