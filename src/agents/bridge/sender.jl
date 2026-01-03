@@ -39,9 +39,9 @@ function init_bridge_sender(
         DataSourceAnnounce.Encoder(UnsafeArrays.UnsafeArray{UInt8, 1}),
         DataSourceMeta.Encoder(UnsafeArrays.UnsafeArray{UInt8, 1}),
         TensorSlotHeader256.Decoder(Vector{UInt8}),
-        FixedSizeVector{UInt8}(undef, HEADER_SLOT_BYTES),
-        FixedSizeVector{Int32}(undef, MAX_DIMS),
-        FixedSizeVector{Int32}(undef, MAX_DIMS),
+        FixedSizeVectorDefault{UInt8}(undef, HEADER_SLOT_BYTES),
+        FixedSizeVectorDefault{Int32}(undef, MAX_DIMS),
+        FixedSizeVectorDefault{Int32}(undef, MAX_DIMS),
         UInt64(0),
         sub_control,
         Aeron.FragmentAssembler(Aeron.FragmentHandler((_, _, _) -> nothing)),
@@ -140,13 +140,13 @@ function bridge_send_frame!(state::BridgeSenderState, desc::FrameDescriptor.Deco
                     st.chunk_encoder,
                     header_included ? BridgeBool.TRUE : BridgeBool.FALSE,
                 )
-                BridgeFrameChunk.headerBytes_length!(st.chunk_encoder, UInt32(header_len))
                 if header_included
                     header_src = state.header_buf
                     copyto!(header_src, 1, header_mmap_vec, header_offset + 1, HEADER_SLOT_BYTES)
                     BridgeFrameChunk.headerBytes!(st.chunk_encoder, header_src)
+                else
+                    BridgeFrameChunk.headerBytes!(st.chunk_encoder, nothing)
                 end
-                BridgeFrameChunk.payloadBytes_length!(st.chunk_encoder, UInt32(payload_chunk_len))
                 BridgeFrameChunk.payloadBytes!(
                     st.chunk_encoder,
                     view(payload_mmap_vec, payload_pos + 1:payload_pos + payload_chunk_len),

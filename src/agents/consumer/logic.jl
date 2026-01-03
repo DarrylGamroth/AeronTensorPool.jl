@@ -26,8 +26,8 @@ function init_consumer(config::ConsumerSettings; client::Aeron.Client)
         sub_descriptor,
         sub_qos,
         sub_progress,
-        FixedSizeVector{UInt8}(undef, CONTROL_BUF_BYTES),
-        FixedSizeVector{UInt8}(undef, CONTROL_BUF_BYTES),
+        FixedSizeVectorDefault{UInt8}(undef, CONTROL_BUF_BYTES),
+        FixedSizeVectorDefault{UInt8}(undef, CONTROL_BUF_BYTES),
         ConsumerHello.Encoder(UnsafeArrays.UnsafeArray{UInt8, 1}),
         QosConsumer.Encoder(UnsafeArrays.UnsafeArray{UInt8, 1}),
         Aeron.BufferClaim(),
@@ -38,8 +38,8 @@ function init_consumer(config::ConsumerSettings; client::Aeron.Client)
         FrameProgress.Decoder(UnsafeArrays.UnsafeArray{UInt8, 1}),
         TensorSlotHeader256.Decoder(Vector{UInt8}),
         ShmRegionSuperblock.Decoder(Vector{UInt8}),
-        Vector{Int64}(undef, MAX_DIMS),
-        Vector{Int64}(undef, MAX_DIMS),
+        FixedSizeVectorDefault{Int64}(undef, MAX_DIMS),
+        FixedSizeVectorDefault{Int64}(undef, MAX_DIMS),
         ConsumerFrameView(
             TensorSlotHeader(
                 UInt64(0),

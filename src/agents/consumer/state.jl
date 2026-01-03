@@ -10,8 +10,8 @@ mutable struct ConsumerRuntime
     sub_descriptor::Aeron.Subscription
     sub_qos::Aeron.Subscription
     sub_progress::Union{Aeron.Subscription, Nothing}
-    hello_buf::Vector{UInt8}
-    qos_buf::Vector{UInt8}
+    hello_buf::FixedSizeVectorDefault{UInt8}
+    qos_buf::FixedSizeVectorDefault{UInt8}
     hello_encoder::ConsumerHello.Encoder{UnsafeArrays.UnsafeArray{UInt8, 1}}
     qos_encoder::QosConsumer.Encoder{UnsafeArrays.UnsafeArray{UInt8, 1}}
     hello_claim::Aeron.BufferClaim
@@ -22,8 +22,8 @@ mutable struct ConsumerRuntime
     progress_decoder::FrameProgress.Decoder{UnsafeArrays.UnsafeArray{UInt8, 1}}
     header_decoder::TensorSlotHeader256.Decoder{Vector{UInt8}}
     superblock_decoder::ShmRegionSuperblock.Decoder{Vector{UInt8}}
-    scratch_dims::Vector{Int64}
-    scratch_strides::Vector{Int64}
+    scratch_dims::FixedSizeVectorDefault{Int64}
+    scratch_strides::FixedSizeVectorDefault{Int64}
     frame_view::ConsumerFrameView
 end
 

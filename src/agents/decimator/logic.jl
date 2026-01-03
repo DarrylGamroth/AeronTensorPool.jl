@@ -14,7 +14,7 @@ function init_decimator(
         config,
         client,
         pub_descriptor,
-        FixedSizeVector{UInt8}(undef, CONTROL_BUF_BYTES),
+        FixedSizeVectorDefault{UInt8}(undef, CONTROL_BUF_BYTES),
         FrameDescriptor.Encoder(UnsafeArrays.UnsafeArray{UInt8, 1}),
         Aeron.BufferClaim(),
         UInt64(0),

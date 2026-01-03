@@ -17,7 +17,7 @@ function init_supervisor(config::SupervisorConfig; client::Aeron.Client)
     runtime = SupervisorRuntime(
         control,
         sub_qos,
-        FixedSizeVector{UInt8}(undef, CONTROL_BUF_BYTES),
+        FixedSizeVectorDefault{UInt8}(undef, CONTROL_BUF_BYTES),
         ConsumerConfigMsg.Encoder(UnsafeArrays.UnsafeArray{UInt8, 1}),
         Aeron.BufferClaim(),
         ShmPoolAnnounce.Decoder(UnsafeArrays.UnsafeArray{UInt8, 1}),

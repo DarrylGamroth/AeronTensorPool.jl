@@ -54,9 +54,9 @@ mutable struct BridgeAssembly
     payload_length::UInt32
     received_chunks::UInt32
     header_present::Bool
-    header_bytes::Vector{UInt8}
-    payload::Vector{UInt8}
-    received::Vector{Bool}
+    header_bytes::FixedSizeVectorDefault{UInt8}
+    payload::FixedSizeVectorDefault{UInt8}
+    received::FixedSizeVectorDefault{Bool}
     last_update_ns::UInt64
 end
 
@@ -67,8 +67,8 @@ struct BridgeAssembledFrame
     seq::UInt64
     epoch::UInt64
     payload_length::UInt32
-    header_bytes::Vector{UInt8}
-    payload::Vector{UInt8}
+    header_bytes::FixedSizeVectorDefault{UInt8}
+    payload::FixedSizeVectorDefault{UInt8}
 end
 
 """
@@ -90,9 +90,9 @@ mutable struct BridgeSenderState
     metadata_announce_encoder::DataSourceAnnounce.Encoder{UnsafeArrays.UnsafeArray{UInt8, 1}}
     metadata_meta_encoder::DataSourceMeta.Encoder{UnsafeArrays.UnsafeArray{UInt8, 1}}
     header_decoder::TensorSlotHeader256.Decoder{Vector{UInt8}}
-    header_buf::Vector{UInt8}
-    scratch_dims::Vector{Int32}
-    scratch_strides::Vector{Int32}
+    header_buf::FixedSizeVectorDefault{UInt8}
+    scratch_dims::FixedSizeVectorDefault{Int32}
+    scratch_strides::FixedSizeVectorDefault{Int32}
     last_announce_epoch::UInt64
     sub_control::Aeron.Subscription
     control_assembler::Aeron.FragmentAssembler
@@ -141,9 +141,9 @@ mutable struct BridgeReceiverState
     progress_decoder::FrameProgress.Decoder{UnsafeArrays.UnsafeArray{UInt8, 1}}
     chunk_decoder::BridgeFrameChunk.Decoder{UnsafeArrays.UnsafeArray{UInt8, 1}}
     announce_decoder::ShmPoolAnnounce.Decoder{UnsafeArrays.UnsafeArray{UInt8, 1}}
-    header_decoder::TensorSlotHeader256.Decoder{Vector{UInt8}}
-    scratch_dims::Vector{Int32}
-    scratch_strides::Vector{Int32}
+    header_decoder::TensorSlotHeader256.Decoder{FixedSizeVectorDefault{UInt8}}
+    scratch_dims::FixedSizeVectorDefault{Int32}
+    scratch_strides::FixedSizeVectorDefault{Int32}
     source_info::BridgeSourceInfo
     assembly::BridgeAssembly
     have_announce::Bool

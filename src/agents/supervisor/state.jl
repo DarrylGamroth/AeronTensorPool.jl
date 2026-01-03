@@ -45,7 +45,7 @@ Mutable supervisor runtime resources (Aeron publications/subscriptions and codec
 mutable struct SupervisorRuntime
     control::ControlPlaneRuntime
     sub_qos::Aeron.Subscription
-    config_buf::Vector{UInt8}
+    config_buf::FixedSizeVectorDefault{UInt8}
     config_encoder::ConsumerConfigMsg.Encoder{UnsafeArrays.UnsafeArray{UInt8, 1}}
     config_claim::Aeron.BufferClaim
     announce_decoder::ShmPoolAnnounce.Decoder{UnsafeArrays.UnsafeArray{UInt8, 1}}

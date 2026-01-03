@@ -10,10 +10,10 @@ mutable struct ProducerRuntime
     pub_qos::Aeron.Publication
     pub_metadata::Aeron.Publication
     sub_qos::Aeron.Subscription
-    descriptor_buf::Vector{UInt8}
-    progress_buf::Vector{UInt8}
-    announce_buf::Vector{UInt8}
-    qos_buf::Vector{UInt8}
+    descriptor_buf::FixedSizeVectorDefault{UInt8}
+    progress_buf::FixedSizeVectorDefault{UInt8}
+    announce_buf::FixedSizeVectorDefault{UInt8}
+    qos_buf::FixedSizeVectorDefault{UInt8}
     superblock_encoder::ShmRegionSuperblock.Encoder{Vector{UInt8}}
     header_encoder::TensorSlotHeader256.Encoder{Vector{UInt8}}
     descriptor_encoder::FrameDescriptor.Encoder{UnsafeArrays.UnsafeArray{UInt8, 1}}

@@ -14,7 +14,7 @@ end
 Simple ring buffer for SlotReservation tracking.
 """
 mutable struct InflightQueue
-    items::FixedSizeVector{SlotReservation}
+    items::FixedSizeVectorDefault{SlotReservation}
     head::Int
     tail::Int
     count::Int
@@ -25,7 +25,7 @@ Create an InflightQueue with the given capacity.
 """
 function InflightQueue(capacity::Integer)
     capacity > 0 || throw(ArgumentError("capacity must be > 0"))
-    return InflightQueue(FixedSizeVector{SlotReservation}(undef, Int(capacity)), 1, 1, 0)
+    return InflightQueue(FixedSizeVectorDefault{SlotReservation}(undef, Int(capacity)), 1, 1, 0)
 end
 
 Base.isempty(q::InflightQueue) = q.count == 0

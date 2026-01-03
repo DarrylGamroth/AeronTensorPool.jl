@@ -34,8 +34,8 @@ mutable struct DriverRuntime
     control::ControlPlaneRuntime
     pub_announce::Aeron.Publication
     pub_qos::Aeron.Publication
-    control_buf::Vector{UInt8}
-    announce_buf::Vector{UInt8}
+    control_buf::FixedSizeVectorDefault{UInt8}
+    announce_buf::FixedSizeVectorDefault{UInt8}
     attach_decoder::ShmAttachRequest.Decoder{UnsafeArrays.UnsafeArray{UInt8, 1}}
     detach_decoder::ShmDetachRequest.Decoder{UnsafeArrays.UnsafeArray{UInt8, 1}}
     keepalive_decoder::ShmLeaseKeepalive.Decoder{UnsafeArrays.UnsafeArray{UInt8, 1}}

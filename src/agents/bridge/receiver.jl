@@ -21,6 +21,8 @@ function init_bridge_receiver(
     max_chunk = max(chunk_bytes, 1)
     max_chunks = max_payload == 0 ? 0 : cld(max_payload, max_chunk)
 
+    received = FixedSizeVectorDefault{Bool}(undef, max_chunks)
+    fill!(received, false)
     assembly = BridgeAssembly(
         UInt64(0),
         UInt64(0),
@@ -28,9 +30,9 @@ function init_bridge_receiver(
         UInt32(0),
         UInt32(0),
         false,
-        FixedSizeVector{UInt8}(undef, HEADER_SLOT_BYTES),
-        FixedSizeVector{UInt8}(undef, max_payload),
-        fill(false, max_chunks),
+        FixedSizeVectorDefault{UInt8}(undef, HEADER_SLOT_BYTES),
+        FixedSizeVectorDefault{UInt8}(undef, max_payload),
+        received,
         UInt64(0),
     )
 
@@ -79,9 +81,9 @@ function init_bridge_receiver(
         FrameProgress.Decoder(UnsafeArrays.UnsafeArray{UInt8, 1}),
         BridgeFrameChunk.Decoder(UnsafeArrays.UnsafeArray{UInt8, 1}),
         ShmPoolAnnounce.Decoder(UnsafeArrays.UnsafeArray{UInt8, 1}),
-        TensorSlotHeader256.Decoder(Vector{UInt8}),
-        FixedSizeVector{Int32}(undef, MAX_DIMS),
-        FixedSizeVector{Int32}(undef, MAX_DIMS),
+        TensorSlotHeader256.Decoder(FixedSizeVectorDefault{UInt8}),
+        FixedSizeVectorDefault{Int32}(undef, MAX_DIMS),
+        FixedSizeVectorDefault{Int32}(undef, MAX_DIMS),
         source_info,
         assembly,
         false,

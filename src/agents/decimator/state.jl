@@ -18,7 +18,7 @@ mutable struct DecimatorState
     config::DecimatorConfig
     client::Aeron.Client
     pub_descriptor::Aeron.Publication
-    descriptor_buf::Vector{UInt8}
+    descriptor_buf::FixedSizeVectorDefault{UInt8}
     descriptor_encoder::FrameDescriptor.Encoder{UnsafeArrays.UnsafeArray{UInt8, 1}}
     descriptor_claim::Aeron.BufferClaim
     frame_counter::UInt64

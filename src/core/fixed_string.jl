@@ -5,11 +5,11 @@ using StringViews
 Fixed-size mutable string buffer backed by a fixed-size byte vector.
 """
 struct FixedString <: AbstractString
-    buf::FixedSizeVector{UInt8}
+    buf::FixedSizeVectorDefault{UInt8}
 end
 
 @inline function FixedString(capacity::Integer)
-    return FixedString(FixedSizeVector{UInt8}(undef, Int(capacity)))
+    return FixedString(FixedSizeVectorDefault{UInt8}(undef, Int(capacity)))
 end
 
 @inline function Base.view(fs::FixedString)
