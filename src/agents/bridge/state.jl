@@ -112,13 +112,16 @@ end
 """
 Bridge receiver runtime state for assembling BridgeFrameChunk payloads.
 """
-mutable struct BridgeReceiverState
+mutable struct BridgeReceiverState{ClockT <: Clocks.AbstractClock}
     config::BridgeConfig
     mapping::BridgeMapping
     client::Aeron.Client
-    clock::Clocks.AbstractClock
+    clock::ClockT
     now_ns::UInt64
+    have_announce::Bool
     producer_state::Union{Nothing, ProducerState}
+    source_info::BridgeSourceInfo
+    assembly::BridgeAssembly
     sub_payload::Aeron.Subscription
     payload_assembler::Aeron.FragmentAssembler
     sub_control::Aeron.Subscription
@@ -144,7 +147,4 @@ mutable struct BridgeReceiverState
     header_decoder::TensorSlotHeader256.Decoder{FixedSizeVectorDefault{UInt8}}
     scratch_dims::FixedSizeVectorDefault{Int32}
     scratch_strides::FixedSizeVectorDefault{Int32}
-    source_info::BridgeSourceInfo
-    assembly::BridgeAssembly
-    have_announce::Bool
 end

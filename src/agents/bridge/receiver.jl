@@ -58,7 +58,10 @@ function init_bridge_receiver(
         client,
         clock,
         UInt64(0),
+        false,
         producer_state,
+        source_info,
+        assembly,
         sub_payload,
         Aeron.FragmentAssembler(Aeron.FragmentHandler((_, _, _) -> nothing)),
         sub_control,
@@ -84,9 +87,6 @@ function init_bridge_receiver(
         TensorSlotHeader256.Decoder(FixedSizeVectorDefault{UInt8}),
         FixedSizeVectorDefault{Int32}(undef, MAX_DIMS),
         FixedSizeVectorDefault{Int32}(undef, MAX_DIMS),
-        source_info,
-        assembly,
-        false,
     )
 
     state.payload_assembler = make_bridge_payload_assembler(state)
