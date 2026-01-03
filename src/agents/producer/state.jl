@@ -74,13 +74,13 @@ mutable struct ProducerState{ClockT<:Clocks.AbstractClock}
     metrics::ProducerMetrics
     epoch::UInt64
     seq::UInt64
-    driver_active::Bool
-    supports_progress::Bool
     progress_interval_ns::UInt64
     progress_bytes_delta::UInt64
-    emit_announce::Bool
     driver_client::Union{DriverClientState, Nothing}
     pending_attach_id::Int64
     timer_set::TimerSet{Tuple{PolledTimer, PolledTimer}, Tuple{ProducerAnnounceHandler, ProducerQosHandler}}
     consumer_streams::Dict{UInt32, ProducerConsumerStream}
+    driver_active::Bool
+    supports_progress::Bool
+    emit_announce::Bool
 end

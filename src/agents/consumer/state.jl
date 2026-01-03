@@ -45,7 +45,6 @@ Mutable consumer counters and QoS metrics.
 """
 mutable struct ConsumerMetrics
     last_seq_seen::UInt64
-    seen_any::Bool
     frames_ok::UInt64
     drops_gap::UInt64
     drops_late::UInt64
@@ -57,6 +56,7 @@ mutable struct ConsumerMetrics
     remap_count::UInt64
     hello_count::UInt64
     qos_count::UInt64
+    seen_any::Bool
 end
 
 """
@@ -70,7 +70,6 @@ mutable struct ConsumerState{ClockT<:Clocks.AbstractClock}
     mappings::ConsumerMappings
     metrics::ConsumerMetrics
     driver_client::Union{DriverClientState, Nothing}
-    driver_active::Bool
     pending_attach_id::Int64
     timer_set::TimerSet{Tuple{PolledTimer, PolledTimer}, Tuple{ConsumerHelloHandler, ConsumerQosHandler}}
     assigned_descriptor_channel::String
@@ -78,4 +77,5 @@ mutable struct ConsumerState{ClockT<:Clocks.AbstractClock}
     assigned_control_channel::String
     assigned_control_stream_id::UInt32
     progress_assembler::Aeron.FragmentAssembler
+    driver_active::Bool
 end

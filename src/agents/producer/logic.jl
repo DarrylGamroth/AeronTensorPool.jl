@@ -58,15 +58,15 @@ function init_producer(config::ProducerConfig; client::Aeron.Client)
         metrics,
         UInt64(1),
         UInt64(0),
-        true,
-        false,
         config.progress_interval_ns,
         config.progress_bytes_delta,
-        true,
         nothing,
         Int64(0),
         timer_set,
         Dict{UInt32, ProducerConsumerStream}(),
+        true,
+        false,
+        true,
     )
 
     emit_announce!(state)
@@ -184,15 +184,15 @@ function init_producer_from_attach(
         metrics,
         attach.epoch,
         UInt64(0),
-        true,
-        false,
         driver_config.progress_interval_ns,
         driver_config.progress_bytes_delta,
-        false,
         driver_client,
         Int64(0),
         timer_set,
         Dict{UInt32, ProducerConsumerStream}(),
+        true,
+        false,
+        false,
     )
     return state
 end

@@ -346,10 +346,10 @@ function load_bridge_config(path::AbstractString; env::AbstractDict = ENV)
         chunk_bytes,
         max_chunk_bytes,
         max_payload_bytes,
+        assembly_timeout_ms * UInt64(1_000_000),
         forward_metadata,
         forward_qos,
         forward_progress,
-        assembly_timeout_ms * UInt64(1_000_000),
     )
 
     mappings = parse_bridge_mappings(cfg, env)

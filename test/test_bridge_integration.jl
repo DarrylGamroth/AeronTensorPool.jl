@@ -168,10 +168,10 @@
                 UInt32(512),
                 UInt32(65535),
                 UInt32(1_048_576),
+                UInt64(250_000_000),
                 true,
                 false,
                 false,
-                UInt64(250_000_000),
             )
 
                 bridge_sender = init_bridge_sender(consumer_src, bridge_config, mapping; client = client)

@@ -9,9 +9,9 @@ mutable struct DriverLease
     lease_id::UInt64
     stream_id::UInt32
     client_id::UInt32
-    role::DriverRole.SbeEnum
     expiry_ns::UInt64
     lifecycle::LeaseLifecycle
+    role::DriverRole.SbeEnum
 end
 
 """

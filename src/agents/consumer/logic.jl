@@ -71,18 +71,18 @@ function init_consumer(config::ConsumerSettings; client::Aeron.Client)
     )
     metrics = ConsumerMetrics(
         UInt64(0),
+        UInt64(0),
+        UInt64(0),
+        UInt64(0),
+        UInt64(0),
+        UInt64(0),
+        UInt64(0),
+        UInt64(0),
+        UInt64(0),
+        UInt64(0),
+        UInt64(0),
+        UInt64(0),
         false,
-        UInt64(0),
-        UInt64(0),
-        UInt64(0),
-        UInt64(0),
-        UInt64(0),
-        UInt64(0),
-        UInt64(0),
-        UInt64(0),
-        UInt64(0),
-        UInt64(0),
-        UInt64(0),
     )
     dummy_handler = Aeron.FragmentHandler(nothing) do _, _, _
         nothing
@@ -96,7 +96,6 @@ function init_consumer(config::ConsumerSettings; client::Aeron.Client)
         mappings,
         metrics,
         nothing,
-        true,
         Int64(0),
         timer_set,
         "",
@@ -104,6 +103,7 @@ function init_consumer(config::ConsumerSettings; client::Aeron.Client)
         "",
         UInt32(0),
         dummy_assembler,
+        true,
     )
     state.progress_assembler = make_progress_assembler(state)
     return state

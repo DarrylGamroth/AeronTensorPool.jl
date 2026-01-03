@@ -38,10 +38,10 @@ mutable struct BridgeConfig
     chunk_bytes::UInt32
     max_chunk_bytes::UInt32
     max_payload_bytes::UInt32
+    assembly_timeout_ns::UInt64
     forward_metadata::Bool
     forward_qos::Bool
     forward_progress::Bool
-    assembly_timeout_ns::UInt64
 end
 
 """
@@ -53,11 +53,11 @@ mutable struct BridgeAssembly
     chunk_count::UInt32
     payload_length::UInt32
     received_chunks::UInt32
-    header_present::Bool
     header_bytes::FixedSizeVectorDefault{UInt8}
     payload::FixedSizeVectorDefault{UInt8}
     received::FixedSizeVectorDefault{Bool}
     last_update_ns::UInt64
+    header_present::Bool
 end
 
 """
@@ -118,7 +118,6 @@ mutable struct BridgeReceiverState{ClockT <: Clocks.AbstractClock}
     client::Aeron.Client
     clock::ClockT
     now_ns::UInt64
-    have_announce::Bool
     producer_state::Union{Nothing, ProducerState}
     source_info::BridgeSourceInfo
     assembly::BridgeAssembly
@@ -147,4 +146,5 @@ mutable struct BridgeReceiverState{ClockT <: Clocks.AbstractClock}
     header_decoder::TensorSlotHeader256.Decoder{FixedSizeVectorDefault{UInt8}}
     scratch_dims::FixedSizeVectorDefault{Int32}
     scratch_strides::FixedSizeVectorDefault{Int32}
+    have_announce::Bool
 end

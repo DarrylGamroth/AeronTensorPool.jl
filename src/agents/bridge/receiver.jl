@@ -29,11 +29,11 @@ function init_bridge_receiver(
         UInt32(0),
         UInt32(0),
         UInt32(0),
-        false,
         FixedSizeVectorDefault{UInt8}(undef, HEADER_SLOT_BYTES),
         FixedSizeVectorDefault{UInt8}(undef, max_payload),
         received,
         UInt64(0),
+        false,
     )
 
     source_info = BridgeSourceInfo(UInt32(0), UInt64(0), UInt32(0), UInt8(0), Dict{UInt16, UInt32}())
@@ -58,7 +58,6 @@ function init_bridge_receiver(
         client,
         clock,
         UInt64(0),
-        false,
         producer_state,
         source_info,
         assembly,
@@ -87,6 +86,7 @@ function init_bridge_receiver(
         TensorSlotHeader256.Decoder(FixedSizeVectorDefault{UInt8}),
         FixedSizeVectorDefault{Int32}(undef, MAX_DIMS),
         FixedSizeVectorDefault{Int32}(undef, MAX_DIMS),
+        false,
     )
 
     state.payload_assembler = make_bridge_payload_assembler(state)
