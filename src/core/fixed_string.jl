@@ -12,47 +12,34 @@ end
     return FixedString(FixedSizeVector{UInt8}(undef, Int(capacity)))
 end
 
-@inline function fixed_string_capacity(fs::FixedString)
-    return length(fs.buf)
-end
-
-@inline function fixed_string_len(fs::FixedString)
-    pos = findfirst(iszero, fs.buf)
-    return pos === nothing ? length(fs.buf) : pos - 1
-end
-
-@inline function fixed_string_clear!(fs::FixedString)
-    isempty(fs.buf) && return nothing
-    fs.buf[1] = 0x00
-    return nothing
-end
-
-@inline function fixed_string_set!(fs::FixedString, value::AbstractString)
-    len = ncodeunits(value)
-    cap = length(fs.buf)
-    len <= cap || throw(ArgumentError("string length $(len) exceeds max $(cap)"))
-    if len > 0
-        copyto!(fs.buf, 1, codeunits(value), 1, len)
-        if len < cap
-            fs.buf[len + 1] = 0x00
-        end
-    else
-        fs.buf[1] = 0x00
-    end
-    return nothing
-end
-
 @inline function Base.view(fs::FixedString)
-    len = fixed_string_len(fs)
+    len = length(fs)
     len == 0 && return StringView("")
     return StringView(view(fs.buf, 1:len))
 end
 
 Base.codeunit(::Type{FixedString}) = UInt8
 Base.codeunit(::FixedString) = UInt8
-Base.ncodeunits(fs::FixedString) = fixed_string_len(fs)
-Base.length(fs::FixedString) = fixed_string_len(fs)
-Base.isempty(fs::FixedString) = fixed_string_len(fs) == 0
+Base.ncodeunits(fs::FixedString) = length(fs)
+Base.length(fs::FixedString) = (pos = findfirst(iszero, fs.buf); pos === nothing ? length(fs.buf) : pos - 1)
+Base.isempty(fs::FixedString) = length(fs) == 0
+Base.size(fs::FixedString) = (length(fs),)
+Base.empty!(fs::FixedString) = (isempty(fs.buf) || (fs.buf[1] = 0x00); fs)
+
+function Base.copyto!(dest::FixedString, src::AbstractString)
+    len = ncodeunits(src)
+    cap = length(dest.buf)
+    len <= cap || throw(ArgumentError("string length $(len) exceeds max $(cap)"))
+    if len > 0
+        copyto!(dest.buf, 1, codeunits(src), 1, len)
+        if len < cap
+            dest.buf[len + 1] = 0x00
+        end
+    elseif !isempty(dest.buf)
+        dest.buf[1] = 0x00
+    end
+    return dest
+end
 
 Base.iterate(fs::FixedString) = iterate(view(fs))
 Base.iterate(fs::FixedString, state::Int) = iterate(view(fs), state)

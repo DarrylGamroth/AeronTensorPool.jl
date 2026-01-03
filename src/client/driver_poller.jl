@@ -209,7 +209,7 @@ function snapshot_attach_response!(resp::AttachResponse, msg::ShmAttachResponse.
     resp.header_slot_bytes = ShmAttachResponse.headerSlotBytes(msg)
     resp.max_dims = ShmAttachResponse.maxDims(msg)
 
-    fixed_string_set!(resp.header_region_uri, ShmAttachResponse.headerRegionUri(msg, StringView))
+    copyto!(resp.header_region_uri, ShmAttachResponse.headerRegionUri(msg, StringView))
     payload_groups = ShmAttachResponse.payloadPools(msg)
     pool_count = 0
     for group in payload_groups
@@ -219,21 +219,21 @@ function snapshot_attach_response!(resp::AttachResponse, msg::ShmAttachResponse.
         pool.pool_id = ShmAttachResponse.PayloadPools.poolId(group)
         pool.pool_nslots = ShmAttachResponse.PayloadPools.poolNslots(group)
         pool.stride_bytes = ShmAttachResponse.PayloadPools.strideBytes(group)
-        fixed_string_set!(
+        copyto!(
             pool.region_uri,
             ShmAttachResponse.PayloadPools.regionUri(group, StringView),
         )
     end
     resp.pool_count = pool_count
 
-    fixed_string_set!(resp.error_message, ShmAttachResponse.errorMessage(msg, StringView))
+    copyto!(resp.error_message, ShmAttachResponse.errorMessage(msg, StringView))
     return resp
 end
 
 function snapshot_detach_response!(resp::DetachResponse, msg::ShmDetachResponse.Decoder)
     resp.correlation_id = ShmDetachResponse.correlationId(msg)
     resp.code = ShmDetachResponse.code(msg)
-    fixed_string_set!(resp.error_message, ShmDetachResponse.errorMessage(msg, StringView))
+    copyto!(resp.error_message, ShmDetachResponse.errorMessage(msg, StringView))
     return resp
 end
 
@@ -244,13 +244,13 @@ function snapshot_lease_revoked!(resp::LeaseRevoked, msg::ShmLeaseRevoked.Decode
     resp.client_id = ShmLeaseRevoked.clientId(msg)
     resp.role = ShmLeaseRevoked.role(msg)
     resp.reason = ShmLeaseRevoked.reason(msg)
-    fixed_string_set!(resp.error_message, ShmLeaseRevoked.errorMessage(msg, StringView))
+    copyto!(resp.error_message, ShmLeaseRevoked.errorMessage(msg, StringView))
     return resp
 end
 
 function snapshot_shutdown!(resp::DriverShutdown, msg::ShmDriverShutdown.Decoder)
     resp.timestamp_ns = ShmDriverShutdown.timestampNs(msg)
     resp.reason = ShmDriverShutdown.reason(msg)
-    fixed_string_set!(resp.error_message, ShmDriverShutdown.errorMessage(msg, StringView))
+    copyto!(resp.error_message, ShmDriverShutdown.errorMessage(msg, StringView))
     return resp
 end
