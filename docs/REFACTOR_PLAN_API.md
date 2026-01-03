@@ -96,10 +96,14 @@
 - Documented client API conventions and config scope in `docs/IMPLEMENTATION.md`.
 - Retained Aeron-style proxy/poller naming and emphasized high-level init usage.
 
-## Phase 5: Deprecations and Compatibility — Pending
+## Phase 5: Deprecations and Compatibility — Completed
 - Prioritize correctness and alignment with Aeron APIs; shims are not required. Prefer adopting the new API directly when it is more correct/idiomatic.
 - Update tests and docs to use the new response types.
 - Exit criteria: tests/docs updated to new APIs; release notes enumerate any renamed/removed APIs and rationale.
+
+**Progress**:
+- Updated tests to use `view(fs)`/`String(fs)` and unified `*Response` types.
+- Updated docs to remove `materialize(poller)` references and reflect fixed-buffer usage.
 
 ## Phase 6: Validation + Benchmarks — Pending
 - Add allocation tests to ensure response polling remains allocation-free.
