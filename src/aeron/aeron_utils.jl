@@ -28,13 +28,6 @@ Try to claim an Aeron buffer and fill it with raw payload bytes.
 end
 
 """
-Return full SBE message length (header + body) for an encoder/decoder.
-"""
-@inline function sbe_message_length(msg::SBE.AbstractSbeMessage)
-    return MESSAGE_HEADER_LEN + sbe_encoded_length(msg)
-end
-
-"""
 Set Aeron directory if non-empty.
 """
 @inline function set_aeron_dir!(ctx::Aeron.Context, aeron_dir::AbstractString)

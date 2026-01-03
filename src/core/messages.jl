@@ -71,3 +71,10 @@ const TEMPLATE_SHM_LEASE_REVOKED = ShmLeaseRevoked.sbe_template_id(ShmLeaseRevok
 const TEMPLATE_SHM_DRIVER_SHUTDOWN_REQUEST =
     ShmDriverShutdownRequest.sbe_template_id(ShmDriverShutdownRequest.Decoder)
 const TEMPLATE_BRIDGE_FRAME_CHUNK = BridgeFrameChunk.sbe_template_id(BridgeFrameChunk.Decoder)
+
+"""
+Return full SBE message length (header + body) for an encoder/decoder.
+"""
+@inline function sbe_message_length(msg::SBE.AbstractSbeMessage)
+    return MESSAGE_HEADER_LEN + sbe_encoded_length(msg)
+end
