@@ -2,6 +2,14 @@ struct ConsumerHelloHandler end
 struct ConsumerQosHandler end
 
 """
+Decoded frame header and payload view.
+"""
+mutable struct ConsumerFrameView
+    header::TensorSlotHeader
+    payload::PayloadView
+end
+
+"""
 Mutable consumer runtime resources (Aeron publications/subscriptions and codecs).
 """
 mutable struct ConsumerRuntime

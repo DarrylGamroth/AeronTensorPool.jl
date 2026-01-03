@@ -1,6 +1,6 @@
 include("state.jl")
-include("mapping.jl")
 include("frames.jl")
+include("mapping.jl")
 include("proxy.jl")
 include("handlers.jl")
 include("logic.jl")

@@ -1,11 +1,3 @@
-"""
-Decoded frame header and payload view.
-"""
-mutable struct ConsumerFrameView
-    header::TensorSlotHeader
-    payload::PayloadView
-end
-
 @inline function should_process(state::ConsumerState, seq::UInt64)
     if state.config.mode == Mode.DECIMATED
         return state.config.decimation > 0 && (seq % state.config.decimation == 0)

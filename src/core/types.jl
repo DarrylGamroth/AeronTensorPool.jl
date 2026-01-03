@@ -82,6 +82,6 @@ end
 """
 Return a view over the payload bytes for a PayloadView.
 """
-@inline function payload_view(view::PayloadView)
-    return view(view.mmap, view.offset + 1: view.offset + view.len)
+@inline function payload_view(payload::PayloadView)
+    return view(payload.mmap, payload.offset + 1: payload.offset + payload.len)
 end
