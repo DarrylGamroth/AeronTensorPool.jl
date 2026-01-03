@@ -171,6 +171,9 @@ Return true if the inflight queue is empty.
     return q.count == 0
 end
 
+Base.isempty(q::InflightQueue) = inflight_empty(q)
+Base.length(q::InflightQueue) = q.count
+
 """
 Return true if the inflight queue is full.
 """
