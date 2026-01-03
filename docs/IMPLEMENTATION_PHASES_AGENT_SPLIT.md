@@ -63,6 +63,6 @@ Status: completed.
 
 ## Phase A6: Final Validation
 Status: completed.
-- Run full test suite and allocation checks.
-- Confirm no new allocations in hot paths.
-- Record results in `docs/BENCHMARK_BASELINE.md` if changed.
+- Run full test suite and allocation checks (re-run after `time_ns()` switch in benchmarks).
+- Confirm no new allocations in hot paths (alloc breakdown shows 0-byte deltas).
+- Benchmark runs completed; update `docs/BENCHMARK_BASELINE.md` if/when baselines are refreshed.
