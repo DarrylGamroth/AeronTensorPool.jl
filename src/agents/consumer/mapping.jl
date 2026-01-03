@@ -47,7 +47,7 @@ function map_from_announce!(state::ConsumerState, msg::ShmPoolAnnounce.Decoder)
     require_hugepages && hugepage_size == 0 && return false
     header_mmap = mmap_shm(header_uri, SUPERBLOCK_SIZE + HEADER_SLOT_BYTES * Int(header_nslots))
 
-    sb_dec = ShmRegionSuperblock.Decoder(Vector{UInt8})
+    sb_dec = state.runtime.superblock_decoder
     wrap_superblock!(sb_dec, header_mmap, 0)
     header_fields = try
         read_superblock(sb_dec)
@@ -140,7 +140,7 @@ function map_from_attach_response!(state::ConsumerState, attach::AttachResponseI
     require_hugepages && hugepage_size == 0 && return false
 
     header_mmap = mmap_shm(header_uri, SUPERBLOCK_SIZE + HEADER_SLOT_BYTES * Int(header_nslots))
-    sb_dec = ShmRegionSuperblock.Decoder(Vector{UInt8})
+    sb_dec = state.runtime.superblock_decoder
     wrap_superblock!(sb_dec, header_mmap, 0)
     header_fields = try
         read_superblock(sb_dec)
@@ -218,7 +218,7 @@ function validate_mapped_superblocks!(state::ConsumerState, msg::ShmPoolAnnounce
     header_mmap === nothing && return :mismatch
 
     expected_epoch = ShmPoolAnnounce.epoch(msg)
-    sb_dec = ShmRegionSuperblock.Decoder(Vector{UInt8})
+    sb_dec = state.runtime.superblock_decoder
     wrap_superblock!(sb_dec, header_mmap, 0)
     header_fields = try
         read_superblock(sb_dec)

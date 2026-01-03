@@ -21,6 +21,7 @@ mutable struct ConsumerRuntime
     config_decoder::ConsumerConfigMsg.Decoder{UnsafeArrays.UnsafeArray{UInt8, 1}}
     progress_decoder::FrameProgress.Decoder{UnsafeArrays.UnsafeArray{UInt8, 1}}
     header_decoder::TensorSlotHeader256.Decoder{Vector{UInt8}}
+    superblock_decoder::ShmRegionSuperblock.Decoder{Vector{UInt8}}
     scratch_dims::Vector{Int64}
     scratch_strides::Vector{Int64}
     frame_view::ConsumerFrameView

@@ -37,6 +37,7 @@ function init_consumer(config::ConsumerSettings; client::Aeron.Client)
         ConsumerConfigMsg.Decoder(UnsafeArrays.UnsafeArray{UInt8, 1}),
         FrameProgress.Decoder(UnsafeArrays.UnsafeArray{UInt8, 1}),
         TensorSlotHeader256.Decoder(Vector{UInt8}),
+        ShmRegionSuperblock.Decoder(Vector{UInt8}),
         Vector{Int64}(undef, MAX_DIMS),
         Vector{Int64}(undef, MAX_DIMS),
         ConsumerFrameView(
