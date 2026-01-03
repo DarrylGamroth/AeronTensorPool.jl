@@ -142,6 +142,15 @@ For a combined wire + driver overview, see `docs/IMPLEMENTATION_GUIDE.md`.
 - Use `String` for long-lived configuration and state (e.g., config structs, cached URIs).
 - Avoid storing `StringView` in state structs or returning it from public APIs unless explicitly documented.
 
+### Client API conventions
+- Use Aeron-style proxies and pollers: `AttachRequestProxy`, `KeepaliveProxy`, `DetachRequestProxy`, and `DriverResponsePoller`.
+- Prefer `DriverClientState` + `driver_client_do_work!` for control-plane orchestration; avoid exposing internal buffers to callers.
+- Pollers are advanced APIs; higher-level init functions (`init_driver_client`, `init_producer`, `init_consumer`, `init_supervisor`) are the recommended entry points.
+
+### Config scope (public vs internal)
+- Public configs: `DriverConfig`, `ProducerConfig`, `ConsumerSettings`, `SupervisorConfig`, `BridgeConfig`, `DecimatorConfig`, `SystemConfig`.
+- Internal helper configs and runtime structs should not be required for typical usage; keep them in module scope but document if exposed.
+
 ## 14. Codegen and build tasks
 - Set MAX_DIMS in schemas/sbe-schema.xml (DimsArray/StridesArray length) before codegen; bump layout_version when changing it.
 - Generate codecs: `julia --project -e 'using SBE; SBE.generate("schemas/sbe-schema.xml", "gen/TensorPool.jl")'`.

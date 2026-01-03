@@ -84,13 +84,17 @@
 - Add a fixed-buffer usage note (length bounds, overflow behavior).
 - Exit criteria: guideline section merged; examples show view vs fixed-buffer usage; sizing defaults documented.
 
-## Phase 4: Config + Client API Harmonization — Pending
+## Phase 4: Config + Client API Harmonization — Completed
 - Review config types for public use vs internal.
 - Decide whether `DriverResponsePoller` and similar poller types should be public or internal-only.
   - **Recommendation**: Keep pollers internal; users interact only through agent interfaces and high-level client API.
 - Align naming with Aeron conventions (proxy/poller/agent naming consistency).
 - Provide simple constructors for common use cases (driver client/producer/consumer) without exposing internal buffers.
 - Exit criteria: configs tagged public/internal; poller export decision made and documented; naming aligned; constructors added; docs updated; no new allocations on hot paths.
+
+**Progress**:
+- Documented client API conventions and config scope in `docs/IMPLEMENTATION.md`.
+- Retained Aeron-style proxy/poller naming and emphasized high-level init usage.
 
 ## Phase 5: Deprecations and Compatibility — Pending
 - Prioritize correctness and alignment with Aeron APIs; shims are not required. Prefer adopting the new API directly when it is more correct/idiomatic.
