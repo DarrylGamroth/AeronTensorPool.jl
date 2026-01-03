@@ -71,26 +71,6 @@ mutable struct ConsumerSettings
 end
 
 """
-Decoded slot header fields for consumer-side validation.
-"""
-struct TensorSlotHeader
-    commit_word::UInt64
-    frame_id::UInt64
-    timestamp_ns::UInt64
-    meta_version::UInt32
-    values_len_bytes::UInt32
-    payload_slot::UInt32
-    payload_offset::UInt32
-    pool_id::UInt16
-    dtype::Dtype.SbeEnum
-    major_order::MajorOrder.SbeEnum
-    ndims::UInt8
-    pad_align::UInt8
-    dims::NTuple{MAX_DIMS, Int32}
-    strides::NTuple{MAX_DIMS, Int32}
-end
-
-"""
 Reference to a payload region in shared memory.
 """
 mutable struct PayloadView
@@ -104,12 +84,4 @@ Return a view over the payload bytes for a PayloadView.
 """
 @inline function payload_view(view::PayloadView)
     return view(view.mmap, view.offset + 1: view.offset + view.len)
-end
-
-"""
-Decoded frame header and payload slice.
-"""
-mutable struct ConsumerFrameView
-    header::TensorSlotHeader
-    payload::PayloadView
 end
