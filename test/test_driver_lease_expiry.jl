@@ -54,22 +54,26 @@ using Test
             ok = wait_for() do
                 driver_do_work!(driver_state)
                 poll_driver_responses!(poller)
-                poller.last_attach !== nothing &&
-                    poller.last_attach.correlation_id == correlation_id
+                attach = AeronTensorPool.materialize(poller).attach
+                attach !== nothing && attach.correlation_id == correlation_id
             end
             @test ok == true
-            @test poller.last_attach.code == DriverResponseCode.OK
-            lease_id = poller.last_attach.lease_id
+            attach = AeronTensorPool.materialize(poller).attach
+            @test attach !== nothing
+            @test attach.code == DriverResponseCode.OK
+            lease_id = attach.lease_id
 
             sleep(0.05)
             ok = wait_for() do
                 driver_do_work!(driver_state)
                 poll_driver_responses!(poller)
-                poller.last_revoke !== nothing &&
-                    poller.last_revoke.lease_id == lease_id
+                revoke = AeronTensorPool.materialize(poller).revoke
+                revoke !== nothing && revoke.lease_id == lease_id
             end
             @test ok == true
-            @test poller.last_revoke.reason == DriverLeaseRevokeReason.EXPIRED
+            revoke = AeronTensorPool.materialize(poller).revoke
+            @test revoke !== nothing
+            @test revoke.reason == DriverLeaseRevokeReason.EXPIRED
 
         close_driver_state!(driver_state)
         close(pub)

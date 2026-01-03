@@ -1,7 +1,7 @@
 # StringRef Usage Audit
 
 ## Summary
-StringRef-backed fields are used only in driver response snapshots. Callers must use `string_ref_view` or `string_ref_string` to access values. The helpers are currently internal (not exported).
+StringRef-backed fields are used only in driver response views. Public call sites should use `materialize(poller)` to obtain owned strings. The StringRef helpers remain internal (not exported).
 
 ## Types with StringRef Fields
 - `DriverPoolInfo.region_uri`
@@ -11,19 +11,24 @@ StringRef-backed fields are used only in driver response snapshots. Callers must
 - `LeaseRevokedInfo.error_message`
 - `DriverShutdownInfo.error_message`
 
-## Call Sites Using StringRef Helpers
-- `src/agents/consumer/mapping.jl`
-  - `map_from_attach_response!` uses `string_ref_view` for `header_region_uri` and `pool.region_uri`.
+## Call Sites Using Materialize
+- `src/agents/consumer/logic.jl`
+  - `handle_driver_events!` uses `materialize(poller).attach`.
 - `src/agents/producer/logic.jl`
-  - `producer_config_from_attach` uses `string_ref_string` for `header_region_uri` and `pool.region_uri`.
-- `test/test_driver_attach.jl`
-  - Uses `string_ref_view` to assert `header_region_uri`.
-- `test/test_driver_shutdown.jl`
-  - Uses `string_ref_view` for shutdown `error_message`.
-- `test/test_driver_shutdown_request.jl`
-  - Uses `string_ref_view` for shutdown `error_message`.
+  - `handle_driver_events!` uses `materialize(poller).attach`.
+- `src/client/driver_client.jl`
+  - `driver_client_do_work!` uses `materialize(poller)` for revoke/shutdown.
+  - `poll_attach!` uses `materialize(poller).attach`.
+- Tests:
+  - `test/test_driver_attach.jl`
+  - `test/test_driver_shutdown.jl`
+  - `test/test_driver_shutdown_request.jl`
+  - `test/test_driver_lease_expiry.jl`
+  - `test/test_driver_shutdown_timer.jl`
+  - `test/test_driver_integration.jl`
+  - `test/test_driver_reattach.jl`
+  - `test/test_full_stack_driver_mode.jl`
 
 ## Notes
 - `DriverResponsePoller` stores StringRef values in an arena buffer; views become invalid after arena wrap.
-- `map_from_attach_response!` currently accepts `AttachResponseInfo` (StringRef-backed) and must run before any arena overwrite. Decision log requires materialization before mapping in Phase 2a.
-
+- `map_from_attach_response!` now accepts owned `AttachResponseInfo` values (materialize before mapping).

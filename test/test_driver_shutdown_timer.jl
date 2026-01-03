@@ -39,10 +39,12 @@ using Test
         ok = wait_for() do
             driver_do_work!(driver_state)
             poll_driver_responses!(poller)
-            poller.last_shutdown !== nothing
+            AeronTensorPool.materialize(poller).shutdown !== nothing
         end
         @test ok == true
-        @test poller.last_shutdown.reason == DriverShutdownReason.NORMAL
+        shutdown = AeronTensorPool.materialize(poller).shutdown
+        @test shutdown !== nothing
+        @test shutdown.reason == DriverShutdownReason.NORMAL
         @test AeronTensorPool.Hsm.current(driver_state.lifecycle) == :Stopped
 
         close_driver_state!(driver_state)

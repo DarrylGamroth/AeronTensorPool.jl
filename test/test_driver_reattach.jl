@@ -14,10 +14,11 @@ function wait_for_attach_reattach!(
     ok = wait_for() do
         driver_do_work!(driver_state)
         driver_client_do_work!(client, UInt64(time_ns()))
-        client.poller.last_attach !== nothing && client.poller.last_attach.correlation_id == cid
+        attach = AeronTensorPool.materialize(client.poller).attach
+        attach !== nothing && attach.correlation_id == cid
     end
     @test ok
-    attach = client.poller.last_attach
+    attach = AeronTensorPool.materialize(client.poller).attach
     @test attach !== nothing
     @test attach.code == DriverResponseCode.OK
     AeronTensorPool.apply_attach!(client, attach)

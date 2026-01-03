@@ -174,7 +174,7 @@ function handle_driver_events!(state::ConsumerState, now_ns::UInt64)
     end
 
     if state.pending_attach_id != 0
-        attach = dc.poller.last_attach
+        attach = materialize(dc.poller).attach
         if attach !== nothing && attach.correlation_id == state.pending_attach_id
             state.pending_attach_id = Int64(0)
             if attach.code == DriverResponseCode.OK

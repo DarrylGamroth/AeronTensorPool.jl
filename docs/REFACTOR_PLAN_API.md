@@ -114,7 +114,7 @@
 - map_from_attach_response! consumes StringRef views; callers who map after another poll can see invalid URIs without warning.
 - string_ref_view creates a SubArray; consider a non-allocating accessor for hot-loop access if needed.
 - map_from_attach_response! should be updated to accept owned/materialized responses or validate generation before use.
-- `string_ref_view` and `string_ref_string` are currently internal (not exported); tests call `AeronTensorPool.string_ref_view(...)`.
+- `string_ref_view` and `string_ref_string` are currently internal (not exported); tests should use `materialize(poller)` for owned snapshots.
 - Driver response polling is warm path (control-plane), not hot path; one allocation on remap (cold path) is acceptable.
 
 ## Recommendations for Open Decisions

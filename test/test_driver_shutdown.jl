@@ -43,11 +43,13 @@ using Test
 
             ok = wait_for() do
                 poll_driver_responses!(poller)
-                poller.last_shutdown !== nothing
+                AeronTensorPool.materialize(poller).shutdown !== nothing
             end
             @test ok == true
-            @test poller.last_shutdown.reason == DriverShutdownReason.ADMIN
-            @test AeronTensorPool.string_ref_view(poller.last_shutdown.error_message) == "maintenance"
+            shutdown = AeronTensorPool.materialize(poller).shutdown
+            @test shutdown !== nothing
+            @test shutdown.reason == DriverShutdownReason.ADMIN
+            @test shutdown.error_message == "maintenance"
 
         close_driver_state!(driver_state)
         close(sub)

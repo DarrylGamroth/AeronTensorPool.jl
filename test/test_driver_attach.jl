@@ -55,17 +55,19 @@ using Test
             ok = wait_for() do
                 driver_do_work!(driver_state)
                 poll_driver_responses!(poller)
-                poller.last_attach !== nothing &&
-                    poller.last_attach.correlation_id == correlation_id
+                attach = AeronTensorPool.materialize(poller).attach
+                attach !== nothing && attach.correlation_id == correlation_id
             end
             @test ok == true
-            @test poller.last_attach.code == DriverResponseCode.OK
-            @test poller.last_attach.stream_id == UInt32(1001)
-            @test !isempty(AeronTensorPool.string_ref_view(poller.last_attach.header_region_uri))
-            @test !isempty(poller.last_attach.pools)
-            producer_lease_id = poller.last_attach.lease_id
+            attach = AeronTensorPool.materialize(poller).attach
+            @test attach !== nothing
+            @test attach.code == DriverResponseCode.OK
+            @test attach.stream_id == UInt32(1001)
+            @test !isempty(attach.header_region_uri)
+            @test !isempty(attach.pools)
+            producer_lease_id = attach.lease_id
 
-            header_uri = AeronTensorPool.string_ref_view(poller.last_attach.header_region_uri)
+            header_uri = attach.header_region_uri
             header_path = parse_shm_uri(header_uri).path
             @test isfile(header_path)
 
@@ -82,11 +84,13 @@ using Test
             ok = wait_for() do
                 driver_do_work!(driver_state)
                 poll_driver_responses!(poller)
-                poller.last_attach !== nothing &&
-                    poller.last_attach.correlation_id == dup_id
+                attach = AeronTensorPool.materialize(poller).attach
+                attach !== nothing && attach.correlation_id == dup_id
             end
             @test ok == true
-            @test poller.last_attach.code == DriverResponseCode.REJECTED
+            attach = AeronTensorPool.materialize(poller).attach
+            @test attach !== nothing
+            @test attach.code == DriverResponseCode.REJECTED
 
             missing_id = Int64(4)
             sent = send_attach!(
@@ -101,11 +105,13 @@ using Test
             ok = wait_for() do
                 driver_do_work!(driver_state)
                 poll_driver_responses!(poller)
-                poller.last_attach !== nothing &&
-                    poller.last_attach.correlation_id == missing_id
+                attach = AeronTensorPool.materialize(poller).attach
+                attach !== nothing && attach.correlation_id == missing_id
             end
             @test ok == true
-            @test poller.last_attach.code == DriverResponseCode.REJECTED
+            attach = AeronTensorPool.materialize(poller).attach
+            @test attach !== nothing
+            @test attach.code == DriverResponseCode.REJECTED
 
             huge_id = Int64(5)
             sent = send_attach!(
@@ -121,11 +127,13 @@ using Test
             ok = wait_for() do
                 driver_do_work!(driver_state)
                 poll_driver_responses!(poller)
-                poller.last_attach !== nothing &&
-                    poller.last_attach.correlation_id == huge_id
+                attach = AeronTensorPool.materialize(poller).attach
+                attach !== nothing && attach.correlation_id == huge_id
             end
             @test ok == true
-            @test poller.last_attach.code == DriverResponseCode.REJECTED
+            attach = AeronTensorPool.materialize(poller).attach
+            @test attach !== nothing
+            @test attach.code == DriverResponseCode.REJECTED
 
             detach_id = Int64(2)
             sent = send_detach!(
@@ -141,11 +149,13 @@ using Test
             ok = wait_for() do
                 driver_do_work!(driver_state)
                 poll_driver_responses!(poller)
-                poller.last_detach !== nothing &&
-                    poller.last_detach.correlation_id == detach_id
+                detach = AeronTensorPool.materialize(poller).detach
+                detach !== nothing && detach.correlation_id == detach_id
             end
             @test ok == true
-            @test poller.last_detach.code == DriverResponseCode.OK
+            detach = AeronTensorPool.materialize(poller).detach
+            @test detach !== nothing
+            @test detach.code == DriverResponseCode.OK
 
         close_driver_state!(driver_state)
         close(pub)

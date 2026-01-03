@@ -133,7 +133,7 @@ For a combined wire + driver overview, see `docs/IMPLEMENTATION_GUIDE.md`.
 ## 13a. API stability and string lifetimes
 
 - Public APIs return owned `String` values unless explicitly documented as view types.
-- Driver response snapshots currently expose `StringRef` (arena-backed) values; these are valid only until the arena wraps. Use `string_ref_string` to materialize when needed.
+- Driver response poller provides view types internally; use `materialize(poller)` to obtain owned `String` values before storing or mapping.
 - Internal audit and call sites are tracked in `docs/API_STRINGREF_AUDIT.md`.
 
 ## 14. Codegen and build tasks

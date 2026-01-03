@@ -103,12 +103,13 @@ Poll driver responses and emit keepalives when due.
 """
 function driver_client_do_work!(state::DriverClientState, now_ns::UInt64)
     work_count = poll_driver_responses!(state.poller)
+    responses = materialize(state.poller)
 
-    if state.poller.last_revoke !== nothing && state.poller.last_revoke.lease_id == state.lease_id
+    if responses.revoke !== nothing && responses.revoke.lease_id == state.lease_id
         state.revoked = true
         state.lease_id = UInt64(0)
     end
-    if state.poller.last_shutdown !== nothing
+    if responses.shutdown !== nothing
         state.shutdown = true
     end
 
@@ -134,7 +135,7 @@ function poll_attach!(
     now_ns::UInt64,
 )
     driver_client_do_work!(state, now_ns)
-    attach = state.poller.last_attach
+    attach = materialize(state.poller).attach
     if attach !== nothing && attach.correlation_id == correlation_id
         apply_attach!(state, attach)
         return attach

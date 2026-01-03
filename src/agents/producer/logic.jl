@@ -82,12 +82,7 @@ function producer_config_from_attach(config::ProducerConfig, attach::AttachRespo
     for pool in attach.pools
         push!(
             pools,
-            PayloadPoolConfig(
-                pool.pool_id,
-                string_ref_string(pool.region_uri),
-                pool.stride_bytes,
-                pool.pool_nslots,
-            ),
+            PayloadPoolConfig(pool.pool_id, pool.region_uri, pool.stride_bytes, pool.pool_nslots),
         )
     end
     return ProducerConfig(
@@ -104,7 +99,7 @@ function producer_config_from_attach(config::ProducerConfig, attach::AttachRespo
         config.shm_base_dir,
         config.shm_namespace,
         config.producer_instance_id,
-        string_ref_string(attach.header_region_uri),
+        attach.header_region_uri,
         pools,
         attach.max_dims,
         config.announce_interval_ns,
@@ -252,7 +247,7 @@ function handle_driver_events!(state::ProducerState, now_ns::UInt64)
     end
 
     if state.pending_attach_id != 0
-        attach = dc.poller.last_attach
+        attach = materialize(dc.poller).attach
         if attach !== nothing && attach.correlation_id == state.pending_attach_id
             state.pending_attach_id = Int64(0)
             if attach.code == DriverResponseCode.OK
