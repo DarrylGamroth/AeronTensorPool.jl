@@ -9,15 +9,15 @@ For a combined wire + driver overview, see `docs/IMPLEMENTATION_GUIDE.md`.
 ## 1. Dependencies
 - Aeron driver/runtime: align with Aeron.jl supported version.
 - Julia packages: Aeron.jl, SBE.jl, Agent.jl, Mmap stdlib.
-- SBE.jl alone can generate codecs from the schema in SHM_Tensor_Pool_Wire_Spec_v1.1.md §16 (see sbe-schema.xml); no external sbe-tool needed.
+- SBE.jl alone can generate codecs from the schema in SHM_Tensor_Pool_Wire_Spec_v1.1.md §16 (see wire-schema.xml); no external sbe-tool needed.
 
 ## 2. Code Generation (SBE)
-- Source schema: SHM_Tensor_Pool_Wire_Spec_v1.1.md §16 (also extracted to sbe-schema.xml). MAX_DIMS is 8; if you change it, update the schema and regenerate.
+- Source schema: SHM_Tensor_Pool_Wire_Spec_v1.1.md §16 (also extracted to wire-schema.xml). MAX_DIMS is 8; if you change it, update the schema and regenerate.
 - Generate control-plane codecs and SHM composites (TensorSlotHeader256, ShmRegionSuperblock) directly with SBE.jl (no java tool required).
 - Enums use SBE numeric bodies (see Spiders schema style); if you edit enum values, keep the body text numeric and regenerate.
 - Julia codegen example (adjust paths):
-  - Inline load: `modname = @load_schema "sbe-schema.xml"` then `using .` to access types; suitable for tooling/tests.
-  - File generation: `SBE.generate("sbe-schema.xml", "gen/TensorPool.jl")`; then `include("gen/TensorPool.jl"); using .TensorPool`.
+  - Inline load: `modname = @load_schema "wire-schema.xml"` then `using .` to access types; suitable for tooling/tests.
+  - File generation: `SBE.generate("wire-schema.xml", "gen/TensorPool.jl")`; then `include("gen/TensorPool.jl"); using .TensorPool`.
 - Regenerate codecs whenever the schema or layout_version changes.
 
 ## 2a. Source Layout (Aeron-style, Julian)
@@ -152,8 +152,8 @@ For a combined wire + driver overview, see `docs/IMPLEMENTATION_GUIDE.md`.
 - Internal helper configs and runtime structs should not be required for typical usage; keep them in module scope but document if exposed.
 
 ## 14. Codegen and build tasks
-- Set MAX_DIMS in schemas/sbe-schema.xml (DimsArray/StridesArray length) before codegen; bump layout_version when changing it.
-- Generate codecs: `julia --project -e 'using SBE; SBE.generate("schemas/sbe-schema.xml", "gen/TensorPool.jl")'`.
+- Set MAX_DIMS in schemas/wire-schema.xml (DimsArray/StridesArray length) before codegen; bump layout_version when changing it.
+- Generate codecs: `julia --project -e 'using SBE; SBE.generate("schemas/wire-schema.xml", "gen/TensorPool.jl")'`.
 - Keep generated codec at gen/TensorPool.jl; include it from src as needed.
 - Optional VS Code task/make target: regenerate codec, then `julia --project -e 'using Pkg; Pkg.test()'` or run agents.
 - Tooling: `scripts/run_tests.sh` wraps the full test run for CI/local workflows.
