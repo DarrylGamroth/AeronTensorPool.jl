@@ -214,7 +214,7 @@ function handle_shutdown_request!(state::DriverState, msg::ShmDriverShutdownRequ
     return true
 end
 
-@inline function dispatch_lease_revoke!(lease::DriverLease, reason::DriverLeaseRevokeReason.SbeEnum, metrics::DriverMetrics)
+function dispatch_lease_revoke!(lease::DriverLease, reason::DriverLeaseRevokeReason.SbeEnum, metrics::DriverMetrics)
     if reason == DriverLeaseRevokeReason.DETACHED
         return Hsm.dispatch!(lease.lifecycle, :Detach, metrics)
     elseif reason == DriverLeaseRevokeReason.EXPIRED

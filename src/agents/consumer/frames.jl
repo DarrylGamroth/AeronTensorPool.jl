@@ -229,6 +229,6 @@ end
 """
 Attempt to read a frame using the state's preallocated frame view.
 """
-@inline function try_read_frame!(state::ConsumerState, desc::FrameDescriptor.Decoder)
+function try_read_frame!(state::ConsumerState, desc::FrameDescriptor.Decoder)
     return try_read_frame!(state, desc, state.runtime.frame_view)
 end

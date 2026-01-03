@@ -38,6 +38,6 @@ end
     return Hsm.transition!(sm, :Stopped)
 end
 
-@inline function driver_lifecycle_dispatch!(state::DriverState, event::Symbol)
+function driver_lifecycle_dispatch!(state::DriverState, event::Symbol)
     return Hsm.dispatch!(state.lifecycle, event, state)
 end

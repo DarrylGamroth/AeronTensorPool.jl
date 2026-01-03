@@ -190,7 +190,7 @@ end
     )
 end
 
-@inline function ensure_pool_capacity!(pools::Vector{DriverPool}, count::Int)
+function ensure_pool_capacity!(pools::Vector{DriverPool}, count::Int)
     while length(pools) < count
         push!(pools, DriverPool())
     end

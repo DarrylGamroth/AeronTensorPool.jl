@@ -84,14 +84,14 @@ function driver_do_work!(state::DriverState)
     return state.work_count
 end
 
-@inline function announce_all_streams!(state::DriverState)
+function announce_all_streams!(state::DriverState)
     for stream_state in values(state.streams)
         emit_driver_announce!(state, stream_state)
     end
     return nothing
 end
 
-@inline function check_leases!(state::DriverState, now_ns::UInt64)
+function check_leases!(state::DriverState, now_ns::UInt64)
     expired = UInt64[]
     for (lease_id, lease) in state.leases
         if now_ns > lease.expiry_ns
