@@ -1,34 +1,22 @@
-# StringRef Usage Audit
+# FixedString Usage Audit
 
 ## Summary
-StringRef-backed fields are used only in driver response views. Public call sites should use `materialize(poller)` to obtain owned strings. The StringRef helpers remain internal (not exported).
+Fixed-size string buffers are used in driver response snapshots to avoid arena lifetimes and per-poll string allocation. Call sites use `fixed_string_view` for zero-copy access or `fixed_string_string` when an owned `String` is required.
 
-## Types with StringRef Fields
-- `DriverPoolInfo.region_uri`
-- `AttachResponseInfo.header_region_uri`
-- `AttachResponseInfo.error_message`
-- `DetachResponseInfo.error_message`
-- `LeaseRevokedInfo.error_message`
-- `DriverShutdownInfo.error_message`
+## Types with FixedString Fields
+- `DriverPool.region_uri`
+- `AttachResponse.header_region_uri`
+- `AttachResponse.error_message`
+- `DetachResponse.error_message`
+- `LeaseRevoked.error_message`
+- `DriverShutdown.error_message`
 
-## Call Sites Using Materialize
-- `src/agents/consumer/logic.jl`
-  - `handle_driver_events!` uses `materialize(poller).attach`.
+## Call Sites Using FixedString Accessors
+- `src/agents/consumer/mapping.jl`
+  - `map_from_attach_response!` uses `fixed_string_view`.
 - `src/agents/producer/logic.jl`
-  - `handle_driver_events!` uses `materialize(poller).attach`.
-- `src/client/driver_client.jl`
-  - `driver_client_do_work!` uses `materialize(poller)` for revoke/shutdown.
-  - `poll_attach!` uses `materialize(poller).attach`.
-- Tests:
-  - `test/test_driver_attach.jl`
-  - `test/test_driver_shutdown.jl`
-  - `test/test_driver_shutdown_request.jl`
-  - `test/test_driver_lease_expiry.jl`
-  - `test/test_driver_shutdown_timer.jl`
-  - `test/test_driver_integration.jl`
-  - `test/test_driver_reattach.jl`
-  - `test/test_full_stack_driver_mode.jl`
+  - `producer_config_from_attach` uses `fixed_string_string`.
+- Tests read `fixed_string_view` where needed.
 
 ## Notes
-- `DriverResponsePoller` stores StringRef values in an arena buffer; views become invalid after arena wrap.
-- `map_from_attach_response!` now accepts owned `AttachResponseInfo` values (materialize before mapping).
+- Driver response snapshots are safe to keep; there is no arena reuse.

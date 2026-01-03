@@ -121,7 +121,7 @@ end
 """
 Map SHM regions from a driver attach response.
 """
-function map_from_attach_response!(state::ConsumerState, attach::AttachResponseInfo)
+function map_from_attach_response!(state::ConsumerState, attach::AttachResponse)
     attach.code == DriverResponseCode.OK || return false
     attach.header_slot_bytes == UInt16(HEADER_SLOT_BYTES) || return false
     header_nslots = attach.header_nslots
@@ -129,7 +129,7 @@ function map_from_attach_response!(state::ConsumerState, attach::AttachResponseI
     payload_mmaps = Dict{UInt16, Vector{UInt8}}()
     stride_bytes = Dict{UInt16, UInt32}()
 
-    header_uri = attach.header_region_uri
+    header_uri = fixed_string_view(attach.header_region_uri)
     validate_uri(header_uri) || return false
     header_parsed = parse_shm_uri(header_uri)
     require_hugepages = state.config.require_hugepages
@@ -160,9 +160,10 @@ function map_from_attach_response!(state::ConsumerState, attach::AttachResponseI
     )
     header_ok || return false
 
-    for pool in attach.pools
+    for i in 1:attach.pool_count
+        pool = attach.pools[i]
         pool.pool_nslots == header_nslots || return false
-        pool_uri = pool.region_uri
+        pool_uri = fixed_string_view(pool.region_uri)
         validate_uri(pool_uri) || return false
         pool_parsed = parse_shm_uri(pool_uri)
         pool_require_hugepages = pool_parsed.require_hugepages || require_hugepages

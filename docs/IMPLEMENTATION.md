@@ -133,7 +133,7 @@ For a combined wire + driver overview, see `docs/IMPLEMENTATION_GUIDE.md`.
 ## 13a. API stability and string lifetimes
 
 - Public APIs return owned `String` values unless explicitly documented as view types.
-- Driver response poller provides view types internally; use `materialize(poller)` to obtain owned `String` values before storing or mapping.
+- Driver response poller stores fixed-size string buffers; use `fixed_string_view` for zero-copy access or `fixed_string_string` when an owned `String` is required.
 - Internal audit and call sites are tracked in `docs/API_STRINGREF_AUDIT.md`.
 
 ## 14. Codegen and build tasks

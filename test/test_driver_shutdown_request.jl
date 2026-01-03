@@ -47,7 +47,7 @@ using Test
         ok = wait_for(() -> begin
             driver_do_work!(driver_state)
             poll_driver_responses!(poller)
-            AeronTensorPool.materialize(poller).shutdown !== nothing
+            poller.last_shutdown !== nothing
         end; timeout = 0.2)
         @test ok == false
 
@@ -62,13 +62,13 @@ using Test
         ok = wait_for() do
             driver_do_work!(driver_state)
             poll_driver_responses!(poller)
-            AeronTensorPool.materialize(poller).shutdown !== nothing
+            poller.last_shutdown !== nothing
         end
         @test ok == true
-        shutdown = AeronTensorPool.materialize(poller).shutdown
+        shutdown = poller.last_shutdown
         @test shutdown !== nothing
         @test shutdown.reason == DriverShutdownReason.ADMIN
-        @test shutdown.error_message == "maintenance"
+        @test fixed_string_string(shutdown.error_message) == "maintenance"
 
         close_driver_state!(driver_state)
         close(pub)

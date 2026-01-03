@@ -3,6 +3,7 @@ module AeronTensorPool
 using Aeron
 using Agent
 using Clocks
+using FixedSizeArrays
 using Hsm
 using Mmap
 using SBE
@@ -200,7 +201,6 @@ export Dtype,
     consumer_do_work!,
     driver_do_work!,
     poll_driver_control!,
-    materialize,
     make_qos_assembler,
     next_header_index,
     payload_pool_config,
@@ -233,11 +233,14 @@ export Dtype,
     send_attach!,
     send_keepalive!,
     send_detach!,
-    DriverPoolInfo,
-    AttachResponseInfo,
-    DetachResponseInfo,
-    LeaseRevokedInfo,
-    DriverShutdownInfo,
+    FixedString,
+    fixed_string_view,
+    fixed_string_string,
+    DriverPool,
+    AttachResponse,
+    DetachResponse,
+    LeaseRevoked,
+    DriverShutdown,
     DriverResponsePoller,
     poll_driver_responses!,
     poll_attach!,

@@ -114,7 +114,7 @@ Initialize a consumer using driver-provisioned SHM regions.
 """
 function init_consumer_from_attach(
     config::ConsumerSettings,
-    attach::AttachResponseInfo;
+    attach::AttachResponse;
     driver_client::Union{DriverClientState, Nothing} = nothing,
     client::Aeron.Client,
 )
@@ -137,7 +137,7 @@ end
 """
 Remap consumer SHM from a driver attach response.
 """
-function remap_consumer_from_attach!(state::ConsumerState, attach::AttachResponseInfo)
+function remap_consumer_from_attach!(state::ConsumerState, attach::AttachResponse)
     reset_mappings!(state)
     state.config.use_shm = true
     ok = map_from_attach_response!(state, attach)
@@ -174,7 +174,7 @@ function handle_driver_events!(state::ConsumerState, now_ns::UInt64)
     end
 
     if state.pending_attach_id != 0
-        attach = materialize(dc.poller).attach
+        attach = dc.poller.last_attach
         if attach !== nothing && attach.correlation_id == state.pending_attach_id
             state.pending_attach_id = Int64(0)
             if attach.code == DriverResponseCode.OK

@@ -57,7 +57,7 @@ end
 """
 Map driver-provisioned SHM regions for a producer config.
 """
-function map_producer_from_attach(config::ProducerConfig, attach::AttachResponseInfo)
+function map_producer_from_attach(config::ProducerConfig, attach::AttachResponse)
     attach.code == DriverResponseCode.OK || return nothing
     attach.header_slot_bytes == UInt16(HEADER_SLOT_BYTES) || return nothing
 

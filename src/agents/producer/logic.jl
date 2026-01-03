@@ -77,12 +77,18 @@ end
 """
 Build a ProducerConfig from a driver attach response.
 """
-function producer_config_from_attach(config::ProducerConfig, attach::AttachResponseInfo)
+function producer_config_from_attach(config::ProducerConfig, attach::AttachResponse)
     pools = PayloadPoolConfig[]
-    for pool in attach.pools
+    for i in 1:attach.pool_count
+        pool = attach.pools[i]
         push!(
             pools,
-            PayloadPoolConfig(pool.pool_id, pool.region_uri, pool.stride_bytes, pool.pool_nslots),
+            PayloadPoolConfig(
+                pool.pool_id,
+                fixed_string_string(pool.region_uri),
+                pool.stride_bytes,
+                pool.pool_nslots,
+            ),
         )
     end
     return ProducerConfig(
@@ -99,7 +105,7 @@ function producer_config_from_attach(config::ProducerConfig, attach::AttachRespo
         config.shm_base_dir,
         config.shm_namespace,
         config.producer_instance_id,
-        attach.header_region_uri,
+        fixed_string_string(attach.header_region_uri),
         pools,
         attach.max_dims,
         config.announce_interval_ns,
@@ -114,7 +120,7 @@ Initialize a producer using driver-provisioned SHM regions.
 """
 function init_producer_from_attach(
     config::ProducerConfig,
-    attach::AttachResponseInfo;
+    attach::AttachResponse;
     driver_client::Union{DriverClientState, Nothing} = nothing,
     client::Aeron.Client,
 )
@@ -194,7 +200,7 @@ end
 """
 Remap producer SHM and epoch from a driver attach response.
 """
-function remap_producer_from_attach!(state::ProducerState, attach::AttachResponseInfo)
+function remap_producer_from_attach!(state::ProducerState, attach::AttachResponse)
     attach.code == DriverResponseCode.OK || return false
     driver_config = producer_config_from_attach(state.config, attach)
     ispow2(driver_config.nslots) || return false
@@ -247,7 +253,7 @@ function handle_driver_events!(state::ProducerState, now_ns::UInt64)
     end
 
     if state.pending_attach_id != 0
-        attach = materialize(dc.poller).attach
+        attach = dc.poller.last_attach
         if attach !== nothing && attach.correlation_id == state.pending_attach_id
             state.pending_attach_id = Int64(0)
             if attach.code == DriverResponseCode.OK
