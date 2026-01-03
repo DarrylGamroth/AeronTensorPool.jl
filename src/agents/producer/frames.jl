@@ -72,7 +72,7 @@ function publish_frame!(
         header_index = header_index,
         meta_version = meta_version,
         now_ns = now_ns
-        try_claim_sbe!(st.runtime.pub_descriptor, st.runtime.descriptor_claim, FRAME_DESCRIPTOR_LEN) do buf
+        with_claimed_buffer!(st.runtime.pub_descriptor, st.runtime.descriptor_claim, FRAME_DESCRIPTOR_LEN) do buf
             header = MessageHeader.Encoder(buf, 0)
             MessageHeader.blockLength!(header, FrameDescriptor.sbe_block_length(FrameDescriptor.Decoder))
             MessageHeader.templateId!(header, FrameDescriptor.sbe_template_id(FrameDescriptor.Decoder))
@@ -210,7 +210,7 @@ function publish_reservation!(
         header_index = reservation.header_index,
         meta_version = meta_version,
         now_ns = now_ns
-        try_claim_sbe!(st.runtime.pub_descriptor, st.runtime.descriptor_claim, FRAME_DESCRIPTOR_LEN) do buf
+        with_claimed_buffer!(st.runtime.pub_descriptor, st.runtime.descriptor_claim, FRAME_DESCRIPTOR_LEN) do buf
             FrameDescriptor.wrap_and_apply_header!(st.runtime.descriptor_encoder, buf, 0)
             encode_frame_descriptor!(st.runtime.descriptor_encoder, st, seq, header_index, meta_version, now_ns)
         end
@@ -279,7 +279,7 @@ function publish_frame_from_slot!(
         header_index = header_index,
         meta_version = meta_version,
         now_ns = now_ns
-        try_claim_sbe!(st.runtime.pub_descriptor, st.runtime.descriptor_claim, FRAME_DESCRIPTOR_LEN) do buf
+        with_claimed_buffer!(st.runtime.pub_descriptor, st.runtime.descriptor_claim, FRAME_DESCRIPTOR_LEN) do buf
             FrameDescriptor.wrap_and_apply_header!(st.runtime.descriptor_encoder, buf, 0)
             encode_frame_descriptor!(st.runtime.descriptor_encoder, st, seq, header_index, meta_version, now_ns)
         end

@@ -53,7 +53,7 @@ using UnsafeArrays
             Int(ConsumerConfigMsg.payloadFallbackUri_header_length) +
             Int(ConsumerConfigMsg.descriptorChannel_header_length) +
             Int(ConsumerConfigMsg.controlChannel_header_length)
-        sent_cfg = AeronTensorPool.try_claim_sbe!(pub_control, claim, cfg_len) do buf
+        sent_cfg = AeronTensorPool.with_claimed_buffer!(pub_control, claim, cfg_len) do buf
             enc = ConsumerConfigMsg.Encoder(UnsafeArrays.UnsafeArray{UInt8, 1})
             ConsumerConfigMsg.wrap_and_apply_header!(enc, buf, 0)
             ConsumerConfigMsg.streamId!(enc, consumer_state.config.stream_id)
@@ -86,7 +86,7 @@ using UnsafeArrays
         @test consumer_state.config.use_shm == true
         @test consumer_state.config.mode == Mode.LATEST
 
-        sent_desc = AeronTensorPool.try_claim_sbe!(pub_descriptor, claim, AeronTensorPool.FRAME_DESCRIPTOR_LEN) do buf
+        sent_desc = AeronTensorPool.with_claimed_buffer!(pub_descriptor, claim, AeronTensorPool.FRAME_DESCRIPTOR_LEN) do buf
             enc = FrameDescriptor.Encoder(UnsafeArrays.UnsafeArray{UInt8, 1})
             FrameDescriptor.wrap_and_apply_header!(enc, buf, 0)
             FrameDescriptor.streamId!(enc, consumer_state.config.stream_id)

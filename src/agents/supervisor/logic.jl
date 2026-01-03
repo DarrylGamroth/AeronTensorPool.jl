@@ -203,7 +203,7 @@ function emit_consumer_config!(
         descriptor_stream_id = descriptor_stream_id,
         control_channel = control_channel,
         control_stream_id = control_stream_id
-        try_claim_sbe!(st.runtime.control.pub_control, st.runtime.config_claim, msg_len) do buf
+        with_claimed_buffer!(st.runtime.control.pub_control, st.runtime.config_claim, msg_len) do buf
             ConsumerConfigMsg.wrap_and_apply_header!(st.runtime.config_encoder, buf, 0)
             ConsumerConfigMsg.streamId!(st.runtime.config_encoder, st.config.stream_id)
             ConsumerConfigMsg.consumerId!(st.runtime.config_encoder, consumer_id)

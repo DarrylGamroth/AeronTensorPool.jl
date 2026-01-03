@@ -85,7 +85,7 @@ function send_attach!(
         max_dims = max_dims,
         publish_mode = publish_mode,
         require_hugepages = require_hugepages
-        try_claim_sbe!(p.pub, p.claim, msg_len) do buf
+        with_claimed_buffer!(p.pub, p.claim, msg_len) do buf
             ShmAttachRequest.wrap_and_apply_header!(p.encoder, buf, 0)
             ShmAttachRequest.correlationId!(p.encoder, correlation_id)
             ShmAttachRequest.streamId!(p.encoder, stream_id)
@@ -123,7 +123,7 @@ function send_keepalive!(
         client_id = client_id,
         role = role,
         client_timestamp_ns = client_timestamp_ns
-        try_claim_sbe!(p.pub, p.claim, msg_len) do buf
+        with_claimed_buffer!(p.pub, p.claim, msg_len) do buf
             ShmLeaseKeepalive.wrap_and_apply_header!(p.encoder, buf, 0)
             ShmLeaseKeepalive.leaseId!(p.encoder, lease_id)
             ShmLeaseKeepalive.streamId!(p.encoder, stream_id)
@@ -152,7 +152,7 @@ function send_detach!(
         stream_id = stream_id,
         client_id = client_id,
         role = role
-        try_claim_sbe!(p.pub, p.claim, msg_len) do buf
+        with_claimed_buffer!(p.pub, p.claim, msg_len) do buf
             ShmDetachRequest.wrap_and_apply_header!(p.encoder, buf, 0)
             ShmDetachRequest.correlationId!(p.encoder, correlation_id)
             ShmDetachRequest.leaseId!(p.encoder, lease_id)
@@ -184,7 +184,7 @@ function send_shutdown_request!(
         reason = reason,
         token = token,
         error_message = error_message
-        try_claim_sbe!(p.pub, p.claim, msg_len) do buf
+        with_claimed_buffer!(p.pub, p.claim, msg_len) do buf
             ShmDriverShutdownRequest.wrap_and_apply_header!(p.encoder, buf, 0)
             ShmDriverShutdownRequest.correlationId!(p.encoder, correlation_id)
             ShmDriverShutdownRequest.reason!(p.encoder, reason)

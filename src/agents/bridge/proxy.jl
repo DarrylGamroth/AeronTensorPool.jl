@@ -11,7 +11,7 @@ function bridge_forward_announce!(state::BridgeSenderState, msg::ShmPoolAnnounce
         msg = msg,
         payloads = payloads,
         payload_count = payload_count
-        try_claim_sbe!(st.pub_control, st.control_claim, msg_len) do buf
+        with_claimed_buffer!(st.pub_control, st.control_claim, msg_len) do buf
             ShmPoolAnnounce.wrap_and_apply_header!(st.announce_encoder, buf, 0)
             ShmPoolAnnounce.streamId!(st.announce_encoder, st.mapping.dest_stream_id)
             ShmPoolAnnounce.producerId!(st.announce_encoder, ShmPoolAnnounce.producerId(msg))
@@ -42,7 +42,7 @@ function bridge_forward_metadata_announce!(state::BridgeSenderState, msg::DataSo
     stream_id = state.mapping.metadata_stream_id == 0 ? state.mapping.dest_stream_id :
         state.mapping.metadata_stream_id
 
-    return try_claim_sbe!(state.pub_metadata, state.metadata_claim, msg_len) do buf
+    return with_claimed_buffer!(state.pub_metadata, state.metadata_claim, msg_len) do buf
         DataSourceAnnounce.wrap_and_apply_header!(state.metadata_announce_encoder, buf, 0)
         DataSourceAnnounce.streamId!(state.metadata_announce_encoder, stream_id)
         DataSourceAnnounce.producerId!(state.metadata_announce_encoder, DataSourceAnnounce.producerId(msg))
@@ -58,7 +58,7 @@ function bridge_forward_metadata_meta!(state::BridgeSenderState, msg::DataSource
     stream_id = state.mapping.metadata_stream_id == 0 ? state.mapping.dest_stream_id :
         state.mapping.metadata_stream_id
 
-    return try_claim_sbe!(state.pub_metadata, state.metadata_claim, msg_len) do buf
+    return with_claimed_buffer!(state.pub_metadata, state.metadata_claim, msg_len) do buf
         DataSourceMeta.wrap_and_apply_header!(state.metadata_meta_encoder, buf, 0)
         DataSourceMeta.streamId!(state.metadata_meta_encoder, stream_id)
         DataSourceMeta.metaVersion!(state.metadata_meta_encoder, DataSourceMeta.metaVersion(msg))
@@ -81,7 +81,7 @@ function bridge_publish_metadata_announce!(state::BridgeReceiverState, msg::Data
     stream_id = state.mapping.metadata_stream_id == 0 ? state.mapping.dest_stream_id :
         state.mapping.metadata_stream_id
 
-    return try_claim_sbe!(pub, state.metadata_claim, msg_len) do buf
+    return with_claimed_buffer!(pub, state.metadata_claim, msg_len) do buf
         DataSourceAnnounce.wrap_and_apply_header!(state.metadata_announce_encoder, buf, 0)
         DataSourceAnnounce.streamId!(state.metadata_announce_encoder, stream_id)
         DataSourceAnnounce.producerId!(state.metadata_announce_encoder, DataSourceAnnounce.producerId(msg))
@@ -99,7 +99,7 @@ function bridge_publish_metadata_meta!(state::BridgeReceiverState, msg::DataSour
     stream_id = state.mapping.metadata_stream_id == 0 ? state.mapping.dest_stream_id :
         state.mapping.metadata_stream_id
 
-    return try_claim_sbe!(pub, state.metadata_claim, msg_len) do buf
+    return with_claimed_buffer!(pub, state.metadata_claim, msg_len) do buf
         DataSourceMeta.wrap_and_apply_header!(state.metadata_meta_encoder, buf, 0)
         DataSourceMeta.streamId!(state.metadata_meta_encoder, stream_id)
         DataSourceMeta.metaVersion!(state.metadata_meta_encoder, DataSourceMeta.metaVersion(msg))
@@ -117,7 +117,7 @@ end
 
 function bridge_forward_qos_producer!(state::BridgeSenderState, msg::QosProducer.Decoder)
     msg_len = MESSAGE_HEADER_LEN + Int(QosProducer.sbe_decoded_length(msg))
-    return try_claim_sbe!(state.pub_control, state.control_claim, msg_len) do buf
+    return with_claimed_buffer!(state.pub_control, state.control_claim, msg_len) do buf
         QosProducer.wrap_and_apply_header!(state.qos_producer_encoder, buf, 0)
         QosProducer.streamId!(state.qos_producer_encoder, state.mapping.dest_stream_id)
         QosProducer.producerId!(state.qos_producer_encoder, QosProducer.producerId(msg))
@@ -128,7 +128,7 @@ end
 
 function bridge_forward_qos_consumer!(state::BridgeSenderState, msg::QosConsumer.Decoder)
     msg_len = MESSAGE_HEADER_LEN + Int(QosConsumer.sbe_decoded_length(msg))
-    return try_claim_sbe!(state.pub_control, state.control_claim, msg_len) do buf
+    return with_claimed_buffer!(state.pub_control, state.control_claim, msg_len) do buf
         QosConsumer.wrap_and_apply_header!(state.qos_consumer_encoder, buf, 0)
         QosConsumer.streamId!(state.qos_consumer_encoder, state.mapping.dest_stream_id)
         QosConsumer.consumerId!(state.qos_consumer_encoder, QosConsumer.consumerId(msg))
@@ -142,7 +142,7 @@ end
 
 function bridge_forward_progress!(state::BridgeSenderState, msg::FrameProgress.Decoder)
     msg_len = MESSAGE_HEADER_LEN + Int(FrameProgress.sbe_decoded_length(msg))
-    return try_claim_sbe!(state.pub_control, state.control_claim, msg_len) do buf
+    return with_claimed_buffer!(state.pub_control, state.control_claim, msg_len) do buf
         FrameProgress.wrap_and_apply_header!(state.progress_encoder, buf, 0)
         FrameProgress.streamId!(state.progress_encoder, state.mapping.dest_stream_id)
         FrameProgress.epoch!(state.progress_encoder, FrameProgress.epoch(msg))
@@ -159,7 +159,7 @@ function bridge_publish_qos_producer!(state::BridgeReceiverState, msg::QosProduc
     pub = state.pub_control_local
     pub === nothing && return false
 
-    return try_claim_sbe!(pub, state.control_claim, msg_len) do buf
+    return with_claimed_buffer!(pub, state.control_claim, msg_len) do buf
         QosProducer.wrap_and_apply_header!(state.qos_producer_encoder, buf, 0)
         QosProducer.streamId!(state.qos_producer_encoder, state.mapping.dest_stream_id)
         QosProducer.producerId!(state.qos_producer_encoder, QosProducer.producerId(msg))
@@ -173,7 +173,7 @@ function bridge_publish_qos_consumer!(state::BridgeReceiverState, msg::QosConsum
     pub = state.pub_control_local
     pub === nothing && return false
 
-    return try_claim_sbe!(pub, state.control_claim, msg_len) do buf
+    return with_claimed_buffer!(pub, state.control_claim, msg_len) do buf
         QosConsumer.wrap_and_apply_header!(state.qos_consumer_encoder, buf, 0)
         QosConsumer.streamId!(state.qos_consumer_encoder, state.mapping.dest_stream_id)
         QosConsumer.consumerId!(state.qos_consumer_encoder, QosConsumer.consumerId(msg))
@@ -190,7 +190,7 @@ function bridge_publish_progress!(state::BridgeReceiverState, msg::FrameProgress
     pub = state.pub_control_local
     pub === nothing && return false
 
-    return try_claim_sbe!(pub, state.control_claim, msg_len) do buf
+    return with_claimed_buffer!(pub, state.control_claim, msg_len) do buf
         FrameProgress.wrap_and_apply_header!(state.progress_encoder, buf, 0)
         FrameProgress.streamId!(state.progress_encoder, state.mapping.dest_stream_id)
         FrameProgress.epoch!(state.progress_encoder, FrameProgress.epoch(msg))

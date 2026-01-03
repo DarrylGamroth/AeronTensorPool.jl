@@ -252,7 +252,7 @@
                 4
 
             sent_meta = wait_for() do
-                sent_announce = try_claim_sbe!(producer_src.runtime.pub_metadata, claim, announce_len) do buf
+                sent_announce = with_claimed_buffer!(producer_src.runtime.pub_metadata, claim, announce_len) do buf
                     enc = DataSourceAnnounce.Encoder(UnsafeArrays.UnsafeArray{UInt8, 1})
                     DataSourceAnnounce.wrap_and_apply_header!(enc, buf, 0)
                     DataSourceAnnounce.streamId!(enc, UInt32(1))
@@ -263,7 +263,7 @@
                     DataSourceAnnounce.summary!(enc, summary)
                 end
 
-                sent_meta = try_claim_sbe!(producer_src.runtime.pub_metadata, claim, meta_len) do buf
+                sent_meta = with_claimed_buffer!(producer_src.runtime.pub_metadata, claim, meta_len) do buf
                     enc = DataSourceMeta.Encoder(UnsafeArrays.UnsafeArray{UInt8, 1})
                     DataSourceMeta.wrap_and_apply_header!(enc, buf, 0)
                     DataSourceMeta.streamId!(enc, UInt32(1))

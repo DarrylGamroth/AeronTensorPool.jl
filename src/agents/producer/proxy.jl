@@ -26,7 +26,7 @@ function emit_progress_complete!(
         frame_id = frame_id,
         header_index = header_index,
         bytes_filled = bytes_filled
-        try_claim_sbe!(st.runtime.control.pub_control, st.runtime.progress_claim, FRAME_PROGRESS_LEN) do buf
+        with_claimed_buffer!(st.runtime.control.pub_control, st.runtime.progress_claim, FRAME_PROGRESS_LEN) do buf
             FrameProgress.wrap_and_apply_header!(st.runtime.progress_encoder, buf, 0)
             FrameProgress.streamId!(st.runtime.progress_encoder, st.config.stream_id)
             FrameProgress.epoch!(st.runtime.progress_encoder, st.epoch)
@@ -62,7 +62,7 @@ function emit_announce!(state::ProducerState)
     sent = let st = state,
         payload_count = payload_count,
         now_ns = now_ns
-        try_claim_sbe!(st.runtime.control.pub_control, st.runtime.progress_claim, msg_len) do buf
+        with_claimed_buffer!(st.runtime.control.pub_control, st.runtime.progress_claim, msg_len) do buf
             ShmPoolAnnounce.wrap_and_apply_header!(st.runtime.announce_encoder, buf, 0)
             ShmPoolAnnounce.streamId!(st.runtime.announce_encoder, st.config.stream_id)
             ShmPoolAnnounce.producerId!(st.runtime.announce_encoder, st.config.producer_id)
@@ -94,7 +94,7 @@ Emit a QosProducer message for this producer.
 """
 function emit_qos!(state::ProducerState)
     sent = let st = state
-        try_claim_sbe!(st.runtime.pub_qos, st.runtime.qos_claim, QOS_PRODUCER_LEN) do buf
+        with_claimed_buffer!(st.runtime.pub_qos, st.runtime.qos_claim, QOS_PRODUCER_LEN) do buf
             QosProducer.wrap_and_apply_header!(st.runtime.qos_encoder, buf, 0)
             QosProducer.streamId!(st.runtime.qos_encoder, st.config.stream_id)
             QosProducer.producerId!(st.runtime.qos_encoder, st.config.producer_id)
@@ -141,7 +141,7 @@ function emit_consumer_config!(
         descriptor_stream_id = descriptor_stream_id,
         control_channel = control_channel,
         control_stream_id = control_stream_id
-        try_claim_sbe!(st.runtime.control.pub_control, st.runtime.config_claim, msg_len) do buf
+        with_claimed_buffer!(st.runtime.control.pub_control, st.runtime.config_claim, msg_len) do buf
             ConsumerConfigMsg.wrap_and_apply_header!(st.runtime.config_encoder, buf, 0)
             ConsumerConfigMsg.streamId!(st.runtime.config_encoder, st.config.stream_id)
             ConsumerConfigMsg.consumerId!(st.runtime.config_encoder, consumer_id)
@@ -199,7 +199,7 @@ function publish_descriptor_to_consumers!(
             meta_version = meta_version,
             now_ns = now_ns,
             pub = pub
-            try_claim_sbe!(pub, st.runtime.descriptor_claim, FRAME_DESCRIPTOR_LEN) do buf
+            with_claimed_buffer!(pub, st.runtime.descriptor_claim, FRAME_DESCRIPTOR_LEN) do buf
                 FrameDescriptor.wrap_and_apply_header!(st.runtime.descriptor_encoder, buf, 0)
                 encode_frame_descriptor!(st.runtime.descriptor_encoder, st, seq, header_index, meta_version, now_ns)
             end
@@ -229,7 +229,7 @@ function publish_progress_to_consumers!(
             header_index = header_index,
             bytes_filled = bytes_filled,
             pub = pub
-            try_claim_sbe!(pub, st.runtime.progress_claim, FRAME_PROGRESS_LEN) do buf
+            with_claimed_buffer!(pub, st.runtime.progress_claim, FRAME_PROGRESS_LEN) do buf
                 FrameProgress.wrap_and_apply_header!(st.runtime.progress_encoder, buf, 0)
                 FrameProgress.streamId!(st.runtime.progress_encoder, st.config.stream_id)
                 FrameProgress.epoch!(st.runtime.progress_encoder, st.epoch)

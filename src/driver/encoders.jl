@@ -38,7 +38,7 @@ function emit_attach_response!(
         stream_state = stream_state,
         error_message = error_message,
         payload_count = payload_count
-        sent = try_claim_sbe!(st.runtime.control.pub_control, st.runtime.control_claim, msg_len) do buf
+        sent = with_claimed_buffer!(st.runtime.control.pub_control, st.runtime.control_claim, msg_len) do buf
             ShmAttachResponse.wrap_and_apply_header!(st.runtime.attach_encoder, buf, 0)
             ShmAttachResponse.correlationId!(st.runtime.attach_encoder, correlation_id)
             ShmAttachResponse.code!(st.runtime.attach_encoder, code)
@@ -100,7 +100,7 @@ function emit_detach_response!(
         correlation_id = correlation_id,
         code = code,
         error_message = error_message
-        try_claim_sbe!(st.runtime.control.pub_control, st.runtime.control_claim, msg_len) do buf
+        with_claimed_buffer!(st.runtime.control.pub_control, st.runtime.control_claim, msg_len) do buf
             ShmDetachResponse.wrap_and_apply_header!(st.runtime.detach_encoder, buf, 0)
             ShmDetachResponse.correlationId!(st.runtime.detach_encoder, correlation_id)
             ShmDetachResponse.code!(st.runtime.detach_encoder, code)
@@ -122,7 +122,7 @@ function emit_lease_revoked!(
         lease = lease,
         reason = reason,
         now_ns = now_ns
-        try_claim_sbe!(st.runtime.control.pub_control, st.runtime.control_claim, msg_len) do buf
+        with_claimed_buffer!(st.runtime.control.pub_control, st.runtime.control_claim, msg_len) do buf
             ShmLeaseRevoked.wrap_and_apply_header!(st.runtime.revoke_encoder, buf, 0)
             ShmLeaseRevoked.timestampNs!(st.runtime.revoke_encoder, now_ns)
             ShmLeaseRevoked.leaseId!(st.runtime.revoke_encoder, lease.lease_id)
@@ -152,7 +152,7 @@ function emit_driver_announce!(state::DriverState, stream_state::DriverStreamSta
         stream_state = stream_state,
         payload_count = payload_count,
         now_ns = (st.now_ns == 0 ? UInt64(Clocks.time_nanos(st.clock)) : st.now_ns)
-        try_claim_sbe!(st.runtime.pub_announce, st.runtime.control_claim, msg_len) do buf
+        with_claimed_buffer!(st.runtime.pub_announce, st.runtime.control_claim, msg_len) do buf
             ShmPoolAnnounce.wrap_and_apply_header!(st.runtime.announce_encoder, buf, 0)
             ShmPoolAnnounce.streamId!(st.runtime.announce_encoder, stream_state.stream_id)
             ShmPoolAnnounce.producerId!(st.runtime.announce_encoder, UInt32(0))
@@ -190,7 +190,7 @@ function emit_driver_shutdown!(
         now_ns = now_ns,
         reason = reason,
         error_message = error_message
-        try_claim_sbe!(st.runtime.control.pub_control, st.runtime.control_claim, msg_len) do buf
+        with_claimed_buffer!(st.runtime.control.pub_control, st.runtime.control_claim, msg_len) do buf
             ShmDriverShutdown.wrap_and_apply_header!(st.runtime.shutdown_encoder, buf, 0)
             ShmDriverShutdown.timestampNs!(st.runtime.shutdown_encoder, now_ns)
             ShmDriverShutdown.reason!(st.runtime.shutdown_encoder, reason)

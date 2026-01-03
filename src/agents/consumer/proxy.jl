@@ -37,7 +37,7 @@ function emit_consumer_hello!(state::ConsumerState)
         requested_descriptor_stream_id = requested_descriptor_stream_id,
         requested_control_channel = requested_control_channel,
         requested_control_stream_id = requested_control_stream_id
-        try_claim_sbe!(st.runtime.control.pub_control, st.runtime.hello_claim, msg_len) do buf
+        with_claimed_buffer!(st.runtime.control.pub_control, st.runtime.hello_claim, msg_len) do buf
             ConsumerHello.wrap_and_apply_header!(st.runtime.hello_encoder, buf, 0)
             ConsumerHello.streamId!(st.runtime.hello_encoder, st.config.stream_id)
             ConsumerHello.consumerId!(st.runtime.hello_encoder, st.config.consumer_id)
@@ -88,7 +88,7 @@ Emit a QosConsumer message with drop counters and last_seq_seen.
 """
 function emit_qos!(state::ConsumerState)
     sent = let st = state
-        try_claim_sbe!(st.runtime.pub_qos, st.runtime.qos_claim, QOS_CONSUMER_LEN) do buf
+        with_claimed_buffer!(st.runtime.pub_qos, st.runtime.qos_claim, QOS_CONSUMER_LEN) do buf
             QosConsumer.wrap_and_apply_header!(st.runtime.qos_encoder, buf, 0)
             QosConsumer.streamId!(st.runtime.qos_encoder, st.config.stream_id)
             QosConsumer.consumerId!(st.runtime.qos_encoder, st.config.consumer_id)

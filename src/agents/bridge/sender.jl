@@ -131,7 +131,7 @@ function bridge_send_frame!(state::BridgeSenderState, desc::FrameDescriptor.Deco
             payload_pos = payload_pos,
             chunk_index = chunk_index,
             chunk_count = chunk_count
-            try_claim_sbe!(st.pub_payload, st.chunk_claim, msg_len) do buf
+            with_claimed_buffer!(st.pub_payload, st.chunk_claim, msg_len) do buf
                 BridgeFrameChunk.wrap_and_apply_header!(st.chunk_encoder, buf, 0)
                 BridgeFrameChunk.streamId!(st.chunk_encoder, st.mapping.dest_stream_id)
                 BridgeFrameChunk.epoch!(st.chunk_encoder, FrameDescriptor.epoch(desc))

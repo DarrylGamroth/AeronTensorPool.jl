@@ -49,7 +49,7 @@ function republish_descriptor!(
 )
     sent = let st = state,
         header = header
-        try_claim_sbe!(st.pub_descriptor, st.descriptor_claim, FRAME_DESCRIPTOR_LEN) do buf
+        with_claimed_buffer!(st.pub_descriptor, st.descriptor_claim, FRAME_DESCRIPTOR_LEN) do buf
             FrameDescriptor.wrap_and_apply_header!(st.descriptor_encoder, buf, 0)
             FrameDescriptor.streamId!(st.descriptor_encoder, st.config.stream_id)
             FrameDescriptor.epoch!(st.descriptor_encoder, st.config.epoch)

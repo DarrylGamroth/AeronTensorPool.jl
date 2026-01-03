@@ -197,7 +197,7 @@ end
                 sizeof("aeron:ipc")
 
             invalid_sent = wait_for() do
-                try_claim_sbe!(consumer_state.runtime.control.pub_control, consumer_state.runtime.hello_claim, invalid_len) do buf
+                with_claimed_buffer!(consumer_state.runtime.control.pub_control, consumer_state.runtime.hello_claim, invalid_len) do buf
                     ConsumerHello.wrap_and_apply_header!(consumer_state.runtime.hello_encoder, buf, 0)
                     ConsumerHello.streamId!(consumer_state.runtime.hello_encoder, consumer_state.config.stream_id)
                     ConsumerHello.consumerId!(consumer_state.runtime.hello_encoder, consumer_state.config.consumer_id)
