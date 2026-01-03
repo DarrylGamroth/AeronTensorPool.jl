@@ -129,6 +129,13 @@ mutable struct DriverResponsePoller
     last_shutdown::Union{DriverShutdownInfo, Nothing}
 end
 
+"""
+DriverResponsePoller stores string fields in a ring-style arena buffer.
+
+StringRef values are only valid until the arena is overwritten by subsequent
+responses; convert to owned strings with string_ref_string when you need to
+retain them beyond the current polling cadence.
+"""
 function DriverResponsePoller(sub::Aeron.Subscription)
     poller = DriverResponsePoller(
         sub,
