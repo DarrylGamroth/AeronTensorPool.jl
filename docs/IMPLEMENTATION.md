@@ -136,6 +136,12 @@ For a combined wire + driver overview, see `docs/IMPLEMENTATION_GUIDE.md`.
 - Driver response poller stores fixed-size string buffers; use `view(fs)` for zero-copy access or `String(fs)` when an owned `String` is required.
 - Internal audit and call sites are tracked in `docs/API_STRINGREF_AUDIT.md`.
 
+### String handling guidelines
+- `StringView` is acceptable for ephemeral parsing inside a single poll cycle (e.g., decoding a control message and acting immediately).
+- Use `FixedString` for control-plane responses that must be retained across polls without allocation.
+- Use `String` for long-lived configuration and state (e.g., config structs, cached URIs).
+- Avoid storing `StringView` in state structs or returning it from public APIs unless explicitly documented.
+
 ## 14. Codegen and build tasks
 - Set MAX_DIMS in schemas/sbe-schema.xml (DimsArray/StridesArray length) before codegen; bump layout_version when changing it.
 - Generate codecs: `julia --project -e 'using SBE; SBE.generate("schemas/sbe-schema.xml", "gen/TensorPool.jl")'`.

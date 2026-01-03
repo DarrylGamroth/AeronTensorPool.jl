@@ -32,28 +32,29 @@
 - Decision log: maintain a short bullet log in this file with dates and outcomes for each open decision; resolve all open decisions before Phase 2 merges.
 
 ## Current State (Implemented)
-- Driver response snapshots are being migrated to fixed-size buffers (FixedSizeArrays).
-- Response structs are unifying under `*Response` names (no view/owned split).
+- Driver response snapshots use fixed-size buffers (FixedSizeArrays).
+- Response structs use unified `*Response` names (no view/owned split).
+- `FixedString` is an `AbstractString` wrapper with Base methods (`length`, `view`, `copyto!`, `String`) and null-terminated length detection.
 
 ## Decision Log
 - 2026-01-02: Replace StringRef arena with fixed-size string buffers backed by FixedSizeArrays; reject overflow.
 - 2026-01-02: Use unified `*Response` structs; remove `materialize(poller)`.
 
-## Phase 0: Allocation Baseline (Prerequisite)
+## Phase 0: Allocation Baseline (Prerequisite) — Completed
 - Run existing allocation tests (`test/test_allocations*.jl`) and document current state.
 - Identify any unexpected allocations in hot paths that need fixing regardless of this refactor.
 - Document current allocation budget per role (producer/consumer/supervisor hot paths).
 - Audit current exports vs internal usage of response string accessors and reconcile with current implementation.
 - Exit criteria: baseline documented in IMPLEMENTATION.md; no pre-existing hot-path regressions; export inventory complete.
 
-## Phase 1: Public API Surface Audit
+## Phase 1: Public API Surface Audit — Completed
 - Inventory exported types/functions; annotate each as public vs internal.
 - Identify return types that expose internal lifetimes.
 - Identify consumers of response string accessors.
 - Add a short "API stability" section to `docs/IMPLEMENTATION.md` describing fixed-buffer responses.
 - Exit criteria: published inventory + stability section merged; response string access documented; consumer call sites documented.
 
-## Phase 2a: Driver Response Fixed-Buffer Strings
+## Phase 2a: Driver Response Fixed-Buffer Strings — Completed
 - Replace StringRef arena with fixed-size string buffers (FixedSizeArrays).
   - Introduce `FixedString{N}` (buffer + length) and helpers (`clear!`, `set!`, `as_stringview`).
   - Use fixed buffers inside response structs (no view/owned split, no generation counter).
@@ -65,19 +66,25 @@
 - Remove `string_ref_view`, `string_ref_string`, and `materialize(poller)`.
 - Exit criteria: no arena code remains; fixed-buffer types used; overflow returns explicit error; tests updated; docs updated; no hot-path allocation regression.
 
+**Progress**:
+- Fixed buffer types implemented; `FixedString` moved to `src/core/fixed_string.jl`.
+- Response types migrated; `materialize(poller)` removed from call sites.
+- Driver response poller uses `copyto!(::FixedString, ::AbstractString)`.
+- Tests and docs updated to use `view(fs)`/`String(fs)`.
+
 ## Phase 2b: Fixed-Buffer Policy + Configurability (Optional Enhancement)
 - Make buffer sizes configurable in client config with safe defaults.
 - Add overflow tests for URI/error message fields.
 - Exit criteria: config-driven buffer sizing documented; tests cover overflow/reject; docs updated with sizing guidance.
 
-## Phase 3: Type-Stable String Handling Guidelines
+## Phase 3: Type-Stable String Handling Guidelines — Completed
 - Document which fields are allowed to be StringView-backed and why.
   - **Example**: StringView OK in `FrameDescriptor` handler (ephemeral, consumed immediately); NOT OK in config structs (persisted across poll cycles).
 - Require fixed buffers for control-plane responses and String for long-lived configs.
 - Add a fixed-buffer usage note (length bounds, overflow behavior).
 - Exit criteria: guideline section merged; examples show view vs fixed-buffer usage; sizing defaults documented.
 
-## Phase 4: Config + Client API Harmonization
+## Phase 4: Config + Client API Harmonization — Pending
 - Review config types for public use vs internal.
 - Decide whether `DriverResponsePoller` and similar poller types should be public or internal-only.
   - **Recommendation**: Keep pollers internal; users interact only through agent interfaces and high-level client API.
@@ -85,12 +92,12 @@
 - Provide simple constructors for common use cases (driver client/producer/consumer) without exposing internal buffers.
 - Exit criteria: configs tagged public/internal; poller export decision made and documented; naming aligned; constructors added; docs updated; no new allocations on hot paths.
 
-## Phase 5: Deprecations and Compatibility
+## Phase 5: Deprecations and Compatibility — Pending
 - Prioritize correctness and alignment with Aeron APIs; shims are not required. Prefer adopting the new API directly when it is more correct/idiomatic.
 - Update tests and docs to use the new response types.
 - Exit criteria: tests/docs updated to new APIs; release notes enumerate any renamed/removed APIs and rationale.
 
-## Phase 6: Validation + Benchmarks
+## Phase 6: Validation + Benchmarks — Pending
 - Add allocation tests to ensure response polling remains allocation-free.
 - Verify no regressions in existing allocation and integration tests.
 - Add overflow tests for fixed buffers (URI/error message).
