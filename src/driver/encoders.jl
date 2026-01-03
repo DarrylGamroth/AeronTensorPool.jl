@@ -52,7 +52,7 @@ function emit_attach_response!(
                 ShmAttachResponse.headerNslots!(st.runtime.attach_encoder, stream_state.profile.header_nslots)
                 ShmAttachResponse.headerSlotBytes!(st.runtime.attach_encoder, UInt16(HEADER_SLOT_BYTES))
                 ShmAttachResponse.maxDims!(st.runtime.attach_encoder, stream_state.profile.max_dims)
-
+                ShmAttachResponse.headerRegionUri!(st.runtime.attach_encoder, stream_state.header_uri)
                 pools_group = ShmAttachResponse.payloadPools!(st.runtime.attach_encoder, payload_count)
                 for pool in stream_state.profile.payload_pools
                     entry = ShmAttachResponse.PayloadPools.next!(pools_group)
@@ -61,7 +61,6 @@ function emit_attach_response!(
                     ShmAttachResponse.PayloadPools.strideBytes!(entry, pool.stride_bytes)
                     ShmAttachResponse.PayloadPools.regionUri!(entry, stream_state.pool_uris[pool.pool_id])
                 end
-                ShmAttachResponse.headerRegionUri!(st.runtime.attach_encoder, stream_state.header_uri)
                 ShmAttachResponse.errorMessage!(st.runtime.attach_encoder, error_message)
             else
                 ShmAttachResponse.leaseId!(st.runtime.attach_encoder, typemax(UInt64))
@@ -72,8 +71,8 @@ function emit_attach_response!(
                 ShmAttachResponse.headerNslots!(st.runtime.attach_encoder, typemax(UInt32))
                 ShmAttachResponse.headerSlotBytes!(st.runtime.attach_encoder, typemax(UInt16))
                 ShmAttachResponse.maxDims!(st.runtime.attach_encoder, typemax(UInt8))
-                ShmAttachResponse.payloadPools!(st.runtime.attach_encoder, 0)
                 ShmAttachResponse.headerRegionUri!(st.runtime.attach_encoder, "")
+                ShmAttachResponse.payloadPools!(st.runtime.attach_encoder, 0)
                 ShmAttachResponse.errorMessage!(st.runtime.attach_encoder, error_message)
             end
         end

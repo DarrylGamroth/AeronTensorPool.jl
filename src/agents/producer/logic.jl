@@ -82,7 +82,12 @@ function producer_config_from_attach(config::ProducerConfig, attach::AttachRespo
     for pool in attach.pools
         push!(
             pools,
-            PayloadPoolConfig(pool.pool_id, pool.region_uri, pool.stride_bytes, pool.pool_nslots),
+            PayloadPoolConfig(
+                pool.pool_id,
+                string_ref_string(pool.region_uri),
+                pool.stride_bytes,
+                pool.pool_nslots,
+            ),
         )
     end
     return ProducerConfig(
@@ -99,7 +104,7 @@ function producer_config_from_attach(config::ProducerConfig, attach::AttachRespo
         config.shm_base_dir,
         config.shm_namespace,
         config.producer_instance_id,
-        attach.header_region_uri,
+        string_ref_string(attach.header_region_uri),
         pools,
         attach.max_dims,
         config.announce_interval_ns,

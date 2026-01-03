@@ -47,7 +47,7 @@ using Test
             end
             @test ok == true
             @test poller.last_shutdown.reason == DriverShutdownReason.ADMIN
-            @test poller.last_shutdown.error_message == "maintenance"
+            @test AeronTensorPool.string_ref_view(poller.last_shutdown.error_message) == "maintenance"
 
         close_driver_state!(driver_state)
         close(sub)

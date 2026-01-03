@@ -129,7 +129,7 @@ function map_from_attach_response!(state::ConsumerState, attach::AttachResponseI
     payload_mmaps = Dict{UInt16, Vector{UInt8}}()
     stride_bytes = Dict{UInt16, UInt32}()
 
-    header_uri = attach.header_region_uri
+    header_uri = string_ref_view(attach.header_region_uri)
     validate_uri(header_uri) || return false
     header_parsed = parse_shm_uri(header_uri)
     require_hugepages = state.config.require_hugepages
@@ -162,8 +162,9 @@ function map_from_attach_response!(state::ConsumerState, attach::AttachResponseI
 
     for pool in attach.pools
         pool.pool_nslots == header_nslots || return false
-        validate_uri(pool.region_uri) || return false
-        pool_parsed = parse_shm_uri(pool.region_uri)
+        pool_uri = string_ref_view(pool.region_uri)
+        validate_uri(pool_uri) || return false
+        pool_parsed = parse_shm_uri(pool_uri)
         pool_require_hugepages = pool_parsed.require_hugepages || require_hugepages
         if pool_require_hugepages && !is_hugetlbfs_path(pool_parsed.path)
             return false
@@ -174,8 +175,7 @@ function map_from_attach_response!(state::ConsumerState, attach::AttachResponseI
             hugepage_size = hugepage_size,
         ) || return false
 
-        pool_mmap =
-            mmap_shm(pool.region_uri, SUPERBLOCK_SIZE + Int(pool.pool_nslots) * Int(pool.stride_bytes))
+        pool_mmap = mmap_shm(pool_uri, SUPERBLOCK_SIZE + Int(pool.pool_nslots) * Int(pool.stride_bytes))
         wrap_superblock!(sb_dec, pool_mmap, 0)
         pool_fields = try
             read_superblock(sb_dec)

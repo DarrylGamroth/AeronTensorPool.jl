@@ -61,11 +61,12 @@ using Test
             @test ok == true
             @test poller.last_attach.code == DriverResponseCode.OK
             @test poller.last_attach.stream_id == UInt32(1001)
-            @test !isempty(poller.last_attach.header_region_uri)
+            @test !isempty(AeronTensorPool.string_ref_view(poller.last_attach.header_region_uri))
             @test !isempty(poller.last_attach.pools)
             producer_lease_id = poller.last_attach.lease_id
 
-            header_path = parse_shm_uri(poller.last_attach.header_region_uri).path
+            header_uri = AeronTensorPool.string_ref_view(poller.last_attach.header_region_uri)
+            header_path = parse_shm_uri(header_uri).path
             @test isfile(header_path)
 
             dup_id = Int64(3)

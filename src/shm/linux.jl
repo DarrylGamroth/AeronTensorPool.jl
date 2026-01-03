@@ -15,7 +15,7 @@ function hugepage_size_bytes_linux()
     return 0
 end
 
-function is_hugetlbfs_path_linux(path::String)
+function is_hugetlbfs_path_linux(path::AbstractString)
     Sys.islinux() || return false
     best_len = 0
     best_fstype = ""
@@ -36,7 +36,7 @@ end
 """
 Memory-map a shm:file URI with optional write access (Linux backend).
 """
-function mmap_shm_linux(uri::String, size::Integer; write::Bool = false)
+function mmap_shm_linux(uri::AbstractString, size::Integer; write::Bool = false)
     parsed = parse_shm_uri(uri)
     if parsed.require_hugepages
         is_hugetlbfs_path_linux(parsed.path) ||
@@ -56,7 +56,7 @@ end
 """
 Map an existing SHM region without truncating the backing file (Linux backend).
 """
-function mmap_shm_existing_linux(uri::String, size::Integer; write::Bool = false)
+function mmap_shm_existing_linux(uri::AbstractString, size::Integer; write::Bool = false)
     parsed = parse_shm_uri(uri)
     if parsed.require_hugepages
         is_hugetlbfs_path_linux(parsed.path) ||
