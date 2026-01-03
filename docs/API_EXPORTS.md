@@ -44,7 +44,6 @@ This is the Phase 0 export inventory for AeronTensorPool. Public exports are def
 - view (FixedString)
 - supervisor_do_work!, producer_do_work!, consumer_do_work!, driver_do_work!
 - next_header_index, payload_pool_config
-- inflight_empty, inflight_full, inflight_push!, inflight_peek, inflight_pop!
 - bridge_frame!, handle_decimated_frame!, republish_descriptor!
 
 ## Exported Errors and Counters

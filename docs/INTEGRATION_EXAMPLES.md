@@ -22,19 +22,19 @@ inflight = InflightQueue(cfg.nslots)
 # Pre-register buffers with BGAPI2
 for _ in 1:cfg.nslots
     reservation = reserve_slot!(state, pool_id)
-    inflight_push!(inflight, reservation)
+    push!(inflight, reservation)
     # Provide reservation.ptr and reservation.stride_bytes to BGAPI2 buffer registration.
 end
 
 while running
     # BGAPI2 signals a completed buffer; you map it back to the reservation.
-    reservation = inflight_pop!(inflight)
+    reservation = popfirst!(inflight)
     values_len = actual_bytes_from_device()
     shape = Int32[height, width]
     strides = Int32[width, 1]
     ok = publish_reservation!(state, reservation, values_len, shape, strides, Dtype.UINT8, meta_version)
     ok || handle_publish_failure()
-    inflight_push!(inflight, reserve_slot!(state, pool_id))
+    push!(inflight, reserve_slot!(state, pool_id))
 end
 ```
 
@@ -134,7 +134,7 @@ pool_id = UInt16(1)
 inflight = InflightQueue(state.config.nslots)
 for _ in 1:state.config.nslots
     res = reserve_slot!(state, pool_id)
-    inflight_push!(inflight, res)
+    push!(inflight, res)
     # Register res.ptr/res.stride_bytes with BGAPI2.
 end
 ```

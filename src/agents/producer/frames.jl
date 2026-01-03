@@ -164,47 +164,22 @@ function InflightQueue(capacity::Integer)
     return InflightQueue(Vector{SlotReservation}(undef, capacity), 1, 1, 0)
 end
 
-"""
-Return true if the inflight queue is empty.
-"""
-@inline function inflight_empty(q::InflightQueue)
-    return q.count == 0
-end
-
-Base.isempty(q::InflightQueue) = inflight_empty(q)
+Base.isempty(q::InflightQueue) = q.count == 0
 Base.length(q::InflightQueue) = q.count
+Base.isfull(q::InflightQueue) = q.count == length(q.items)
 
-"""
-Return true if the inflight queue is full.
-"""
-@inline function inflight_full(q::InflightQueue)
-    return q.count == length(q.items)
-end
+Base.first(q::InflightQueue) = isempty(q) ? throw(ArgumentError("inflight queue empty")) : q.items[q.head]
 
-"""
-Push a reservation into the inflight queue.
-"""
-function inflight_push!(q::InflightQueue, reservation::SlotReservation)
-    inflight_full(q) && return false
+function Base.push!(q::InflightQueue, reservation::SlotReservation)
+    isfull(q) && throw(ArgumentError("inflight queue full"))
     q.items[q.tail] = reservation
     q.tail = q.tail == length(q.items) ? 1 : q.tail + 1
     q.count += 1
-    return true
+    return q
 end
 
-"""
-Peek at the next reservation without removing it.
-"""
-function inflight_peek(q::InflightQueue)
-    inflight_empty(q) && return nothing
-    return q.items[q.head]
-end
-
-"""
-Pop the next reservation from the inflight queue.
-"""
-function inflight_pop!(q::InflightQueue)
-    inflight_empty(q) && return nothing
+function Base.popfirst!(q::InflightQueue)
+    isempty(q) && throw(ArgumentError("inflight queue empty"))
     item = q.items[q.head]
     q.head = q.head == length(q.items) ? 1 : q.head + 1
     q.count -= 1

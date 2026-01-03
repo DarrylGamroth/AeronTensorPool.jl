@@ -85,8 +85,8 @@ If you want to track multiple in-flight reservations:
 ```julia
 queue = InflightQueue(64)
 reservation = reserve_slot!(state, pool_id)
-inflight_push!(queue, reservation)
+push!(queue, reservation)
 
-done = inflight_pop!(queue)
+done = popfirst!(queue)
 publish_reservation!(state, done, values_len, shape, strides, Dtype.UINT8, meta_version)
 ```

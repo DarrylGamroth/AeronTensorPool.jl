@@ -1,20 +1,20 @@
 @testset "InflightQueue" begin
     q = InflightQueue(2)
-    @test inflight_empty(q)
-    @test !inflight_full(q)
+    @test isempty(q)
+    @test !isfull(q)
 
     r1 = SlotReservation(UInt64(0), UInt32(0), UInt16(1), UInt32(0), Ptr{UInt8}(1), 64)
     r2 = SlotReservation(UInt64(1), UInt32(1), UInt16(1), UInt32(1), Ptr{UInt8}(2), 64)
 
-    @test inflight_push!(q, r1)
-    @test inflight_peek(q).seq == UInt64(0)
-    @test inflight_push!(q, r2)
-    @test inflight_full(q)
-    @test inflight_push!(q, r2) == false
+    push!(q, r1)
+    @test first(q).seq == UInt64(0)
+    push!(q, r2)
+    @test isfull(q)
+    @test_throws ArgumentError push!(q, r2)
 
-    out1 = inflight_pop!(q)
+    out1 = popfirst!(q)
     @test out1.seq == UInt64(0)
-    out2 = inflight_pop!(q)
+    out2 = popfirst!(q)
     @test out2.seq == UInt64(1)
-    @test inflight_pop!(q) === nothing
+    @test_throws ArgumentError popfirst!(q)
 end
