@@ -1,7 +1,7 @@
 """
 Parse a shm:file URI into a ShmUri.
 """
-function parse_shm_uri(uri::String)
+function parse_shm_uri(uri::AbstractString)
     startswith(uri, "shm:file?") || throw(ShmUriError("unsupported shm uri scheme: $uri"))
     params_str = uri[10:end]
     isempty(params_str) && throw(ShmUriError("missing shm uri parameters: $uri"))
@@ -33,7 +33,7 @@ end
 """
 Return true if a shm:file URI is valid and supported.
 """
-function validate_uri(uri::String)
+function validate_uri(uri::AbstractString)
     try
         parse_shm_uri(uri)
     catch
