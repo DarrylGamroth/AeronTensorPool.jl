@@ -2,6 +2,8 @@
 
 Goal: move Aeron control-plane primitives into a focused module/directory without changing behavior or introducing transport abstraction.
 
+Status: completed; control-plane primitives now live under `src/control/`.
+
 ## Scope
 - Keep Aeron as the only control-plane transport.
 - Preserve public API and wire behavior.
@@ -18,8 +20,8 @@ Goal: move Aeron control-plane primitives into a focused module/directory withou
 Note: `proxies.jl`, `pollers.jl`, and `adapters.jl` can be split into subfiles/directories as they grow (e.g., `proxies/attach.jl`, `pollers/driver_responses.jl`). Start with single files to keep include order simple.
 
 ## Step 1: Inventory & Grouping
-- Identify control-plane primitives currently spread across:
-  - `src/client/`
+- Identify control-plane primitives to keep grouped under `src/control/`:
+  - `src/control/`
   - `src/driver/`
   - `src/agents/*/` (control-plane runtime usage)
 - Classify into runtime, proxies, pollers, adapters, constants.
