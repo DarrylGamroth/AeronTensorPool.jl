@@ -36,7 +36,6 @@ function map_from_announce!(state::ConsumerState, msg::ShmPoolAnnounce.Decoder)
         pool_uri = String(ShmPoolAnnounce.PayloadPools.regionUri(pool))
         push!(pool_specs, PayloadPoolConfig(pool_id, pool_uri, pool_stride, pool_nslots))
     end
-
     header_uri = String(ShmPoolAnnounce.headerRegionUri(msg))
     validate_uri(header_uri) || return false
     header_parsed = parse_shm_uri(header_uri)

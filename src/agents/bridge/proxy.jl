@@ -21,7 +21,6 @@ function bridge_forward_announce!(state::BridgeSenderState, msg::ShmPoolAnnounce
             ShmPoolAnnounce.headerNslots!(st.announce_encoder, ShmPoolAnnounce.headerNslots(msg))
             ShmPoolAnnounce.headerSlotBytes!(st.announce_encoder, ShmPoolAnnounce.headerSlotBytes(msg))
             ShmPoolAnnounce.maxDims!(st.announce_encoder, ShmPoolAnnounce.maxDims(msg))
-
             pools_group = ShmPoolAnnounce.payloadPools!(st.announce_encoder, payload_count)
             for pool in payloads
                 entry = ShmPoolAnnounce.PayloadPools.next!(pools_group)
@@ -30,7 +29,8 @@ function bridge_forward_announce!(state::BridgeSenderState, msg::ShmPoolAnnounce
                 ShmPoolAnnounce.PayloadPools.strideBytes!(entry, ShmPoolAnnounce.PayloadPools.strideBytes(pool))
                 ShmPoolAnnounce.PayloadPools.regionUri!(entry, ShmPoolAnnounce.PayloadPools.regionUri(pool))
             end
-            ShmPoolAnnounce.headerRegionUri!(st.announce_encoder, ShmPoolAnnounce.headerRegionUri(msg))
+            header_uri = ShmPoolAnnounce.headerRegionUri(msg)
+            ShmPoolAnnounce.headerRegionUri!(st.announce_encoder, header_uri)
         end
     end
     sent || return false
