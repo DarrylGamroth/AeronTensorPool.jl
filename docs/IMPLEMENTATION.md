@@ -104,6 +104,18 @@ For a combined wire + driver overview, see `docs/IMPLEMENTATION_GUIDE.md`.
 - Progress gating respected; no progress when no subscriber supports it.
 - Fallback path works when SHM invalid/unsupported.
 
+### Phase 0 Allocation Baseline (2026-01-02)
+
+- Full test suite: `julia --project=. -e 'using Pkg; Pkg.test()'`
+- Allocation checks (all passing):
+  - `Allocation checks`
+  - `Allocation load checks`
+  - `Allocation checks: seqlock helpers`
+  - `Allocation checks: SHM URI parsing`
+  - `Allocation checks: driver control-plane encoders`
+  - `Allocation checks: producer/consumer loop`
+- API export inventory: `docs/API_EXPORTS.md`
+
 ## 12. Role Notes
 - Producer: single writer of header/payload regions; refresh activity_timestamp_ns at announce cadence.
 - Consumer: must not spin-wait for commit; on any failure, drop and continue.
