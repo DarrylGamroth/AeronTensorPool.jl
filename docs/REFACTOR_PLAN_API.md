@@ -73,9 +73,8 @@
 - Tests and docs updated to use `view(fs)`/`String(fs)`.
 
 ## Phase 2b: Fixed-Buffer Policy + Configurability (Optional Enhancement)
-- Make buffer sizes configurable in client config with safe defaults.
-- Add overflow tests for URI/error message fields.
-- Exit criteria: config-driven buffer sizing documented; tests cover overflow/reject; docs updated with sizing guidance.
+Status: not planned.
+Rationale: fixed buffer sizes are sufficient; configurability deferred.
 
 ## Phase 3: Type-Stable String Handling Guidelines — Completed
 - Document which fields are allowed to be StringView-backed and why.
@@ -141,6 +140,4 @@
 **Recommendation**: Not needed once fixed buffers replace arena.
 
 ## Open Decisions (resolve before Phase 2a merges)
-- Fixed buffer sizes (URI, error message) and whether to make them configurable.
-
-**Action**: Review recommendations above, decide, and record outcomes in the Decision Log before starting Phase 2a.
+- None.
