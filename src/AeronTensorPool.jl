@@ -6,6 +6,7 @@ using Clocks
 using Hsm
 using Mmap
 using SBE
+using StringViews
 using UnsafeArrays
 
 include("gen/ShmTensorpoolControl.jl")

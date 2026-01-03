@@ -29,7 +29,7 @@ function bridge_forward_announce!(state::BridgeSenderState, msg::ShmPoolAnnounce
                 ShmPoolAnnounce.PayloadPools.strideBytes!(entry, ShmPoolAnnounce.PayloadPools.strideBytes(pool))
                 ShmPoolAnnounce.PayloadPools.regionUri!(entry, ShmPoolAnnounce.PayloadPools.regionUri(pool))
             end
-            header_uri = ShmPoolAnnounce.headerRegionUri(msg)
+            header_uri = ShmPoolAnnounce.headerRegionUri(msg, StringView)
             ShmPoolAnnounce.headerRegionUri!(st.announce_encoder, header_uri)
         end
     end

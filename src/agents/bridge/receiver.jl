@@ -183,7 +183,7 @@ function bridge_apply_source_announce!(state::BridgeReceiverState, msg::ShmPoolA
         pool_id = ShmPoolAnnounce.PayloadPools.poolId(pool)
         state.source_info.pool_stride_bytes[pool_id] = ShmPoolAnnounce.PayloadPools.strideBytes(pool)
     end
-    ShmPoolAnnounce.headerRegionUri(msg)
+    ShmPoolAnnounce.headerRegionUri(msg, StringView)
     state.have_announce = true
     return true
 end
