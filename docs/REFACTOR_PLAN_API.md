@@ -36,7 +36,11 @@
 - Some call sites already use StringRef and StringView in control-plane flows.
 
 ## Decision Log
-- (empty)
+- 2026-01-02: View types kept internal; expose `materialize(poller)` returning owned snapshots.
+- 2026-01-02: Arena size fixed at 64 KiB for now; configurable sizing deferred to Phase 2b.
+- 2026-01-02: Public API will export `materialize(poller)` only; per-response helpers stay internal.
+- 2026-01-02: `map_from_attach_response!` will require `AttachResponseOwned` (materialize before mapping).
+- 2026-01-02: Generation counter stored in `DriverResponsePoller`, captured per response view.
 
 ## Phase 0: Allocation Baseline (Prerequisite)
 - Run existing allocation tests (`test/test_allocations*.jl`) and document current state.
