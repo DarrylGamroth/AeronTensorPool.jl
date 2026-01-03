@@ -1,4 +1,22 @@
 """
+Decoded superblock fields for SHM validation and diagnostics.
+"""
+struct SuperblockFields
+    magic::UInt64
+    layout_version::UInt32
+    epoch::UInt64
+    stream_id::UInt32
+    region_type::RegionType.SbeEnum
+    pool_id::UInt16
+    nslots::UInt32
+    slot_bytes::UInt32
+    stride_bytes::UInt32
+    pid::UInt64
+    start_timestamp_ns::UInt64
+    activity_timestamp_ns::UInt64
+end
+
+"""
 Wrap a superblock encoder over a buffer without SBE message header.
 """
 @inline function wrap_superblock!(m::ShmRegionSuperblock.Encoder, buffer::AbstractVector{UInt8}, offset::Integer = 0)
