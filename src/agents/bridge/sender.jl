@@ -39,7 +39,7 @@ function init_bridge_sender(
         DataSourceAnnounce.Encoder(UnsafeArrays.UnsafeArray{UInt8, 1}),
         DataSourceMeta.Encoder(UnsafeArrays.UnsafeArray{UInt8, 1}),
         TensorSlotHeader256.Decoder(Vector{UInt8}),
-        Vector{UInt8}(undef, HEADER_SLOT_BYTES),
+        FixedSizeVector{UInt8}(undef, HEADER_SLOT_BYTES),
         Vector{Int32}(undef, MAX_DIMS),
         Vector{Int32}(undef, MAX_DIMS),
         UInt64(0),

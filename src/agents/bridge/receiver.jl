@@ -28,8 +28,8 @@ function init_bridge_receiver(
         UInt32(0),
         UInt32(0),
         false,
-        Vector{UInt8}(undef, HEADER_SLOT_BYTES),
-        Vector{UInt8}(undef, max_payload),
+        FixedSizeVector{UInt8}(undef, HEADER_SLOT_BYTES),
+        FixedSizeVector{UInt8}(undef, max_payload),
         fill(false, max_chunks),
         UInt64(0),
     )
