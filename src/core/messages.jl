@@ -58,6 +58,8 @@ const TEMPLATE_CONSUMER_CONFIG = ConsumerConfigMsg.sbe_template_id(ConsumerConfi
 const TEMPLATE_CONSUMER_HELLO = ConsumerHello.sbe_template_id(ConsumerHello.Decoder)
 const TEMPLATE_QOS_CONSUMER = QosConsumer.sbe_template_id(QosConsumer.Decoder)
 const TEMPLATE_QOS_PRODUCER = QosProducer.sbe_template_id(QosProducer.Decoder)
+const TEMPLATE_DATA_SOURCE_ANNOUNCE = DataSourceAnnounce.sbe_template_id(DataSourceAnnounce.Decoder)
+const TEMPLATE_DATA_SOURCE_META = DataSourceMeta.sbe_template_id(DataSourceMeta.Decoder)
 
 const TEMPLATE_SHM_ATTACH_REQUEST = ShmAttachRequest.sbe_template_id(ShmAttachRequest.Decoder)
 const TEMPLATE_SHM_ATTACH_RESPONSE = ShmAttachResponse.sbe_template_id(ShmAttachResponse.Decoder)

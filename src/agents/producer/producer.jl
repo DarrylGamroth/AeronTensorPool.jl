@@ -1,3 +1,6 @@
 include("state.jl")
+include("shm.jl")
+include("frames.jl")
+include("proxy.jl")
 include("handlers.jl")
 include("logic.jl")

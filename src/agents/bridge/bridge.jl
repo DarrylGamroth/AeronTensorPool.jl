@@ -1,2 +1,6 @@
 include("state.jl")
-include("logic.jl")
+include("assembly.jl")
+include("proxy.jl")
+include("sender.jl")
+include("receiver.jl")
+include("adapters.jl")

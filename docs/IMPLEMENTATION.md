@@ -26,7 +26,7 @@ For a combined wire + driver overview, see `docs/IMPLEMENTATION_GUIDE.md`.
 - `src/aeron`: Aeron helpers (try_claim, fragment assemblers, counters).
 - `src/timers`: polled timers and timer sets.
 - `src/config`: TOML/env config loading and path resolution.
-- `src/agents/<role>`: role implementation split into `state.jl`, `handlers.jl`, and `logic.jl`.
+- `src/agents/<role>`: role implementation split into `state.jl`, `mapping.jl`, `frames.jl`, `proxy.jl`, `handlers.jl`, and orchestration glue. Bridge adds `assembly.jl` and `adapters.jl`.
 - `src/agents`: Agent.jl integration for each role.
 - `scripts/run_role.jl bridge` expects `bridge`, `consumer`, and `producer` sections in the same config file.
 

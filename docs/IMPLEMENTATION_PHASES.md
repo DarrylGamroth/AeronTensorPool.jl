@@ -6,6 +6,7 @@ Each phase has clear deliverables and validation so tasks can be assigned and tr
 References:
 - Wire spec: `docs/SHM_Tensor_Pool_Wire_Spec_v1.1.md`
 - Driver model: `docs/SHM_Driver_Model_Spec_v1.0.md`
+- Agent split plan: `docs/IMPLEMENTATION_PHASES_AGENT_SPLIT.md`
 
 ## Phase 0 - Alignment and Defaults
 

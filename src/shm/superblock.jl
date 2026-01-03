@@ -86,6 +86,31 @@ function read_superblock(m::ShmRegionSuperblock.Decoder)
 end
 
 """
+Validate superblock fields against expected layout and mapping rules.
+"""
+function validate_superblock_fields(
+    fields::SuperblockFields;
+    expected_layout_version::UInt32,
+    expected_epoch::UInt64,
+    expected_stream_id::UInt32,
+    expected_nslots::UInt32,
+    expected_slot_bytes::UInt32,
+    expected_region_type::RegionType.SbeEnum,
+    expected_pool_id::UInt16,
+)
+    fields.magic == MAGIC_TPOLSHM1 || return false
+    fields.layout_version == expected_layout_version || return false
+    fields.epoch == expected_epoch || return false
+    fields.stream_id == expected_stream_id || return false
+    fields.region_type == expected_region_type || return false
+    fields.pool_id == expected_pool_id || return false
+    fields.nslots == expected_nslots || return false
+    ispow2(fields.nslots) || return false
+    fields.slot_bytes == expected_slot_bytes || return false
+    return true
+end
+
+"""
 Write tensor slot header fields to an encoder, padding dims/strides to MAX_DIMS.
 """
 @inline function write_tensor_slot_header!(

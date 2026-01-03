@@ -13,11 +13,13 @@ Terminology:
 - Preserve allocation-free behavior in hot paths; re-run allocation tests after each phase.
 
 ## Phase A0: Baseline and Guardrails
+Status: completed.
 - Confirm current test/benchmark baselines (record in `docs/BENCHMARK_BASELINE.md` if needed).
 - Identify hot-path functions to avoid moving across modules unless required.
 - Add or update brief module-level comments describing adapter/proxy roles per agent.
 
 ## Phase A1: Consumer Split
+Status: completed.
 - Create files:
   - `src/agents/consumer/mapping.jl` (map/remap/validate SHM, superblock checks, fallback).
   - `src/agents/consumer/frames.jl` (seqlock reads, `try_read_frame!`, view shaping).
@@ -28,6 +30,7 @@ Terminology:
 - Run unit tests for consumer and allocation tests.
 
 ## Phase A2: Producer Split
+Status: completed.
 - Create files:
   - `src/agents/producer/shm.jl` (mmap + superblock initialization).
   - `src/agents/producer/frames.jl` (frame publish, header write, seqlock, pool select).
@@ -37,6 +40,7 @@ Terminology:
 - Run producer tests and allocation checks.
 
 ## Phase A3: Bridge Split
+Status: completed.
 - Create files:
   - `src/agents/bridge/sender.jl` (sender init, chunking, forwarders).
   - `src/agents/bridge/receiver.jl` (receiver init, assembly, publish to SHM).
@@ -47,15 +51,18 @@ Terminology:
 - Re-run bridge integration tests.
 
 ## Phase A4: Supervisor (Optional)
+Status: not needed (kept as-is).
 - If desired, move emitters to `proxy.jl`; otherwise keep as-is.
 - Ensure no API or behavior changes.
 
 ## Phase A5: Documentation and Consistency
+Status: completed.
 - Update `docs/IMPLEMENTATION.md` with adapter/proxy structure for agents.
 - Update `docs/REFACTOR_TRACKER.md` or add a note in `docs/IMPLEMENTATION_PHASES.md` referencing this split plan.
 - Ensure any developer docs (e.g., `INTEGRATION_EXAMPLES.md`) still point to correct locations.
 
 ## Phase A6: Final Validation
+Status: completed.
 - Run full test suite and allocation checks.
 - Confirm no new allocations in hot paths.
 - Record results in `docs/BENCHMARK_BASELINE.md` if changed.
