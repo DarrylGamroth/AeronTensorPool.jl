@@ -130,6 +130,12 @@ For a combined wire + driver overview, see `docs/IMPLEMENTATION_GUIDE.md`.
 - For progress/descriptor handling, stage work in small immutable structs to keep inference intact; avoid closures/allocating iterators in the poll loop.
 - Pin frequently accessed buffers and avoid String allocations for URIs in the hot path; parse URIs once at startup.
 
+## 13a. API stability and string lifetimes
+
+- Public APIs return owned `String` values unless explicitly documented as view types.
+- Driver response snapshots currently expose `StringRef` (arena-backed) values; these are valid only until the arena wraps. Use `string_ref_string` to materialize when needed.
+- Internal audit and call sites are tracked in `docs/API_STRINGREF_AUDIT.md`.
+
 ## 14. Codegen and build tasks
 - Set MAX_DIMS in schemas/sbe-schema.xml (DimsArray/StridesArray length) before codegen; bump layout_version when changing it.
 - Generate codecs: `julia --project -e 'using SBE; SBE.generate("schemas/sbe-schema.xml", "gen/TensorPool.jl")'`.
