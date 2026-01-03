@@ -27,20 +27,6 @@ Return total byte length for a BridgeFrameChunk message.
 end
 
 """
-Return var-data positions for header/payload bytes in a BridgeFrameChunk decoder.
-"""
-@inline function bridge_chunk_var_data_positions(decoder::BridgeFrameChunk.Decoder)
-    buf = BridgeFrameChunk.sbe_buffer(decoder)
-    pos = BridgeFrameChunk.sbe_position(decoder)
-    header_len = Int(SBE.decode_value_le(UInt32, buf, pos))
-    header_pos = pos + 4
-    payload_len_pos = header_pos + header_len
-    payload_len = Int(SBE.decode_value_le(UInt32, buf, payload_len_pos))
-    payload_pos = payload_len_pos + 4
-    return header_len, header_pos, payload_len, payload_pos
-end
-
-"""
 Reset assembly state for a new frame.
 """
 @inline function reset_bridge_assembly!(

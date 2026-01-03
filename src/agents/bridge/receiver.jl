@@ -201,7 +201,10 @@ function bridge_receive_chunk!(
 
     header_included = BridgeFrameChunk.headerIncluded(decoder) == BridgeBool.TRUE
     payload_length = BridgeFrameChunk.payloadLength(decoder)
-    header_len, header_pos, payload_len, payload_pos = bridge_chunk_var_data_positions(decoder)
+    header_bytes = BridgeFrameChunk.headerBytes(decoder)
+    header_len = length(header_bytes)
+    payload_bytes = BridgeFrameChunk.payloadBytes(decoder)
+    payload_len = length(payload_bytes)
 
     header_included && header_len != HEADER_SLOT_BYTES && return false
     !header_included && header_len != 0 && return false
@@ -242,16 +245,12 @@ function bridge_receive_chunk!(
         return false
     end
 
-    if payload_pos + payload_len > length(BridgeFrameChunk.sbe_buffer(decoder))
-        return false
-    end
-
     if header_included
         copyto!(
             state.assembly.header_bytes,
             1,
-            BridgeFrameChunk.sbe_buffer(decoder),
-            header_pos + 1,
+            header_bytes,
+            1,
             HEADER_SLOT_BYTES,
         )
         state.assembly.header_present = true
@@ -265,8 +264,8 @@ function bridge_receive_chunk!(
     copyto!(
         state.assembly.payload,
         payload_start + 1,
-        BridgeFrameChunk.sbe_buffer(decoder),
-        payload_pos + 1,
+        payload_bytes,
+        1,
         payload_len,
     )
     state.assembly.received[chunk_index + 1] = true
