@@ -13,21 +13,6 @@ Try to claim an Aeron buffer using do-block syntax and fill it with an SBE messa
 end
 
 """
-Try to claim an Aeron buffer and fill it with raw payload bytes.
-"""
-@inline function try_claim_payload!(pub::Aeron.Publication, claim::Aeron.BufferClaim, payload::AbstractVector{UInt8})
-    length = Int(sizeof(payload))
-    position = Aeron.try_claim(pub, length, claim)
-    if position > 0
-        buf = Aeron.buffer(claim)
-        copyto!(buf, 1, payload, 1, length)
-        Aeron.commit(claim)
-        return true
-    end
-    return false
-end
-
-"""
 Set Aeron directory if non-empty.
 """
 @inline function set_aeron_dir!(ctx::Aeron.Context, aeron_dir::AbstractString)
