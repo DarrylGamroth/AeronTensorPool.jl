@@ -111,17 +111,17 @@ end
 """
 Reference to a payload region in shared memory.
 """
-mutable struct PayloadSlice
+mutable struct PayloadView
     mmap::Vector{UInt8}
     offset::Int
     len::Int
 end
 
 """
-Return a view over the payload bytes for a PayloadSlice.
+Return a view over the payload bytes for a PayloadView.
 """
-@inline function payload_view(slice::PayloadSlice)
-    return view(slice.mmap, slice.offset + 1: slice.offset + slice.len)
+@inline function payload_view(view::PayloadView)
+    return view(view.mmap, view.offset + 1: view.offset + view.len)
 end
 
 """
@@ -129,7 +129,7 @@ Decoded frame header and payload slice.
 """
 mutable struct ConsumerFrameView
     header::TensorSlotHeader
-    payload::PayloadSlice
+    payload::PayloadView
 end
 
 """

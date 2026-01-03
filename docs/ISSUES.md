@@ -12,6 +12,6 @@
 
 - Allocation-free consumer payload access vs type safety.
   - Finding: allocations came from returning a tuple `(header, payload)` where `payload` is a `SubArray`.
-  - Fix: `try_read_frame!` now returns `Bool` and fills a reusable `ConsumerFrameView` with `PayloadSlice`.
+  - Fix: `try_read_frame!` now returns `Bool` and fills a reusable `ConsumerFrameView` with `PayloadView`.
   - Verified: allocation tests (loop + E2E) report zero allocations after init.
   - Status: fixed on `main`.

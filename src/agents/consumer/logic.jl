@@ -57,7 +57,7 @@ function init_consumer(config::ConsumerSettings; client::Aeron.Client)
                 ntuple(_ -> Int32(0), Val(MAX_DIMS)),
                 ntuple(_ -> Int32(0), Val(MAX_DIMS)),
             ),
-            PayloadSlice(UInt8[], 0, 0),
+            PayloadView(UInt8[], 0, 0),
         ),
     )
     mappings = ConsumerMappings(

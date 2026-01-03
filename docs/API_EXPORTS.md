@@ -13,7 +13,7 @@ This is the Phase 0 export inventory for AeronTensorPool. Public exports are def
 - BridgeAgent, BridgeConfig, BridgeMapping, BridgeSourceInfo, BridgeAssembledFrame, BridgeSenderState, BridgeReceiverState
 - DecimatorConfig, DecimatorState
 - ConsumerHello, FrameDescriptor, FrameProgress, MessageHeader, DriverMessageHeader, QosProducer, QosConsumer
-- ShmRegionSuperblock, ShmUri, SuperblockFields, TensorSlotHeader256, TensorSlotHeader, PayloadSlice, ConsumerFrameView, Mode
+- ShmRegionSuperblock, ShmUri, SuperblockFields, TensorSlotHeader256, TensorSlotHeader, PayloadView, ConsumerFrameView, Mode
 - ShmAttachRequest, ShmAttachResponse, ShmDetachRequest, ShmDetachResponse, ShmLeaseKeepalive
 - ShmDriverShutdown, ShmLeaseRevoked, ShmDriverShutdownRequest
 - FixedString, DriverPool, AttachResponse, DetachResponse, LeaseRevoked, DriverShutdown
