@@ -183,58 +183,63 @@ This header represents “almost fixed-size TensorMessage metadata” with the l
 SBE definition: `TensorSlotHeader256` message in the schema appendix (v1.1 `MAX_DIMS=8`). The schema includes a `maxDims` constant field for codegen alignment; it is not encoded on the wire and MUST be treated as a compile-time constant. Changing `MAX_DIMS` requires a new `layout_version` and schema rebuild.
 
 **Fields** (in wire/layout order)
-- `commit_word : u64` (commit sentinel, written last)
-- `frame_id : u64` (monotonic per stream; MUST equal `seq` in v1.1)
-- `timestamp_ns : u64`
-- `meta_version : u32` (ties frame to `DataSourceMeta`)
+- `seq_commit : u64` (commit + sequence; LSB is commit bit, upper bits are `logical_sequence`)
 - `values_len_bytes : u32`
 - `payload_slot : u32`
-- `payload_offset : u32` (typically 0; reserved)
 - `pool_id : u16`
 - `dtype : enum Dtype` (scalar element type)
 - `major_order : enum MajorOrder` (row- vs column-major)
 - `ndims : u8`
 - `pad_align : u8` (aligns `dims`/`strides` to 4-byte boundary)
+- `payload_offset : u32` (typically 0; reserved)
+- `timestamp_ns : u64`
+- `meta_version : u32` (ties frame to `DataSourceMeta`)
 - `dims[MAX_DIMS] : i32[]`
 - `strides[MAX_DIMS] : i32[]` (bytes per dim; 0 = contiguous/infer)
 - padding to 256 bytes
 
-v1.1 canonical identity: `TensorSlotHeader256.frame_id`, `FrameDescriptor.seq`, and `FrameProgress.frame_id` MUST be equal for the same frame; consumers MUST DROP if any differ.
+Canonical identity: `logical_sequence = seq_commit >> 1`, `FrameDescriptor.seq`, and `FrameProgress.frame_id` MUST be equal for the same frame; consumers MUST DROP if any differ. No separate `frame_id` field exists in the header.
 
 **NOTE**
 - Region-of-interest (ROI) offsets/boxes do not belong in this fixed header; carry ROI in `DataSourceMeta` attributes when needed.
 - Interpretation: `dtype` = scalar element type; `major_order` = row/column-major; `strides` allow arbitrary layouts; 0 strides mean contiguous inferred from shape and dtype.
-- `commit_word` MUST reside entirely within a single cache line and be written with a single aligned store; assume 64-byte cache lines (common); if different, still place `commit_word` in the first cache line and use an 8-byte aligned atomic store.
+- `seq_commit` MUST reside entirely within a single cache line and be written with a single aligned store; assume 64-byte cache lines (common); if different, still place `seq_commit` in the first cache line and use an 8-byte aligned atomic store.
 - Strides: `0` means inferred contiguous; negative strides are **not supported in v1.1**; strides MUST describe a non-overlapping layout consistent with `major_order` (row-major implies increasing stride as dimension index decreases); reject headers whose strides would overlap or contradict `major_order`.
 - Arrays alignment: `pad_align` ensures `dims` and `strides` are 4-byte aligned; consumers may rely on this for word accesses.
-- Padding (`Pad144`) is reserved/opaque; producers MAY leave it zeroed or use it for implementation-specific data; consumers MUST ignore it and MUST NOT store process-specific pointers/addresses there.
-- Frame identity: `frame_id` in the header MUST equal the `seq` in `FrameDescriptor` and MUST match any `FrameProgress.frame_id`. Consumers SHOULD drop a frame if `commit_word`/`frame_id` and `FrameDescriptor.seq` disagree (stale header_index reuse).
+- Padding (`Pad152`) is reserved/opaque; producers MAY leave it zeroed or use it for implementation-specific data; consumers MUST ignore it and MUST NOT store process-specific pointers/addresses there.
+- Frame identity: `logical_sequence` (derived from `seq_commit`), `FrameDescriptor.seq`, and `FrameProgress.frame_id` MUST match. Consumers SHOULD drop a frame if `seq_commit` and `FrameDescriptor.seq` disagree (stale header_index reuse).
 
-### 8.3 Commit Sentinel Protocol
+### 8.3 Commit Encoding via `seq_commit` (Normative)
 
-Use `commit_word` as a seqlock derived from `frame_id`:
+Use `seq_commit` as a seqlock derived from the logical sequence number:
 
-- WRITING: `(frame_id << 1) | 1`
-- COMMITTED: `(frame_id << 1)`
+```
+logical_sequence = seq_commit >> 1
+commit_state     = seq_commit & 1
+```
+
+- IN-PROGRESS: `(logical_sequence << 1) | 0`
+- COMMITTED: `(logical_sequence << 1) | 1`
 
 **Producer**
-0. Write `commit_word = (frame_id << 1) | 1` (WRITING) with at least relaxed store (release is fine).
-1. Write payload bytes (DMA complete or memcpy complete).
-2. Write all header fields except `commit_word` (full overwrite of the slot; do not rely on prior zeroing/truncate).
-3. Ensure payload visibility (see coherency note below), then write committed `commit_word = (frame_id << 1)` with **release** semantics.
+0. Compute `in_progress = (S << 1) | 0` and `committed = (S << 1) | 1` for logical sequence `S` (monotonic, producer-owned).
+1. Store `seq_commit = in_progress` with **release** semantics.
+2. Write payload bytes (DMA complete or memcpy complete).
+3. Write all other header fields (full overwrite of the slot; do not rely on prior zeroing/truncate).
+4. Ensure payload visibility (see coherency note below), then store `seq_commit = committed` with **release** semantics.
 
 **Consumer**
-1. Read `commit_word` (acquire).
-2. If odd → skip/drop (not committed).
+1. Read `seq_commit` (acquire).
+2. If `(seq_commit & 1) == 0` → skip/drop (not committed).
 3. Read header + payload.
-4. Re-read `commit_word` (acquire).
-5. Accept only if unchanged and even.
+4. Re-read `seq_commit` (acquire).
+5. Accept only if unchanged and `(seq_commit & 1) == 1`.
 
 This prevents torn reads under overwrite.
 
 **Coherency / DMA visibility**
-- Producer MUST ensure payload bytes are visible to CPUs before writing the COMMITTED `commit_word` (and before emitting a `FrameProgress` COMPLETE state). On non-coherent DMA paths, flush/invalidate as required by the platform/driver.
-- Consumers MUST treat payload as valid only after the seqlock check on `commit_word` succeeds.
+- Producer MUST ensure payload bytes are visible to CPUs before writing the COMMITTED `seq_commit` (and before emitting a `FrameProgress` COMPLETE state). On non-coherent DMA paths, flush/invalidate as required by the platform/driver.
+- Consumers MUST treat payload as valid only after the seqlock check on `seq_commit` succeeds.
 
 ---
 
@@ -306,8 +311,8 @@ Sent on startup and optionally periodically.
 - `consumer_id : u32`
 - `supports_shm : bool`
 - `supports_progress : bool` (can consume partial DMA progress hints)
-- `mode : enum { STREAM=1, LATEST=2, DECIMATED=3 }`
-- `max_rate_hz : u16` (0 = unlimited; mainly for GUI)
+- `mode : enum { STREAM=1, RATE_LIMITED=2 }` (RATE_LIMITED = consumer expects reduced-rate delivery via per-consumer stream or downstream rate limiter)
+- `max_rate_hz : u32` (0 = unlimited; authoritative when mode=RATE_LIMITED; mainly for GUI)
 - `expected_layout_version : u32`
 - optional progress policy hints (producer may coarsen across consumers):
   - `progress_interval_us : u32` (minimum interval between `PROGRESS` messages; optional; if absent, producer defaults apply; **recommended default**: 250 µs)
@@ -332,8 +337,7 @@ Sent on startup and optionally periodically.
 - `stream_id : u32`
 - `consumer_id : u32`
 - `use_shm : bool`
-- `mode : enum { STREAM, LATEST, DECIMATED }`
-- `decimation : u16` (valid when mode=DECIMATED; 1=none)
+- `mode : enum { STREAM, RATE_LIMITED }`
 - `descriptor_stream_id : u32` (optional; assigned per-consumer descriptor stream ID)
 - `control_stream_id : u32` (optional; assigned per-consumer control stream ID)
 - `payload_fallback_uri : string` (optional; e.g., bridge channel/stream info)
@@ -342,7 +346,7 @@ Sent on startup and optionally periodically.
 - `control_channel : string` (optional; assigned per-consumer control channel)
 
 **Purpose**
-- Central authority can force GUI into LATEST or DECIMATED.
+- Central authority can force GUI into RATE_LIMITED.
 - Can redirect non-local consumers to bridged payload.
 - Can assign per-consumer descriptor streams when requested.
 - Can assign per-consumer control streams when requested.
@@ -362,7 +366,7 @@ One per produced tensor/frame.
 **Fields**
 - `stream_id : u32`
 - `epoch : u64`
-- `seq : u64` (monotonic; MUST equal `frame_id` in v1.1)
+- `seq : u64` (monotonic; MUST equal `logical_sequence = seq_commit >> 1` in the header)
 - `header_index : u32` (`seq & (header_nslots - 1)`)
 
 Optional fields (may reduce SHM reads for filtering):
@@ -372,7 +376,7 @@ Optional fields (may reduce SHM reads for filtering):
 **Rules**
 - Consumers MUST ignore descriptors whose `epoch` does not match mapped SHM regions.
 - Consumers derive all payload location/shape/type from the SHM header slot.
-- Consumer MUST drop if the header slot’s committed `frame_id` (derived from `commit_word` or header) does not equal `FrameDescriptor.seq` for that `header_index` (stale reuse guard).
+- Consumer MUST drop if the header slot’s committed `logical_sequence` (derived from `seq_commit >> 1`) does not equal `FrameDescriptor.seq` for that `header_index` (stale reuse guard).
 
 #### 10.2.2 FrameProgress (producer → interested consumers, optional)
 
@@ -381,7 +385,7 @@ Optional partial-availability hints during DMA.
 **Fields**
 - `stream_id : u32`
 - `epoch : u64`
-- `frame_id : u64` (MUST equal `FrameDescriptor.seq` and the header `frame_id`)
+- `frame_id : u64` (MUST equal `FrameDescriptor.seq` and the header logical sequence)
 - `header_index : u32`
 - `payload_bytes_filled : u64`
 - `state : enum { UNKNOWN=0, STARTED=1, PROGRESS=2, COMPLETE=3 }`
@@ -390,13 +394,13 @@ Optional partial-availability hints during DMA.
 **Rules**
 - Producer emits `STARTED` when acquisition for the slot begins.
 - Producer emits `PROGRESS` throttled (e.g., every N rows or X µs) with updated `payload_bytes_filled`.
-- Producer emits `COMPLETE` or simply the usual `FrameDescriptor` when DMA finishes; `commit_word` semantics remain unchanged (even = committed).
+- Producer emits `COMPLETE` or simply the usual `FrameDescriptor` when DMA finishes; `seq_commit` semantics remain unchanged (LSB=1 = committed).
 - Consumers that do not opt in ignore `FrameProgress` and rely on `FrameDescriptor`.
 - Consumers that opt in must read only the prefix `[0:payload_bytes_filled)` (or rows up to `rows_filled`) and may reread `payload_bytes_filled` to confirm.
-- `FrameProgress.state=COMPLETE` does **not** guarantee payload visibility; consumers MUST still validate `commit_word` before treating data as committed.
+- `FrameProgress.state=COMPLETE` does **not** guarantee payload visibility; consumers MUST still validate `seq_commit` before treating data as committed.
 - FrameDescriptor remains the canonical “frame available” signal; consumers MUST NOT treat `FrameProgress` (including COMPLETE) as a substitute, and producers MAY omit `FrameProgress` entirely.
 - Progress payload prefix safety:
-  - If strides are inferred contiguous **and** `payload_offset=0`, then bytes in `[0:payload_bytes_filled)` are safe to read (subject to `commit_word`).
+  - If strides are inferred contiguous **and** `payload_offset=0`, then bytes in `[0:payload_bytes_filled)` are safe to read (subject to `seq_commit`).
   - Otherwise, treat `payload_bytes_filled` as informational only unless `rows_filled` is present and the consumer understands the row layout; consumers MUST NOT assume prefix contiguity.
 
 **State machine**
@@ -494,12 +498,7 @@ It may publish:
 ## 11. Consumer Modes
 
 - **STREAM**: process all descriptors; drop if late.
-- **LATEST**: keep newest descriptor only; render/process at low rate.
-- **DECIMATED**: process every Nth frame (N = `decimation`).
-
-Progress with DECIMATED: producers MAY emit `FrameProgress` for all frames; decimating consumers MAY ignore progress for dropped frames. Implementations MAY optionally suppress progress for frames that will be decimated to reduce control-plane load.
-
-Decimation can be consumer-side or via a tap/rate limiter service.
+- **RATE_LIMITED**: consumer requests reduced-rate delivery (e.g., per-consumer descriptor/control stream or downstream rate limiter). Producer/supervisor MAY decline; if declined, consumer remains on the shared stream and MAY drop locally. `max_rate_hz` in `ConsumerHello` is authoritative when `mode=RATE_LIMITED`.
 
 ---
 
@@ -518,7 +517,7 @@ Decimation can be consumer-side or via a tap/rate limiter service.
 - SHM layout must remain language-agnostic: no runtime-specific pointers/vtables/handles; only POD data per the SBE schema.
 - Use `Mmap.mmap` on `region_uri` paths.
 - Decode SBE directly from mapped memory (no allocations in hot paths).
-- Implement `commit_word` loads/stores with acquire/release semantics.
+- Implement `seq_commit` loads/stores with acquire/release semantics.
 - Avoid storing language-managed pointers/handles (GC/JVM/Rust lifetimes/Julia-managed) in SHM; only POD per schema.
 - Use Aeron transport via Aeron.jl and SBE encoding/decoding via SBE.jl.
 - Use Agent.jl for agent-style services (supervisor/console, bridge, rate limiter) to mirror Aeron/Agrona agents with structured lifecycle.
@@ -552,9 +551,9 @@ End of specification.
 - On `epoch` change, producer SHOULD reset `seq`/`frame_id` to 0; consumers MUST drop stale frames, unmap, and remap regions.
 - Consumers treat any regression of `epoch` or `seq` as a remap requirement.
 
-### 15.3 Commit Protocol Edge Cases
-- If `commit_word` is even but lower than a previously observed value for the same slot, consumers MUST treat it as stale and skip.
-- If `commit_word` changes between the two reads in the consumer flow, count as `drops_late` and skip the frame.
+- ### 15.3 Commit Protocol Edge Cases
+- If `seq_commit` decreases for the same slot (e.g., lower `logical_sequence`), consumers MUST treat it as stale and skip.
+- If `seq_commit` changes between the two reads in the consumer flow, count as `drops_late` and skip the frame.
 - Specify atomics per language: C/C++ `std::atomic<uint64_t>` with release/acquire; Java `VarHandle` setRelease/getAcquire; Julia `Base.Threads.atomic_store!`/`atomic_load!` with :release/:acquire.
 
 ### 15.4 Overwrite and Drop Accounting
@@ -650,20 +649,21 @@ End of specification.
 ### 15.18 Normative Algorithms (minimal, per role)
 - **Producer publish**
   1. Compute `header_index = seq & (nslots - 1)`.
-  2. Store `commit_word = (frame_id << 1) | 1` (WRITING, release or relaxed).
-  3. Fill payload bytes (DMA or memcpy).
-  4. Fill the full header (including `frame_id=seq`, shape/strides, pool/slot, metadata refs).
-  5. Ensure payload visibility to CPUs.
-  6. Store `commit_word = (frame_id << 1)` with release.
-  7. Emit `FrameDescriptor` (and optional `FrameProgress COMPLETE`).
+  2. Compute `in_progress = (seq << 1) | 0`, `committed = (seq << 1) | 1`.
+  3. Store `seq_commit = in_progress` (release or relaxed).
+  4. Fill payload bytes (DMA or memcpy).
+  5. Fill the full header (shape/strides, pool/slot, metadata refs).
+  6. Ensure payload visibility to CPUs.
+  7. Store `seq_commit = committed` with release.
+  8. Emit `FrameDescriptor` (and optional `FrameProgress COMPLETE`).
 
 - **Consumer receive**
   1. On `FrameDescriptor`, validate `epoch`; derive/map `header_index`.
-  2. Read `commit_word` (acquire).
-  3. If odd → drop/skip.
+  2. Read `seq_commit` (acquire).
+  3. If LSB is 0 → drop/skip.
   4. Read header + payload.
-  5. Re-read `commit_word` (acquire).
-  6. Accept only if unchanged and even **and** header `frame_id` equals `seq`; otherwise drop and count (`drops_gap` or `drops_late`).
+  5. Re-read `seq_commit` (acquire).
+  6. Accept only if unchanged, LSB is 1, and `(seq_commit >> 1) == seq`; otherwise drop and count (`drops_gap` or `drops_late`).
 
 - **Epoch remap**
   1. On `epoch` change, superblock/layout mismatch, or magic/version mismatch: unmap all regions for the stream.
@@ -910,7 +910,7 @@ Reference schema patterned after Aeron archive control style; adjust IDs and fie
     <!-- Fixed-length arrays for TensorSlotHeader256 (length matches MaxDimsConst) -->
     <type name="DimsArray"     primitiveType="int32" length="8"/>
     <type name="StridesArray"  primitiveType="int32" length="8"/>
-    <type name="Pad144"        primitiveType="uint8" length="144"/>
+    <type name="Pad152"        primitiveType="uint8" length="152"/>
 
     <enum name="Bool" encodingType="uint8">
       <validValue name="FALSE">0</validValue>
@@ -919,8 +919,7 @@ Reference schema patterned after Aeron archive control style; adjust IDs and fie
 
     <enum name="Mode" encodingType="uint8">
       <validValue name="STREAM">1</validValue>
-      <validValue name="LATEST">2</validValue>
-      <validValue name="DECIMATED">3</validValue>
+      <validValue name="RATE_LIMITED">2</validValue>
     </enum>
 
     <enum name="FrameProgressState" encodingType="uint8">
@@ -995,7 +994,7 @@ Reference schema patterned after Aeron archive control style; adjust IDs and fie
     <field name="supportsShm"           id="3" type="Bool"/>
     <field name="supportsProgress"      id="4" type="Bool"/>
     <field name="mode"                  id="5" type="Mode"/>
-    <field name="maxRateHz"             id="6" type="uint16"/>
+    <field name="maxRateHz"             id="6" type="uint32"/>
     <field name="expectedLayoutVersion" id="7" type="version_t"/>
     <field name="progressIntervalUs"    id="8" type="uint32" presence="optional" nullValue="4294967295"/>
     <field name="progressBytesDelta"    id="9" type="uint32" presence="optional" nullValue="4294967295"/>
@@ -1011,7 +1010,6 @@ Reference schema patterned after Aeron archive control style; adjust IDs and fie
     <field name="consumerId"         id="2" type="uint32"/>
     <field name="useShm"             id="3" type="Bool"/>
     <field name="mode"               id="4" type="Mode"/>
-    <field name="decimation"         id="5" type="uint16"/>
     <field name="descriptorStreamId" id="6" type="uint32" presence="optional" nullValue="4294967295"/>
     <field name="controlStreamId"    id="7" type="uint32" presence="optional" nullValue="4294967295"/>
     <data  name="payloadFallbackUri" id="8" type="varAsciiEncoding"/>
@@ -1073,22 +1071,21 @@ Reference schema patterned after Aeron archive control style; adjust IDs and fie
   </sbe:message>
 
   <sbe:message name="TensorSlotHeader256" id="51" blockLength="256">
-    <field name="commitWord"     id="1" type="uint64"/>
-    <field name="frameId"        id="2" type="seq_t"/>
-    <field name="timestampNs"    id="3" type="uint64"/>
-    <field name="metaVersion"    id="4" type="version_t"/>
-    <field name="valuesLenBytes" id="5" type="uint32"/>
-    <field name="payloadSlot"    id="6" type="uint32"/>
-    <field name="payloadOffset"  id="7" type="uint32"/>
-    <field name="poolId"         id="8" type="uint16"/>
-    <field name="dtype"          id="9" type="Dtype"/>
-    <field name="majorOrder"     id="10" type="MajorOrder"/>
-    <field name="ndims"          id="11" type="uint8"/>
-    <field name="maxDims"        id="16" type="MaxDimsConst"/>
-    <field name="padAlign"       id="12" type="uint8"/>
+    <field name="seqCommit"      id="1" type="uint64"/>
+    <field name="valuesLenBytes" id="2" type="uint32"/>
+    <field name="payloadSlot"    id="3" type="uint32"/>
+    <field name="poolId"         id="4" type="uint16"/>
+    <field name="dtype"          id="5" type="Dtype"/>
+    <field name="majorOrder"     id="6" type="MajorOrder"/>
+    <field name="ndims"          id="7" type="uint8"/>
+    <field name="maxDims"        id="8" type="MaxDimsConst"/>
+    <field name="padAlign"       id="9" type="uint8"/>
+    <field name="payloadOffset"  id="10" type="uint32"/>
+    <field name="timestampNs"    id="11" type="uint64"/>
+    <field name="metaVersion"    id="12" type="version_t"/>
     <field name="dims"           id="13" type="DimsArray"/>
     <field name="strides"        id="14" type="StridesArray"/>
-    <field name="padding"        id="15" type="Pad144"/>
+    <field name="padding"        id="15" type="Pad152"/>
   </sbe:message>
 
   <sbe:message name="DataSourceAnnounce" id="7">

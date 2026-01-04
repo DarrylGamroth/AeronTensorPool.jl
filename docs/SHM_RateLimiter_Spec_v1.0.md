@@ -114,7 +114,7 @@ Optional keys and defaults:
 - `rate_limiter.forward_progress` (bool): forward `FrameProgress`. Default: `false`.
 - `rate_limiter.forward_qos` (bool): forward QoS messages. Default: `false`.
 - `rate_limiter.mode` (string): `rate_limit` or `latest`. Default: `rate_limit`.
-- `rate_limiter.max_rate_hz` (uint16): fallback publish rate when `ConsumerHello.max_rate_hz` is absent. Default: `0` (unlimited).
+- `rate_limiter.max_rate_hz` (uint32): fallback publish rate when `ConsumerHello.max_rate_hz` is absent. Default: `0` (unlimited).
 - `rate_limiter.control_channel` (string): local IPC control channel for forwarded progress. Default: `"aeron:ipc"`.
 - `rate_limiter.source_control_stream_id` (uint32): source control stream ID to subscribe for `FrameProgress`. Default: `0` (disabled).
 - `rate_limiter.dest_control_stream_id` (uint32): destination control stream ID for forwarded `FrameProgress`. Default: `0` (disabled).
@@ -129,7 +129,7 @@ Each `mappings` entry:
 - `source_stream_id` (uint32)
 - `dest_stream_id` (uint32)
 - `profile` (string): destination profile name or pool mapping policy.
-- `max_rate_hz` (uint16, optional): per-mapping fallback when `ConsumerHello.max_rate_hz` is absent. Default: inherit `rate_limiter.max_rate_hz`.
+- `max_rate_hz` (uint32, optional): per-mapping fallback when `ConsumerHello.max_rate_hz` is absent. Default: inherit `rate_limiter.max_rate_hz`.
 - `metadata_stream_id` (uint32, optional): destination metadata stream_id. Default: `dest_stream_id`.
 
 Example config: `docs/examples/rate_limiter_config_example.toml`.

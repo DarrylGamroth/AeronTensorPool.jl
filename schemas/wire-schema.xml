@@ -35,18 +35,17 @@
     <!-- Fixed-length arrays for TensorSlotHeader256 (length matches MaxDimsConst) -->
     <type name="DimsArray"     primitiveType="int32" length="8"/>
     <type name="StridesArray"  primitiveType="int32" length="8"/>
-    <type name="Pad144"        primitiveType="uint8" length="144"/>
+    <type name="Pad152"        primitiveType="uint8" length="152"/>
 
     <enum name="Bool" encodingType="uint8">
       <validValue name="FALSE">0</validValue>
       <validValue name="TRUE">1</validValue>
     </enum>
 
-    <enum name="Mode" encodingType="uint8">
-      <validValue name="STREAM">1</validValue>
-      <validValue name="LATEST">2</validValue>
-      <validValue name="DECIMATED">3</validValue>
-    </enum>
+  <enum name="Mode" encodingType="uint8">
+    <validValue name="STREAM">1</validValue>
+    <validValue name="RATE_LIMITED">2</validValue>
+  </enum>
 
     <enum name="FrameProgressState" encodingType="uint8">
       <validValue name="UNKNOWN">0</validValue>
@@ -120,7 +119,7 @@
     <field name="supportsShm"           id="3" type="Bool"/>
     <field name="supportsProgress"      id="4" type="Bool"/>
     <field name="mode"                  id="5" type="Mode"/>
-    <field name="maxRateHz"             id="6" type="uint16"/>
+    <field name="maxRateHz"             id="6" type="uint32"/>
     <field name="expectedLayoutVersion" id="7" type="version_t"/>
     <field name="progressIntervalUs"    id="8" type="uint32" presence="optional" nullValue="4294967295"/>
     <field name="progressBytesDelta"    id="9" type="uint32" presence="optional" nullValue="4294967295"/>
@@ -136,7 +135,6 @@
     <field name="consumerId"         id="2" type="uint32"/>
     <field name="useShm"             id="3" type="Bool"/>
     <field name="mode"               id="4" type="Mode"/>
-    <field name="decimation"         id="5" type="uint16"/>
     <field name="descriptorStreamId" id="6" type="uint32" presence="optional" nullValue="4294967295"/>
     <field name="controlStreamId"    id="7" type="uint32" presence="optional" nullValue="4294967295"/>
     <data  name="payloadFallbackUri" id="8" type="varAsciiEncoding"/>
@@ -198,22 +196,21 @@
   </sbe:message>
 
   <sbe:message name="TensorSlotHeader256" id="51" blockLength="256">
-    <field name="commitWord"     id="1" type="uint64"/>
-    <field name="frameId"        id="2" type="seq_t"/>
-    <field name="timestampNs"    id="3" type="uint64"/>
-    <field name="metaVersion"    id="4" type="version_t"/>
-    <field name="valuesLenBytes" id="5" type="uint32"/>
-    <field name="payloadSlot"    id="6" type="uint32"/>
-    <field name="payloadOffset"  id="7" type="uint32"/>
-    <field name="poolId"         id="8" type="uint16"/>
-    <field name="dtype"          id="9" type="Dtype"/>
-    <field name="majorOrder"     id="10" type="MajorOrder"/>
-    <field name="ndims"          id="11" type="uint8"/>
-    <field name="maxDims"        id="16" type="MaxDimsConst"/>
-    <field name="padAlign"       id="12" type="uint8"/>
+    <field name="seqCommit"      id="1" type="uint64"/>
+    <field name="valuesLenBytes" id="2" type="uint32"/>
+    <field name="payloadSlot"    id="3" type="uint32"/>
+    <field name="poolId"         id="4" type="uint16"/>
+    <field name="dtype"          id="5" type="Dtype"/>
+    <field name="majorOrder"     id="6" type="MajorOrder"/>
+    <field name="ndims"          id="7" type="uint8"/>
+    <field name="maxDims"        id="8" type="MaxDimsConst"/>
+    <field name="padAlign"       id="9" type="uint8"/>
+    <field name="payloadOffset"  id="10" type="uint32"/>
+    <field name="timestampNs"    id="11" type="uint64"/>
+    <field name="metaVersion"    id="12" type="version_t"/>
     <field name="dims"           id="13" type="DimsArray"/>
     <field name="strides"        id="14" type="StridesArray"/>
-    <field name="padding"        id="15" type="Pad144"/>
+    <field name="padding"        id="15" type="Pad152"/>
   </sbe:message>
 
   <sbe:message name="DataSourceAnnounce" id="7">
@@ -234,13 +231,6 @@
       <data  name="format" id="2" type="varAsciiEncoding"/>
       <data  name="value"  id="3" type="varDataEncoding"/>
     </group>
-  </sbe:message>
-
-  <sbe:message name="Heartbeat" id="10">
-    <field name="streamId"    id="1" type="uint32"/>
-    <field name="producerId"  id="2" type="uint32"/>
-    <field name="epoch"       id="3" type="epoch_t"/>
-    <field name="timestampNs" id="4" type="uint64"/>
   </sbe:message>
 
   <sbe:message name="ControlResponse" id="9">
