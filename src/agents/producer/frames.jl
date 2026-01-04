@@ -231,7 +231,7 @@ Returns:
 - `true` if the descriptor was published (shared or per-consumer), `false` otherwise.
 """
 @inline function with_claimed_slot!(
-    fill_fn::F,
+    fill_fn,
     state::ProducerState,
     pool_id::UInt16,
     values_len::Int,
@@ -239,7 +239,7 @@ Returns:
     strides::AbstractVector{Int32},
     dtype::Dtype.SbeEnum,
     meta_version::UInt32,
-) where {F}
+)
     claim = try_claim_slot!(state, pool_id)
     fill_fn(claim)
     return commit_slot!(state, claim, values_len, shape, strides, dtype, meta_version)
@@ -262,7 +262,7 @@ Returns:
 - `true` if the descriptor was published (shared or per-consumer), `false` otherwise.
 """
 @inline function with_claimed_slot!(
-    fill_fn::F,
+    fill_fn,
     state::ProducerState,
     pool_id::UInt16;
     values_len::Int,
@@ -270,7 +270,7 @@ Returns:
     strides::AbstractVector{Int32},
     dtype::Dtype.SbeEnum,
     meta_version::UInt32,
-) where {F}
+)
     return with_claimed_slot!(fill_fn, state, pool_id, values_len, shape, strides, dtype, meta_version)
 end
 
