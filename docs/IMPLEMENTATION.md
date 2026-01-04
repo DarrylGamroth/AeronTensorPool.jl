@@ -367,10 +367,4 @@ commit_slot!(
     Dtype.UINT8,
     meta_version,
 )
-
-# Example: multiple in-flight buffers tracked by InflightQueue.
-queue = InflightQueue(8)
-push!(queue, try_claim_slot!(state, pool_id))
-done = popfirst!(queue)
-commit_slot!(state, done, values_len, shape, strides, Dtype.UINT8, meta_version)
 ```

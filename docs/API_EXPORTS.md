@@ -17,7 +17,7 @@ This is the Phase 0 export inventory for AeronTensorPool. Public exports are def
 - ShmAttachRequest, ShmAttachResponse, ShmDetachRequest, ShmDetachResponse, ShmLeaseKeepalive
 - ShmDriverShutdown, ShmLeaseRevoked, ShmDriverShutdownRequest
 - FixedString, DriverPool, AttachResponse, DetachResponse, LeaseRevoked, DriverShutdown
-- SlotClaim, InflightQueue
+- SlotClaim
 
 ## Exported Functions
 - seqlock_begin_write!, seqlock_commit_write!, seqlock_read_begin, seqlock_read_end, seqlock_is_write_in_progress, seqlock_frame_id

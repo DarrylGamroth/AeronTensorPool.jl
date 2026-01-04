@@ -1,6 +1,5 @@
 include("state.jl")
 include("shm.jl")
-include("inflight_queue.jl")
 include("frames.jl")
 include("proxy.jl")
 include("handlers.jl")

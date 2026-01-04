@@ -80,6 +80,18 @@ mutable struct PayloadView
 end
 
 """
+Claim handle for a payload slot that will be filled externally.
+"""
+struct SlotClaim
+    seq::UInt64
+    header_index::UInt32
+    pool_id::UInt16
+    payload_slot::UInt32
+    ptr::Ptr{UInt8}
+    stride_bytes::Int
+end
+
+"""
 Return a view over the payload bytes for a PayloadView.
 
 Arguments:

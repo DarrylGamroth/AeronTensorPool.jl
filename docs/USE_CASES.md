@@ -61,16 +61,3 @@ commit_slot!(
     meta_version,
 )
 ```
-
-### In-flight queue helper
-
-If you want to track multiple in-flight claims:
-
-```julia
-queue = InflightQueue(64)
-claim = try_claim_slot!(state, pool_id)
-push!(queue, claim)
-
-done = popfirst!(queue)
-commit_slot!(state, done, values_len, shape, strides, Dtype.UINT8, meta_version)
-```
