@@ -62,7 +62,7 @@ function offer_frame!(
     strides::AbstractVector{Int32},
     dtype::Dtype.SbeEnum,
     meta_version::UInt32,
-    hooks::ProducerHooks = NOOP_PRODUCER_HOOKS,
+    hooks::ProducerHooks,
 )
     producer_driver_active(state) || return false
 
