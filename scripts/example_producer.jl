@@ -3,6 +3,28 @@ using Agent
 using Aeron
 using AeronTensorPool
 
+mutable struct AppProducerAgent
+    producer::ProducerState
+    control_asm::Aeron.FragmentAssembler
+    qos_asm::Aeron.FragmentAssembler
+    payload::Vector{UInt8}
+    shape::Vector{Int32}
+    strides::Vector{Int32}
+    sent::Int
+    max_count::Int
+end
+
+Agent.name(::AppProducerAgent) = "app-producer"
+
+function Agent.do_work(agent::AppProducerAgent)
+    if agent.max_count == 0 || agent.sent < agent.max_count
+        fill!(agent.payload, UInt8(agent.sent % 256))
+        publish_frame!(agent.producer, agent.payload, agent.shape, agent.strides, Dtype.UINT8, UInt32(0))
+        agent.sent += 1
+    end
+    return producer_do_work!(agent.producer, agent.control_asm; qos_assembler = agent.qos_asm)
+end
+
 function usage()
     println("Usage: julia --project scripts/example_producer.jl [driver_config] [producer_config] [count] [payload_bytes]")
 end
@@ -51,24 +73,22 @@ function run_producer(driver_cfg_path::String, producer_cfg_path::String, count:
             producer = init_producer_from_attach(prod_cfg, attach; driver_client = driver_client, client = client)
             ctrl_asm = make_control_assembler(producer)
             qos_asm = make_qos_assembler(producer)
-            counters = ProducerCounters(producer.runtime.control.client, Int(producer.config.producer_id), "Producer")
-            agent = ProducerAgent(producer, ctrl_asm, qos_asm, counters)
-            runner = AgentRunner(BusySpinIdleStrategy(), agent)
-
             payload = Vector{UInt8}(undef, payload_bytes)
             shape = Int32[payload_bytes]
             strides = Int32[1]
+            agent = AppProducerAgent(producer, ctrl_asm, qos_asm, payload, shape, strides, 0, count)
+            runner = AgentRunner(BusySpinIdleStrategy(), agent)
 
-            sent = 0
             Agent.start_on_thread(runner)
-            while count <= 0 || sent < count
-                fill!(payload, UInt8(sent % 256))
-                publish_frame!(producer, payload, shape, strides, Dtype.UINT8, UInt32(0))
-                sent += 1
-                yield()
+            if count > 0
+                while agent.sent < count
+                    yield()
+                end
+            else
+                wait(runner)
             end
             close(runner)
-            @info "Producer done" sent
+            @info "Producer done" agent.sent
         end
     end
 end

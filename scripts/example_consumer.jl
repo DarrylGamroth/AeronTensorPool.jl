@@ -3,6 +3,32 @@ using Agent
 using Aeron
 using AeronTensorPool
 
+mutable struct AppConsumerAgent
+    consumer::ConsumerState
+    desc_asm::Aeron.FragmentAssembler
+    ctrl_asm::Aeron.FragmentAssembler
+    last_frame::UInt64
+    seen::Int
+    max_count::Int
+end
+
+Agent.name(::AppConsumerAgent) = "app-consumer"
+
+function Agent.do_work(agent::AppConsumerAgent)
+    consumer_do_work!(agent.consumer, agent.desc_asm, agent.ctrl_asm)
+    header = agent.consumer.runtime.frame_view.header
+    if header.frame_id != 0 && header.frame_id != agent.last_frame
+        agent.last_frame = header.frame_id
+        expected = UInt8(header.frame_id % UInt64(256))
+        payload = payload_view(agent.consumer.runtime.frame_view.payload)
+        ok = check_pattern(payload, expected)
+        ok || error("payload mismatch at frame $(header.frame_id)")
+        agent.seen += 1
+        println("frame=$(header.frame_id) ok")
+    end
+    return 1
+end
+
 function usage()
     println("Usage: julia --project scripts/example_consumer.jl [driver_config] [consumer_config] [count]")
 end
@@ -53,28 +79,19 @@ function run_consumer(driver_cfg_path::String, consumer_cfg_path::String, count:
             consumer = init_consumer_from_attach(cons_cfg, attach; driver_client = driver_client, client = client)
             desc_asm = make_descriptor_assembler(consumer)
             ctrl_asm = make_control_assembler(consumer)
-            counters = ConsumerCounters(consumer.runtime.control.client, Int(consumer.config.consumer_id), "Consumer")
-            agent = ConsumerAgent(consumer, desc_asm, ctrl_asm, counters)
+            agent = AppConsumerAgent(consumer, desc_asm, ctrl_asm, UInt64(0), 0, count)
             runner = AgentRunner(BusySpinIdleStrategy(), agent)
 
-            last_frame = UInt64(0)
-            seen = 0
             Agent.start_on_thread(runner)
-            while count <= 0 || seen < count
-                header = agent.state.runtime.frame_view.header
-                if header.frame_id != 0 && header.frame_id != last_frame
-                    last_frame = header.frame_id
-                    expected = UInt8(header.frame_id % UInt64(256))
-                    payload = payload_view(agent.state.runtime.frame_view.payload)
-                    ok = check_pattern(payload, expected)
-                    ok || error("payload mismatch at frame $(header.frame_id)")
-                    seen += 1
-                    println("frame=$(header.frame_id) ok")
+            if count > 0
+                while agent.seen < count
+                    yield()
                 end
-                yield()
+            else
+                wait(runner)
             end
             close(runner)
-            @info "Consumer done" seen
+            @info "Consumer done" agent.seen
         end
     end
 end
