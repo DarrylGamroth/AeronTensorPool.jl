@@ -13,7 +13,7 @@ It is written to be directly consumable by automated code-generation tools
 
 **Document Conventions** Normative sections: 6–11, 15.1–15.22, 16. Informative sections: 1–5, 12–14. "NOTE:"/"Rationale:" text is informative. Uppercase MUST/SHOULD/MAY keywords appear only in normative sections and carry RFC 2119 force; any lowercase "must/should/may" in informative text is non-normative.
 **Version History**
-- v1.1 (2025-12-30): Initial RFC-style specification. Adds normative algorithms, compatibility matrix, explicit field alignment (TensorSlotHeader256), language-neutral requirements, and progress reporting protocol. Normative wire/SHM schemas included.
+- v1.1 (2025-12-30): Initial RFC-style specification. Adds normative algorithms, compatibility matrix, explicit field alignment (TensorSlotHeader), language-neutral requirements, and progress reporting protocol. Normative wire/SHM schemas included.
 ---
 
 ## 1. Goals
@@ -176,11 +176,11 @@ slot_offset(i) =
     superblock_size + i * 256
 ```
 
-### 8.2 TensorSlotHeader256
+### 8.2 TensorSlotHeader
 
 This header represents “almost fixed-size TensorMessage metadata” with the large `values` buffer stored out-of-line in a payload pool.
 
-SBE definition: `TensorSlotHeader256` message in the schema appendix (v1.1 `MAX_DIMS=8`). The schema includes a `maxDims` constant field for codegen alignment; it is not encoded on the wire and MUST be treated as a compile-time constant. Changing `MAX_DIMS` requires a new `layout_version` and schema rebuild.
+SBE definition: `TensorSlotHeader` message in the schema appendix (v1.1 `MAX_DIMS=8`). The schema includes a `maxDims` constant field for codegen alignment; it is not encoded on the wire and MUST be treated as a compile-time constant. Changing `MAX_DIMS` requires a new `layout_version` and schema rebuild.
 
 **Fields** (in wire/layout order)
 - `seq_commit : u64` (commit + sequence; LSB is commit bit, upper bits are `logical_sequence`)
@@ -204,6 +204,9 @@ Canonical identity: `logical_sequence = seq_commit >> 1`, `FrameDescriptor.seq`,
 - Region-of-interest (ROI) offsets/boxes do not belong in this fixed header; carry ROI in `DataSourceMeta` attributes when needed.
 - Interpretation: `dtype` = scalar element type; `major_order` = row/column-major; `strides` allow arbitrary layouts; 0 strides mean contiguous inferred from shape and dtype.
 - `seq_commit` MUST reside entirely within a single cache line and be written with a single aligned store; assume 64-byte cache lines (common); if different, still place `seq_commit` in the first cache line and use an 8-byte aligned atomic store.
+- `ndims` MUST be in the range `1..MAX_DIMS`; consumers MUST drop frames with `ndims=0` or `ndims > MAX_DIMS`.
+- For v1.1, `payload_offset` MUST be 0; consumers MUST drop frames with non-zero `payload_offset`.
+- Producers MUST zero-fill `dims[i]` and `strides[i]` for all `i >= ndims`; consumers MUST ignore indices `i >= ndims`.
 - Strides: `0` means inferred contiguous; negative strides are **not supported in v1.1**; strides MUST describe a non-overlapping layout consistent with `major_order` (row-major implies increasing stride as dimension index decreases); reject headers whose strides would overlap or contradict `major_order`.
 - Arrays alignment: `pad_align` ensures `dims` and `strides` are 4-byte aligned; consumers may rely on this for word accesses.
 - Padding (`Pad152`) is reserved/opaque; producers MAY leave it zeroed or use it for implementation-specific data; consumers MUST ignore it and MUST NOT store process-specific pointers/addresses there.
@@ -233,7 +236,7 @@ commit_state     = seq_commit & 1
 2. If `(seq_commit & 1) == 0` → skip/drop (not committed).
 3. Read header + payload.
 4. Re-read `seq_commit` (acquire).
-5. Accept only if unchanged and `(seq_commit & 1) == 1`.
+5. Accept only if unchanged, `(seq_commit & 1) == 1`, and `(seq_commit >> 1)` equals the expected sequence (from `FrameDescriptor.seq`).
 
 This prevents torn reads under overwrite.
 
@@ -248,7 +251,7 @@ This prevents torn reads under overwrite.
 - Raw byte buffers with fixed stride.
 - Slot offset:
   ```
-  payload_offset = superblock_size + payload_slot * stride_bytes
+  payload_slot_offset = superblock_size + payload_slot * stride_bytes
   ```
 - Pools MAY be size-classed (e.g. 1 MiB, 16 MiB).
 - Pool selection rule (v1): choose the smallest pool where `stride_bytes >= values_len_bytes`.
@@ -376,7 +379,9 @@ Optional fields (may reduce SHM reads for filtering):
 **Rules**
 - Consumers MUST ignore descriptors whose `epoch` does not match mapped SHM regions.
 - Consumers derive all payload location/shape/type from the SHM header slot.
+- Consumers MUST drop if `header_index` is out of range for the mapped header ring.
 - Consumer MUST drop if the header slot’s committed `logical_sequence` (derived from `seq_commit >> 1`) does not equal `FrameDescriptor.seq` for that `header_index` (stale reuse guard).
+- Consumers MUST drop frames where `values_len_bytes > stride_bytes`, or where `payload_offset + values_len_bytes > stride_bytes` (when `payload_offset` is non-zero in future versions).
 
 #### 10.2.2 FrameProgress (producer → interested consumers, optional)
 
@@ -443,7 +448,7 @@ Sent on change and periodically (or on request). Carries structured key/format/v
   - `value : varData` (bytes per `format`)
 
 **Rules**
-- Each `TensorSlotHeader256.meta_version` and/or `FrameDescriptor.meta_version` references the applicable metadata version.
+- Each `TensorSlotHeader.meta_version` and/or `FrameDescriptor.meta_version` references the applicable metadata version.
 - Use `meta_version` bumps to add/remove `attributes`. Consumers MAY ignore unknown `key` values.
 
 #### 10.3.3 Meta blobs (optional, if large metadata is needed)
@@ -543,22 +548,22 @@ End of specification.
 - Consumers MUST validate that `layout_version`, `nslots`, `slot_bytes`, `stride_bytes`, `region_type`, and `pool_id` in `ShmRegionSuperblock` match the most recent `ShmPoolAnnounce`; mismatches MUST trigger a remap or fallback.
 - Consumers MUST validate `magic` and `epoch` on every `ShmPoolAnnounce`; `pid` is informational and cannot alone detect restarts or multi-producer contention.
 - `max_dims` in `ShmPoolAnnounce` MUST match the compiled SBE schema expectation; otherwise consumers SHOULD reject SHM and use fallback.
-- Consumers MUST validate `announce_timestamp_ns` freshness: announcements older than the freshness window (RECOMMENDED: 3× announce period) MUST be ignored.
+- Consumers MUST validate `activity_timestamp_ns` freshness: announcements older than the freshness window (RECOMMENDED: 3× announce period) MUST be ignored.
 - Host endianness: implementation is little-endian only; big-endian hosts MUST reject or byte-swap consistently (out of scope in v1.1).
 
 ### 15.2 Epoch Lifecycle
 - Increment `epoch` on any producer restart or layout change (superblock size change, `nslots`, pool size classes, or slot size change).
-- On `epoch` change, producer SHOULD reset `seq`/`frame_id` to 0; consumers MUST drop stale frames, unmap, and remap regions.
+- On `epoch` change, producer SHOULD reset `seq` to 0; consumers MUST drop stale frames, unmap, and remap regions.
 - Consumers treat any regression of `epoch` or `seq` as a remap requirement.
 
-- ### 15.3 Commit Protocol Edge Cases
+### 15.3 Commit Protocol Edge Cases
 - If `seq_commit` decreases for the same slot (e.g., lower `logical_sequence`), consumers MUST treat it as stale and skip.
 - If `seq_commit` changes between the two reads in the consumer flow, count as `drops_late` and skip the frame.
 - Specify atomics per language: C/C++ `std::atomic<uint64_t>` with release/acquire; Java `VarHandle` setRelease/getAcquire; Julia `Base.Threads.atomic_store!`/`atomic_load!` with :release/:acquire.
 
 ### 15.4 Overwrite and Drop Accounting
 - Producers MAY overwrite any slot following `header_index = seq & (nslots - 1)` with no waiting.
-- Consumers SHOULD treat gaps in `seq` as `drops_gap` and commit-word instability as `drops_late`.
+- Consumers SHOULD treat gaps in `seq` as `drops_gap` and `seq_commit` instability as `drops_late`.
 - Documented policy: no producer backpressure in v1.1; supervisor MAY act on QoS to throttle externally.
 - Optional policy: implementations MAY configure `max_outstanding_seq_gap` per consumer; if exceeded, consumer SHOULD resync (e.g., drop to latest) and report in QoS.
 - Recommended `max_outstanding_seq_gap` default: 256 frames; deployments MAY tune based on buffer depth and latency tolerance.
@@ -650,7 +655,7 @@ End of specification.
 - **Producer publish**
   1. Compute `header_index = seq & (nslots - 1)`.
   2. Compute `in_progress = (seq << 1) | 0`, `committed = (seq << 1) | 1`.
-  3. Store `seq_commit = in_progress` (release or relaxed).
+  3. Store `seq_commit = in_progress` with release.
   4. Fill payload bytes (DMA or memcpy).
   5. Fill the full header (shape/strides, pool/slot, metadata refs).
   6. Ensure payload visibility to CPUs.
@@ -685,26 +690,26 @@ This section defines protocol state machines for slot lifecycle and mapping/epoc
 #### Terminology
 
 - **Slot**: header slot and its associated payload slot (v1.1: same index).
-- **Commit word**: per-slot commit indicator for logical completeness.
+- **Seq commit**: per-slot commit indicator for logical completeness (`seq_commit`).
 - **DROP**: frame is discarded without error or retry.
 
 #### Slot Lifecycle State Machine (per slot index `i`)
 
 States
 - **S0: EMPTY_OR_STALE** — slot does not contain a valid committed frame (never written, overwritten, or prior epoch).
-- **S1: WRITING** — producer claimed slot and is populating header/payload; commit word indicates in-progress.
-- **S2: COMMITTED(seq)** — slot has a logically complete frame with sequence `seq`; commit word is even and stable.
+- **S1: WRITING** — producer claimed slot and is populating header/payload; `seq_commit` indicates in-progress.
+- **S2: COMMITTED(seq)** — slot has a logically complete frame with sequence `seq`; `seq_commit` has LSB=1 and is stable.
 
 Producer transitions
 | From | Event | Action | To |
 | ---- | ---- | ---- | ---- |
-| S0, S2 | Begin write to slot `i` | Set commit word to WRITING | S1 |
-| S1 | Payload DMA complete and header finalized | Set commit word to an even value (commit) | S2 |
+| S0, S2 | Begin write to slot `i` | Set `seq_commit` to in-progress (LSB=0) | S1 |
+| S1 | Payload DMA complete and header finalized | Set `seq_commit` to committed (LSB=1) | S2 |
 
 Consumer validation rules (given `FrameDescriptor(seq, headerIndex = i)`)
 1. **Slot validity**: `headerIndex` MUST be within the mapped header ring; else DROP.
-2. **Commit stability**: MUST observe a stable, even commit word before accepting; if WRITING/unstable, DROP.
-3. **Frame identity**: header `frame_id` MUST equal `FrameDescriptor.seq`; if not, DROP.
+2. **Commit stability**: MUST observe a stable `seq_commit` with LSB=1 before accepting; if WRITING/unstable, DROP.
+3. **Frame identity**: `(seq_commit >> 1)` MUST equal `FrameDescriptor.seq` (same rule as §10.2.1); if not, DROP.
 4. **No waiting**: MUST NOT block/spin waiting for commit; on any failure, DROP and continue.
 
 Dropped frames are treated as overwritten or in-flight; they are not errors.
@@ -907,7 +912,7 @@ Reference schema patterned after Aeron archive control style; adjust IDs and fie
     <!-- Constant used for array sizing in generated code -->
     <type name="MaxDimsConst" primitiveType="uint8" presence="constant">8</type>
 
-    <!-- Fixed-length arrays for TensorSlotHeader256 (length matches MaxDimsConst) -->
+    <!-- Fixed-length arrays for TensorSlotHeader (length matches MaxDimsConst) -->
     <type name="DimsArray"     primitiveType="int32" length="8"/>
     <type name="StridesArray"  primitiveType="int32" length="8"/>
     <type name="Pad152"        primitiveType="uint8" length="152"/>
@@ -1070,7 +1075,7 @@ Reference schema patterned after Aeron archive control style; adjust IDs and fie
     <field name="activityTimestampNs" id="12" type="uint64"/>
   </sbe:message>
 
-  <sbe:message name="TensorSlotHeader256" id="51" blockLength="256">
+  <sbe:message name="TensorSlotHeader" id="51" blockLength="256">
     <field name="seqCommit"      id="1" type="uint64"/>
     <field name="valuesLenBytes" id="2" type="uint32"/>
     <field name="payloadSlot"    id="3" type="uint32"/>
@@ -1081,6 +1086,7 @@ Reference schema patterned after Aeron archive control style; adjust IDs and fie
     <field name="maxDims"        id="8" type="MaxDimsConst"/>
     <field name="padAlign"       id="9" type="uint8"/>
     <field name="payloadOffset"  id="10" type="uint32"/>
+    <!-- v1.1: payloadOffset MUST be 0 (reserved) -->
     <field name="timestampNs"    id="11" type="uint64"/>
     <field name="metaVersion"    id="12" type="version_t"/>
     <field name="dims"           id="13" type="DimsArray"/>

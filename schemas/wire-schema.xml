@@ -32,7 +32,7 @@
     <!-- Constant used for array sizing in generated code -->
     <type name="MaxDimsConst" primitiveType="uint8" presence="constant">8</type>
 
-    <!-- Fixed-length arrays for TensorSlotHeader256 (length matches MaxDimsConst) -->
+    <!-- Fixed-length arrays for TensorSlotHeader (length matches MaxDimsConst) -->
     <type name="DimsArray"     primitiveType="int32" length="8"/>
     <type name="StridesArray"  primitiveType="int32" length="8"/>
     <type name="Pad152"        primitiveType="uint8" length="152"/>
@@ -195,7 +195,7 @@
     <field name="activityTimestampNs" id="12" type="uint64"/>
   </sbe:message>
 
-  <sbe:message name="TensorSlotHeader256" id="51" blockLength="256">
+  <sbe:message name="TensorSlotHeader" id="51" blockLength="256">
     <field name="seqCommit"      id="1" type="uint64"/>
     <field name="valuesLenBytes" id="2" type="uint32"/>
     <field name="payloadSlot"    id="3" type="uint32"/>
