@@ -20,6 +20,10 @@ end
 
 Agent.name(::AppConsumerAgent) = "app-consumer"
 
+@inline function default_aeron_dir()
+    return "/dev/shm/aeron"
+end
+
 function Agent.on_start(agent::AppConsumerAgent)
     return nothing
 end
@@ -36,6 +40,8 @@ function Agent.on_start(agent::AppConsumerAgent)
     env = Dict(ENV)
     if !isempty(control.aeron_dir)
         env["AERON_DIR"] = control.aeron_dir
+    else
+        env["AERON_DIR"] = default_aeron_dir()
     end
     env["TP_STREAM_ID"] = string(stream_id)
     cons_cfg = load_consumer_config(agent.consumer_cfg_path; env = env)
