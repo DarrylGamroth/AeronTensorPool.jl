@@ -25,32 +25,26 @@ end
 
 Agent.name(::AppConsumerAgent) = "app-consumer"
 
-function make_app_descriptor_assembler(agent::AppConsumerAgent, state::ConsumerState)
-    handler = Aeron.FragmentHandler(agent) do app, buffer, _
-        header = MessageHeader.Decoder(buffer, 0)
-        if MessageHeader.templateId(header) == AeronTensorPool.TEMPLATE_FRAME_DESCRIPTOR
-            FrameDescriptor.wrap!(state.runtime.desc_decoder, buffer, 0; header = header)
-            if try_read_frame!(state, state.runtime.desc_decoder)
-                state.metrics.frames_ok += 1
-                frame_id = state.runtime.frame_view.header.frame_id
-                expected = UInt8(frame_id % UInt64(256))
-                payload = payload_view(state.runtime.frame_view.payload)
-                if app.validated < app.validate_limit
-                    app.validated += 1
-                    if !check_pattern(payload, expected)
-                        actual = isempty(payload) ? UInt8(0) : @inbounds payload[1]
-                        @warn "payload mismatch" frame_id expected actual
-                    end
-                end
-                app.seen += 1
-                if app.seen % 100 == 0
-                    println("frame=$(frame_id) ok")
-                end
-            end
+struct AppConsumerOnFrame
+    app::AppConsumerAgent
+end
+
+function (hook::AppConsumerOnFrame)(state::ConsumerState, frame::ConsumerFrameView)
+    frame_id = frame.header.frame_id
+    expected = UInt8(frame_id % UInt64(256))
+    payload = payload_view(frame.payload)
+    if hook.app.validated < hook.app.validate_limit
+        hook.app.validated += 1
+        if !check_pattern(payload, expected)
+            actual = isempty(payload) ? UInt8(0) : @inbounds payload[1]
+            @warn "payload mismatch" frame_id expected actual
         end
-        nothing
     end
-    return Aeron.FragmentAssembler(handler)
+    hook.app.seen += 1
+    if hook.app.seen % 100 == 0
+        println("frame=$(frame_id) ok")
+    end
+    return nothing
 end
 
 function Agent.on_start(agent::AppConsumerAgent)
@@ -90,7 +84,8 @@ function Agent.on_start(agent::AppConsumerAgent)
 
     consumer_state =
         init_consumer_from_attach(agent.consumer_cfg, attach; driver_client = agent.driver_client, client = agent.client)
-    desc_asm = make_app_descriptor_assembler(agent, consumer_state)
+    hooks = ConsumerHooks(AppConsumerOnFrame(agent))
+    desc_asm = make_descriptor_assembler(consumer_state; hooks = hooks)
     ctrl_asm = make_control_assembler(consumer_state)
     counters =
         ConsumerCounters(consumer_state.runtime.control.client, Int(consumer_state.config.consumer_id), "Consumer")

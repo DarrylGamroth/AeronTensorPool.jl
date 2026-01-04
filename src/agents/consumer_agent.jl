@@ -14,6 +14,7 @@ Construct a ConsumerAgent from a ConsumerSettings.
 Arguments:
 - `config`: consumer settings.
 - `client`: Aeron client to use for publications/subscriptions.
+- `hooks`: optional consumer hooks.
 
 Returns:
 - `ConsumerAgent` wrapping the consumer state and assemblers.
@@ -21,9 +22,10 @@ Returns:
 function ConsumerAgent(
     config::ConsumerSettings;
     client::Aeron.Client,
+    hooks::ConsumerHooks = NOOP_CONSUMER_HOOKS,
 )
     state = init_consumer(config; client = client)
-    descriptor_assembler = make_descriptor_assembler(state)
+    descriptor_assembler = make_descriptor_assembler(state; hooks = hooks)
     control_assembler = make_control_assembler(state)
     counters = ConsumerCounters(state.runtime.control.client, Int(config.consumer_id), "Consumer")
     return ConsumerAgent(state, descriptor_assembler, control_assembler, counters)

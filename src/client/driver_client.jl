@@ -28,6 +28,7 @@ Arguments:
 - `client_id`: unique client identifier.
 - `role`: driver role enum (producer/consumer/etc).
 - `keepalive_interval_ns`: keepalive interval in nanoseconds (keyword).
+- `attach_purge_interval_ns`: purge interval for stale attach responses (keyword).
 
 Returns:
 - `DriverClientState` initialized for control-plane operations.
