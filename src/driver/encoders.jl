@@ -53,7 +53,7 @@ function emit_attach_response!(
         stream_state = stream_state,
         error_message = error_message,
         payload_count = payload_count
-        @info "emit_attach_response" correlation_id code lease_id lease_expiry_ns
+        @tp_info "emit_attach_response" correlation_id code lease_id lease_expiry_ns
         sent = with_claimed_buffer!(st.runtime.control.pub_control, st.runtime.control_claim, msg_len) do buf
             ShmAttachResponse.wrap_and_apply_header!(st.runtime.attach_encoder, buf, 0)
             ShmAttachResponse.correlationId!(st.runtime.attach_encoder, correlation_id)

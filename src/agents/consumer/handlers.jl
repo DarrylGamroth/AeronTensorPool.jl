@@ -11,7 +11,7 @@ function make_descriptor_assembler(state::ConsumerState)
     handler = Aeron.FragmentHandler(state) do st, buffer, _
         header = MessageHeader.Decoder(buffer, 0)
         if MessageHeader.templateId(header) == TEMPLATE_FRAME_DESCRIPTOR
-            @info "consumer descriptor received"
+            @tp_info "consumer descriptor received"
             FrameDescriptor.wrap!(st.runtime.desc_decoder, buffer, 0; header = header)
             try_read_frame!(st, st.runtime.desc_decoder) && (st.metrics.frames_ok += 1)
         end

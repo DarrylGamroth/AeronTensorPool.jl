@@ -11,11 +11,11 @@ Returns:
 function handle_driver_control!(state::DriverState, buffer::AbstractVector{UInt8})
     header = DriverMessageHeader.Decoder(buffer, 0)
     template_id = DriverMessageHeader.templateId(header)
-    @info "driver control message" template_id
+    @tp_info "driver control message" template_id
 
     if template_id == TEMPLATE_SHM_ATTACH_REQUEST
         ShmAttachRequest.wrap!(state.runtime.attach_decoder, buffer, 0; header = header)
-        @info "attach request" correlation_id = ShmAttachRequest.correlationId(state.runtime.attach_decoder) stream_id =
+        @tp_info "attach request" correlation_id = ShmAttachRequest.correlationId(state.runtime.attach_decoder) stream_id =
             ShmAttachRequest.streamId(state.runtime.attach_decoder) client_id =
             ShmAttachRequest.clientId(state.runtime.attach_decoder) role =
             ShmAttachRequest.role(state.runtime.attach_decoder)

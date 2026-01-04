@@ -18,6 +18,8 @@ include("gen/ShmTensorpoolBridge.jl")
 using .ShmTensorpoolBridge
 
 include("core/constants.jl")
+include("core/logging.jl")
+using .TPLog
 include("core/fixed_string.jl")
 include("core/messages.jl")
 include("core/types.jl")

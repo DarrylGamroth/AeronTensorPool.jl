@@ -98,7 +98,7 @@ function send_attach!(
         max_dims = max_dims,
         publish_mode = publish_mode,
         require_hugepages = require_hugepages
-        @info "send_attach!" correlation_id stream_id client_id role expected_layout_version max_dims publish_mode require_hugepages
+        @tp_info "send_attach!" correlation_id stream_id client_id role expected_layout_version max_dims publish_mode require_hugepages
         with_claimed_buffer!(p.pub, p.claim, msg_len) do buf
             ShmAttachRequest.wrap_and_apply_header!(p.encoder, buf, 0)
             ShmAttachRequest.correlationId!(p.encoder, correlation_id)

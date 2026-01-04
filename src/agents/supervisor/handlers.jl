@@ -240,16 +240,16 @@ function check_liveness!(state::SupervisorState, now_ns::UInt64)
     for (pid, info) in state.tracking.producers
         last_seen = max(info.last_announce_ns, info.last_qos_ns)
         if last_seen > 0 && now_ns - last_seen > timeout
-            @warn "Producer stale" producer_id = pid epoch = info.epoch
+            @tp_warn "Producer stale" producer_id = pid epoch = info.epoch
         end
     end
     for (cid, info) in state.tracking.consumers
         last_seen = max(info.last_qos_ns, info.last_hello_ns)
         if last_seen > 0 && now_ns - last_seen > timeout
-            @warn "Consumer stale" consumer_id = cid epoch = info.epoch
+            @tp_warn "Consumer stale" consumer_id = cid epoch = info.epoch
         end
         if info.drops_gap > 0 || info.drops_late > 0
-            @info "Consumer drops" consumer_id = cid drops_gap = info.drops_gap drops_late = info.drops_late
+            @tp_info "Consumer drops" consumer_id = cid drops_gap = info.drops_gap drops_late = info.drops_late
         end
     end
     return true
