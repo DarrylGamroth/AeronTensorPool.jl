@@ -79,8 +79,9 @@ mutable struct DriverResponsePoller
     last_revoke::Union{LeaseRevoked, Nothing}
     last_shutdown::Union{DriverShutdown, Nothing}
     attach_by_correlation::Dict{Int64, AttachResponse}
-    attach_purge_interval_ns::UInt64
-    attach_purge_deadline_ns::UInt64
+    attach_purge_timer::PolledTimer
+    attach_purge_active::Bool
+    attach_purge_touch::Bool
 end
 
 function DriverResponsePoller(sub::Aeron.Subscription)
@@ -103,8 +104,9 @@ function DriverResponsePoller(sub::Aeron.Subscription)
         nothing,
         nothing,
         Dict{Int64, AttachResponse}(),
-        UInt64(0),
-        UInt64(0),
+        PolledTimer(UInt64(0)),
+        false,
+        false,
     )
     sizehint!(poller.attach_by_correlation, 4)
     poller.assembler = Aeron.FragmentAssembler(Aeron.FragmentHandler(poller) do plr, buffer, _
@@ -140,6 +142,7 @@ function handle_driver_response!(poller::DriverResponsePoller, buffer::AbstractV
             poller.attach_response.code lease_id = poller.attach_response.lease_id
         poller.last_attach = poller.attach_response
         poller.attach_by_correlation[poller.attach_response.correlation_id] = poller.attach_response
+        poller.attach_purge_touch = true
     elseif template_id == TEMPLATE_SHM_DETACH_RESPONSE
         ShmDetachResponse.wrap!(poller.detach_decoder, buffer, 0; header = header)
         snapshot_detach_response!(poller.detach_response, poller.detach_decoder)

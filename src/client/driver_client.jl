@@ -44,7 +44,7 @@ function init_driver_client(
     pub = Aeron.add_publication(client, control_channel, control_stream_id)
     sub = Aeron.add_subscription(client, control_channel, control_stream_id)
     poller = DriverResponsePoller(sub)
-    poller.attach_purge_interval_ns = attach_purge_interval_ns
+    set_interval!(poller.attach_purge_timer, attach_purge_interval_ns)
     return DriverClientState(
         pub,
         sub,
@@ -140,15 +140,16 @@ Returns:
 """
 function driver_client_do_work!(state::DriverClientState, now_ns::UInt64)
     poller = state.poller
-    attach_before = length(poller.attach_by_correlation)
     work_count = poll_driver_responses!(poller)
-    if poller.attach_purge_interval_ns != 0
-        if length(poller.attach_by_correlation) > attach_before
-            poller.attach_purge_deadline_ns = now_ns + poller.attach_purge_interval_ns
+    if poller.attach_purge_timer.interval_ns != 0
+        if poller.attach_purge_touch
+            reset!(poller.attach_purge_timer, now_ns)
+            poller.attach_purge_active = true
+            poller.attach_purge_touch = false
         end
-        if poller.attach_purge_deadline_ns != 0 && now_ns >= poller.attach_purge_deadline_ns
+        if poller.attach_purge_active && expired(poller.attach_purge_timer, now_ns)
             empty!(poller.attach_by_correlation)
-            poller.attach_purge_deadline_ns = UInt64(0)
+            poller.attach_purge_active = false
         end
     end
     if poller.last_revoke !== nothing && poller.last_revoke.lease_id == state.lease_id
@@ -192,7 +193,9 @@ function poll_attach!(
     attach = get(state.poller.attach_by_correlation, correlation_id, nothing)
     if attach !== nothing
         delete!(state.poller.attach_by_correlation, correlation_id)
-        isempty(state.poller.attach_by_correlation) && (state.poller.attach_purge_deadline_ns = UInt64(0))
+        if isempty(state.poller.attach_by_correlation)
+            state.poller.attach_purge_active = false
+        end
         apply_attach!(state, attach)
         return attach
     end
