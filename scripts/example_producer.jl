@@ -26,13 +26,15 @@ Agent.name(::AppProducerAgent) = "app-producer"
 
 function Agent.on_start(agent::AppProducerAgent)
     control = agent.driver_cfg.endpoints
+    retry_timeout_ns = UInt64(5_000_000_000)
 
     agent.driver_client = init_driver_client(
         agent.client,
         control.control_channel,
         control.control_stream_id,
         UInt32(7),
-        DriverRole.PRODUCER,
+        DriverRole.PRODUCER;
+        attach_purge_interval_ns = retry_timeout_ns * 3,
     )
     @info "Producer control client ready" control_channel = control.control_channel control_stream_id =
         control.control_stream_id
@@ -41,7 +43,6 @@ function Agent.on_start(agent::AppProducerAgent)
     attach_id = Int64(0)
     attach = nothing
     last_send_ns = UInt64(0)
-    retry_timeout_ns = UInt64(5_000_000_000)
     while attach === nothing
         now_ns = UInt64(time_ns())
         if attach_id == 0

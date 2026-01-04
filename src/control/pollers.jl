@@ -79,6 +79,8 @@ mutable struct DriverResponsePoller
     last_revoke::Union{LeaseRevoked, Nothing}
     last_shutdown::Union{DriverShutdown, Nothing}
     attach_by_correlation::Dict{Int64, AttachResponse}
+    attach_purge_interval_ns::UInt64
+    attach_purge_deadline_ns::UInt64
 end
 
 function DriverResponsePoller(sub::Aeron.Subscription)
@@ -101,6 +103,8 @@ function DriverResponsePoller(sub::Aeron.Subscription)
         nothing,
         nothing,
         Dict{Int64, AttachResponse}(),
+        UInt64(0),
+        UInt64(0),
     )
     sizehint!(poller.attach_by_correlation, 4)
     poller.assembler = Aeron.FragmentAssembler(Aeron.FragmentHandler(poller) do plr, buffer, _

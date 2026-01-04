@@ -39,16 +39,19 @@ function init_driver_client(
     client_id::UInt32,
     role::DriverRole.SbeEnum;
     keepalive_interval_ns::UInt64 = UInt64(1_000_000_000),
+    attach_purge_interval_ns::UInt64 = UInt64(0),
 )
     pub = Aeron.add_publication(client, control_channel, control_stream_id)
     sub = Aeron.add_subscription(client, control_channel, control_stream_id)
+    poller = DriverResponsePoller(sub)
+    poller.attach_purge_interval_ns = attach_purge_interval_ns
     return DriverClientState(
         pub,
         sub,
         AttachRequestProxy(pub),
         KeepaliveProxy(pub),
         DetachRequestProxy(pub),
-        DriverResponsePoller(sub),
+        poller,
         client_id,
         role,
         UInt64(0),
@@ -136,12 +139,23 @@ Returns:
 - Work count (responses processed + keepalive sent).
 """
 function driver_client_do_work!(state::DriverClientState, now_ns::UInt64)
-    work_count = poll_driver_responses!(state.poller)
-    if state.poller.last_revoke !== nothing && state.poller.last_revoke.lease_id == state.lease_id
+    poller = state.poller
+    attach_before = length(poller.attach_by_correlation)
+    work_count = poll_driver_responses!(poller)
+    if poller.attach_purge_interval_ns != 0
+        if length(poller.attach_by_correlation) > attach_before
+            poller.attach_purge_deadline_ns = now_ns + poller.attach_purge_interval_ns
+        end
+        if poller.attach_purge_deadline_ns != 0 && now_ns >= poller.attach_purge_deadline_ns
+            empty!(poller.attach_by_correlation)
+            poller.attach_purge_deadline_ns = UInt64(0)
+        end
+    end
+    if poller.last_revoke !== nothing && poller.last_revoke.lease_id == state.lease_id
         state.revoked = true
         state.lease_id = UInt64(0)
     end
-    if state.poller.last_shutdown !== nothing
+    if poller.last_shutdown !== nothing
         state.shutdown = true
     end
 
@@ -178,6 +192,7 @@ function poll_attach!(
     attach = get(state.poller.attach_by_correlation, correlation_id, nothing)
     if attach !== nothing
         delete!(state.poller.attach_by_correlation, correlation_id)
+        isempty(state.poller.attach_by_correlation) && (state.poller.attach_purge_deadline_ns = UInt64(0))
         apply_attach!(state, attach)
         return attach
     end
