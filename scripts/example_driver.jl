@@ -1,4 +1,6 @@
 #!/usr/bin/env julia
+using Agent
+using Aeron
 using AeronTensorPool
 
 function usage()
@@ -6,17 +8,25 @@ function usage()
 end
 
 config_path = length(ARGS) >= 1 ? ARGS[1] : "docs/examples/driver_integration_example.toml"
+runner = nothing
 
 try
     config = load_driver_config(config_path)
-    state = init_driver(config)
-    @info "Driver running" config_path
-    while true
-        work = driver_do_work!(state)
-        work == 0 && yield()
+    Aeron.Context() do ctx
+        AeronTensorPool.set_aeron_dir!(ctx, config.endpoints.aeron_dir)
+        Aeron.Client(ctx) do client
+            agent = DriverAgent(config; client = client)
+            runner = AgentRunner(BusySpinIdleStrategy(), agent)
+            @info "Driver running" config_path
+            Agent.start_on_thread(runner)
+            wait(runner)
+            close(runner)
+        end
     end
 catch err
     @error "Driver exited" error = err
     usage()
     rethrow()
+finally
+    runner === nothing || close(runner)
 end

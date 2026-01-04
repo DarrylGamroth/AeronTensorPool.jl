@@ -1,4 +1,5 @@
 #!/usr/bin/env julia
+using Agent
 using Aeron
 using AeronTensorPool
 
@@ -29,48 +30,53 @@ function run_consumer(driver_cfg_path::String, consumer_cfg_path::String, count:
     env["TP_STREAM_ID"] = string(stream_id)
     cons_cfg = load_consumer_config(consumer_cfg_path; env = env)
 
-    ctx = Aeron.Context()
-    isempty(control.aeron_dir) || Aeron.aeron_dir!(ctx, control.aeron_dir)
-    client = Aeron.Client(ctx)
+    Aeron.Context() do ctx
+        AeronTensorPool.set_aeron_dir!(ctx, control.aeron_dir)
+        Aeron.Client(ctx) do client
+            driver_client = init_driver_client(
+                client,
+                control.control_channel,
+                control.control_stream_id,
+                UInt32(21),
+                DriverRole.CONSUMER,
+            )
 
-    driver_client = init_driver_client(
-        client,
-        control.control_channel,
-        control.control_stream_id,
-        UInt32(21),
-        DriverRole.CONSUMER,
-    )
+            attach_id = send_attach_request!(driver_client; stream_id = stream_id)
+            attach_id == 0 && error("attach send failed")
 
-    attach_id = send_attach_request!(driver_client; stream_id = stream_id)
-    attach_id == 0 && error("attach send failed")
+            attach = nothing
+            while attach === nothing
+                attach = poll_attach!(driver_client, attach_id, UInt64(time_ns()))
+                yield()
+            end
 
-    attach = nothing
-    while attach === nothing
-        attach = poll_attach!(driver_client, attach_id, UInt64(time_ns()))
-        yield()
-    end
+            consumer = init_consumer_from_attach(cons_cfg, attach; driver_client = driver_client, client = client)
+            desc_asm = make_descriptor_assembler(consumer)
+            ctrl_asm = make_control_assembler(consumer)
+            counters = ConsumerCounters(consumer.runtime.control.client, Int(consumer.config.consumer_id), "Consumer")
+            agent = ConsumerAgent(consumer, desc_asm, ctrl_asm, counters)
+            runner = AgentRunner(BusySpinIdleStrategy(), agent)
 
-    consumer = init_consumer_from_attach(cons_cfg, attach; driver_client = driver_client, client = client)
-    desc_asm = make_descriptor_assembler(consumer)
-    ctrl_asm = make_control_assembler(consumer)
-
-    last_frame = UInt64(0)
-    seen = 0
-    while count <= 0 || seen < count
-        consumer_do_work!(consumer, desc_asm, ctrl_asm)
-        header = consumer.runtime.frame_view.header
-        if header.frame_id != 0 && header.frame_id != last_frame
-            last_frame = header.frame_id
-            expected = UInt8(header.frame_id % UInt64(256))
-            payload = payload_view(consumer.runtime.frame_view.payload)
-            ok = check_pattern(payload, expected)
-            ok || error("payload mismatch at frame $(header.frame_id)")
-            seen += 1
-            println("frame=$(header.frame_id) ok")
+            last_frame = UInt64(0)
+            seen = 0
+            Agent.start_on_thread(runner)
+            while count <= 0 || seen < count
+                header = agent.state.runtime.frame_view.header
+                if header.frame_id != 0 && header.frame_id != last_frame
+                    last_frame = header.frame_id
+                    expected = UInt8(header.frame_id % UInt64(256))
+                    payload = payload_view(agent.state.runtime.frame_view.payload)
+                    ok = check_pattern(payload, expected)
+                    ok || error("payload mismatch at frame $(header.frame_id)")
+                    seen += 1
+                    println("frame=$(header.frame_id) ok")
+                end
+                yield()
+            end
+            close(runner)
+            @info "Consumer done" seen
         end
-        yield()
     end
-    @info "Consumer done" seen
 end
 
 if length(ARGS) > 3

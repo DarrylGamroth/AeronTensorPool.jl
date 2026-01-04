@@ -1,4 +1,5 @@
 #!/usr/bin/env julia
+using Agent
 using Aeron
 using AeronTensorPool
 
@@ -27,44 +28,49 @@ function run_producer(driver_cfg_path::String, producer_cfg_path::String, count:
     env["TP_STREAM_ID"] = string(stream_id)
     prod_cfg = load_producer_config(producer_cfg_path; env = env)
 
-    ctx = Aeron.Context()
-    isempty(control.aeron_dir) || Aeron.aeron_dir!(ctx, control.aeron_dir)
-    client = Aeron.Client(ctx)
+    Aeron.Context() do ctx
+        AeronTensorPool.set_aeron_dir!(ctx, control.aeron_dir)
+        Aeron.Client(ctx) do client
+            driver_client = init_driver_client(
+                client,
+                control.control_channel,
+                control.control_stream_id,
+                UInt32(7),
+                DriverRole.PRODUCER,
+            )
 
-    driver_client = init_driver_client(
-        client,
-        control.control_channel,
-        control.control_stream_id,
-        UInt32(7),
-        DriverRole.PRODUCER,
-    )
+            attach_id = send_attach_request!(driver_client; stream_id = stream_id)
+            attach_id == 0 && error("attach send failed")
 
-    attach_id = send_attach_request!(driver_client; stream_id = stream_id)
-    attach_id == 0 && error("attach send failed")
+            attach = nothing
+            while attach === nothing
+                attach = poll_attach!(driver_client, attach_id, UInt64(time_ns()))
+                yield()
+            end
 
-    attach = nothing
-    while attach === nothing
-        attach = poll_attach!(driver_client, attach_id, UInt64(time_ns()))
-        yield()
+            producer = init_producer_from_attach(prod_cfg, attach; driver_client = driver_client, client = client)
+            ctrl_asm = make_control_assembler(producer)
+            qos_asm = make_qos_assembler(producer)
+            counters = ProducerCounters(producer.runtime.control.client, Int(producer.config.producer_id), "Producer")
+            agent = ProducerAgent(producer, ctrl_asm, qos_asm, counters)
+            runner = AgentRunner(BusySpinIdleStrategy(), agent)
+
+            payload = Vector{UInt8}(undef, payload_bytes)
+            shape = Int32[payload_bytes]
+            strides = Int32[1]
+
+            sent = 0
+            Agent.start_on_thread(runner)
+            while count <= 0 || sent < count
+                fill!(payload, UInt8(sent % 256))
+                publish_frame!(producer, payload, shape, strides, Dtype.UINT8, UInt32(0))
+                sent += 1
+                yield()
+            end
+            close(runner)
+            @info "Producer done" sent
+        end
     end
-
-    producer = init_producer_from_attach(prod_cfg, attach; driver_client = driver_client, client = client)
-    ctrl_asm = make_control_assembler(producer)
-    qos_asm = make_qos_assembler(producer)
-
-    payload = Vector{UInt8}(undef, payload_bytes)
-    shape = Int32[payload_bytes]
-    strides = Int32[1]
-
-    sent = 0
-    while count <= 0 || sent < count
-        fill!(payload, UInt8(sent % 256))
-        publish_frame!(producer, payload, shape, strides, Dtype.UINT8, UInt32(0))
-        producer_do_work!(producer, ctrl_asm; qos_assembler = qos_asm)
-        sent += 1
-        yield()
-    end
-    @info "Producer done" sent
 end
 
 if length(ARGS) > 4
