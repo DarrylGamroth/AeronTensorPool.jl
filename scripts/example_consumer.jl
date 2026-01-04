@@ -25,7 +25,9 @@ function Agent.on_start(agent::AppConsumerAgent)
 end
 
 function Agent.on_start(agent::AppConsumerAgent)
-    driver_cfg = load_driver_config(agent.driver_cfg_path)
+    env_driver = Dict(ENV)
+    env_driver["DRIVER_AERON_DIR"] = get(ENV, "AERON_DIR", "")
+    driver_cfg = load_driver_config(agent.driver_cfg_path; env = env_driver)
     stream_id = first_stream_id(driver_cfg)
     control = driver_cfg.endpoints
 

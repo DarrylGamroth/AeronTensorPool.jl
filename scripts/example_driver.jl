@@ -18,7 +18,9 @@ end
 Agent.name(::AppDriverAgent) = "app-driver"
 
 function Agent.on_start(agent::AppDriverAgent)
-    config = load_driver_config(agent.config_path)
+    env = Dict(ENV)
+    env["DRIVER_AERON_DIR"] = get(ENV, "AERON_DIR", "")
+    config = load_driver_config(agent.config_path; env = env)
     agent.ctx = Aeron.Context()
     AeronTensorPool.set_aeron_dir!(agent.ctx, config.endpoints.aeron_dir)
     agent.client = Aeron.Client(agent.ctx)
@@ -54,20 +56,24 @@ function Agent.on_close(agent::AppDriverAgent)
     return nothing
 end
 
-config_path = length(ARGS) >= 1 ? ARGS[1] : "docs/examples/driver_integration_example.toml"
-runner = nothing
-
-try
-    agent = AppDriverAgent(config_path, nothing, nothing, nothing, false)
-    runner = AgentRunner(BusySpinIdleStrategy(), agent)
-    @info "Driver running" config_path
-    Agent.start_on_thread(runner)
-    wait(runner)
-    close(runner)
-catch err
-    @error "Driver exited" error = err
-    usage()
-    rethrow()
-finally
-    runner === nothing || close(runner)
+function main()
+    config_path = length(ARGS) >= 1 ? ARGS[1] : "docs/examples/driver_integration_example.toml"
+    runner = nothing
+    try
+        agent = AppDriverAgent(config_path, nothing, nothing, nothing, false)
+        runner = AgentRunner(BusySpinIdleStrategy(), agent)
+        @info "Driver running" config_path
+        Agent.start_on_thread(runner)
+        wait(runner)
+        close(runner)
+    catch err
+        @error "Driver exited" error = err
+        usage()
+        rethrow()
+    finally
+        runner === nothing || close(runner)
+    end
+    return nothing
 end
+
+main()
