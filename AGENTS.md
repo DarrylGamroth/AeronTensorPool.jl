@@ -7,6 +7,7 @@ match the current code layout in `src/` and the wire/driver specs in `docs/`.
 ## Specs and docs
 - Wire spec: `docs/SHM_Tensor_Pool_Wire_Spec_v1.1.md`
 - Driver model spec: `docs/SHM_Driver_Model_Spec_v1.0.md`
+- Bridge spec: `docs/SHM_Aeron_UDP_Bridge_Spec_v1.0.md`
 - Implementation guide: `docs/IMPLEMENTATION.md`
 
 ## Design constraints
