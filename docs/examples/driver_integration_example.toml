@@ -1,0 +1,34 @@
+[driver]
+instance_id = "driver-example"
+aeron_dir = "/dev/shm/aeron-${USER}"
+control_channel = "aeron:ipc"
+control_stream_id = 15000
+announce_channel = "aeron:ipc"
+announce_stream_id = 15001
+qos_channel = "aeron:ipc"
+qos_stream_id = 15002
+
+[shm]
+base_dir = "/dev/shm"
+require_hugepages = false
+page_size_bytes = 4096
+permissions_mode = "660"
+
+[policies]
+allow_dynamic_streams = false
+default_profile = "camera"
+announce_period_ms = 1000
+lease_keepalive_interval_ms = 1000
+lease_expiry_grace_intervals = 3
+
+[profiles.camera]
+header_nslots = 64
+header_slot_bytes = 256
+max_dims = 8
+payload_pools = [
+  { pool_id = 1, stride_bytes = 655360 }
+]
+
+[streams.cam1]
+stream_id = 1
+profile = "camera"

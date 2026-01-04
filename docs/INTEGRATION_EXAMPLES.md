@@ -1,22 +1,22 @@
 # Integration Examples
 
-This document shows a concrete, end-to-end integration using three applications:
+This document provides a concrete, working example using three applications:
 1) Driver
-2) Frame Producer (BGAPI2-backed)
-3) Frame Consumer
+2) Frame Producer (pattern generator)
+3) Frame Consumer (pattern verifier)
 
-The example uses the driver model and the client API to attach to driver-provisioned SHM.
+It uses the driver model and client API to attach to driver-provisioned SHM.
 
 ## Application 1: Driver
 
 ### Example driver config
 
-Create `docs/examples/driver_integration_example.toml`:
+Use `docs/examples/driver_integration_example.toml`:
 
 ```toml
 [driver]
 instance_id = "driver-example"
-aeron_dir = ""
+aeron_dir = "/dev/shm/aeron-${USER}"
 control_channel = "aeron:ipc"
 control_stream_id = 15000
 announce_channel = "aeron:ipc"
@@ -46,118 +46,62 @@ payload_pools = [
 ]
 
 [streams.cam1]
-stream_id = 42
+stream_id = 1
 profile = "camera"
 ```
 
 ### Start driver
 
 ```bash
-julia --project scripts/run_role.jl driver docs/examples/driver_integration_example.toml
+julia --project scripts/example_driver.jl docs/examples/driver_integration_example.toml
 ```
 
-## Application 2: Frame Producer (BGAPI2)
+## Application 2: Frame Producer (pattern generator)
 
-Goal: attach to the driver, register SHM payload buffers with BGAPI2, then publish frames on completion.
+The producer attaches to the driver and publishes a deterministic byte pattern
+(`frame_id % 256`) into SHM, then publishes descriptors.
 
-Sketch:
-
-```julia
-using Aeron
-using AeronTensorPool
-# using BGAPI2  # pseudo-code
-
-ctx = Aeron.Context()
-client = Aeron.Client(ctx)
-
-driver_client = init_driver_client(client, "aeron:ipc", Int32(15000), UInt32(7), DriverRole.PRODUCER)
-attach_id = send_attach_request!(driver_client; stream_id = UInt32(42))
-
-attach = nothing
-while attach === nothing
-    attach = poll_attach!(driver_client, attach_id, UInt64(time_ns()))
-    yield()
-end
-
-prod_cfg = load_producer_config("config/defaults.toml")
-producer = init_producer_from_attach(prod_cfg, attach; driver_client = driver_client, client = client)
-ctrl_asm = make_control_assembler(producer)
-
-pool_id = UInt16(1)
-inflight = InflightQueue(producer.config.nslots)
-
-# Pre-register buffers with BGAPI2
-for _ in 1:producer.config.nslots
-    res = reserve_slot!(producer, pool_id)
-    push!(inflight, res)
-    # BGAPI2.register_buffer!(res.ptr, res.stride_bytes)
-end
-
-while running
-    # BGAPI2 callback returns the buffer id you registered; map it to SlotReservation.
-    res = popfirst!(inflight)
-    values_len = actual_bytes_from_device()
-    shape = Int32[height, width]
-    strides = Int32[width, 1]
-    ok = publish_reservation!(producer, res, values_len, shape, strides, Dtype.UINT8, UInt32(0))
-    ok || handle_publish_failure()
-    push!(inflight, reserve_slot!(producer, pool_id))
-
-    producer_do_work!(producer, ctrl_asm)
-    yield()
-end
+```bash
+julia --project scripts/example_producer.jl \
+  docs/examples/driver_integration_example.toml \
+  config/defaults.toml \
+  0 655360
 ```
 
-Notes:
-- If the device completes buffers out-of-order, keep a lookup from device buffer ID to SlotReservation.
-- Use `reserve_slot!` and `publish_reservation!` to avoid extra copies and preserve seqlock order.
+Arguments:
+- Driver config path
+- Producer config path
+- Frame count (0 = run forever)
+- Payload bytes (default: first pool stride)
 
-## Application 3: Frame Consumer
+## Application 3: Frame Consumer (pattern verifier)
 
-Goal: attach to the driver, map SHM regions, and process frames.
+The consumer attaches to the driver and verifies the byte pattern produced by
+the generator.
 
-Sketch:
-
-```julia
-using Aeron
-using AeronTensorPool
-
-ctx = Aeron.Context()
-client = Aeron.Client(ctx)
-
-driver_client = init_driver_client(client, "aeron:ipc", Int32(15000), UInt32(21), DriverRole.CONSUMER)
-attach_id = send_attach_request!(driver_client; stream_id = UInt32(42))
-
-attach = nothing
-while attach === nothing
-    attach = poll_attach!(driver_client, attach_id, UInt64(time_ns()))
-    yield()
-end
-
-cons_cfg = load_consumer_config("config/defaults.toml")
-consumer = init_consumer_from_attach(cons_cfg, attach; driver_client = driver_client, client = client)
-desc_asm = make_descriptor_assembler(consumer)
-ctrl_asm = make_control_assembler(consumer)
-
-while running
-    consumer_do_work!(consumer, desc_asm, ctrl_asm)
-
-    view = consumer.runtime.frame_view
-    if view.header.frame_id != 0
-        payload = payload_view(view.payload)
-        # process payload (e.g., checksum, log, or copy out)
-    end
-
-    yield()
-end
+```bash
+julia --project scripts/example_consumer.jl \
+  docs/examples/driver_integration_example.toml \
+  config/defaults.toml \
+  0
 ```
 
-Notes:
-- `consumer_do_work!` updates `consumer.runtime.frame_view` when a frame is accepted.
-- Consumers must treat `FrameDescriptor` as the canonical availability signal.
+Arguments:
+- Driver config path
+- Consumer config path
+- Frame count (0 = run forever)
+
+## Manual BGAPI2 Integration (outline)
+
+To integrate with a camera SDK that accepts pre-registered buffers (e.g., BGAPI2),
+use the same attach flow as the example producer, but replace the generator loop:
+
+1) Reserve slots via `reserve_slot!` and register each slot pointer with the camera.
+2) On frame completion, call `publish_reservation!` with the known shape/strides.
+3) Requeue the slot by reserving a new slot or reusing the completed reservation.
 
 ## Summary
 
 - The driver owns SHM allocation and announces layout via `ShmPoolAnnounce`.
 - Producers/consumers attach via the driver client API and map SHM from responses.
-- Producers can hand SHM slots directly to BGAPI2 for DMA, then publish descriptors when complete.
+- The example producer/consumer scripts are a working end-to-end reference.
