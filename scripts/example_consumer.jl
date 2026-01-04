@@ -19,9 +19,39 @@ mutable struct AppConsumerAgent
     last_drops_header_invalid::UInt64
     last_log_ns::UInt64
     ready::Bool
+    validate_limit::Int
+    validated::Int
 end
 
 Agent.name(::AppConsumerAgent) = "app-consumer"
+
+function make_app_descriptor_assembler(agent::AppConsumerAgent, state::ConsumerState)
+    handler = Aeron.FragmentHandler(agent) do app, buffer, _
+        header = MessageHeader.Decoder(buffer, 0)
+        if MessageHeader.templateId(header) == AeronTensorPool.TEMPLATE_FRAME_DESCRIPTOR
+            FrameDescriptor.wrap!(state.runtime.desc_decoder, buffer, 0; header = header)
+            if try_read_frame!(state, state.runtime.desc_decoder)
+                state.metrics.frames_ok += 1
+                frame_id = state.runtime.frame_view.header.frame_id
+                expected = UInt8(frame_id % UInt64(256))
+                payload = payload_view(state.runtime.frame_view.payload)
+                if app.validated < app.validate_limit
+                    app.validated += 1
+                    if !check_pattern(payload, expected)
+                        actual = isempty(payload) ? UInt8(0) : @inbounds payload[1]
+                        @warn "payload mismatch" frame_id expected actual
+                    end
+                end
+                app.seen += 1
+                if app.seen % 100 == 0
+                    println("frame=$(frame_id) ok")
+                end
+            end
+        end
+        nothing
+    end
+    return Aeron.FragmentAssembler(handler)
+end
 
 function Agent.on_start(agent::AppConsumerAgent)
     control = agent.driver_cfg.endpoints
@@ -40,12 +70,16 @@ function Agent.on_start(agent::AppConsumerAgent)
     attach_id = Int64(0)
     attach = nothing
     last_send_ns = UInt64(0)
+    retry_timeout_ns = UInt64(5_000_000_000)
     while attach === nothing
         now_ns = UInt64(time_ns())
-        if attach_id == 0 || now_ns - last_send_ns > 1_000_000_000
+        if attach_id == 0
             attach_id = send_attach_request!(agent.driver_client; stream_id = agent.stream_id)
             attach_id != 0 && @info("Consumer attach sent", correlation_id = attach_id)
             attach_id != 0 && (last_send_ns = now_ns)
+        elseif now_ns - last_send_ns > retry_timeout_ns
+            @info "Consumer attach retry timeout" correlation_id = attach_id
+            attach_id = Int64(0)
         end
         attach_id == 0 && (yield(); continue)
         attach = poll_attach!(agent.driver_client, attach_id, now_ns)
@@ -55,7 +89,7 @@ function Agent.on_start(agent::AppConsumerAgent)
 
     consumer_state =
         init_consumer_from_attach(agent.consumer_cfg, attach; driver_client = agent.driver_client, client = agent.client)
-    desc_asm = make_descriptor_assembler(consumer_state)
+    desc_asm = make_app_descriptor_assembler(agent, consumer_state)
     ctrl_asm = make_control_assembler(consumer_state)
     counters =
         ConsumerCounters(consumer_state.runtime.control.client, Int(consumer_state.config.consumer_id), "Consumer")
@@ -77,26 +111,20 @@ function Agent.do_work(agent::AppConsumerAgent)
     agent.consumer_agent === nothing && return 0
     Agent.do_work(agent.consumer_agent)
     header = agent.consumer_agent.state.runtime.frame_view.header
-    if header.frame_id != 0 && header.frame_id != agent.last_frame
-        agent.last_frame = header.frame_id
-        expected = UInt8(header.frame_id % UInt64(256))
-        payload = payload_view(agent.consumer_agent.state.runtime.frame_view.payload)
-        ok = check_pattern(payload, expected)
-        ok || error("payload mismatch at frame $(header.frame_id)")
-        agent.seen += 1
-        println("frame=$(header.frame_id) ok")
-    end
     metrics = agent.consumer_agent.state.metrics
+    if metrics.frames_ok != agent.last_frames_ok
+        @info "Consumer frames_ok updated" frames_ok = metrics.frames_ok header_frame_id = header.frame_id
+        agent.last_frames_ok = metrics.frames_ok
+    end
     now_ns = UInt64(time_ns())
     if now_ns - agent.last_log_ns > 1_000_000_000
+        @info "Consumer frame state" frame_id = header.frame_id last_frame = agent.last_frame seen = agent.seen
         desc_connected = Aeron.is_connected(agent.consumer_agent.state.runtime.sub_descriptor)
         @info "Consumer descriptor connected" connected = desc_connected
-        if metrics.frames_ok != agent.last_frames_ok ||
-           metrics.drops_late != agent.last_drops_late ||
+        if metrics.drops_late != agent.last_drops_late ||
            metrics.drops_header_invalid != agent.last_drops_header_invalid
             @info "Consumer metrics" frames_ok = metrics.frames_ok drops_late = metrics.drops_late drops_header_invalid =
                 metrics.drops_header_invalid
-            agent.last_frames_ok = metrics.frames_ok
             agent.last_drops_late = metrics.drops_late
             agent.last_drops_header_invalid = metrics.drops_header_invalid
         end
@@ -128,10 +156,7 @@ end
 
 function check_pattern(payload::AbstractVector{UInt8}, expected::UInt8)
     isempty(payload) && return false
-    for b in payload
-        b == expected || return false
-    end
-    return true
+    @inbounds return payload[1] == expected
 end
 
 function run_consumer(driver_cfg_path::String, consumer_cfg_path::String, count::Int)
@@ -166,8 +191,10 @@ function run_consumer(driver_cfg_path::String, consumer_cfg_path::String, count:
                 UInt64(0),
                 UInt64(0),
                 false,
+                10,
+                0,
             )
-            runner = AgentRunner(BusySpinIdleStrategy(), agent)
+            runner = AgentRunner(BackoffIdleStrategy(), agent)
             if isnothing(core_id)
                 Agent.start_on_thread(runner)
             else

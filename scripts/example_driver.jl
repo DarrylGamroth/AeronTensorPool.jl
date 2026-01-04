@@ -28,7 +28,7 @@ function run_agent(config_path::String)
             @info "Driver agent init" aeron_dir = config.endpoints.aeron_dir control_channel =
                 config.endpoints.control_channel control_stream_id = config.endpoints.control_stream_id
             agent = DriverAgent(config; client = client)
-            runner = AgentRunner(BusySpinIdleStrategy(), agent)
+            runner = AgentRunner(BackoffIdleStrategy(), agent)
             if isnothing(core_id)
                 Agent.start_on_thread(runner)
             else

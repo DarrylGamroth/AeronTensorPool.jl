@@ -17,6 +17,8 @@ mutable struct AppProducerAgent
     shape::Vector{Int32}
     strides::Vector{Int32}
     sent::Int
+    last_send_ns::UInt64
+    send_interval_ns::UInt64
     ready::Bool
 end
 
@@ -39,12 +41,16 @@ function Agent.on_start(agent::AppProducerAgent)
     attach_id = Int64(0)
     attach = nothing
     last_send_ns = UInt64(0)
+    retry_timeout_ns = UInt64(5_000_000_000)
     while attach === nothing
         now_ns = UInt64(time_ns())
-        if attach_id == 0 || now_ns - last_send_ns > 1_000_000_000
+        if attach_id == 0
             attach_id = send_attach_request!(agent.driver_client; stream_id = agent.stream_id)
             attach_id != 0 && @info("Producer attach sent", correlation_id = attach_id)
             attach_id != 0 && (last_send_ns = now_ns)
+        elseif now_ns - last_send_ns > retry_timeout_ns
+            @info "Producer attach retry timeout" correlation_id = attach_id
+            attach_id = Int64(0)
         end
         attach_id == 0 && (yield(); continue)
         attach = poll_attach!(agent.driver_client, attach_id, now_ns)
@@ -66,6 +72,8 @@ function Agent.on_start(agent::AppProducerAgent)
     agent.shape = Int32[agent.payload_bytes]
     agent.strides = Int32[1]
     agent.sent = 0
+    agent.last_send_ns = UInt64(0)
+    agent.send_interval_ns = UInt64(10_000_000)
     wait_for_descriptor_connection(agent.producer_agent)
     agent.ready = true
     @info "Producer ready" payload_bytes = agent.payload_bytes
@@ -74,6 +82,10 @@ end
 
 function Agent.do_work(agent::AppProducerAgent)
     agent.producer_agent === nothing && return 0
+    now_ns = UInt64(time_ns())
+    if now_ns - agent.last_send_ns < agent.send_interval_ns
+        return Agent.do_work(agent.producer_agent)
+    end
     if agent.max_count == 0 || agent.sent < agent.max_count
         fill!(agent.payload, UInt8(agent.sent % 256))
         sent = offer_frame!(
@@ -86,6 +98,7 @@ function Agent.do_work(agent::AppProducerAgent)
         )
         if sent
             agent.sent += 1
+            agent.last_send_ns = now_ns
             @info "Producer published frame" seq = agent.producer_agent.state.seq - 1
         else
             connected = Aeron.is_connected(agent.producer_agent.state.runtime.pub_descriptor)
@@ -153,9 +166,11 @@ function run_producer(driver_cfg_path::String, producer_cfg_path::String, count:
                 Int32[],
                 Int32[],
                 0,
+                UInt64(0),
+                UInt64(0),
                 false,
             )
-            runner = AgentRunner(BusySpinIdleStrategy(), agent)
+            runner = AgentRunner(BackoffIdleStrategy(), agent)
             if isnothing(core_id)
                 Agent.start_on_thread(runner)
             else
