@@ -21,6 +21,9 @@ Returns:
 - `true` if handled, `false` otherwise.
 """
 function handle_attach_request!(state::DriverState, msg::ShmAttachRequest.Decoder)
+    @tp_info "attach request received" correlation_id = ShmAttachRequest.correlationId(msg) stream_id =
+        ShmAttachRequest.streamId(msg) client_id = ShmAttachRequest.clientId(msg) role =
+        ShmAttachRequest.role(msg)
     correlation_id = ShmAttachRequest.correlationId(msg)
     stream_id = ShmAttachRequest.streamId(msg)
     client_id = ShmAttachRequest.clientId(msg)
@@ -187,6 +190,9 @@ Returns:
 - `true` if handled, `false` otherwise.
 """
 function handle_detach_request!(state::DriverState, msg::ShmDetachRequest.Decoder)
+    @tp_info "detach request received" correlation_id = ShmDetachRequest.correlationId(msg) lease_id =
+        ShmDetachRequest.leaseId(msg) stream_id = ShmDetachRequest.streamId(msg) client_id =
+        ShmDetachRequest.clientId(msg) role = ShmDetachRequest.role(msg)
     correlation_id = ShmDetachRequest.correlationId(msg)
     lease_id = ShmDetachRequest.leaseId(msg)
     stream_id = ShmDetachRequest.streamId(msg)
@@ -216,6 +222,9 @@ Returns:
 - `true` if handled, `false` otherwise.
 """
 function handle_keepalive!(state::DriverState, msg::ShmLeaseKeepalive.Decoder)
+    @tp_info "keepalive received" lease_id = ShmLeaseKeepalive.leaseId(msg) stream_id =
+        ShmLeaseKeepalive.streamId(msg) client_id = ShmLeaseKeepalive.clientId(msg) role =
+        ShmLeaseKeepalive.role(msg)
     lease_id = ShmLeaseKeepalive.leaseId(msg)
     lease = get(state.leases, lease_id, nothing)
     if isnothing(lease)
@@ -239,6 +248,8 @@ Returns:
 - `true` if handled, `false` otherwise.
 """
 function handle_shutdown_request!(state::DriverState, msg::ShmDriverShutdownRequest.Decoder)
+    @tp_info "shutdown request received" correlation_id = ShmDriverShutdownRequest.correlationId(msg) reason =
+        ShmDriverShutdownRequest.reason(msg)
     token = String(ShmDriverShutdownRequest.token(msg))
     if isempty(state.config.policies.shutdown_token)
         return false
@@ -264,6 +275,7 @@ function dispatch_lease_revoke!(lease::DriverLease, reason::DriverLeaseRevokeRea
 end
 
 function revoke_lease!(state::DriverState, lease_id::UInt64, reason::DriverLeaseRevokeReason.SbeEnum, now_ns::UInt64)
+    @tp_warn "lease revoked" lease_id reason
     lease = get(state.leases, lease_id, nothing)
     isnothing(lease) && return false
 
