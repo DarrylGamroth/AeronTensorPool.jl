@@ -211,7 +211,7 @@ function try_claim_slot!(state::ProducerState, pool_id::UInt16)
     ptr, stride_bytes = payload_slot_ptr(state, pool_id, payload_slot)
     state.seq += 1
 
-    return SlotClaim(seq, header_index, pool_id, payload_slot, ptr, stride_bytes)
+    return SlotClaim(seq, ptr, stride_bytes, header_index, payload_slot, pool_id)
 end
 
 """
