@@ -20,6 +20,17 @@ end
 
 """
 Initialize a driver client for control-plane messaging.
+
+Arguments:
+- `client`: Aeron client to use for publications/subscriptions.
+- `control_channel`: Aeron channel for driver control.
+- `control_stream_id`: Aeron stream id for driver control.
+- `client_id`: unique client identifier.
+- `role`: driver role enum (producer/consumer/etc).
+- `keepalive_interval_ns`: keepalive interval in nanoseconds (keyword).
+
+Returns:
+- `DriverClientState` initialized for control-plane operations.
 """
 function init_driver_client(
     client::Aeron.Client,
@@ -43,7 +54,7 @@ function init_driver_client(
         UInt64(0),
         UInt32(0),
         PolledTimer(keepalive_interval_ns),
-        Int64(1),
+        (Int64(client_id) << 32) + 1,
         false,
         false,
     )
@@ -51,6 +62,12 @@ end
 
 """
 Return the next correlation id for control-plane requests.
+
+Arguments:
+- `state`: driver client state.
+
+Returns:
+- Correlation id (Int64).
 """
 @inline function next_correlation_id!(state::DriverClientState)
     cid = state.next_correlation_id
@@ -60,6 +77,16 @@ end
 
 """
 Send an attach request and return the correlation id.
+
+Arguments (keywords):
+- `stream_id`: stream identifier to attach.
+- `expected_layout_version`: expected layout version (default: 0).
+- `max_dims`: expected MAX_DIMS (default: 0).
+- `publish_mode`: publish mode override (optional).
+- `require_hugepages`: hugepage policy (optional).
+
+Returns:
+- Correlation id (Int64) on send success, or 0 on failure.
 """
 function send_attach_request!(
     state::DriverClientState;
@@ -100,6 +127,13 @@ end
 
 """
 Poll driver responses and emit keepalives when due.
+
+Arguments:
+- `state`: driver client state.
+- `now_ns`: current time in nanoseconds.
+
+Returns:
+- Work count (responses processed + keepalive sent).
 """
 function driver_client_do_work!(state::DriverClientState, now_ns::UInt64)
     work_count = poll_driver_responses!(state.poller)
@@ -126,6 +160,14 @@ end
 
 """
 Poll once for an attach response with the given correlation id.
+
+Arguments:
+- `state`: driver client state.
+- `correlation_id`: attach request correlation id.
+- `now_ns`: current time in nanoseconds.
+
+Returns:
+- `AttachResponse` if received for the given id, otherwise `nothing`.
 """
 function poll_attach!(
     state::DriverClientState,

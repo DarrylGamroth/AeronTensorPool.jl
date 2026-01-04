@@ -2,70 +2,49 @@
 using Agent
 using Aeron
 using AeronTensorPool
+using Logging
+
+Base.exit_on_sigint(false)
 
 function usage()
     println("Usage: julia --project scripts/example_driver.jl [driver_config]")
 end
 
-mutable struct AppDriverAgent
-    config_path::String
-    ctx::Union{Aeron.Context, Nothing}
-    client::Union{Aeron.Client, Nothing}
-    driver_agent::Union{DriverAgent, Nothing}
-    media_driver::Union{Aeron.MediaDriver.Driver, Nothing}
-    ready::Bool
-end
-
-Agent.name(::AppDriverAgent) = "app-driver"
-
-function Agent.on_start(agent::AppDriverAgent)
+function load_driver_config_with_env(config_path::String)
     env = Dict(ENV)
     if haskey(ENV, "AERON_DIR")
         env["DRIVER_AERON_DIR"] = ENV["AERON_DIR"]
     end
-    config = load_driver_config(agent.config_path; env = env)
-    launch_media_driver = get(ENV, "LAUNCH_MEDIA_DRIVER", "false") == "true"
-    if launch_media_driver
-        md_ctx = Aeron.MediaDriver.Context()
-        AeronTensorPool.set_aeron_dir!(md_ctx, config.endpoints.aeron_dir)
-        agent.media_driver = Aeron.MediaDriver.launch(md_ctx)
-    end
-    agent.ctx = Aeron.Context()
-    AeronTensorPool.set_aeron_dir!(agent.ctx, config.endpoints.aeron_dir)
-    agent.client = Aeron.Client(agent.ctx)
-    agent.driver_agent = DriverAgent(config; client = agent.client)
-    agent.ready = true
-    return nothing
+    return load_driver_config(config_path; env = env)
 end
 
-function Agent.do_work(agent::AppDriverAgent)
-    agent.driver_agent === nothing && return 0
-    return Agent.do_work(agent.driver_agent)
-end
+function run_agent(config_path::String)
+    config = load_driver_config_with_env(config_path)
+    core_id = haskey(ENV, "AGENT_TASK_CORE") ? parse(Int, ENV["AGENT_TASK_CORE"]) : nothing
 
-function Agent.on_close(agent::AppDriverAgent)
-    if agent.driver_agent !== nothing
-        try
-            Agent.on_close(agent.driver_agent)
-        catch
-        end
-    end
-    if agent.media_driver !== nothing
-        try
-            close(agent.media_driver)
-        catch
-        end
-    end
-    if agent.client !== nothing
-        try
-            close(agent.client)
-        catch
-        end
-    end
-    if agent.ctx !== nothing
-        try
-            close(agent.ctx)
-        catch
+    Aeron.Context() do context
+        AeronTensorPool.set_aeron_dir!(context, config.endpoints.aeron_dir)
+        Aeron.Client(context) do client
+            @info "Driver agent init" aeron_dir = config.endpoints.aeron_dir control_channel =
+                config.endpoints.control_channel control_stream_id = config.endpoints.control_stream_id
+            agent = DriverAgent(config; client = client)
+            runner = AgentRunner(BusySpinIdleStrategy(), agent)
+            if isnothing(core_id)
+                Agent.start_on_thread(runner)
+            else
+                Agent.start_on_thread(runner, core_id)
+            end
+            try
+                wait(runner)
+            catch e
+                if e isa InterruptException
+                    @info "Shutting down..."
+                else
+                    @error "Driver error" exception = (e, catch_backtrace())
+                end
+            finally
+                close(runner)
+            end
         end
     end
     return nothing
@@ -73,22 +52,23 @@ end
 
 function main()
     config_path = length(ARGS) >= 1 ? ARGS[1] : "docs/examples/driver_integration_example.toml"
-    runner = nothing
-    try
-        agent = AppDriverAgent(config_path, nothing, nothing, nothing, nothing, false)
-        runner = AgentRunner(BusySpinIdleStrategy(), agent)
+    launch_driver = parse(Bool, get(ENV, "LAUNCH_MEDIA_DRIVER", "false"))
+
+    if launch_driver
+        @info "Launching Aeron MediaDriver"
+        config = load_driver_config_with_env(config_path)
+        md_ctx = Aeron.MediaDriver.Context()
+        isempty(config.endpoints.aeron_dir) || Aeron.MediaDriver.aeron_dir!(md_ctx, config.endpoints.aeron_dir)
+        Aeron.MediaDriver.launch(md_ctx) do _
+            @info "Driver running" config_path
+            run_agent(config_path)
+        end
+    else
+        @info "Running with external MediaDriver"
         @info "Driver running" config_path
-        Agent.start_on_thread(runner)
-        wait(runner)
-        close(runner)
-    catch err
-        @error "Driver exited" error = err
-        usage()
-        rethrow()
-    finally
-        runner === nothing || close(runner)
+        run_agent(config_path)
     end
-    return nothing
+    return 0
 end
 
 main()

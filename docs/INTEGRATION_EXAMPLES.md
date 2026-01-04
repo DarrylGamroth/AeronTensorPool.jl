@@ -19,7 +19,7 @@ Use `docs/examples/driver_integration_example.toml`:
 ```toml
 [driver]
 instance_id = "driver-example"
-aeron_dir = "/dev/shm/aeron"
+aeron_dir = ""
 control_channel = "aeron:ipc"
 control_stream_id = 15000
 announce_channel = "aeron:ipc"
@@ -45,7 +45,7 @@ header_nslots = 64
 header_slot_bytes = 256
 max_dims = 8
 payload_pools = [
-  { pool_id = 1, stride_bytes = 655360 }
+  { pool_id = 1, stride_bytes = 1048576 }
 ]
 
 [streams.cam1]
@@ -80,7 +80,7 @@ function Agent.do_work(agent::AppProducerAgent)
     # Application-defined work loop
     payload = agent.producer.runtime.payload_buf
     # fill payload with a known pattern...
-    publish_frame!(agent.producer, payload, shape, strides, Dtype.UINT8, UInt32(0))
+    offer_frame!(agent.producer, payload, shape, strides, Dtype.UINT8, UInt32(0))
     return producer_do_work!(agent.producer, agent.control_asm; qos_assembler = agent.qos_asm)
 end
 ```
@@ -91,7 +91,7 @@ end
 julia --project scripts/example_producer.jl \
   docs/examples/driver_integration_example.toml \
   config/defaults.toml \
-  0 655360
+  0 1048576
 ```
 
 Arguments:
@@ -155,9 +155,9 @@ Notes:
 To integrate with a camera SDK that accepts pre-registered buffers (e.g., BGAPI2),
 use the same attach flow as the example producer, but replace the generator loop:
 
-1) Reserve slots via `reserve_slot!` and register each slot pointer with the camera.
-2) On frame completion, call `publish_reservation!` with the known shape/strides.
-3) Requeue the slot by reserving a new slot or reusing the completed reservation.
+1) Reserve slots via `try_claim_slot!` and register each slot pointer with the camera.
+2) On frame completion, call `commit_slot!` with the known shape/strides.
+3) Requeue the slot by claiming a new slot or reusing the completed claim.
 
 ## Summary
 

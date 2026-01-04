@@ -15,6 +15,15 @@ end
 
 """
 Emit a FrameProgress COMPLETE message.
+
+Arguments:
+- `state`: producer state.
+- `frame_id`: frame identifier (seq).
+- `header_index`: header slot index.
+- `bytes_filled`: payload bytes filled.
+
+Returns:
+- `true` if the message was committed, `false` otherwise.
 """
 function emit_progress_complete!(
     state::ProducerState,
@@ -44,7 +53,13 @@ function emit_progress_complete!(
 end
 
 """
-Emit a ShmPoolAnnounce for this producer.
+Emit a ShmPoolAnnounce message.
+
+Arguments:
+- `state`: producer state.
+
+Returns:
+- `true` if the message was committed, `false` otherwise.
 """
 function emit_announce!(state::ProducerState)
     payload_count = length(state.config.payload_pools)
@@ -90,7 +105,13 @@ function emit_announce!(state::ProducerState)
 end
 
 """
-Emit a QosProducer message for this producer.
+Emit a QosProducer message.
+
+Arguments:
+- `state`: producer state.
+
+Returns:
+- `true` if the message was committed, `false` otherwise.
 """
 function emit_qos!(state::ProducerState)
     sent = let st = state
@@ -108,7 +129,17 @@ function emit_qos!(state::ProducerState)
 end
 
 """
-Emit a ConsumerConfig message for a specific consumer.
+Emit a ConsumerConfig message to a consumer.
+
+Arguments:
+- `state`: producer state.
+- `consumer_id`: consumer identifier.
+- `mode`: consumer mode enum.
+- `decimation`: decimation ratio (default: 1).
+- `fallback_uri`: payload fallback URI (default: "").
+
+Returns:
+- `true` if the message was committed, `false` otherwise.
 """
 function emit_consumer_config!(
     state::ProducerState,

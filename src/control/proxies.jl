@@ -63,6 +63,19 @@ end
 
 """
 Send an attach request.
+
+Arguments (keywords):
+- `correlation_id`: correlation id for the request.
+- `stream_id`: stream identifier to attach.
+- `client_id`: client identifier.
+- `role`: driver role enum.
+- `expected_layout_version`: expected layout version (default: 0).
+- `max_dims`: expected MAX_DIMS (default: 0).
+- `publish_mode`: publish mode override (optional).
+- `require_hugepages`: hugepage policy (optional).
+
+Returns:
+- `true` if the message was committed, `false` otherwise.
 """
 function send_attach!(
     proxy::AttachRequestProxy;
@@ -85,6 +98,7 @@ function send_attach!(
         max_dims = max_dims,
         publish_mode = publish_mode,
         require_hugepages = require_hugepages
+        @info "send_attach!" correlation_id stream_id client_id role expected_layout_version max_dims publish_mode require_hugepages
         with_claimed_buffer!(p.pub, p.claim, msg_len) do buf
             ShmAttachRequest.wrap_and_apply_header!(p.encoder, buf, 0)
             ShmAttachRequest.correlationId!(p.encoder, correlation_id)
@@ -107,6 +121,16 @@ end
 
 """
 Send a lease keepalive.
+
+Arguments (keywords):
+- `lease_id`: lease identifier.
+- `stream_id`: stream identifier.
+- `client_id`: client identifier.
+- `role`: driver role enum.
+- `client_timestamp_ns`: client timestamp in nanoseconds.
+
+Returns:
+- `true` if the message was committed, `false` otherwise.
 """
 function send_keepalive!(
     proxy::KeepaliveProxy;
@@ -136,6 +160,16 @@ end
 
 """
 Send a detach request.
+
+Arguments (keywords):
+- `correlation_id`: correlation id for the request.
+- `lease_id`: lease identifier.
+- `stream_id`: stream identifier.
+- `client_id`: client identifier.
+- `role`: driver role enum.
+
+Returns:
+- `true` if the message was committed, `false` otherwise.
 """
 function send_detach!(
     proxy::DetachRequestProxy;
@@ -165,6 +199,15 @@ end
 
 """
 Send a shutdown request.
+
+Arguments (keywords):
+- `correlation_id`: correlation id for the request.
+- `reason`: shutdown reason enum.
+- `token`: shutdown token string.
+- `error_message`: optional error message.
+
+Returns:
+- `true` if the message was committed, `false` otherwise.
 """
 function send_shutdown_request!(
     proxy::ShutdownRequestProxy;

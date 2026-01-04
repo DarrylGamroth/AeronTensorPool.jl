@@ -1,5 +1,11 @@
 """
-Create a FragmentAssembler for the control subscription.
+Create a control-channel fragment assembler for the producer.
+
+Arguments:
+- `state`: producer state.
+
+Returns:
+- `Aeron.FragmentAssembler` configured for control messages.
 """
 function make_control_assembler(state::ProducerState)
     handler = Aeron.FragmentHandler(state) do st, buffer, _
@@ -14,7 +20,13 @@ function make_control_assembler(state::ProducerState)
 end
 
 """
-Create a FragmentAssembler for the QoS subscription.
+Create a QoS fragment assembler for the producer.
+
+Arguments:
+- `state`: producer state.
+
+Returns:
+- `Aeron.FragmentAssembler` configured for QoS messages.
 """
 function make_qos_assembler(state::ProducerState)
     handler = Aeron.FragmentHandler(state) do st, buffer, _
@@ -30,6 +42,14 @@ end
 
 """
 Poll the control subscription for ConsumerHello messages.
+
+Arguments:
+- `state`: producer state.
+- `assembler`: fragment assembler for control channel.
+- `fragment_limit`: max fragments per poll (default: DEFAULT_FRAGMENT_LIMIT).
+
+Returns:
+- Number of fragments processed.
 """
 @inline function poll_control!(
     state::ProducerState,
@@ -41,6 +61,14 @@ end
 
 """
 Poll the QoS subscription for QosConsumer messages.
+
+Arguments:
+- `state`: producer state.
+- `assembler`: fragment assembler for QoS channel.
+- `fragment_limit`: max fragments per poll (default: DEFAULT_FRAGMENT_LIMIT).
+
+Returns:
+- Number of fragments processed.
 """
 @inline function poll_qos!(
     state::ProducerState,
@@ -51,7 +79,13 @@ Poll the QoS subscription for QosConsumer messages.
 end
 
 """
-Refresh activity_timestamp_ns in all mapped superblocks.
+Refresh activity timestamps in header and payload superblocks.
+
+Arguments:
+- `state`: producer state.
+
+Returns:
+- `nothing`.
 """
 function refresh_activity_timestamps!(
     state::ProducerState,
@@ -256,6 +290,16 @@ function update_consumer_streams!(state::ProducerState, msg::ConsumerHello.Decod
     return changed
 end
 
+"""
+Handle an incoming QosConsumer message.
+
+Arguments:
+- `state`: producer state.
+- `msg`: decoded QosConsumer message.
+
+Returns:
+- `nothing`.
+"""
 function handle_qos_consumer!(state::ProducerState, msg::QosConsumer.Decoder)
     QosConsumer.streamId(msg) == state.config.stream_id || return false
     consumer_id = QosConsumer.consumerId(msg)
@@ -281,7 +325,14 @@ function handle_qos_consumer!(state::ProducerState, msg::QosConsumer.Decoder)
 end
 
 """
-Update progress settings based on a ConsumerHello message.
+Handle an incoming ConsumerHello message.
+
+Arguments:
+- `state`: producer state.
+- `msg`: decoded ConsumerHello message.
+
+Returns:
+- `nothing`.
 """
 function handle_consumer_hello!(state::ProducerState, msg::ConsumerHello.Decoder)
     if ConsumerHello.supportsProgress(msg) == ShmTensorpoolControl.Bool_.TRUE

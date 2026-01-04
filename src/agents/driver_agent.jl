@@ -8,6 +8,13 @@ end
 
 """
 Construct a DriverAgent from a DriverConfig.
+
+Arguments:
+- `config`: driver configuration.
+- `client`: Aeron client to use for publications/subscriptions.
+
+Returns:
+- `DriverAgent` wrapping the driver state.
 """
 function DriverAgent(
     config::DriverConfig;

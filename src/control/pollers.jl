@@ -109,6 +109,13 @@ end
 
 """
 Poll responses and update the latest snapshot.
+
+Arguments:
+- `poller`: driver response poller.
+- `fragment_limit`: max fragments to poll (default: DEFAULT_FRAGMENT_LIMIT).
+
+Returns:
+- Number of fragments processed.
 """
 function poll_driver_responses!(poller::DriverResponsePoller, fragment_limit::Int32 = DEFAULT_FRAGMENT_LIMIT)
     return Aeron.poll(poller.subscription, poller.assembler, fragment_limit)
@@ -118,7 +125,6 @@ function handle_driver_response!(poller::DriverResponsePoller, buffer::AbstractV
     header = DriverMessageHeader.Decoder(buffer, 0)
     template_id = DriverMessageHeader.templateId(header)
     poller.last_template_id = template_id
-
     if template_id == TEMPLATE_SHM_ATTACH_RESPONSE
         ShmAttachResponse.wrap!(poller.attach_decoder, buffer, 0; header = header)
         snapshot_attach_response!(poller.attach_response, poller.attach_decoder)

@@ -47,7 +47,12 @@ function get_or_create_stream!(
 end
 
 function bump_epoch!(state::DriverState, stream_state::DriverStreamState)
-    stream_state.epoch = stream_state.epoch == 0 ? UInt64(1) : stream_state.epoch + 1
+    now_ns = UInt64(time_ns())
+    if stream_state.epoch == 0
+        stream_state.epoch = max(UInt64(1), now_ns)
+    else
+        stream_state.epoch = max(stream_state.epoch + 1, now_ns)
+    end
     provision_stream_epoch!(state, stream_state)
     return nothing
 end

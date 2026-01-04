@@ -10,6 +10,16 @@ end
     return now_ns + grace_ns
 end
 
+"""
+Handle an incoming ShmAttachRequest.
+
+Arguments:
+- `state`: driver state.
+- `msg`: decoded ShmAttachRequest message.
+
+Returns:
+- `true` if handled, `false` otherwise.
+"""
 function handle_attach_request!(state::DriverState, msg::ShmAttachRequest.Decoder)
     correlation_id = ShmAttachRequest.correlationId(msg)
     stream_id = ShmAttachRequest.streamId(msg)
@@ -166,6 +176,16 @@ function handle_attach_request!(state::DriverState, msg::ShmAttachRequest.Decode
     return true
 end
 
+"""
+Handle an incoming ShmDetachRequest.
+
+Arguments:
+- `state`: driver state.
+- `msg`: decoded ShmDetachRequest message.
+
+Returns:
+- `true` if handled, `false` otherwise.
+"""
 function handle_detach_request!(state::DriverState, msg::ShmDetachRequest.Decoder)
     correlation_id = ShmDetachRequest.correlationId(msg)
     lease_id = ShmDetachRequest.leaseId(msg)
@@ -185,6 +205,16 @@ function handle_detach_request!(state::DriverState, msg::ShmDetachRequest.Decode
     return emit_detach_response!(state, correlation_id, DriverResponseCode.OK, "")
 end
 
+"""
+Handle an incoming ShmLeaseKeepalive.
+
+Arguments:
+- `state`: driver state.
+- `msg`: decoded ShmLeaseKeepalive message.
+
+Returns:
+- `true` if handled, `false` otherwise.
+"""
 function handle_keepalive!(state::DriverState, msg::ShmLeaseKeepalive.Decoder)
     lease_id = ShmLeaseKeepalive.leaseId(msg)
     lease = get(state.leases, lease_id, nothing)
@@ -198,6 +228,16 @@ function handle_keepalive!(state::DriverState, msg::ShmLeaseKeepalive.Decoder)
     return true
 end
 
+"""
+Handle an incoming ShmDriverShutdownRequest.
+
+Arguments:
+- `state`: driver state.
+- `msg`: decoded ShmDriverShutdownRequest message.
+
+Returns:
+- `true` if handled, `false` otherwise.
+"""
 function handle_shutdown_request!(state::DriverState, msg::ShmDriverShutdownRequest.Decoder)
     token = String(ShmDriverShutdownRequest.token(msg))
     if isempty(state.config.policies.shutdown_token)

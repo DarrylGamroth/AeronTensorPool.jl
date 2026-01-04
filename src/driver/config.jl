@@ -101,6 +101,16 @@ end
     return lowercase(get(env, env_key(key), string(fallback))) == "true"
 end
 
+"""
+Load DriverConfig from a TOML file with optional environment overrides.
+
+Arguments:
+- `path`: TOML file path.
+- `env`: environment dictionary for overrides (default: ENV).
+
+Returns:
+- `DriverConfig`.
+"""
 function load_driver_config(path::AbstractString; env::AbstractDict = ENV)
     cfg = TOML.parsefile(path)
     driver_tbl = get(cfg, "driver", Dict{String, Any}())

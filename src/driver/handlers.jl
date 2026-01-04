@@ -1,12 +1,24 @@
 """
-Handle a driver control-plane message.
+Handle a driver control message buffer.
+
+Arguments:
+- `state`: driver state.
+- `buffer`: raw message buffer.
+
+Returns:
+- `true` if handled, `false` otherwise.
 """
 function handle_driver_control!(state::DriverState, buffer::AbstractVector{UInt8})
     header = DriverMessageHeader.Decoder(buffer, 0)
     template_id = DriverMessageHeader.templateId(header)
+    @info "driver control message" template_id
 
     if template_id == TEMPLATE_SHM_ATTACH_REQUEST
         ShmAttachRequest.wrap!(state.runtime.attach_decoder, buffer, 0; header = header)
+        @info "attach request" correlation_id = ShmAttachRequest.correlationId(state.runtime.attach_decoder) stream_id =
+            ShmAttachRequest.streamId(state.runtime.attach_decoder) client_id =
+            ShmAttachRequest.clientId(state.runtime.attach_decoder) role =
+            ShmAttachRequest.role(state.runtime.attach_decoder)
         driver_lifecycle_dispatch!(state, :AttachRequest)
     elseif template_id == TEMPLATE_SHM_DETACH_REQUEST
         ShmDetachRequest.wrap!(state.runtime.detach_decoder, buffer, 0; header = header)
@@ -24,7 +36,13 @@ function handle_driver_control!(state::DriverState, buffer::AbstractVector{UInt8
 end
 
 """
-Create a FragmentAssembler for driver control messages.
+Create a control-channel fragment assembler for the driver.
+
+Arguments:
+- `state`: driver state.
+
+Returns:
+- `Aeron.FragmentAssembler` configured for driver control messages.
 """
 function make_driver_control_assembler(state::DriverState)
     handler = Aeron.FragmentHandler(state) do st, buffer, _

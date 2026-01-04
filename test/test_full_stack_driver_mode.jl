@@ -193,7 +193,7 @@ end
                 supervisor_do_work!(supervisor_state, sup_ctrl, sup_qos)
 
                 if consumer_state.mappings.header_mmap !== nothing && !got_frame[]
-                    publish_frame!(producer_state, payload, shape, strides, Dtype.UINT8, UInt32(0))
+                    offer_frame!(producer_state, payload, shape, strides, Dtype.UINT8, UInt32(0))
                 end
 
                 got_frame[] &&

@@ -74,6 +74,12 @@ const TEMPLATE_BRIDGE_FRAME_CHUNK = BridgeFrameChunk.sbe_template_id(BridgeFrame
 
 """
 Return full SBE message length (header + body) for an encoder/decoder.
+
+Arguments:
+- `msg`: SBE encoder or decoder instance.
+
+Returns:
+- Total encoded length in bytes (including message header).
 """
 @inline function sbe_message_length(msg::SBE.AbstractSbeMessage)
     return MESSAGE_HEADER_LEN + sbe_encoded_length(msg)

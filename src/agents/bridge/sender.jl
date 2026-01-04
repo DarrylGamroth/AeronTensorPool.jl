@@ -1,5 +1,14 @@
 """
 Initialize a bridge sender using an existing consumer mapping.
+
+Arguments:
+- `consumer_state`: consumer state providing SHM mappings.
+- `config`: bridge configuration.
+- `mapping`: bridge mapping definition.
+- `client`: Aeron client to use for publications/subscriptions.
+
+Returns:
+- `BridgeSenderState` initialized for forwarding.
 """
 function init_bridge_sender(
     consumer_state::ConsumerState,
@@ -66,6 +75,13 @@ end
 
 """
 Chunk and forward a frame payload based on a FrameDescriptor.
+
+Arguments:
+- `state`: bridge sender state.
+- `desc`: decoded frame descriptor.
+
+Returns:
+- `true` if any chunks were published, `false` otherwise.
 """
 function bridge_send_frame!(state::BridgeSenderState, desc::FrameDescriptor.Decoder)
     FrameDescriptor.epoch(desc) == state.consumer_state.mappings.mapped_epoch || return false

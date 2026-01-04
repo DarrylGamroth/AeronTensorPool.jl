@@ -1,5 +1,13 @@
 """
 Initialize a decimator using an existing consumer mapping.
+
+Arguments:
+- `consumer_state`: consumer state providing SHM mappings.
+- `config`: decimator configuration.
+- `client`: Aeron client to use for publications.
+
+Returns:
+- `DecimatorState` initialized for republishing.
 """
 function init_decimator(
     consumer_state::ConsumerState,

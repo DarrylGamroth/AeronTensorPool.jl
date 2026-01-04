@@ -3,7 +3,13 @@
 end
 
 """
-Create a FragmentAssembler for the control subscription.
+Create a control-channel fragment assembler for the supervisor.
+
+Arguments:
+- `state`: supervisor state.
+
+Returns:
+- `Aeron.FragmentAssembler` configured for control messages.
 """
 function make_control_assembler(state::SupervisorState)
     handler = Aeron.FragmentHandler(state) do st, buffer, _
@@ -22,7 +28,13 @@ function make_control_assembler(state::SupervisorState)
 end
 
 """
-Create a FragmentAssembler for the QoS subscription.
+Create a QoS fragment assembler for the supervisor.
+
+Arguments:
+- `state`: supervisor state.
+
+Returns:
+- `Aeron.FragmentAssembler` configured for QoS messages.
 """
 function make_qos_assembler(state::SupervisorState)
     handler = Aeron.FragmentHandler(state) do st, buffer, _
@@ -42,6 +54,14 @@ end
 
 """
 Poll the control subscription for announce and hello messages.
+
+Arguments:
+- `state`: supervisor state.
+- `assembler`: fragment assembler for control channel.
+- `fragment_limit`: max fragments per poll (default: DEFAULT_FRAGMENT_LIMIT).
+
+Returns:
+- Number of fragments processed.
 """
 @inline function poll_control!(
     state::SupervisorState,
@@ -53,6 +73,14 @@ end
 
 """
 Poll the QoS subscription for producer/consumer QoS messages.
+
+Arguments:
+- `state`: supervisor state.
+- `assembler`: fragment assembler for QoS channel.
+- `fragment_limit`: max fragments per poll (default: DEFAULT_FRAGMENT_LIMIT).
+
+Returns:
+- Number of fragments processed.
 """
 @inline function poll_qos!(
     state::SupervisorState,
@@ -63,7 +91,14 @@ Poll the QoS subscription for producer/consumer QoS messages.
 end
 
 """
-Handle ShmPoolAnnounce messages and update producer tracking.
+Handle an incoming ShmPoolAnnounce message.
+
+Arguments:
+- `state`: supervisor state.
+- `msg`: decoded ShmPoolAnnounce message.
+
+Returns:
+- `nothing`.
 """
 function handle_shm_pool_announce!(state::SupervisorState, msg::ShmPoolAnnounce.Decoder)
     now_ns = UInt64(Clocks.time_nanos(state.clock))
@@ -85,7 +120,14 @@ function handle_shm_pool_announce!(state::SupervisorState, msg::ShmPoolAnnounce.
 end
 
 """
-Handle QosProducer updates.
+Handle an incoming QosProducer message.
+
+Arguments:
+- `state`: supervisor state.
+- `msg`: decoded QosProducer message.
+
+Returns:
+- `nothing`.
 """
 function handle_qos_producer!(state::SupervisorState, msg::QosProducer.Decoder)
     now_ns = UInt64(Clocks.time_nanos(state.clock))
@@ -113,7 +155,14 @@ function handle_qos_producer!(state::SupervisorState, msg::QosProducer.Decoder)
 end
 
 """
-Handle ConsumerHello messages and update consumer tracking.
+Handle an incoming ConsumerHello message.
+
+Arguments:
+- `state`: supervisor state.
+- `msg`: decoded ConsumerHello message.
+
+Returns:
+- `nothing`.
 """
 function handle_consumer_hello!(state::SupervisorState, msg::ConsumerHello.Decoder)
     now_ns = UInt64(Clocks.time_nanos(state.clock))
@@ -140,7 +189,14 @@ function handle_consumer_hello!(state::SupervisorState, msg::ConsumerHello.Decod
 end
 
 """
-Handle QosConsumer updates.
+Handle an incoming QosConsumer message.
+
+Arguments:
+- `state`: supervisor state.
+- `msg`: decoded QosConsumer message.
+
+Returns:
+- `nothing`.
 """
 function handle_qos_consumer!(state::SupervisorState, msg::QosConsumer.Decoder)
     now_ns = UInt64(Clocks.time_nanos(state.clock))
@@ -200,7 +256,17 @@ function check_liveness!(state::SupervisorState, now_ns::UInt64)
 end
 
 """
-Emit a ConsumerConfig message for a specific consumer.
+Emit a ConsumerConfig message to a consumer.
+
+Arguments:
+- `state`: supervisor state.
+- `consumer_id`: consumer identifier.
+- `mode`: consumer mode enum.
+- `decimation`: decimation ratio (default: 1).
+- `fallback_uri`: payload fallback URI (default: "").
+
+Returns:
+- `true` if the message was committed, `false` otherwise.
 """
 function emit_consumer_config!(
     state::SupervisorState,

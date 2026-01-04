@@ -286,7 +286,7 @@
             payload = UInt8[1, 2, 3, 4, 5]
             shape = Int32[5]
             strides = Int32[1]
-            published = publish_frame!(producer_src, payload, shape, strides, Dtype.UINT8, UInt32(7))
+            published = offer_frame!(producer_src, payload, shape, strides, Dtype.UINT8, UInt32(7))
             @test published
 
             bridged = wait_for() do

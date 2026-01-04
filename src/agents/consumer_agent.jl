@@ -10,6 +10,13 @@ end
 
 """
 Construct a ConsumerAgent from a ConsumerSettings.
+
+Arguments:
+- `config`: consumer settings.
+- `client`: Aeron client to use for publications/subscriptions.
+
+Returns:
+- `ConsumerAgent` wrapping the consumer state and assemblers.
 """
 function ConsumerAgent(
     config::ConsumerSettings;

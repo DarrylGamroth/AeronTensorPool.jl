@@ -1,5 +1,13 @@
 """
 Apply decimation and republish a descriptor when the ratio matches.
+
+Arguments:
+- `state`: decimator state.
+- `header`: decoded tensor slot header.
+- `payload`: payload bytes view.
+
+Returns:
+- `true` if republished, `false` if dropped.
 """
 function handle_decimated_frame!(
     state::DecimatorState,
@@ -18,6 +26,14 @@ end
 
 """
 Republish a FrameDescriptor with decimator epoch and stream id.
+
+Arguments:
+- `state`: decimator state.
+- `header`: decoded tensor slot header.
+- `payload`: payload bytes view (unused).
+
+Returns:
+- `true` if the descriptor was committed, `false` otherwise.
 """
 function republish_descriptor!(
     state::DecimatorState,

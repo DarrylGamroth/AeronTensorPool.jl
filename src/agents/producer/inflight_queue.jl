@@ -1,7 +1,7 @@
 """
-Reservation handle for a payload slot that will be filled externally.
+Claim handle for a payload slot that will be filled externally.
 """
-struct SlotReservation
+struct SlotClaim
     seq::UInt64
     header_index::UInt32
     pool_id::UInt16
@@ -11,10 +11,10 @@ struct SlotReservation
 end
 
 """
-Simple ring buffer for SlotReservation tracking.
+Simple ring buffer for SlotClaim tracking.
 """
 mutable struct InflightQueue
-    items::FixedSizeVectorDefault{SlotReservation}
+    items::FixedSizeVectorDefault{SlotClaim}
     head::Int
     tail::Int
     count::Int
@@ -25,7 +25,7 @@ Create an InflightQueue with the given capacity.
 """
 function InflightQueue(capacity::Integer)
     capacity > 0 || throw(ArgumentError("capacity must be > 0"))
-    return InflightQueue(FixedSizeVectorDefault{SlotReservation}(undef, Int(capacity)), 1, 1, 0)
+    return InflightQueue(FixedSizeVectorDefault{SlotClaim}(undef, Int(capacity)), 1, 1, 0)
 end
 
 Base.isempty(q::InflightQueue) = q.count == 0
@@ -34,9 +34,9 @@ Base.isfull(q::InflightQueue) = q.count == length(q.items)
 
 Base.first(q::InflightQueue) = isempty(q) ? throw(ArgumentError("inflight queue empty")) : q.items[q.head]
 
-function Base.push!(q::InflightQueue, reservation::SlotReservation)
+function Base.push!(q::InflightQueue, claim::SlotClaim)
     isfull(q) && throw(ArgumentError("inflight queue full"))
-    q.items[q.tail] = reservation
+    q.items[q.tail] = claim
     q.tail = q.tail == length(q.items) ? 1 : q.tail + 1
     q.count += 1
     return q

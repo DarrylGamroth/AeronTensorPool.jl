@@ -4,6 +4,15 @@ end
 
 """
 Supervisor duty cycle: poll subscriptions, check liveness, and return work count.
+
+Arguments:
+- `state`: supervisor state.
+- `control_assembler`: fragment assembler for control channel.
+- `qos_assembler`: fragment assembler for QoS channel.
+- `fragment_limit`: max fragments per poll (default: DEFAULT_FRAGMENT_LIMIT).
+
+Returns:
+- Work count (sum of polled fragments and timer work).
 """
 function supervisor_do_work!(
     state::SupervisorState,

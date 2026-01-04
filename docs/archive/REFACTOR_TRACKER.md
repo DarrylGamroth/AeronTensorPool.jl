@@ -79,7 +79,7 @@ This tracker lists refactor candidates identified during project review. Items a
 ## API Shape (kwargs vs positional)
 - Review public API for keyword argument use and consistency.
   - Rationale: kwargs improve clarity for optional parameters, but can add call-site overhead and inconsistency.
-  - Scope: audit exported functions (init_*, emit_*, poll_*, publish_frame!, try_read_frame!, driver client API) and classify:
+  - Scope: audit exported functions (init_*, emit_*, poll_*, offer_frame!, try_read_frame!, driver client API) and classify:
     - Required parameters → positional.
     - Optional parameters with safe defaults → kwargs.
     - Hot-path calls → prefer positional or small structs for options to avoid kwargs overhead.
@@ -95,5 +95,5 @@ This tracker lists refactor candidates identified during project review. Items a
     - `emit_consumer_config!(state, consumer_id; use_shm, mode, decimation, payload_fallback_uri)` → good use of kw for optional config overrides.
     - `emit_driver_shutdown!(state, reason=..., error_message="")` → optional args; kw ok (or keep positional defaults).
     - `poll_driver_responses!(poller, fragment_limit=DEFAULT_FRAGMENT_LIMIT)` → default optional; kw ok.
-    - `publish_frame!(state, payload, shape, strides, dtype, meta_version)` → all positional; ok for hot path.
+    - `offer_frame!(state, payload, shape, strides, dtype, meta_version)` → all positional; ok for hot path.
     - `payload_slot_view(state, pool_id, slot; len=-1)` → kw optional; ok.

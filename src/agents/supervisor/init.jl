@@ -1,5 +1,12 @@
 """
 Initialize a supervisor: create Aeron resources and timers.
+
+Arguments:
+- `config`: supervisor configuration.
+- `client`: Aeron client to use for publications/subscriptions.
+
+Returns:
+- `SupervisorState` initialized for polling.
 """
 function init_supervisor(config::SupervisorConfig; client::Aeron.Client)
     clock = Clocks.CachedEpochClock(Clocks.MonotonicClock())

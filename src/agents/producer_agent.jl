@@ -10,6 +10,13 @@ end
 
 """
 Construct a ProducerAgent from a ProducerConfig.
+
+Arguments:
+- `config`: producer configuration.
+- `client`: Aeron client to use for publications/subscriptions.
+
+Returns:
+- `ProducerAgent` wrapping the producer state and assemblers.
 """
 function ProducerAgent(
     config::ProducerConfig;

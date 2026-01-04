@@ -17,7 +17,15 @@ struct SuperblockFields
 end
 
 """
-Wrap a superblock encoder over a buffer without SBE message header.
+Wrap a superblock encoder over a buffer without an SBE message header.
+
+Arguments:
+- `m`: superblock encoder.
+- `buffer`: mmap buffer.
+- `offset`: byte offset within `buffer` (default: 0).
+
+Returns:
+- The wrapped encoder `m`.
 """
 @inline function wrap_superblock!(m::ShmRegionSuperblock.Encoder, buffer::AbstractVector{UInt8}, offset::Integer = 0)
     @boundscheck length(buffer) >= offset + SUPERBLOCK_SIZE || throw(ArgumentError("buffer too small for superblock"))
@@ -26,7 +34,15 @@ Wrap a superblock encoder over a buffer without SBE message header.
 end
 
 """
-Wrap a superblock decoder over a buffer without SBE message header.
+Wrap a superblock decoder over a buffer without an SBE message header.
+
+Arguments:
+- `m`: superblock decoder.
+- `buffer`: mmap buffer.
+- `offset`: byte offset within `buffer` (default: 0).
+
+Returns:
+- The wrapped decoder `m`.
 """
 @inline function wrap_superblock!(m::ShmRegionSuperblock.Decoder, buffer::AbstractVector{UInt8}, offset::Integer = 0)
     @boundscheck length(buffer) >= offset + SUPERBLOCK_SIZE || throw(ArgumentError("buffer too small for superblock"))
@@ -41,7 +57,15 @@ Wrap a superblock decoder over a buffer without SBE message header.
 end
 
 """
-Wrap a tensor slot header encoder over a buffer without SBE message header.
+Wrap a tensor slot header encoder over a buffer without an SBE message header.
+
+Arguments:
+- `m`: tensor slot header encoder.
+- `buffer`: header mmap buffer.
+- `offset`: byte offset within `buffer`.
+
+Returns:
+- The wrapped encoder `m`.
 """
 @inline function wrap_tensor_header!(m::TensorSlotHeader256.Encoder, buffer::AbstractVector{UInt8}, offset::Integer)
     @boundscheck length(buffer) >= offset + HEADER_SLOT_BYTES || throw(ArgumentError("buffer too small for header slot"))
@@ -50,7 +74,15 @@ Wrap a tensor slot header encoder over a buffer without SBE message header.
 end
 
 """
-Wrap a tensor slot header decoder over a buffer without SBE message header.
+Wrap a tensor slot header decoder over a buffer without an SBE message header.
+
+Arguments:
+- `m`: tensor slot header decoder.
+- `buffer`: header mmap buffer.
+- `offset`: byte offset within `buffer`.
+
+Returns:
+- The wrapped decoder `m`.
 """
 @inline function wrap_tensor_header!(m::TensorSlotHeader256.Decoder, buffer::AbstractVector{UInt8}, offset::Integer)
     @boundscheck length(buffer) >= offset + HEADER_SLOT_BYTES || throw(ArgumentError("buffer too small for header slot"))
@@ -66,6 +98,13 @@ end
 
 """
 Write superblock fields into an encoder.
+
+Arguments:
+- `m`: superblock encoder.
+- `fields`: decoded or constructed superblock fields.
+
+Returns:
+- `nothing`.
 """
 function write_superblock!(m::ShmRegionSuperblock.Encoder, fields::SuperblockFields)
     ShmRegionSuperblock.magic!(m, fields.magic)
@@ -84,7 +123,13 @@ function write_superblock!(m::ShmRegionSuperblock.Encoder, fields::SuperblockFie
 end
 
 """
-Decode a superblock into a SuperblockFields struct.
+Decode a superblock into a `SuperblockFields` struct.
+
+Arguments:
+- `m`: superblock decoder.
+
+Returns:
+- `SuperblockFields` with decoded values.
 """
 function read_superblock(m::ShmRegionSuperblock.Decoder)
     return SuperblockFields(
@@ -105,6 +150,19 @@ end
 
 """
 Validate superblock fields against expected layout and mapping rules.
+
+Arguments:
+- `fields`: decoded superblock fields.
+- `expected_layout_version`: expected layout version.
+- `expected_epoch`: expected epoch.
+- `expected_stream_id`: expected stream ID.
+- `expected_nslots`: expected number of slots.
+- `expected_slot_bytes`: expected slot size in bytes.
+- `expected_region_type`: expected region type enum.
+- `expected_pool_id`: expected pool ID (0 for header ring).
+
+Returns:
+- `true` if all checks pass, `false` otherwise.
 """
 function validate_superblock_fields(
     fields::SuperblockFields;
@@ -130,6 +188,24 @@ end
 
 """
 Write tensor slot header fields to an encoder, padding dims/strides to MAX_DIMS.
+
+Arguments:
+- `m`: tensor slot header encoder.
+- `frame_id`: frame identifier (seq).
+- `timestamp_ns`: timestamp for the frame.
+- `meta_version`: metadata schema version.
+- `values_len_bytes`: payload length in bytes.
+- `payload_slot`: payload slot index.
+- `payload_offset`: offset within payload slot (usually 0).
+- `pool_id`: payload pool ID.
+- `dtype`: element type enum.
+- `major_order`: major order enum.
+- `ndims`: number of dimensions.
+- `dims`: dimension sizes (length >= `ndims`).
+- `strides`: stride sizes (length >= `ndims`).
+
+Returns:
+- `nothing`.
 """
 @inline function write_tensor_slot_header!(
     m::TensorSlotHeader256.Encoder,
@@ -177,7 +253,13 @@ Write tensor slot header fields to an encoder, padding dims/strides to MAX_DIMS.
 end
 
 """
-Keyword-based wrapper for write_tensor_slot_header!.
+Keyword-based wrapper for `write_tensor_slot_header!`.
+
+Arguments:
+- Same as the positional variant, passed by keyword.
+
+Returns:
+- `nothing`.
 """
 @inline function write_tensor_slot_header!(
     m::TensorSlotHeader256.Encoder;
@@ -212,7 +294,13 @@ Keyword-based wrapper for write_tensor_slot_header!.
 end
 
 """
-Decode a tensor slot header into a TensorSlotHeader struct.
+Decode a tensor slot header into a `TensorSlotHeader` struct.
+
+Arguments:
+- `m`: tensor slot header decoder.
+
+Returns:
+- `TensorSlotHeader` with decoded values.
 """
 function read_tensor_slot_header(m::TensorSlotHeader256.Decoder)
     return TensorSlotHeader(

@@ -1,4 +1,4 @@
-@testset "Slot reservation" begin
+@testset "Slot claim" begin
     with_driver_and_client() do driver, client
         mktempdir("/dev/shm") do base_dir
             namespace = "tensorpool"
@@ -34,7 +34,7 @@
 
             state = init_producer(cfg; client = client)
             try
-                res = reserve_slot!(state, UInt16(1))
+                res = try_claim_slot!(state, UInt16(1))
                 @test res.seq == UInt64(0)
                 @test res.header_index == UInt32(0)
                 @test res.payload_slot == UInt32(0)

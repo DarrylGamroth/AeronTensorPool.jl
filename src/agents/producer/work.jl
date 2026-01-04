@@ -4,6 +4,15 @@ end
 
 """
 Producer duty cycle: poll control, emit periodic messages, and return work count.
+
+Arguments:
+- `state`: producer state.
+- `control_assembler`: fragment assembler for control channel.
+- `qos_assembler`: optional fragment assembler for QoS channel.
+- `fragment_limit`: max fragments per poll (default: DEFAULT_FRAGMENT_LIMIT).
+
+Returns:
+- Work count (sum of polled fragments and timer work).
 """
 function producer_do_work!(
     state::ProducerState,

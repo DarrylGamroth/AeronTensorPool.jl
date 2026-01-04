@@ -4,6 +4,17 @@ end
 
 """
 Consumer duty cycle: poll subscriptions, update metrics, and return work count.
+
+Arguments:
+- `state`: consumer state.
+- `descriptor_assembler`: fragment assembler for descriptors.
+- `control_assembler`: fragment assembler for control channel.
+- `qos_assembler`: optional fragment assembler for QoS channel.
+- `progress_assembler`: optional fragment assembler for progress channel.
+- `fragment_limit`: max fragments per poll (default: DEFAULT_FRAGMENT_LIMIT).
+
+Returns:
+- Work count (sum of polled fragments and timer work).
 """
 function consumer_do_work!(
     state::ConsumerState,

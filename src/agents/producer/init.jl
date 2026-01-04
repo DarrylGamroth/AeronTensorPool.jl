@@ -1,5 +1,12 @@
 """
 Initialize a producer: map SHM regions, write superblocks, and create Aeron resources.
+
+Arguments:
+- `config`: producer configuration.
+- `client`: Aeron client to use for publications/subscriptions.
+
+Returns:
+- `ProducerState` initialized for publishing.
 """
 function init_producer(config::ProducerConfig; client::Aeron.Client)
     ispow2(config.nslots) || throw(ArgumentError("header nslots must be power of two"))
@@ -76,6 +83,13 @@ end
 
 """
 Build a ProducerConfig from a driver attach response.
+
+Arguments:
+- `config`: base producer configuration (used for defaults).
+- `attach`: driver attach response.
+
+Returns:
+- `ProducerConfig` populated from driver-provided regions.
 """
 function producer_config_from_attach(config::ProducerConfig, attach::AttachResponse)
     pools = PayloadPoolConfig[]
@@ -117,6 +131,14 @@ end
 
 """
 Initialize a producer using driver-provisioned SHM regions.
+
+Arguments:
+- `config`: base producer configuration.
+- `attach`: driver attach response.
+- `client`: Aeron client to use for publications/subscriptions.
+
+Returns:
+- `ProducerState` initialized for publishing.
 """
 function init_producer_from_attach(
     config::ProducerConfig,

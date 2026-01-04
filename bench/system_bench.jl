@@ -175,7 +175,7 @@ function run_system_bench(
                             consumer_do_work!(consumer, cons_desc, cons_ctrl)
                             supervisor_do_work!(supervisor, sup_ctrl, sup_qos)
                             if consumer.mappings.header_mmap !== nothing
-                                publish_frame!(producer, payload, shape, strides, Dtype.UINT8, UInt32(0))
+                                offer_frame!(producer, payload, shape, strides, Dtype.UINT8, UInt32(0))
                             end
                             yield()
                         end
@@ -197,7 +197,7 @@ function run_system_bench(
                             consumer_do_work!(consumer, cons_desc, cons_ctrl)
                             supervisor_do_work!(supervisor, sup_ctrl, sup_qos)
                             if consumer.mappings.header_mmap !== nothing
-                                publish_frame!(producer, payload, shape, strides, Dtype.UINT8, UInt32(0))
+                                offer_frame!(producer, payload, shape, strides, Dtype.UINT8, UInt32(0))
                             end
                             yield()
                         end
@@ -206,7 +206,7 @@ function run_system_bench(
                         consumer_do_work!(consumer, cons_desc, cons_ctrl)
                         supervisor_do_work!(supervisor, sup_ctrl, sup_qos)
                         if consumer.mappings.header_mmap !== nothing
-                            publish_frame!(producer, payload, shape, strides, Dtype.UINT8, UInt32(0))
+                            offer_frame!(producer, payload, shape, strides, Dtype.UINT8, UInt32(0))
                         end
                         sample_after = Base.gc_num().allocd
                         println("Sample alloc per-iteration: $(sample_after - sample_before) bytes")
@@ -226,7 +226,7 @@ function run_system_bench(
                             consumer_do_work!(consumer, cons_desc, cons_ctrl)
                             supervisor_do_work!(supervisor, sup_ctrl, sup_qos)
                             if consumer.mappings.header_mmap !== nothing
-                                publish_frame!(producer, payload, shape, strides, Dtype.UINT8, UInt32(0))
+                                offer_frame!(producer, payload, shape, strides, Dtype.UINT8, UInt32(0))
                             end
                             yield()
                         end
@@ -246,7 +246,7 @@ function run_system_bench(
                             consumer_do_work!(consumer, cons_desc, cons_ctrl)
                         end
                         if consumer.mappings.header_mmap !== nothing
-                            publish_frame!(producer, payload, shape, strides, Dtype.UINT8, UInt32(0))
+                            offer_frame!(producer, payload, shape, strides, Dtype.UINT8, UInt32(0))
                             measure_allocd("consumer_do_work (with frame)") do
                                 consumer_do_work!(consumer, cons_desc, cons_ctrl)
                             end
@@ -256,7 +256,7 @@ function run_system_bench(
                         end
                         measure_allocd("publish_frame") do
                             if consumer.mappings.header_mmap !== nothing
-                                publish_frame!(producer, payload, shape, strides, Dtype.UINT8, UInt32(0))
+                                offer_frame!(producer, payload, shape, strides, Dtype.UINT8, UInt32(0))
                             end
                         end
                         measure_allocd("producer_poll_timers") do
@@ -301,7 +301,7 @@ function run_system_bench(
                             consumer_do_work!(consumer, cons_desc, cons_ctrl)
                             supervisor_do_work!(supervisor, sup_ctrl, sup_qos)
                             if consumer.mappings.header_mmap !== nothing
-                                publish_frame!(producer, payload, shape, strides, Dtype.UINT8, UInt32(0))
+                                offer_frame!(producer, payload, shape, strides, Dtype.UINT8, UInt32(0))
                             end
                             yield()
                         end
@@ -353,7 +353,7 @@ function run_system_bench(
                                 end
 
                                 if do_publish && consumer.mappings.header_mmap !== nothing
-                                    publish_frame!(producer, payload, shape, strides, Dtype.UINT8, UInt32(0))
+                                    offer_frame!(producer, payload, shape, strides, Dtype.UINT8, UInt32(0))
                                     published += 1
                                 end
                             end
@@ -390,7 +390,7 @@ function run_system_bench(
                                 end
 
                                 if do_publish && consumer.mappings.header_mmap !== nothing
-                                    publish_frame!(producer, payload, shape, strides, Dtype.UINT8, UInt32(0))
+                                    offer_frame!(producer, payload, shape, strides, Dtype.UINT8, UInt32(0))
                                     published += 1
                                 end
                             end

@@ -1,5 +1,14 @@
 """
 Initialize a bridge receiver for a single mapping.
+
+Arguments:
+- `config`: bridge configuration.
+- `mapping`: bridge mapping definition.
+- `producer_state`: optional producer state for rematerialization.
+- `client`: Aeron client to use for publications/subscriptions.
+
+Returns:
+- `BridgeReceiverState` initialized for receiving.
 """
 function init_bridge_receiver(
     config::BridgeConfig,
@@ -99,6 +108,14 @@ end
 
 """
 Write an assembled bridge frame into the destination SHM and publish a descriptor.
+
+Arguments:
+- `state`: bridge receiver state.
+- `header`: decoded tensor slot header.
+- `payload`: payload bytes.
+
+Returns:
+- `true` if the descriptor was published, `false` otherwise.
 """
 function bridge_rematerialize!(
     state::BridgeReceiverState,
@@ -176,6 +193,16 @@ function bridge_rematerialize!(
     return true
 end
 
+"""
+Apply a forwarded ShmPoolAnnounce to update source info.
+
+Arguments:
+- `state`: bridge receiver state.
+- `msg`: decoded ShmPoolAnnounce message.
+
+Returns:
+- `true` if applied, `false` otherwise.
+"""
 function bridge_apply_source_announce!(state::BridgeReceiverState, msg::ShmPoolAnnounce.Decoder)
     ShmPoolAnnounce.streamId(msg) == state.mapping.dest_stream_id || return false
     state.source_info.stream_id = ShmPoolAnnounce.streamId(msg)
@@ -193,6 +220,17 @@ function bridge_apply_source_announce!(state::BridgeReceiverState, msg::ShmPoolA
     return true
 end
 
+"""
+Receive a frame chunk and rematerialize when complete.
+
+Arguments:
+- `state`: bridge receiver state.
+- `decoder`: decoded BridgeFrameChunk message.
+- `now_ns`: current time in nanoseconds.
+
+Returns:
+- `true` if a frame was rematerialized, `false` otherwise.
+"""
 function bridge_receive_chunk!(
     state::BridgeReceiverState,
     decoder::BridgeFrameChunk.Decoder,

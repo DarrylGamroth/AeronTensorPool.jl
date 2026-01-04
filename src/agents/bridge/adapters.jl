@@ -1,3 +1,12 @@
+"""
+Create a payload fragment assembler for bridge receiver chunks.
+
+Arguments:
+- `state`: bridge receiver state.
+
+Returns:
+- `Aeron.FragmentAssembler` configured for payload chunks.
+"""
 function make_bridge_payload_assembler(state::BridgeReceiverState)
     handler = Aeron.FragmentHandler(state) do st, buffer, _
         header = ShmTensorpoolBridge.MessageHeader.Decoder(buffer, 0)
@@ -11,6 +20,15 @@ function make_bridge_payload_assembler(state::BridgeReceiverState)
     return Aeron.FragmentAssembler(handler)
 end
 
+"""
+Create a control fragment assembler for bridge receiver control channel.
+
+Arguments:
+- `state`: bridge receiver state.
+
+Returns:
+- `Aeron.FragmentAssembler` configured for control messages.
+"""
 function make_bridge_control_assembler(state::BridgeReceiverState)
     handler = Aeron.FragmentHandler(state) do st, buffer, _
         header = MessageHeader.Decoder(buffer, 0)
@@ -33,6 +51,15 @@ function make_bridge_control_assembler(state::BridgeReceiverState)
     return Aeron.FragmentAssembler(handler)
 end
 
+"""
+Create a control fragment assembler for bridge sender control channel.
+
+Arguments:
+- `state`: bridge sender state.
+
+Returns:
+- `Aeron.FragmentAssembler` configured for control messages.
+"""
 function make_bridge_control_sender_assembler(state::BridgeSenderState)
     handler = Aeron.FragmentHandler(state) do st, buffer, _
         header = MessageHeader.Decoder(buffer, 0)
@@ -55,6 +82,15 @@ function make_bridge_control_sender_assembler(state::BridgeSenderState)
     return Aeron.FragmentAssembler(handler)
 end
 
+"""
+Create a metadata fragment assembler for bridge sender.
+
+Arguments:
+- `state`: bridge sender state.
+
+Returns:
+- `Aeron.FragmentAssembler` configured for metadata messages.
+"""
 function make_bridge_metadata_sender_assembler(state::BridgeSenderState)
     handler = Aeron.FragmentHandler(state) do st, buffer, _
         header = MessageHeader.Decoder(buffer, 0)
@@ -71,6 +107,15 @@ function make_bridge_metadata_sender_assembler(state::BridgeSenderState)
     return Aeron.FragmentAssembler(handler)
 end
 
+"""
+Create a metadata fragment assembler for bridge receiver.
+
+Arguments:
+- `state`: bridge receiver state.
+
+Returns:
+- `Aeron.FragmentAssembler` configured for metadata messages.
+"""
 function make_bridge_metadata_receiver_assembler(state::BridgeReceiverState)
     handler = Aeron.FragmentHandler(state) do st, buffer, _
         header = MessageHeader.Decoder(buffer, 0)
@@ -88,7 +133,14 @@ function make_bridge_metadata_receiver_assembler(state::BridgeReceiverState)
 end
 
 """
-Bridge sender duty cycle: poll control/metadata subscriptions and return work count.
+Bridge sender duty cycle: poll input and forward frames.
+
+Arguments:
+- `state`: bridge sender state.
+- `fragment_limit`: max fragments per poll (default: DEFAULT_FRAGMENT_LIMIT).
+
+Returns:
+- Work count (sum of polled fragments and timer work).
 """
 function bridge_sender_do_work!(
     state::BridgeSenderState;
@@ -103,7 +155,14 @@ function bridge_sender_do_work!(
 end
 
 """
-Bridge receiver duty cycle: poll control/payload/metadata subscriptions and return work count.
+Bridge receiver duty cycle: poll chunks and rematerialize frames.
+
+Arguments:
+- `state`: bridge receiver state.
+- `fragment_limit`: max fragments per poll (default: DEFAULT_FRAGMENT_LIMIT).
+
+Returns:
+- Work count (sum of polled fragments and timer work).
 """
 function bridge_receiver_do_work!(
     state::BridgeReceiverState;

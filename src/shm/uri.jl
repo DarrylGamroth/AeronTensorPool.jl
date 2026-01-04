@@ -7,7 +7,13 @@ struct ShmUri
 end
 
 """
-Parse a shm:file URI into a ShmUri.
+Parse a `shm:file` URI into a `ShmUri`.
+
+Arguments:
+- `uri`: shm URI string.
+
+Returns:
+- `ShmUri` with parsed path and `require_hugepages` flag.
 """
 function parse_shm_uri(uri::AbstractString)
     startswith(uri, "shm:file?") || throw(ShmUriError("unsupported shm uri scheme: $uri"))
@@ -39,7 +45,13 @@ function parse_shm_uri(uri::AbstractString)
 end
 
 """
-Return true if a shm:file URI is valid and supported.
+Return true if a `shm:file` URI is valid and supported.
+
+Arguments:
+- `uri`: shm URI string.
+
+Returns:
+- `true` if parsable and supported, `false` otherwise.
 """
 function validate_uri(uri::AbstractString)
     try

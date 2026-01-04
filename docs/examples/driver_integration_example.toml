@@ -1,6 +1,6 @@
 [driver]
 instance_id = "driver-example"
-aeron_dir = "/dev/shm/aeron"
+aeron_dir = ""
 control_channel = "aeron:ipc"
 control_stream_id = 15000
 announce_channel = "aeron:ipc"
@@ -26,7 +26,7 @@ header_nslots = 64
 header_slot_bytes = 256
 max_dims = 8
 payload_pools = [
-  { pool_id = 1, stride_bytes = 655360 }
+  { pool_id = 1, stride_bytes = 1048576 }
 ]
 
 [streams.cam1]

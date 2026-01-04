@@ -1,5 +1,20 @@
 const DRIVER_GROUP_HEADER_LEN = 4
 
+"""
+Emit a ShmAttachResponse message.
+
+Arguments:
+- `state`: driver state.
+- `correlation_id`: request correlation id.
+- `code`: response code enum.
+- `lease_id`: lease identifier (or null value).
+- `lease_expiry_ns`: lease expiry timestamp (or null value).
+- `stream_state`: stream state (optional).
+- `error_message`: optional error message.
+
+Returns:
+- `true` if the message was committed, `false` otherwise.
+"""
 function emit_attach_response!(
     state::DriverState,
     correlation_id::Int64,
@@ -38,6 +53,7 @@ function emit_attach_response!(
         stream_state = stream_state,
         error_message = error_message,
         payload_count = payload_count
+        @info "emit_attach_response" correlation_id code lease_id lease_expiry_ns
         sent = with_claimed_buffer!(st.runtime.control.pub_control, st.runtime.control_claim, msg_len) do buf
             ShmAttachResponse.wrap_and_apply_header!(st.runtime.attach_encoder, buf, 0)
             ShmAttachResponse.correlationId!(st.runtime.attach_encoder, correlation_id)
@@ -85,6 +101,18 @@ function emit_attach_response!(
     end
 end
 
+"""
+Emit a ShmDetachResponse message.
+
+Arguments:
+- `state`: driver state.
+- `correlation_id`: request correlation id.
+- `code`: response code enum.
+- `error_message`: optional error message.
+
+Returns:
+- `true` if the message was committed, `false` otherwise.
+"""
 function emit_detach_response!(
     state::DriverState,
     correlation_id::Int64,
@@ -109,6 +137,21 @@ function emit_detach_response!(
     end
 end
 
+"""
+Emit a ShmLeaseRevoked message.
+
+Arguments:
+- `state`: driver state.
+- `lease_id`: lease identifier.
+- `stream_id`: stream identifier.
+- `client_id`: client identifier.
+- `role`: driver role enum.
+- `reason`: revoke reason enum.
+- `error_message`: optional error message.
+
+Returns:
+- `true` if the message was committed, `false` otherwise.
+"""
 function emit_lease_revoked!(
     state::DriverState,
     lease::DriverLease,
@@ -135,6 +178,16 @@ function emit_lease_revoked!(
     end
 end
 
+"""
+Emit a ShmPoolAnnounce message for a stream.
+
+Arguments:
+- `state`: driver state.
+- `stream_state`: stream state snapshot.
+
+Returns:
+- `true` if the message was committed, `false` otherwise.
+"""
 function emit_driver_announce!(state::DriverState, stream_state::DriverStreamState)
     payload_count = length(stream_state.profile.payload_pools)
     msg_len = MESSAGE_HEADER_LEN +
@@ -176,6 +229,17 @@ function emit_driver_announce!(state::DriverState, stream_state::DriverStreamSta
     end
 end
 
+"""
+Emit a ShmDriverShutdown message.
+
+Arguments:
+- `state`: driver state.
+- `reason`: shutdown reason enum.
+- `error_message`: optional error message.
+
+Returns:
+- `true` if the message was committed, `false` otherwise.
+"""
 function emit_driver_shutdown!(
     state::DriverState,
     reason::DriverShutdownReason.SbeEnum = DriverShutdownReason.NORMAL,

@@ -1,5 +1,11 @@
 """
-Emit a ConsumerHello message for capability negotiation.
+Emit a ConsumerHello message.
+
+Arguments:
+- `state`: consumer state.
+
+Returns:
+- `true` if the message was committed, `false` otherwise.
 """
 function emit_consumer_hello!(state::ConsumerState)
     progress_interval = state.config.progress_interval_us
@@ -84,7 +90,13 @@ function emit_consumer_hello!(state::ConsumerState)
 end
 
 """
-Emit a QosConsumer message with drop counters and last_seq_seen.
+Emit a QosConsumer message.
+
+Arguments:
+- `state`: consumer state.
+
+Returns:
+- `true` if the message was committed, `false` otherwise.
 """
 function emit_qos!(state::ConsumerState)
     sent = let st = state

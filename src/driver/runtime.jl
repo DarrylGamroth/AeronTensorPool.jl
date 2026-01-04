@@ -1,5 +1,12 @@
 """
 Initialize the SHM driver.
+
+Arguments:
+- `config`: driver configuration.
+- `client`: Aeron client to use for publications/subscriptions.
+
+Returns:
+- `DriverState` initialized with publications, subscriptions, and timers.
 """
 function init_driver(config::DriverConfig; client::Aeron.Client)
     clock = Clocks.CachedEpochClock(Clocks.MonotonicClock())
@@ -67,6 +74,13 @@ end
 
 """
 Poll the driver control subscription.
+
+Arguments:
+- `state`: driver state.
+- `fragment_limit`: max fragments to poll (default: DEFAULT_FRAGMENT_LIMIT).
+
+Returns:
+- Number of fragments processed.
 """
 function poll_driver_control!(state::DriverState, fragment_limit::Int32 = DEFAULT_FRAGMENT_LIMIT)
     return Aeron.poll(state.runtime.control.sub_control, state.runtime.control_assembler, fragment_limit)
@@ -74,6 +88,12 @@ end
 
 """
 Driver work loop.
+
+Arguments:
+- `state`: driver state.
+
+Returns:
+- Work count (sum of polled fragments and timer work).
 """
 function driver_do_work!(state::DriverState)
     fetch!(state.clock)

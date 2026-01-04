@@ -153,7 +153,7 @@ end
             shape = Int32[16]
             strides = Int32[0]
 
-            sent = publish_frame!(
+            sent = offer_frame!(
                 producer_state,
                 payload,
                 shape,

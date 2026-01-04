@@ -27,6 +27,16 @@ end
 
 """
 Construct a BridgeAgent from configs and mapping.
+
+Arguments:
+- `consumer_state`: consumer state providing SHM mappings.
+- `config`: bridge configuration.
+- `mapping`: bridge mapping definition.
+- `producer_state`: optional producer state for rematerialization.
+- `client`: Aeron client to use for publications/subscriptions.
+
+Returns:
+- `BridgeAgent` wrapping sender/receiver states and assemblers.
 """
 function BridgeAgent(
     bridge_config::BridgeConfig,

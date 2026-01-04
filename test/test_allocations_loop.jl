@@ -112,11 +112,11 @@ qos_interval_ns = 1000000000
 
             try
                 GC.gc()
-                @test @allocated(publish_frame!(producer, payload, shape, strides, Dtype.UINT8, UInt32(0))) == 0
+                @test @allocated(offer_frame!(producer, payload, shape, strides, Dtype.UINT8, UInt32(0))) == 0
 
                 alloc_bytes = @allocated(begin
                     for i in 1:200
-                        publish_frame!(producer, payload, shape, strides, Dtype.UINT8, UInt32(0))
+                        offer_frame!(producer, payload, shape, strides, Dtype.UINT8, UInt32(0))
                         AeronTensorPool.FrameDescriptor.streamId!(desc_enc, system.producer.stream_id)
                         AeronTensorPool.FrameDescriptor.epoch!(desc_enc, UInt64(1))
                         AeronTensorPool.FrameDescriptor.seq!(desc_enc, UInt64(i - 1))

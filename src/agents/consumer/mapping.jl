@@ -1,5 +1,14 @@
 """
 Validate stride_bytes against alignment and hugepage requirements.
+
+Arguments:
+- `stride_bytes`: pool stride size in bytes.
+- `require_hugepages`: whether hugepages are required.
+- `page_size_bytes`: OS page size in bytes (default: backend value).
+- `hugepage_size`: hugepage size in bytes (default: 0 means unknown).
+
+Returns:
+- `true` if valid, `false` otherwise.
 """
 function validate_stride(
     stride_bytes::UInt32;
@@ -18,6 +27,13 @@ end
 
 """
 Map SHM regions from a ShmPoolAnnounce message.
+
+Arguments:
+- `state`: consumer state.
+- `msg`: decoded ShmPoolAnnounce message.
+
+Returns:
+- `true` on successful mapping, `false` otherwise.
 """
 function map_from_announce!(state::ConsumerState, msg::ShmPoolAnnounce.Decoder)
     state.config.use_shm || return false
@@ -120,6 +136,13 @@ end
 
 """
 Map SHM regions from a driver attach response.
+
+Arguments:
+- `state`: consumer state.
+- `attach`: attach response snapshot.
+
+Returns:
+- `true` on successful mapping, `false` otherwise.
 """
 function map_from_attach_response!(state::ConsumerState, attach::AttachResponse)
     attach.code == DriverResponseCode.OK || return false
@@ -279,6 +302,12 @@ end
 
 """
 Drop all SHM mappings and reset mapping state.
+
+Arguments:
+- `state`: consumer state.
+
+Returns:
+- `nothing`.
 """
 function reset_mappings!(state::ConsumerState)
     state.mappings.header_mmap = nothing
@@ -295,6 +324,13 @@ end
 
 """
 Handle ShmPoolAnnounce updates, remapping on epoch/layout changes.
+
+Arguments:
+- `state`: consumer state.
+- `msg`: decoded ShmPoolAnnounce message.
+
+Returns:
+- `true` if handled, `false` otherwise.
 """
 function handle_shm_pool_announce!(state::ConsumerState, msg::ShmPoolAnnounce.Decoder)
     ShmPoolAnnounce.streamId(msg) == state.config.stream_id || return false

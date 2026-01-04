@@ -1,5 +1,12 @@
 """
-Forward a ShmPoolAnnounce on the bridge control channel.
+Forward ShmPoolAnnounce to the bridge control channel.
+
+Arguments:
+- `state`: bridge sender state.
+- `msg`: decoded ShmPoolAnnounce message.
+
+Returns:
+- `true` if the message was committed, `false` otherwise.
 """
 function bridge_forward_announce!(state::BridgeSenderState, msg::ShmPoolAnnounce.Decoder)
     ShmPoolAnnounce.streamId(msg) == state.mapping.source_stream_id || return false
@@ -37,6 +44,16 @@ function bridge_forward_announce!(state::BridgeSenderState, msg::ShmPoolAnnounce
     return true
 end
 
+"""
+Forward DataSourceAnnounce over the bridge metadata channel.
+
+Arguments:
+- `state`: bridge sender state.
+- `msg`: decoded DataSourceAnnounce message.
+
+Returns:
+- `true` if the message was committed, `false` otherwise.
+"""
 function bridge_forward_metadata_announce!(state::BridgeSenderState, msg::DataSourceAnnounce.Decoder)
     msg_len = MESSAGE_HEADER_LEN + Int(DataSourceAnnounce.sbe_decoded_length(msg))
     stream_id = state.mapping.metadata_stream_id == 0 ? state.mapping.dest_stream_id :
@@ -53,6 +70,16 @@ function bridge_forward_metadata_announce!(state::BridgeSenderState, msg::DataSo
     end
 end
 
+"""
+Forward DataSourceMeta over the bridge metadata channel.
+
+Arguments:
+- `state`: bridge sender state.
+- `msg`: decoded DataSourceMeta message.
+
+Returns:
+- `true` if the message was committed, `false` otherwise.
+"""
 function bridge_forward_metadata_meta!(state::BridgeSenderState, msg::DataSourceMeta.Decoder)
     msg_len = MESSAGE_HEADER_LEN + Int(DataSourceMeta.sbe_decoded_length(msg))
     stream_id = state.mapping.metadata_stream_id == 0 ? state.mapping.dest_stream_id :
@@ -74,6 +101,16 @@ function bridge_forward_metadata_meta!(state::BridgeSenderState, msg::DataSource
     end
 end
 
+"""
+Publish DataSourceAnnounce on the local metadata channel.
+
+Arguments:
+- `state`: bridge receiver state.
+- `msg`: decoded DataSourceAnnounce message.
+
+Returns:
+- `true` if the message was committed, `false` otherwise.
+"""
 function bridge_publish_metadata_announce!(state::BridgeReceiverState, msg::DataSourceAnnounce.Decoder)
     msg_len = MESSAGE_HEADER_LEN + Int(DataSourceAnnounce.sbe_decoded_length(msg))
     pub = state.pub_metadata_local
@@ -92,6 +129,16 @@ function bridge_publish_metadata_announce!(state::BridgeReceiverState, msg::Data
     end
 end
 
+"""
+Publish DataSourceMeta on the local metadata channel.
+
+Arguments:
+- `state`: bridge receiver state.
+- `msg`: decoded DataSourceMeta message.
+
+Returns:
+- `true` if the message was committed, `false` otherwise.
+"""
 function bridge_publish_metadata_meta!(state::BridgeReceiverState, msg::DataSourceMeta.Decoder)
     msg_len = MESSAGE_HEADER_LEN + Int(DataSourceMeta.sbe_decoded_length(msg))
     pub = state.pub_metadata_local
@@ -115,6 +162,16 @@ function bridge_publish_metadata_meta!(state::BridgeReceiverState, msg::DataSour
     end
 end
 
+"""
+Forward QosProducer over the bridge control channel.
+
+Arguments:
+- `state`: bridge sender state.
+- `msg`: decoded QosProducer message.
+
+Returns:
+- `true` if the message was committed, `false` otherwise.
+"""
 function bridge_forward_qos_producer!(state::BridgeSenderState, msg::QosProducer.Decoder)
     msg_len = MESSAGE_HEADER_LEN + Int(QosProducer.sbe_decoded_length(msg))
     return with_claimed_buffer!(state.pub_control, state.control_claim, msg_len) do buf
@@ -126,6 +183,16 @@ function bridge_forward_qos_producer!(state::BridgeSenderState, msg::QosProducer
     end
 end
 
+"""
+Forward QosConsumer over the bridge control channel.
+
+Arguments:
+- `state`: bridge sender state.
+- `msg`: decoded QosConsumer message.
+
+Returns:
+- `true` if the message was committed, `false` otherwise.
+"""
 function bridge_forward_qos_consumer!(state::BridgeSenderState, msg::QosConsumer.Decoder)
     msg_len = MESSAGE_HEADER_LEN + Int(QosConsumer.sbe_decoded_length(msg))
     return with_claimed_buffer!(state.pub_control, state.control_claim, msg_len) do buf
@@ -140,6 +207,16 @@ function bridge_forward_qos_consumer!(state::BridgeSenderState, msg::QosConsumer
     end
 end
 
+"""
+Forward FrameProgress over the bridge control channel.
+
+Arguments:
+- `state`: bridge sender state.
+- `msg`: decoded FrameProgress message.
+
+Returns:
+- `true` if the message was committed, `false` otherwise.
+"""
 function bridge_forward_progress!(state::BridgeSenderState, msg::FrameProgress.Decoder)
     msg_len = MESSAGE_HEADER_LEN + Int(FrameProgress.sbe_decoded_length(msg))
     return with_claimed_buffer!(state.pub_control, state.control_claim, msg_len) do buf
@@ -154,6 +231,16 @@ function bridge_forward_progress!(state::BridgeSenderState, msg::FrameProgress.D
     end
 end
 
+"""
+Publish QosProducer on the local control channel.
+
+Arguments:
+- `state`: bridge receiver state.
+- `msg`: decoded QosProducer message.
+
+Returns:
+- `true` if the message was committed, `false` otherwise.
+"""
 function bridge_publish_qos_producer!(state::BridgeReceiverState, msg::QosProducer.Decoder)
     msg_len = MESSAGE_HEADER_LEN + Int(QosProducer.sbe_decoded_length(msg))
     pub = state.pub_control_local
@@ -168,6 +255,16 @@ function bridge_publish_qos_producer!(state::BridgeReceiverState, msg::QosProduc
     end
 end
 
+"""
+Publish QosConsumer on the local control channel.
+
+Arguments:
+- `state`: bridge receiver state.
+- `msg`: decoded QosConsumer message.
+
+Returns:
+- `true` if the message was committed, `false` otherwise.
+"""
 function bridge_publish_qos_consumer!(state::BridgeReceiverState, msg::QosConsumer.Decoder)
     msg_len = MESSAGE_HEADER_LEN + Int(QosConsumer.sbe_decoded_length(msg))
     pub = state.pub_control_local
@@ -185,6 +282,16 @@ function bridge_publish_qos_consumer!(state::BridgeReceiverState, msg::QosConsum
     end
 end
 
+"""
+Publish FrameProgress on the local control channel.
+
+Arguments:
+- `state`: bridge receiver state.
+- `msg`: decoded FrameProgress message.
+
+Returns:
+- `true` if the message was committed, `false` otherwise.
+"""
 function bridge_publish_progress!(state::BridgeReceiverState, msg::FrameProgress.Decoder)
     msg_len = MESSAGE_HEADER_LEN + Int(FrameProgress.sbe_decoded_length(msg))
     pub = state.pub_control_local

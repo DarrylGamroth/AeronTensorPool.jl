@@ -13,7 +13,7 @@ while running
 
     # Handle frame acquisition (copy path).
     payload = get_frame_bytes()
-    publish_frame!(state, payload, shape, strides, Dtype.UINT8, meta_version)
+    offer_frame!(state, payload, shape, strides, Dtype.UINT8, meta_version)
 
     # Periodic announce/QoS.
     emit_periodic!(state)
@@ -37,39 +37,23 @@ ptr, stride = payload_slot_ptr(state, pool_id, slot)
 When the device signals completion:
 
 ```julia
-publish_frame_from_slot!(
-    state,
-    pool_id,
-    slot,
-    values_len,
-    shape,
-    strides,
-    Dtype.UINT8,
-    meta_version,
-)
-```
-
-Notes
-- In v1.1, `payload_slot == header_index` is required; use `next_header_index` before handing the buffer to the device.
-- If you need multiple in-flight DMA buffers, reserve the next slot in order and publish in the same order to avoid seq gaps.
-
 ## Extras
 
-### Reservation helper (multiple in-flight buffers)
+### Claim helper (multiple in-flight buffers)
 
-Use a reservation to keep the slot/seq pairing explicit:
+Use a claim to keep the slot/seq pairing explicit:
 
 ```julia
-reservation = reserve_slot!(state, pool_id)
-# Register reservation.ptr with the device. Use reservation.stride_bytes for size.
+claim = try_claim_slot!(state, pool_id)
+# Register claim.ptr with the device. Use claim.stride_bytes for size.
 ```
 
 On completion:
 
 ```julia
-publish_reservation!(
+commit_slot!(
     state,
-    reservation,
+    claim,
     values_len,
     shape,
     strides,
@@ -80,13 +64,13 @@ publish_reservation!(
 
 ### In-flight queue helper
 
-If you want to track multiple in-flight reservations:
+If you want to track multiple in-flight claims:
 
 ```julia
 queue = InflightQueue(64)
-reservation = reserve_slot!(state, pool_id)
-push!(queue, reservation)
+claim = try_claim_slot!(state, pool_id)
+push!(queue, claim)
 
 done = popfirst!(queue)
-publish_reservation!(state, done, values_len, shape, strides, Dtype.UINT8, meta_version)
+commit_slot!(state, done, values_len, shape, strides, Dtype.UINT8, meta_version)
 ```

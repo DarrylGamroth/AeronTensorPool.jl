@@ -101,7 +101,13 @@ end
 """
 Attempt to read a frame from SHM using the seqlock protocol.
 
-Returns true on success and updates the provided `ConsumerFrameView`.
+Arguments:
+- `state`: consumer state and mappings.
+- `desc`: frame descriptor decoder.
+- `view`: output view to populate on success.
+
+Returns:
+- `true` on success (and updates `view`), `false` otherwise.
 """
 function try_read_frame!(
     state::ConsumerState,
@@ -228,6 +234,13 @@ end
 
 """
 Attempt to read a frame using the state's preallocated frame view.
+
+Arguments:
+- `state`: consumer state and mappings.
+- `desc`: frame descriptor decoder.
+
+Returns:
+- `true` on success, `false` otherwise.
 """
 function try_read_frame!(state::ConsumerState, desc::FrameDescriptor.Decoder)
     return try_read_frame!(state, desc, state.runtime.frame_view)

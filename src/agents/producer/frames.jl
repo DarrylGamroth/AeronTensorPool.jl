@@ -16,9 +16,20 @@ function encode_frame_descriptor!(
 end
 
 """
-Write a payload into SHM and publish a FrameDescriptor.
+Offer a frame by copying payload bytes into SHM and publishing a descriptor.
+
+Arguments:
+- `state`: producer state and runtime resources.
+- `payload_data`: source bytes to copy into the payload slot.
+- `shape`: tensor dimensions (Int32).
+- `strides`: tensor strides (Int32).
+- `dtype`: element type enum.
+- `meta_version`: metadata schema version for this frame.
+
+Returns:
+- `true` if the descriptor was published (shared or per-consumer), `false` otherwise.
 """
-function publish_frame!(
+function offer_frame!(
     state::ProducerState,
     payload_data::AbstractVector{UInt8},
     shape::AbstractVector{Int32},
@@ -95,6 +106,12 @@ end
 
 """
 Compute the next header index for the current seq.
+
+Arguments:
+- `state`: producer state.
+
+Returns:
+- Next header index (UInt32).
 """
 @inline function next_header_index(state::ProducerState)
     return UInt32(state.seq & (UInt64(state.config.nslots) - 1))
@@ -102,6 +119,13 @@ end
 
 """
 Lookup payload pool configuration by pool_id.
+
+Arguments:
+- `state`: producer state.
+- `pool_id`: payload pool identifier.
+
+Returns:
+- `PayloadPoolConfig` if found, otherwise `nothing`.
 """
 function payload_pool_config(state::ProducerState, pool_id::UInt16)
     for pool in state.config.payload_pools
@@ -114,6 +138,14 @@ end
 
 """
 Return a pointer to a payload slot for a producer pool.
+
+Arguments:
+- `state`: producer state.
+- `pool_id`: payload pool identifier.
+- `slot`: 0-based payload slot index.
+
+Returns:
+- Tuple `(Ptr{UInt8}, Int)` pointing to the slot and stride size.
 """
 function payload_slot_ptr(state::ProducerState, pool_id::UInt16, slot::UInt32)
     pool = payload_pool_config(state, pool_id)
@@ -125,6 +157,15 @@ end
 
 """
 Return a view into a producer payload slot.
+
+Arguments:
+- `state`: producer state.
+- `pool_id`: payload pool identifier.
+- `slot`: 0-based payload slot index.
+- `len`: view length in bytes (default: full stride).
+
+Returns:
+- `SubArray` view into the payload buffer.
 """
 function payload_slot_view(
     state::ProducerState,
@@ -141,9 +182,19 @@ function payload_slot_view(
 end
 
 """
-Reserve a payload slot and return a SlotReservation for external filling.
+Try to claim a payload slot for external filling.
+
+Arguments:
+- `state`: producer state and runtime resources.
+- `pool_id`: payload pool to claim from.
+
+Returns:
+- `SlotClaim` containing slot identifiers, payload pointer, and stride size.
+
+Notes:
+- Marks the slot as WRITING via seqlock before returning the pointer.
 """
-function reserve_slot!(state::ProducerState, pool_id::UInt16)
+function try_claim_slot!(state::ProducerState, pool_id::UInt16)
     producer_driver_active(state) || error("driver lease inactive")
     pool = payload_pool_config(state, pool_id)
     pool === nothing && error("Unknown pool_id: $pool_id")
@@ -153,18 +204,94 @@ function reserve_slot!(state::ProducerState, pool_id::UInt16)
     payload_slot = header_index
     payload_slot < pool.nslots || error("Slot out of range: $payload_slot")
 
+    header_offset = header_slot_offset(header_index)
+    commit_ptr = header_commit_ptr_from_offset(state.mappings.header_mmap, header_offset)
+    seqlock_begin_write!(commit_ptr, seq)
+
     ptr, stride_bytes = payload_slot_ptr(state, pool_id, payload_slot)
     state.seq += 1
 
-    return SlotReservation(seq, header_index, pool_id, payload_slot, ptr, stride_bytes)
+    return SlotClaim(seq, header_index, pool_id, payload_slot, ptr, stride_bytes)
 end
 
 """
-Publish a SlotReservation after the payload has been filled externally.
+Try to claim a payload slot, fill it, and commit the claim.
+
+Arguments:
+- `fill_fn`: callback invoked with `SlotClaim`; must write payload bytes before return.
+- `state`: producer state and runtime resources.
+- `pool_id`: payload pool to claim from.
+- `values_len`: number of payload bytes filled.
+- `shape`: tensor dimensions (Int32).
+- `strides`: tensor strides (Int32).
+- `dtype`: element type enum.
+- `meta_version`: metadata schema version for this frame.
+
+Returns:
+- `true` if the descriptor was published (shared or per-consumer), `false` otherwise.
 """
-function publish_reservation!(
+@inline function with_claimed_slot!(
+    fill_fn::F,
     state::ProducerState,
-    reservation::SlotReservation,
+    pool_id::UInt16,
+    values_len::Int,
+    shape::AbstractVector{Int32},
+    strides::AbstractVector{Int32},
+    dtype::Dtype.SbeEnum,
+    meta_version::UInt32,
+) where {F}
+    claim = try_claim_slot!(state, pool_id)
+    fill_fn(claim)
+    return commit_slot!(state, claim, values_len, shape, strides, dtype, meta_version)
+end
+
+"""
+Try to claim a payload slot, fill it, and commit the claim (keyword wrapper).
+
+Arguments:
+- `fill_fn`: callback invoked with `SlotClaim`; must write payload bytes before return.
+- `state`: producer state and runtime resources.
+- `pool_id`: payload pool to claim from.
+- `values_len`: number of payload bytes filled.
+- `shape`: tensor dimensions (Int32).
+- `strides`: tensor strides (Int32).
+- `dtype`: element type enum.
+- `meta_version`: metadata schema version for this frame.
+
+Returns:
+- `true` if the descriptor was published (shared or per-consumer), `false` otherwise.
+"""
+@inline function with_claimed_slot!(
+    fill_fn::F,
+    state::ProducerState,
+    pool_id::UInt16;
+    values_len::Int,
+    shape::AbstractVector{Int32},
+    strides::AbstractVector{Int32},
+    dtype::Dtype.SbeEnum,
+    meta_version::UInt32,
+) where {F}
+    return with_claimed_slot!(fill_fn, state, pool_id, values_len, shape, strides, dtype, meta_version)
+end
+
+"""
+Commit a SlotClaim after the payload has been filled externally.
+
+Arguments:
+- `state`: producer state and runtime resources.
+- `claim`: slot claim returned from `try_claim_slot!`.
+- `values_len`: number of payload bytes filled.
+- `shape`: tensor dimensions (Int32).
+- `strides`: tensor strides (Int32).
+- `dtype`: element type enum.
+- `meta_version`: metadata schema version for this frame.
+
+Returns:
+- `true` if the descriptor was published (shared or per-consumer), `false` otherwise.
+"""
+function commit_slot!(
+    state::ProducerState,
+    claim::SlotClaim,
     values_len::Int,
     shape::AbstractVector{Int32},
     strides::AbstractVector{Int32},
@@ -172,18 +299,17 @@ function publish_reservation!(
     meta_version::UInt32,
 )
     producer_driver_active(state) || return false
-    pool = payload_pool_config(state, reservation.pool_id)
+    pool = payload_pool_config(state, claim.pool_id)
     pool === nothing && return false
-    values_len <= reservation.stride_bytes || return false
+    values_len <= claim.stride_bytes || return false
 
-    expected_index = UInt32(reservation.seq & (UInt64(state.config.nslots) - 1))
-    reservation.header_index == expected_index || return false
+    expected_index = UInt32(claim.seq & (UInt64(state.config.nslots) - 1))
+    claim.header_index == expected_index || return false
 
-    frame_id = reservation.seq
+    frame_id = claim.seq
 
-    header_offset = header_slot_offset(reservation.header_index)
+    header_offset = header_slot_offset(claim.header_index)
     commit_ptr = header_commit_ptr_from_offset(state.mappings.header_mmap, header_offset)
-    seqlock_begin_write!(commit_ptr, frame_id)
 
     wrap_tensor_header!(state.runtime.header_encoder, state.mappings.header_mmap, header_offset)
     write_tensor_slot_header!(
@@ -192,9 +318,9 @@ function publish_reservation!(
         UInt64(Clocks.time_nanos(state.clock)),
         meta_version,
         UInt32(values_len),
-        reservation.payload_slot,
+        claim.payload_slot,
         UInt32(0),
-        reservation.pool_id,
+        claim.pool_id,
         dtype,
         MajorOrder.ROW,
         UInt8(length(shape)),
@@ -206,8 +332,8 @@ function publish_reservation!(
 
     now_ns = UInt64(Clocks.time_nanos(state.clock))
     shared_sent = let st = state,
-        seq = reservation.seq,
-        header_index = reservation.header_index,
+        seq = claim.seq,
+        header_index = claim.header_index,
         meta_version = meta_version,
         now_ns = now_ns
         with_claimed_buffer!(st.runtime.pub_descriptor, st.runtime.descriptor_claim, FRAME_DESCRIPTOR_LEN) do buf
@@ -216,81 +342,39 @@ function publish_reservation!(
         end
     end
     per_consumer_sent =
-        publish_descriptor_to_consumers!(state, reservation.seq, reservation.header_index, meta_version, now_ns)
+        publish_descriptor_to_consumers!(state, claim.seq, claim.header_index, meta_version, now_ns)
     (shared_sent || per_consumer_sent) || return false
 
     if state.supports_progress && should_emit_progress!(state, UInt64(values_len), true)
-        emit_progress_complete!(state, frame_id, reservation.header_index, UInt64(values_len))
+        emit_progress_complete!(state, frame_id, claim.header_index, UInt64(values_len))
     end
 
     return true
 end
 
 """
-Publish a descriptor for an already-filled payload slot.
+Commit a SlotClaim after the payload has been filled externally (keyword wrapper).
+
+Arguments:
+- `state`: producer state and runtime resources.
+- `claim`: slot claim returned from `try_claim_slot!`.
+- `values_len`: number of payload bytes filled.
+- `shape`: tensor dimensions (Int32).
+- `strides`: tensor strides (Int32).
+- `dtype`: element type enum.
+- `meta_version`: metadata schema version for this frame.
+
+Returns:
+- `true` if the descriptor was published (shared or per-consumer), `false` otherwise.
 """
-function publish_frame_from_slot!(
+@inline function commit_slot!(
     state::ProducerState,
-    pool_id::UInt16,
-    payload_slot::UInt32,
+    claim::SlotClaim;
     values_len::Int,
     shape::AbstractVector{Int32},
     strides::AbstractVector{Int32},
     dtype::Dtype.SbeEnum,
     meta_version::UInt32,
 )
-    producer_driver_active(state) || return false
-
-    seq = state.seq
-    frame_id = seq
-    header_index = next_header_index(state)
-    payload_slot == header_index || error("payload_slot must equal header_index for seq=$seq")
-
-    pool = payload_pool_config(state, pool_id)
-    pool === nothing && return false
-    values_len <= Int(pool.stride_bytes) || return false
-
-    header_offset = header_slot_offset(header_index)
-    commit_ptr = header_commit_ptr_from_offset(state.mappings.header_mmap, header_offset)
-    seqlock_begin_write!(commit_ptr, frame_id)
-
-    wrap_tensor_header!(state.runtime.header_encoder, state.mappings.header_mmap, header_offset)
-    write_tensor_slot_header!(
-        state.runtime.header_encoder,
-        frame_id,
-        UInt64(Clocks.time_nanos(state.clock)),
-        meta_version,
-        UInt32(values_len),
-        payload_slot,
-        UInt32(0),
-        pool.pool_id,
-        dtype,
-        MajorOrder.ROW,
-        UInt8(length(shape)),
-        shape,
-        strides,
-    )
-
-    seqlock_commit_write!(commit_ptr, frame_id)
-
-    now_ns = UInt64(Clocks.time_nanos(state.clock))
-    shared_sent = let st = state,
-        seq = seq,
-        header_index = header_index,
-        meta_version = meta_version,
-        now_ns = now_ns
-        with_claimed_buffer!(st.runtime.pub_descriptor, st.runtime.descriptor_claim, FRAME_DESCRIPTOR_LEN) do buf
-            FrameDescriptor.wrap_and_apply_header!(st.runtime.descriptor_encoder, buf, 0)
-            encode_frame_descriptor!(st.runtime.descriptor_encoder, st, seq, header_index, meta_version, now_ns)
-        end
-    end
-    per_consumer_sent = publish_descriptor_to_consumers!(state, seq, header_index, meta_version, now_ns)
-    (shared_sent || per_consumer_sent) || return false
-
-    if state.supports_progress && should_emit_progress!(state, UInt64(values_len), true)
-        emit_progress_complete!(state, frame_id, header_index, UInt64(values_len))
-    end
-
-    state.seq += 1
-    return true
+    return commit_slot!(state, claim, values_len, shape, strides, dtype, meta_version)
 end

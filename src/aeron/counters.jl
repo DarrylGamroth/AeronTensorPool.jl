@@ -1,5 +1,12 @@
 """
 Compose a 32-bit Aeron counter type id from agent id and counter type.
+
+Arguments:
+- `agent_id`: 16-bit agent identifier (0-65535).
+- `counter_type`: 16-bit counter type (0-65535).
+
+Returns:
+- `Int32` counter type id.
 """
 function make_counter_type_id(agent_id, counter_type)
     @assert 0 ≤ agent_id ≤ 65535 "agent_id must be in range 0-65535 (16-bit)"
@@ -9,6 +16,16 @@ end
 
 """
 Create a labeled Aeron counter with a standard key buffer.
+
+Arguments:
+- `client`: Aeron client.
+- `agent_id`: agent identifier.
+- `agent_name`: agent name string.
+- `counter_type`: counter type id (16-bit).
+- `label`: label prefix.
+
+Returns:
+- `Aeron.Counter`.
 """
 function add_counter(client::Aeron.Client, agent_id, agent_name, counter_type, label)
     type_id = make_counter_type_id(agent_id, counter_type)
@@ -30,6 +47,14 @@ end
 
 """
 Construct base counters for a given agent identity.
+
+Arguments:
+- `client`: Aeron client.
+- `agent_id`: agent identifier.
+- `agent_name`: agent name string.
+
+Returns:
+- `Counters`.
 """
 function Counters(client::Aeron.Client, agent_id, agent_name)
     Counters(
@@ -98,6 +123,14 @@ end
 
 """
 Construct producer counters for a given agent identity.
+
+Arguments:
+- `client`: Aeron client.
+- `agent_id`: agent identifier.
+- `agent_name`: agent name string.
+
+Returns:
+- `ProducerCounters`.
 """
 function ProducerCounters(client::Aeron.Client, agent_id, agent_name)
     ProducerCounters(
@@ -110,6 +143,14 @@ end
 
 """
 Construct consumer counters for a given agent identity.
+
+Arguments:
+- `client`: Aeron client.
+- `agent_id`: agent identifier.
+- `agent_name`: agent name string.
+
+Returns:
+- `ConsumerCounters`.
 """
 function ConsumerCounters(client::Aeron.Client, agent_id, agent_name)
     ConsumerCounters(
@@ -129,6 +170,14 @@ end
 
 """
 Construct supervisor counters for a given agent identity.
+
+Arguments:
+- `client`: Aeron client.
+- `agent_id`: agent identifier.
+- `agent_name`: agent name string.
+
+Returns:
+- `SupervisorCounters`.
 """
 function SupervisorCounters(client::Aeron.Client, agent_id, agent_name)
     SupervisorCounters(
@@ -140,6 +189,14 @@ end
 
 """
 Construct driver counters for a given agent identity.
+
+Arguments:
+- `client`: Aeron client.
+- `agent_id`: agent identifier.
+- `agent_name`: agent name string.
+
+Returns:
+- `DriverCounters`.
 """
 function DriverCounters(client::Aeron.Client, agent_id, agent_name)
     DriverCounters(
@@ -156,6 +213,14 @@ end
 
 """
 Construct bridge counters for a given agent identity.
+
+Arguments:
+- `client`: Aeron client.
+- `agent_id`: agent identifier.
+- `agent_name`: agent name string.
+
+Returns:
+- `BridgeCounters`.
 """
 function BridgeCounters(client::Aeron.Client, agent_id, agent_name)
     BridgeCounters(

@@ -101,7 +101,7 @@ liveness_check_interval_ns = 1000000000
                 consumer_do_work!(consumer, cons_desc, cons_ctrl)
                 supervisor_do_work!(supervisor, sup_ctrl, sup_qos)
                 if consumer.mappings.header_mmap !== nothing
-                    publish_frame!(producer, payload, shape, strides, Dtype.UINT8, UInt32(0))
+                    offer_frame!(producer, payload, shape, strides, Dtype.UINT8, UInt32(0))
                 end
                 yield()
             end

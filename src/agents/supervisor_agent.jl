@@ -10,6 +10,13 @@ end
 
 """
 Construct a SupervisorAgent from a SupervisorConfig.
+
+Arguments:
+- `config`: supervisor configuration.
+- `client`: Aeron client to use for publications/subscriptions.
+
+Returns:
+- `SupervisorAgent` wrapping the supervisor state and assemblers.
 """
 function SupervisorAgent(
     config::SupervisorConfig;

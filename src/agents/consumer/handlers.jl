@@ -1,10 +1,17 @@
 """
-Create a FragmentAssembler for the descriptor subscription.
+Create a descriptor fragment assembler for the consumer.
+
+Arguments:
+- `state`: consumer state.
+
+Returns:
+- `Aeron.FragmentAssembler` configured for descriptor messages.
 """
 function make_descriptor_assembler(state::ConsumerState)
     handler = Aeron.FragmentHandler(state) do st, buffer, _
         header = MessageHeader.Decoder(buffer, 0)
         if MessageHeader.templateId(header) == TEMPLATE_FRAME_DESCRIPTOR
+            @info "consumer descriptor received"
             FrameDescriptor.wrap!(st.runtime.desc_decoder, buffer, 0; header = header)
             try_read_frame!(st, st.runtime.desc_decoder) && (st.metrics.frames_ok += 1)
         end
@@ -14,7 +21,13 @@ function make_descriptor_assembler(state::ConsumerState)
 end
 
 """
-Create a FragmentAssembler for the control subscription.
+Create a control-channel fragment assembler for the consumer.
+
+Arguments:
+- `state`: consumer state.
+
+Returns:
+- `Aeron.FragmentAssembler` configured for control messages.
 """
 function make_control_assembler(state::ConsumerState)
     handler = Aeron.FragmentHandler(state) do st, buffer, _
@@ -35,7 +48,13 @@ function make_control_assembler(state::ConsumerState)
 end
 
 """
-Create a FragmentAssembler for the per-consumer progress subscription.
+Create a progress fragment assembler for the consumer.
+
+Arguments:
+- `state`: consumer state.
+
+Returns:
+- `Aeron.FragmentAssembler` configured for progress messages.
 """
 function make_progress_assembler(state::ConsumerState)
     handler = Aeron.FragmentHandler(state) do st, buffer, _
@@ -50,6 +69,14 @@ end
 
 """
 Poll the descriptor subscription and process frames.
+
+Arguments:
+- `state`: consumer state.
+- `assembler`: fragment assembler for descriptors.
+- `fragment_limit`: max fragments per poll (default: DEFAULT_FRAGMENT_LIMIT).
+
+Returns:
+- Number of fragments processed.
 """
 @inline function poll_descriptor!(
     state::ConsumerState,
@@ -61,6 +88,14 @@ end
 
 """
 Poll the control subscription and apply mapping/config updates.
+
+Arguments:
+- `state`: consumer state.
+- `assembler`: fragment assembler for control channel.
+- `fragment_limit`: max fragments per poll (default: DEFAULT_FRAGMENT_LIMIT).
+
+Returns:
+- Number of fragments processed.
 """
 @inline function poll_control!(
     state::ConsumerState,
@@ -72,6 +107,14 @@ end
 
 """
 Poll the per-consumer progress subscription when assigned.
+
+Arguments:
+- `state`: consumer state.
+- `assembler`: fragment assembler for progress channel.
+- `fragment_limit`: max fragments per poll (default: DEFAULT_FRAGMENT_LIMIT).
+
+Returns:
+- Number of fragments processed.
 """
 @inline function poll_progress!(
     state::ConsumerState,
@@ -94,7 +137,14 @@ end
 end
 
 """
-Apply a ConsumerConfig message to a live consumer.
+Apply a ConsumerConfig message to the consumer settings.
+
+Arguments:
+- `state`: consumer state.
+- `msg`: decoded ConsumerConfig message.
+
+Returns:
+- `true` if applied, `false` otherwise.
 """
 function apply_consumer_config!(state::ConsumerState, msg::ConsumerConfigMsg.Decoder)
     ConsumerConfigMsg.streamId(msg) == state.config.stream_id || return false

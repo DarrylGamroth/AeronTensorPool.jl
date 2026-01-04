@@ -130,12 +130,19 @@ end
 
 """
 Load ProducerConfig from a TOML file with optional environment overrides.
+
+Arguments:
+- `path`: TOML file path.
+- `env`: environment dictionary for overrides (default: ENV).
+
+Returns:
+- `ProducerConfig`.
 """
 function load_producer_config(path::AbstractString; env::AbstractDict = ENV)
     cfg = TOML.parsefile(path)
     prod = get(cfg, "producer", Dict{String, Any}())
 
-    aeron_dir = env_default(env, "AERON_DIR", String(get(prod, "aeron_dir", "/dev/shm/aeron-\$USER")))
+    aeron_dir = env_default(env, "AERON_DIR", String(get(prod, "aeron_dir", "")))
     aeron_uri = env_default(env, "AERON_URI", String(get(prod, "aeron_uri", "aeron:ipc")))
     descriptor_stream_id = Int32(get(prod, "descriptor_stream_id", 1100))
     control_stream_id = Int32(get(prod, "control_stream_id", 1000))
@@ -194,12 +201,19 @@ end
 
 """
 Load ConsumerSettings from a TOML file with optional environment overrides.
+
+Arguments:
+- `path`: TOML file path.
+- `env`: environment dictionary for overrides (default: ENV).
+
+Returns:
+- `ConsumerSettings`.
 """
 function load_consumer_config(path::AbstractString; env::AbstractDict = ENV)
     cfg = TOML.parsefile(path)
     cons = get(cfg, "consumer", Dict{String, Any}())
 
-    aeron_dir = env_default(env, "AERON_DIR", String(get(cons, "aeron_dir", "/dev/shm/aeron-\$USER")))
+    aeron_dir = env_default(env, "AERON_DIR", String(get(cons, "aeron_dir", "")))
     aeron_uri = env_default(env, "AERON_URI", String(get(cons, "aeron_uri", "aeron:ipc")))
     descriptor_stream_id = Int32(get(cons, "descriptor_stream_id", 1100))
     control_stream_id = Int32(get(cons, "control_stream_id", 1000))
@@ -272,12 +286,19 @@ end
 
 """
 Load SupervisorConfig from a TOML file with optional environment overrides.
+
+Arguments:
+- `path`: TOML file path.
+- `env`: environment dictionary for overrides (default: ENV).
+
+Returns:
+- `SupervisorConfig`.
 """
 function load_supervisor_config(path::AbstractString; env::AbstractDict = ENV)
     cfg = TOML.parsefile(path)
     sup = get(cfg, "supervisor", Dict{String, Any}())
 
-    aeron_dir = env_default(env, "AERON_DIR", String(get(sup, "aeron_dir", "/dev/shm/aeron-\$USER")))
+    aeron_dir = env_default(env, "AERON_DIR", String(get(sup, "aeron_dir", "")))
     aeron_uri = env_default(env, "AERON_URI", String(get(sup, "aeron_uri", "aeron:ipc")))
     control_stream_id = Int32(get(sup, "control_stream_id", 1000))
     qos_stream_id = Int32(get(sup, "qos_stream_id", 1200))
@@ -298,6 +319,13 @@ end
 
 """
 Load SystemConfig (producer/consumer/supervisor) from a TOML file.
+
+Arguments:
+- `path`: TOML file path.
+- `env`: environment dictionary for overrides (default: ENV).
+
+Returns:
+- `SystemConfig` with producer, consumer, and supervisor settings.
 """
 function load_system_config(path::AbstractString; env::AbstractDict = ENV)
     return SystemConfig(
@@ -309,13 +337,20 @@ end
 
 """
 Load BridgeConfig and mappings from a TOML file.
+
+Arguments:
+- `path`: TOML file path.
+- `env`: environment dictionary for overrides (default: ENV).
+
+Returns:
+- `BridgeSystemConfig` with bridge config and mappings.
 """
 function load_bridge_config(path::AbstractString; env::AbstractDict = ENV)
     cfg = TOML.parsefile(path)
     bridge = get(cfg, "bridge", Dict{String, Any}())
 
     instance_id = expand_vars(String(get(bridge, "instance_id", "bridge")), env)
-    aeron_dir = env_default(env, "AERON_DIR", String(get(bridge, "aeron_dir", "/dev/shm/aeron-\$USER")))
+    aeron_dir = env_default(env, "AERON_DIR", String(get(bridge, "aeron_dir", "")))
     payload_channel = expand_vars(String(get(bridge, "payload_channel", "")), env)
     payload_stream_id = Int32(get(bridge, "payload_stream_id", 0))
     control_channel = expand_vars(String(get(bridge, "control_channel", "")), env)

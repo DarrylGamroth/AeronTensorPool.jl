@@ -320,7 +320,7 @@ profile = "raw_profile"
 ## 23. Device DMA integration (zero-copy)
 - Use the producer to allocate payload pools, then register each payload slot with your device SDK for DMA writes.
 - Map the next header index to a payload slot (v1.1 uses slot == header_index), and hand the slot pointer to the device.
-- Once the device fills the buffer, call `publish_frame_from_slot!` to emit the descriptor without copying.
+- Once the device fills the buffer, call `commit_slot!` to emit the descriptor without copying.
 
 Example (DMA buffer registration):
 
@@ -335,10 +335,12 @@ ptr, stride = payload_slot_ptr(state, pool_id, slot)
 Example (publish after DMA completion):
 
 ```julia
-publish_frame_from_slot!(
+claim = try_claim_slot!(state, pool_id)
+# Pass claim.ptr + claim.stride_bytes to the device SDK.
+
+commit_slot!(
     state,
-    pool_id,
-    slot,
+    claim,
     values_len,
     shape,
     strides,
@@ -350,19 +352,25 @@ publish_frame_from_slot!(
 ## 24. Project Review
 - Review answers and follow-on phases are tracked in `docs/PROJECT_REVIEW.md`.
 
-Reservation helper for multiple in-flight buffers:
+Claim helper for multiple in-flight buffers:
 
 ```julia
-reservation = reserve_slot!(state, pool_id)
-# Pass reservation.ptr + reservation.stride_bytes to the device SDK.
+claim = try_claim_slot!(state, pool_id)
+# Pass claim.ptr + claim.stride_bytes to the device SDK.
 
-publish_reservation!(
+commit_slot!(
     state,
-    reservation,
+    claim,
     values_len,
     shape,
     strides,
     Dtype.UINT8,
     meta_version,
 )
+
+# Example: multiple in-flight buffers tracked by InflightQueue.
+queue = InflightQueue(8)
+push!(queue, try_claim_slot!(state, pool_id))
+done = popfirst!(queue)
+commit_slot!(state, done, values_len, shape, strides, Dtype.UINT8, meta_version)
 ```

@@ -81,6 +81,12 @@ end
 
 """
 Return a view over the payload bytes for a PayloadView.
+
+Arguments:
+- `payload`: payload view descriptor.
+
+Returns:
+- `SubArray` view into the payload bytes.
 """
 @inline function payload_view(payload::PayloadView)
     return view(payload.mmap, payload.offset + 1: payload.offset + payload.len)

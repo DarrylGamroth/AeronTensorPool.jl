@@ -14,7 +14,14 @@ Construct a PolledTimer with the given interval.
 end
 
 """
-Reset a timer's last fire time to now_ns.
+Reset a timer's last fire time to `now_ns`.
+
+Arguments:
+- `timer`: timer to reset.
+- `now_ns`: current time in nanoseconds.
+
+Returns:
+- `nothing`.
 """
 @inline function reset!(timer::PolledTimer, now_ns::UInt64)
     timer.last_ns = now_ns
@@ -22,7 +29,14 @@ Reset a timer's last fire time to now_ns.
 end
 
 """
-Return true if a timer has expired at now_ns.
+Return true if a timer has expired at `now_ns`.
+
+Arguments:
+- `timer`: timer to check.
+- `now_ns`: current time in nanoseconds.
+
+Returns:
+- `true` if expired, `false` otherwise.
 """
 @inline function expired(timer::PolledTimer, now_ns::UInt64)
     timer.interval_ns == 0 && return false
@@ -31,6 +45,13 @@ end
 
 """
 Check if a timer is due and advance last fire time when due.
+
+Arguments:
+- `timer`: timer to check.
+- `now_ns`: current time in nanoseconds.
+
+Returns:
+- `true` if due and advanced, `false` otherwise.
 """
 @inline function due!(timer::PolledTimer, now_ns::UInt64)
     timer.interval_ns == 0 && return false
@@ -43,6 +64,13 @@ end
 
 """
 Set a timer interval without changing last fire time.
+
+Arguments:
+- `timer`: timer to update.
+- `interval_ns`: new interval in nanoseconds.
+
+Returns:
+- `nothing`.
 """
 @inline function set_interval!(timer::PolledTimer, interval_ns::UInt64)
     timer.interval_ns = interval_ns
@@ -63,6 +91,14 @@ end
 
 """
 Poll all timers and invoke handlers that are due.
+
+Arguments:
+- `set`: timer set and handlers.
+- `state`: handler state passed to each handler.
+- `now_ns`: current time in nanoseconds.
+
+Returns:
+- Total work count from invoked handlers.
 """
 @generated function poll_timers!(set::TimerSet{TTimers, THandlers}, state, now_ns::UInt64) where {TTimers <: Tuple, THandlers <: Tuple}
     n = length(TTimers.parameters)

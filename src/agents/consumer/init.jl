@@ -1,5 +1,12 @@
 """
 Initialize a consumer: create Aeron resources and initial timers.
+
+Arguments:
+- `config`: consumer settings.
+- `client`: Aeron client to use for publications/subscriptions.
+
+Returns:
+- `ConsumerState` initialized for polling.
 """
 function init_consumer(config::ConsumerSettings; client::Aeron.Client)
     clock = Clocks.CachedEpochClock(Clocks.MonotonicClock())
@@ -111,6 +118,15 @@ end
 
 """
 Initialize a consumer using driver-provisioned SHM regions.
+
+Arguments:
+- `config`: consumer settings.
+- `attach`: driver attach response.
+- `driver_client`: optional driver client state (for keepalives).
+- `client`: Aeron client to use for publications/subscriptions.
+
+Returns:
+- `ConsumerState` mapped to the driver-provisioned regions.
 """
 function init_consumer_from_attach(
     config::ConsumerSettings,

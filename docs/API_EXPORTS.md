@@ -17,7 +17,7 @@ This is the Phase 0 export inventory for AeronTensorPool. Public exports are def
 - ShmAttachRequest, ShmAttachResponse, ShmDetachRequest, ShmDetachResponse, ShmLeaseKeepalive
 - ShmDriverShutdown, ShmLeaseRevoked, ShmDriverShutdownRequest
 - FixedString, DriverPool, AttachResponse, DetachResponse, LeaseRevoked, DriverShutdown
-- SlotReservation, InflightQueue
+- SlotClaim, InflightQueue
 
 ## Exported Functions
 - seqlock_begin_write!, seqlock_commit_write!, seqlock_read_begin, seqlock_read_end, seqlock_is_write_in_progress, seqlock_frame_id
@@ -32,7 +32,7 @@ This is the Phase 0 export inventory for AeronTensorPool. Public exports are def
 - header_slot_offset, payload_slot_offset, payload_slot_view, payload_slot_ptr, payload_view
 - handle_consumer_hello!, handle_shm_pool_announce!
 - mmap_shm, parse_shm_uri, validate_uri, validate_stride, validate_superblock_fields
-- publish_frame!, publish_frame_from_slot!, reserve_slot!, publish_reservation!
+- offer_frame!, try_claim_slot!, commit_slot!, with_claimed_slot!
 - read_superblock, read_tensor_slot_header, write_superblock!, write_tensor_slot_header!
 - refresh_activity_timestamps!, reset_mappings!, select_pool
 - try_read_frame!

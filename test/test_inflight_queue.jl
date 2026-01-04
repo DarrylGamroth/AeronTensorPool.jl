@@ -3,8 +3,8 @@
     @test isempty(q)
     @test !isfull(q)
 
-    r1 = SlotReservation(UInt64(0), UInt32(0), UInt16(1), UInt32(0), Ptr{UInt8}(1), 64)
-    r2 = SlotReservation(UInt64(1), UInt32(1), UInt16(1), UInt32(1), Ptr{UInt8}(2), 64)
+    r1 = SlotClaim(UInt64(0), UInt32(0), UInt16(1), UInt32(0), Ptr{UInt8}(1), 64)
+    r2 = SlotClaim(UInt64(1), UInt32(1), UInt16(1), UInt32(1), Ptr{UInt8}(2), 64)
 
     push!(q, r1)
     @test first(q).seq == UInt64(0)

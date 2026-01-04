@@ -88,7 +88,7 @@
             shape = Int32[4]
             strides = Int32[1]
             published = wait_for() do
-                publish_frame!(producer_state, payload, shape, strides, Dtype.UINT8, UInt32(1))
+                offer_frame!(producer_state, payload, shape, strides, Dtype.UINT8, UInt32(1))
             end
             @test published
 

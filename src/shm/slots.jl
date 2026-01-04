@@ -1,5 +1,11 @@
 """
-Return byte offset for a header slot index.
+Return the byte offset for a header slot index.
+
+Arguments:
+- `index`: 0-based header slot index.
+
+Returns:
+- Byte offset from the start of the header mmap.
 """
 @inline function header_slot_offset(index::Integer)
     return SUPERBLOCK_SIZE + Int(index) * HEADER_SLOT_BYTES
@@ -26,7 +32,14 @@ struct TensorSlotHeader
 end
 
 """
-Return byte offset for a payload slot index in a pool.
+Return the byte offset for a payload slot index in a pool.
+
+Arguments:
+- `stride_bytes`: pool stride size in bytes.
+- `slot`: 0-based payload slot index.
+
+Returns:
+- Byte offset from the start of the payload mmap.
 """
 @inline function payload_slot_offset(stride_bytes::Integer, slot::Integer)
     return SUPERBLOCK_SIZE + Int(slot) * Int(stride_bytes)
@@ -34,6 +47,15 @@ end
 
 """
 Return a view into a payload slot region.
+
+Arguments:
+- `buffer`: payload mmap buffer.
+- `stride_bytes`: pool stride size in bytes.
+- `slot`: 0-based payload slot index.
+- `len`: view length in bytes (defaults to `stride_bytes`).
+
+Returns:
+- `SubArray` view into the payload buffer.
 """
 @inline function payload_slot_view(
     buffer::AbstractVector{UInt8},
@@ -48,6 +70,14 @@ end
 
 """
 Return a pointer and stride_bytes for a payload slot.
+
+Arguments:
+- `buffer`: payload mmap buffer.
+- `stride_bytes`: pool stride size in bytes.
+- `slot`: 0-based payload slot index.
+
+Returns:
+- Tuple `(Ptr{UInt8}, Int)` where the pointer is the start of the slot.
 """
 @inline function payload_slot_ptr(buffer::AbstractVector{UInt8}, stride_bytes::Integer, slot::Integer)
     offset = payload_slot_offset(stride_bytes, slot)
@@ -55,8 +85,14 @@ Return a pointer and stride_bytes for a payload slot.
 end
 
 """
-Pick the smallest payload pool that can fit values_len.
-Returns a 1-based index or 0 if no pool fits.
+Pick the smallest payload pool that can fit `values_len`.
+
+Arguments:
+- `pools`: payload pool configurations.
+- `values_len`: required payload length in bytes.
+
+Returns:
+- 1-based index of the best-fit pool, or 0 if no pool fits.
 """
 @inline function select_pool(pools::AbstractVector{PayloadPoolConfig}, values_len::Integer)::Int
     best_idx = 0
