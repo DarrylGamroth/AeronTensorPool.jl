@@ -1,5 +1,6 @@
 using BenchmarkTools
 using UnsafeArrays
+using Aeron
 using AeronTensorPool
 
 function bench_write_header()
@@ -63,6 +64,41 @@ function bench_descriptor_encode()
     end
 end
 
+function bench_try_claim_descriptor()
+    Aeron.MediaDriver.launch_embedded() do driver
+        Aeron.Context() do context
+            Aeron.aeron_dir!(context, Aeron.MediaDriver.aeron_dir(driver))
+            Aeron.Client(context) do client
+                pub = Aeron.add_publication(client, "aeron:ipc", 18000)
+                sub = Aeron.add_subscription(client, "aeron:ipc", 18000)
+                deadline = time_ns() + Int64(1e9)
+                while time_ns() < deadline && !Aeron.is_connected(pub)
+                    yield()
+                end
+                Aeron.is_connected(pub) || error("publication not connected")
+                claim = Aeron.BufferClaim()
+                encoder = FrameDescriptor.Encoder(UnsafeArrays.UnsafeArray{UInt8, 1})
+                return @benchmark begin
+                    with_claimed_buffer!($pub, $claim, AeronTensorPool.FRAME_DESCRIPTOR_LEN) do buf
+                        header = MessageHeader.Encoder(buf, 0)
+                        MessageHeader.blockLength!(header, FrameDescriptor.sbe_block_length(FrameDescriptor.Decoder))
+                        MessageHeader.templateId!(header, FrameDescriptor.sbe_template_id(FrameDescriptor.Decoder))
+                        MessageHeader.schemaId!(header, FrameDescriptor.sbe_schema_id(FrameDescriptor.Decoder))
+                        MessageHeader.version!(header, FrameDescriptor.sbe_schema_version(FrameDescriptor.Decoder))
+                        FrameDescriptor.wrap!($encoder, buf, AeronTensorPool.MESSAGE_HEADER_LEN)
+                        FrameDescriptor.streamId!($encoder, UInt32(1))
+                        FrameDescriptor.epoch!($encoder, UInt64(1))
+                        FrameDescriptor.seq!($encoder, UInt64(1))
+                        FrameDescriptor.headerIndex!($encoder, UInt32(0))
+                        FrameDescriptor.timestampNs!($encoder, UInt64(123))
+                        FrameDescriptor.metaVersion!($encoder, UInt32(0))
+                    end
+                end
+            end
+        end
+    end
+end
+
 function run_benchmarks()
     println("Benchmark: write_tensor_slot_header!")
     show(bench_write_header())
@@ -72,6 +108,9 @@ function run_benchmarks()
     println()
     println("Benchmark: encode FrameDescriptor")
     show(bench_descriptor_encode())
+    println()
+    println("Benchmark: try_claim FrameDescriptor")
+    show(bench_try_claim_descriptor())
     println()
     return nothing
 end
