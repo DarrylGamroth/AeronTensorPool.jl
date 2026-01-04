@@ -14,6 +14,10 @@ end
 
 Agent.name(::AppConsumerAgent) = "app-consumer"
 
+function Agent.on_start(agent::AppConsumerAgent)
+    return nothing
+end
+
 function Agent.do_work(agent::AppConsumerAgent)
     consumer_do_work!(agent.consumer, agent.desc_asm, agent.ctrl_asm)
     header = agent.consumer.runtime.frame_view.header
@@ -27,6 +31,10 @@ function Agent.do_work(agent::AppConsumerAgent)
         println("frame=$(header.frame_id) ok")
     end
     return 1
+end
+
+function Agent.on_close(agent::AppConsumerAgent)
+    return nothing
 end
 
 function usage()

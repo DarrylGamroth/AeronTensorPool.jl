@@ -16,6 +16,10 @@ end
 
 Agent.name(::AppProducerAgent) = "app-producer"
 
+function Agent.on_start(agent::AppProducerAgent)
+    return nothing
+end
+
 function Agent.do_work(agent::AppProducerAgent)
     if agent.max_count == 0 || agent.sent < agent.max_count
         fill!(agent.payload, UInt8(agent.sent % 256))
@@ -23,6 +27,10 @@ function Agent.do_work(agent::AppProducerAgent)
         agent.sent += 1
     end
     return producer_do_work!(agent.producer, agent.control_asm; qos_assembler = agent.qos_asm)
+end
+
+function Agent.on_close(agent::AppProducerAgent)
+    return nothing
 end
 
 function usage()
