@@ -55,6 +55,11 @@ function Agent.on_start(agent::AppProducerAgent)
         end
         attach_id == 0 && (yield(); continue)
         attach = poll_attach!(agent.driver_client, attach_id, now_ns)
+        if attach !== nothing && attach.code != DriverResponseCode.OK
+            @warn "Producer attach rejected" code = attach.code message = attach.error_message
+            attach = nothing
+            attach_id = Int64(0)
+        end
         yield()
     end
     @info "Producer attach received" code = attach.code lease_id = attach.lease_id stream_id = attach.stream_id
@@ -220,11 +225,16 @@ end
 
 function wait_for_descriptor_connection(agent::ProducerAgent, timeout_ns::UInt64 = UInt64(5_000_000_000))
     deadline = UInt64(time_ns()) + timeout_ns
+    last_log_ns = UInt64(0)
     while UInt64(time_ns()) < deadline
         if Aeron.is_connected(agent.state.runtime.pub_descriptor)
             return nothing
         end
-        @info "Producer waiting for descriptor subscriber"
+        now_ns = UInt64(time_ns())
+        if now_ns - last_log_ns > 1_000_000_000
+            @info "Producer waiting for descriptor subscriber"
+            last_log_ns = now_ns
+        end
         yield()
     end
     @warn "Producer descriptor not connected before timeout"
