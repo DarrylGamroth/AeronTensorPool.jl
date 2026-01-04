@@ -410,11 +410,18 @@ function run_system_bench(
                     allocd_total_raw = end_num.allocd - start_num.allocd
                     allocd_total = max(Int64(0), allocd_total_raw - (2 * gc_num_overhead + time_overhead))
                     live_total = end_live - start_live
+                    publish_rate = published / elapsed
+                    consume_rate = consumed[] / elapsed
+                    bytes_per_frame = Float64(bytes)
+                    publish_mib_s = (publish_rate * bytes_per_frame) / (1024.0 * 1024.0)
+                    consume_mib_s = (consume_rate * bytes_per_frame) / (1024.0 * 1024.0)
                     println("System benchmark: payload_bytes=$(bytes)")
                     println("Published: $(published) frames in $(round(elapsed, digits=3))s")
                     println("Consumed:  $(consumed[]) frames in $(round(elapsed, digits=3))s")
-                    println("Publish rate: $(round(published / elapsed, digits=1)) fps")
-                    println("Consume rate: $(round(consumed[] / elapsed, digits=1)) fps")
+                    println("Publish rate: $(round(publish_rate, digits=1)) fps")
+                    println("Consume rate: $(round(consume_rate, digits=1)) fps")
+                    println("Publish bandwidth: $(round(publish_mib_s, digits=1)) MiB/s")
+                    println("Consume bandwidth: $(round(consume_mib_s, digits=1)) MiB/s")
                     println("GC allocd overhead per sample: $(gc_num_overhead) bytes")
                     println("GC allocd overhead per time_ns(): $(time_overhead) bytes")
                     println("GC allocd delta (loop):  $(allocd_loop) bytes")
