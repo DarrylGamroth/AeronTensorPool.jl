@@ -19,7 +19,9 @@ Agent.name(::AppDriverAgent) = "app-driver"
 
 function Agent.on_start(agent::AppDriverAgent)
     env = Dict(ENV)
-    env["DRIVER_AERON_DIR"] = get(ENV, "AERON_DIR", "")
+    if haskey(ENV, "AERON_DIR")
+        env["DRIVER_AERON_DIR"] = ENV["AERON_DIR"]
+    end
     config = load_driver_config(agent.config_path; env = env)
     agent.ctx = Aeron.Context()
     AeronTensorPool.set_aeron_dir!(agent.ctx, config.endpoints.aeron_dir)

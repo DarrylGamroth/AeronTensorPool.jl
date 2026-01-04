@@ -25,13 +25,17 @@ Agent.name(::AppProducerAgent) = "app-producer"
 
 function Agent.on_start(agent::AppProducerAgent)
     env_driver = Dict(ENV)
-    env_driver["DRIVER_AERON_DIR"] = get(ENV, "AERON_DIR", "")
+    if haskey(ENV, "AERON_DIR")
+        env_driver["DRIVER_AERON_DIR"] = ENV["AERON_DIR"]
+    end
     driver_cfg = load_driver_config(agent.driver_cfg_path; env = env_driver)
     stream_id = first_stream_id(driver_cfg)
     control = driver_cfg.endpoints
 
     env = Dict(ENV)
-    env["AERON_DIR"] = control.aeron_dir
+    if !isempty(control.aeron_dir)
+        env["AERON_DIR"] = control.aeron_dir
+    end
     env["TP_STREAM_ID"] = string(stream_id)
     prod_cfg = load_producer_config(agent.producer_cfg_path; env = env)
 
