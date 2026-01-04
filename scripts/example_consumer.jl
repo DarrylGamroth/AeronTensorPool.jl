@@ -41,6 +41,7 @@ function (hook::AppConsumerOnFrame)(state::ConsumerState, frame::ConsumerFrameVi
         end
     end
     hook.app.seen += 1
+    hook.app.last_frame = frame_id
     if hook.app.seen % 100 == 0
         println("frame=$(frame_id) ok")
     end
@@ -78,6 +79,11 @@ function Agent.on_start(agent::AppConsumerAgent)
         end
         attach_id == 0 && (yield(); continue)
         attach = poll_attach!(agent.driver_client, attach_id, now_ns)
+        if attach !== nothing && attach.code != DriverResponseCode.OK
+            @warn "Consumer attach rejected" code = attach.code message = attach.error_message
+            attach = nothing
+            attach_id = Int64(0)
+        end
         yield()
     end
     @info "Consumer attach received" code = attach.code lease_id = attach.lease_id stream_id = attach.stream_id
@@ -105,16 +111,16 @@ end
 
 function Agent.do_work(agent::AppConsumerAgent)
     agent.consumer_agent === nothing && return 0
-    Agent.do_work(agent.consumer_agent)
-    header = agent.consumer_agent.state.runtime.frame_view.header
+    work_count = Agent.do_work(agent.consumer_agent)
     metrics = agent.consumer_agent.state.metrics
     if metrics.frames_ok != agent.last_frames_ok
+        header = agent.consumer_agent.state.runtime.frame_view.header
         @info "Consumer frames_ok updated" frames_ok = metrics.frames_ok header_frame_id = header.frame_id
         agent.last_frames_ok = metrics.frames_ok
     end
     now_ns = UInt64(time_ns())
     if now_ns - agent.last_log_ns > 1_000_000_000
-        @info "Consumer frame state" frame_id = header.frame_id last_frame = agent.last_frame seen = agent.seen
+        @info "Consumer frame state" last_frame = agent.last_frame seen = agent.seen
         desc_connected = Aeron.is_connected(agent.consumer_agent.state.runtime.sub_descriptor)
         @info "Consumer descriptor connected" connected = desc_connected
         if metrics.drops_late != agent.last_drops_late ||
@@ -126,7 +132,7 @@ function Agent.do_work(agent::AppConsumerAgent)
         end
         agent.last_log_ns = now_ns
     end
-    return 1
+    return work_count
 end
 
 function Agent.on_close(agent::AppConsumerAgent)
