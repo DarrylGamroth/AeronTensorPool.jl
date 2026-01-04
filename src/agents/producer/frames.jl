@@ -37,6 +37,33 @@ function offer_frame!(
     dtype::Dtype.SbeEnum,
     meta_version::UInt32,
 )
+    return offer_frame!(state, payload_data, shape, strides, dtype, meta_version, NOOP_PRODUCER_HOOKS)
+end
+
+"""
+Offer a frame by copying payload bytes into SHM and publishing a descriptor.
+
+Arguments:
+- `state`: producer state and runtime resources.
+- `payload_data`: source bytes to copy into the payload slot.
+- `shape`: tensor dimensions (Int32).
+- `strides`: tensor strides (Int32).
+- `dtype`: element type enum.
+- `meta_version`: metadata schema version for this frame.
+- `hooks`: producer hooks.
+
+Returns:
+- `true` if the descriptor was published (shared or per-consumer), `false` otherwise.
+"""
+function offer_frame!(
+    state::ProducerState,
+    payload_data::AbstractVector{UInt8},
+    shape::AbstractVector{Int32},
+    strides::AbstractVector{Int32},
+    dtype::Dtype.SbeEnum,
+    meta_version::UInt32,
+    hooks::ProducerHooks = NOOP_PRODUCER_HOOKS,
+)
     producer_driver_active(state) || return false
 
     seq = state.seq
@@ -95,6 +122,7 @@ function offer_frame!(
     end
     per_consumer_sent = publish_descriptor_to_consumers!(state, seq, header_index, meta_version, now_ns)
     (shared_sent || per_consumer_sent) || return false
+    hooks.on_frame_published!(state, seq, header_index)
 
     if state.supports_progress && should_emit_progress!(state, UInt64(values_len), true)
         emit_progress_complete!(state, frame_id, header_index, UInt64(values_len))

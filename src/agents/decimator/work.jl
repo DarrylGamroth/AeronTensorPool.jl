@@ -14,12 +14,35 @@ function handle_decimated_frame!(
     header::TensorSlotHeader,
     payload::AbstractVector{UInt8},
 )
+    return handle_decimated_frame!(state, header, payload, NOOP_DECIMATOR_HOOKS)
+end
+
+"""
+Apply decimation and republish a descriptor when the ratio matches.
+
+Arguments:
+- `state`: decimator state.
+- `header`: decoded tensor slot header.
+- `payload`: payload bytes view.
+- `hooks`: decimator hooks.
+
+Returns:
+- `true` if republished, `false` if dropped.
+"""
+function handle_decimated_frame!(
+    state::DecimatorState,
+    header::TensorSlotHeader,
+    payload::AbstractVector{UInt8},
+    hooks::DecimatorHooks,
+)
     if state.config.decimation == 0
         return false
     end
     state.frame_counter += 1
     if state.frame_counter % state.config.decimation == 0
-        return republish_descriptor!(state, header, payload)
+        sent = republish_descriptor!(state, header, payload)
+        sent && hooks.on_republish!(state, header)
+        return sent
     end
     return false
 end

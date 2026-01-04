@@ -1,4 +1,5 @@
 include("state.jl")
+include("hooks.jl")
 include("handlers.jl")
 include("init.jl")
 include("work.jl")

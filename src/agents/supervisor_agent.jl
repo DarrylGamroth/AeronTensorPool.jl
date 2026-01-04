@@ -14,6 +14,7 @@ Construct a SupervisorAgent from a SupervisorConfig.
 Arguments:
 - `config`: supervisor configuration.
 - `client`: Aeron client to use for publications/subscriptions.
+- `hooks`: optional supervisor hooks.
 
 Returns:
 - `SupervisorAgent` wrapping the supervisor state and assemblers.
@@ -21,10 +22,11 @@ Returns:
 function SupervisorAgent(
     config::SupervisorConfig;
     client::Aeron.Client,
+    hooks::SupervisorHooks = NOOP_SUPERVISOR_HOOKS,
 )
     state = init_supervisor(config; client = client)
-    control_assembler = make_control_assembler(state)
-    qos_assembler = make_qos_assembler(state)
+    control_assembler = make_control_assembler(state; hooks = hooks)
+    qos_assembler = make_qos_assembler(state; hooks = hooks)
     counters = SupervisorCounters(state.runtime.control.client, Int(config.stream_id), "Supervisor")
     return SupervisorAgent(state, control_assembler, qos_assembler, counters)
 end

@@ -3,17 +3,19 @@ Create a payload fragment assembler for bridge receiver chunks.
 
 Arguments:
 - `state`: bridge receiver state.
+- `hooks`: optional bridge hooks.
 
 Returns:
 - `Aeron.FragmentAssembler` configured for payload chunks.
 """
-function make_bridge_payload_assembler(state::BridgeReceiverState)
+function make_bridge_payload_assembler(state::BridgeReceiverState; hooks::BridgeHooks = NOOP_BRIDGE_HOOKS)
     handler = Aeron.FragmentHandler(state) do st, buffer, _
         header = ShmTensorpoolBridge.MessageHeader.Decoder(buffer, 0)
         if ShmTensorpoolBridge.MessageHeader.templateId(header) == TEMPLATE_BRIDGE_FRAME_CHUNK
             BridgeFrameChunk.wrap!(st.chunk_decoder, buffer, 0; header = header)
             now_ns = UInt64(Clocks.time_nanos(st.clock))
             bridge_receive_chunk!(st, st.chunk_decoder, now_ns)
+            hooks.on_receive_chunk!(st, st.chunk_decoder)
         end
         nothing
     end

@@ -11,14 +11,19 @@ end
 
 """
 Create a descriptor assembler that forwards frames to the bridge sender.
+
+Arguments:
+- `state`: bridge sender state.
+- `hooks`: optional bridge hooks.
 """
-function make_bridge_descriptor_assembler(state::BridgeSenderState)
+function make_bridge_descriptor_assembler(state::BridgeSenderState; hooks::BridgeHooks = NOOP_BRIDGE_HOOKS)
     decoder = FrameDescriptor.Decoder(UnsafeArrays.UnsafeArray{UInt8, 1})
     handler = Aeron.FragmentHandler(state) do st, buffer, _
         header = MessageHeader.Decoder(buffer, 0)
         if MessageHeader.templateId(header) == TEMPLATE_FRAME_DESCRIPTOR
             FrameDescriptor.wrap!(decoder, buffer, 0; header = header)
             bridge_send_frame!(st, decoder)
+            hooks.on_send_frame!(st, decoder)
         end
         nothing
     end
@@ -34,6 +39,7 @@ Arguments:
 - `mapping`: bridge mapping definition.
 - `producer_state`: optional producer state for rematerialization.
 - `client`: Aeron client to use for publications/subscriptions.
+- `hooks`: optional bridge hooks.
 
 Returns:
 - `BridgeAgent` wrapping sender/receiver states and assemblers.
@@ -44,6 +50,7 @@ function BridgeAgent(
     consumer_config::ConsumerSettings,
     producer_config::ProducerConfig;
     client::Aeron.Client,
+    hooks::BridgeHooks = NOOP_BRIDGE_HOOKS,
 )
     consumer_state = init_consumer(consumer_config; client = client)
     producer_state = init_producer(producer_config; client = client)
@@ -58,10 +65,11 @@ function BridgeAgent(
         mapping;
         producer_state = producer_state,
         client = client,
+        hooks = hooks,
     )
 
     control_assembler = make_control_assembler(consumer_state)
-    descriptor_assembler = make_bridge_descriptor_assembler(sender)
+    descriptor_assembler = make_bridge_descriptor_assembler(sender; hooks = hooks)
     counters = BridgeCounters(sender.client, Int(mapping.dest_stream_id), "Bridge")
 
     return BridgeAgent(sender, receiver, control_assembler, descriptor_assembler, counters)

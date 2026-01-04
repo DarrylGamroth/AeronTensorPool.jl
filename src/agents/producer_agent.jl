@@ -14,6 +14,7 @@ Construct a ProducerAgent from a ProducerConfig.
 Arguments:
 - `config`: producer configuration.
 - `client`: Aeron client to use for publications/subscriptions.
+- `hooks`: optional producer hooks.
 
 Returns:
 - `ProducerAgent` wrapping the producer state and assemblers.
@@ -21,10 +22,11 @@ Returns:
 function ProducerAgent(
     config::ProducerConfig;
     client::Aeron.Client,
+    hooks::ProducerHooks = NOOP_PRODUCER_HOOKS,
 )
     state = init_producer(config; client = client)
-    control_assembler = make_control_assembler(state)
-    qos_assembler = make_qos_assembler(state)
+    control_assembler = make_control_assembler(state; hooks = hooks)
+    qos_assembler = make_qos_assembler(state; hooks = hooks)
     counters = ProducerCounters(state.runtime.control.client, Int(config.producer_id), "Producer")
     return ProducerAgent(state, control_assembler, qos_assembler, counters)
 end
