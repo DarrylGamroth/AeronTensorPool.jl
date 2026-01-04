@@ -47,7 +47,7 @@ end
             qos_stream,
         )
         shm = DriverShmConfig(base_dir, false, UInt32(4096), "660", [base_dir])
-        policies = DriverPolicies(false, "raw", UInt32(50), UInt32(1000), UInt32(5), UInt32(2000), "")
+        policies = DriverPolicies(false, "raw", UInt32(50), UInt32(1000), UInt32(5), false, UInt32(2000), "")
         profile = DriverProfileConfig(
             "raw",
             UInt32(8),
@@ -114,7 +114,6 @@ end
             UInt32(1),
             UInt8(MAX_DIMS),
             Mode.STREAM,
-            UInt16(1),
             UInt32(0),
             true,
             true,

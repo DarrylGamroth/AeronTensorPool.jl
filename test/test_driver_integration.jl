@@ -41,7 +41,7 @@ end
                 13002,
             )
             shm = DriverShmConfig(base_dir, false, UInt32(4096), "660", [base_dir])
-            policies = DriverPolicies(false, "raw", UInt32(100), UInt32(10_000), UInt32(3), UInt32(2000), "")
+            policies = DriverPolicies(false, "raw", UInt32(100), UInt32(10_000), UInt32(3), false, UInt32(2000), "")
             profile = DriverProfileConfig(
                 "raw",
                 UInt32(8),
@@ -111,7 +111,6 @@ end
                 UInt32(1),
                 UInt8(MAX_DIMS),
                 Mode.STREAM,
-                UInt16(1),
                 UInt32(0),
                 true,
                 true,
@@ -185,7 +184,7 @@ end
             @test ok
             header = consumer_state.runtime.frame_view.header
             payload_view_buf = payload_view(consumer_state.runtime.frame_view.payload)
-            @test header.frame_id == UInt64(0)
+            @test seqlock_sequence(header.seq_commit) == UInt64(0)
             @test collect(payload_view_buf) == payload
 
         close_producer_state!(producer_state)
