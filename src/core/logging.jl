@@ -7,9 +7,14 @@ const LEVEL_INFO = 20
 const LEVEL_WARN = 30
 const LEVEL_ERROR = 40
 
-# Set to true before precompile to enable logging.
-const LOG_ENABLED = false
-const LOG_LEVEL = LEVEL_INFO
+# Enable logging by setting TP_LOG=1 in the environment.
+const LOG_ENABLED = get(ENV, "TP_LOG", "0") == "1"
+const LOG_LEVEL = begin
+    level = get(ENV, "TP_LOG_LEVEL", "")
+    level == "" && LEVEL_INFO
+    parsed = tryparse(Int, level)
+    parsed === nothing ? LEVEL_INFO : parsed
+end
 
 macro tp_debug(args...)
     if LOG_ENABLED && LOG_LEVEL <= LEVEL_DEBUG

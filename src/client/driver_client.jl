@@ -174,10 +174,13 @@ function poll_attach!(
     correlation_id::Int64,
     now_ns::UInt64,
 )
+    state.poller.expected_attach_id = correlation_id
+    state.poller.matched_attach = nothing
     driver_client_do_work!(state, now_ns)
-    attach = state.poller.last_attach
-    if attach !== nothing && attach.correlation_id == correlation_id
+    attach = state.poller.matched_attach
+    if attach !== nothing
         apply_attach!(state, attach)
+        state.poller.expected_attach_id = Int64(0)
         return attach
     end
     return nothing

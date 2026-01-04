@@ -78,6 +78,8 @@ mutable struct DriverResponsePoller
     last_detach::Union{DetachResponse, Nothing}
     last_revoke::Union{LeaseRevoked, Nothing}
     last_shutdown::Union{DriverShutdown, Nothing}
+    expected_attach_id::Int64
+    matched_attach::Union{AttachResponse, Nothing}
 end
 
 function DriverResponsePoller(sub::Aeron.Subscription)
@@ -98,6 +100,8 @@ function DriverResponsePoller(sub::Aeron.Subscription)
         nothing,
         nothing,
         nothing,
+        nothing,
+        Int64(0),
         nothing,
     )
     poller.assembler = Aeron.FragmentAssembler(Aeron.FragmentHandler(poller) do plr, buffer, _
@@ -125,21 +129,32 @@ function handle_driver_response!(poller::DriverResponsePoller, buffer::AbstractV
     header = DriverMessageHeader.Decoder(buffer, 0)
     template_id = DriverMessageHeader.templateId(header)
     poller.last_template_id = template_id
+    @tp_info "driver response" template_id
     if template_id == TEMPLATE_SHM_ATTACH_RESPONSE
         ShmAttachResponse.wrap!(poller.attach_decoder, buffer, 0; header = header)
         snapshot_attach_response!(poller.attach_response, poller.attach_decoder)
+        @tp_info "attach response" correlation_id = poller.attach_response.correlation_id code =
+            poller.attach_response.code lease_id = poller.attach_response.lease_id
         poller.last_attach = poller.attach_response
+        if poller.expected_attach_id != 0 && poller.attach_response.correlation_id == poller.expected_attach_id
+            poller.matched_attach = poller.attach_response
+        end
     elseif template_id == TEMPLATE_SHM_DETACH_RESPONSE
         ShmDetachResponse.wrap!(poller.detach_decoder, buffer, 0; header = header)
         snapshot_detach_response!(poller.detach_response, poller.detach_decoder)
+        @tp_info "detach response" correlation_id = poller.detach_response.correlation_id code =
+            poller.detach_response.code
         poller.last_detach = poller.detach_response
     elseif template_id == TEMPLATE_SHM_LEASE_REVOKED
         ShmLeaseRevoked.wrap!(poller.revoke_decoder, buffer, 0; header = header)
         snapshot_lease_revoked!(poller.revoke_response, poller.revoke_decoder)
+        @tp_warn "lease revoked" lease_id = poller.revoke_response.lease_id reason =
+            poller.revoke_response.reason
         poller.last_revoke = poller.revoke_response
     elseif template_id == TEMPLATE_SHM_DRIVER_SHUTDOWN
         ShmDriverShutdown.wrap!(poller.shutdown_decoder, buffer, 0; header = header)
         snapshot_shutdown!(poller.shutdown_response, poller.shutdown_decoder)
+        @tp_warn "driver shutdown" reason = poller.shutdown_response.reason
         poller.last_shutdown = poller.shutdown_response
     end
     return true
