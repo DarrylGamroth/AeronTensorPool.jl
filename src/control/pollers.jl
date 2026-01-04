@@ -78,8 +78,7 @@ mutable struct DriverResponsePoller
     last_detach::Union{DetachResponse, Nothing}
     last_revoke::Union{LeaseRevoked, Nothing}
     last_shutdown::Union{DriverShutdown, Nothing}
-    expected_attach_id::Int64
-    matched_attach::Union{AttachResponse, Nothing}
+    attach_by_correlation::Dict{Int64, AttachResponse}
 end
 
 function DriverResponsePoller(sub::Aeron.Subscription)
@@ -101,9 +100,9 @@ function DriverResponsePoller(sub::Aeron.Subscription)
         nothing,
         nothing,
         nothing,
-        Int64(0),
-        nothing,
+        Dict{Int64, AttachResponse}(),
     )
+    sizehint!(poller.attach_by_correlation, 4)
     poller.assembler = Aeron.FragmentAssembler(Aeron.FragmentHandler(poller) do plr, buffer, _
         handle_driver_response!(plr, buffer)
         nothing
@@ -136,9 +135,7 @@ function handle_driver_response!(poller::DriverResponsePoller, buffer::AbstractV
         @tp_info "attach response" correlation_id = poller.attach_response.correlation_id code =
             poller.attach_response.code lease_id = poller.attach_response.lease_id
         poller.last_attach = poller.attach_response
-        if poller.expected_attach_id != 0 && poller.attach_response.correlation_id == poller.expected_attach_id
-            poller.matched_attach = poller.attach_response
-        end
+        poller.attach_by_correlation[poller.attach_response.correlation_id] = poller.attach_response
     elseif template_id == TEMPLATE_SHM_DETACH_RESPONSE
         ShmDetachResponse.wrap!(poller.detach_decoder, buffer, 0; header = header)
         snapshot_detach_response!(poller.detach_response, poller.detach_decoder)
