@@ -70,7 +70,7 @@ Arguments (keywords):
 - `client_id`: client identifier.
 - `role`: driver role enum.
 - `expected_layout_version`: expected layout version (default: 0).
-- `max_dims`: expected MAX_DIMS (default: 0).
+- `max_dims`: ignored by the driver (default: 0).
 - `publish_mode`: publish mode override (optional).
 - `require_hugepages`: hugepage policy (optional).
 

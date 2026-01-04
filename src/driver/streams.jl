@@ -79,6 +79,9 @@ function provision_stream_epoch!(state::DriverState, stream_state::DriverStreamS
     header_size = SUPERBLOCK_SIZE + Int(stream_state.profile.header_nslots) * HEADER_SLOT_BYTES
     ensure_shm_file!(state, header_path, header_size, state.config.shm.permissions_mode)
     header_mmap = mmap_shm(header_uri, header_size; write = true)
+    if state.config.policies.prefault_shm
+        fill!(header_mmap, 0x00)
+    end
     wrap_superblock!(state.runtime.superblock_encoder, header_mmap, 0)
     now_ns = UInt64(Clocks.time_nanos(state.clock))
     write_superblock!(
@@ -105,6 +108,9 @@ function provision_stream_epoch!(state::DriverState, stream_state::DriverStreamS
         pool_size = SUPERBLOCK_SIZE + Int(stream_state.profile.header_nslots) * Int(pool.stride_bytes)
         ensure_shm_file!(state, pool_path, pool_size, state.config.shm.permissions_mode)
         pool_mmap = mmap_shm(pool_uri, pool_size; write = true)
+        if state.config.policies.prefault_shm
+            fill!(pool_mmap, 0x00)
+        end
         wrap_superblock!(state.runtime.superblock_encoder, pool_mmap, 0)
         write_superblock!(
             state.runtime.superblock_encoder,

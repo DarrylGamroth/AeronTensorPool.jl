@@ -44,7 +44,7 @@ function handle_driver_events!(state::ProducerState, now_ns::UInt64)
             dc;
             stream_id = state.config.stream_id,
             expected_layout_version = state.config.layout_version,
-            max_dims = state.config.max_dims,
+            max_dims = UInt8(0),
             publish_mode = DriverPublishMode.REQUIRE_EXISTING,
         )
         if cid != 0

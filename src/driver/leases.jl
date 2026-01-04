@@ -29,7 +29,7 @@ function handle_attach_request!(state::DriverState, msg::ShmAttachRequest.Decode
     client_id = ShmAttachRequest.clientId(msg)
     role = ShmAttachRequest.role(msg)
     expected_layout_version = ShmAttachRequest.expectedLayoutVersion(msg)
-    max_dims = ShmAttachRequest.maxDims(msg)
+    _ = ShmAttachRequest.maxDims(msg)
 
     publish_mode = ShmAttachRequest.publishMode(msg)
     if publish_mode == DriverPublishMode.NULL_VALUE || publish_mode == DriverPublishMode.UNKNOWN
@@ -100,15 +100,7 @@ function handle_attach_request!(state::DriverState, msg::ShmAttachRequest.Decode
         )
     end
 
-    if max_dims != 0 && max_dims > stream_state.profile.max_dims
-        return emit_attach_response!(
-            state,
-            correlation_id,
-            DriverResponseCode.INVALID_PARAMS,
-            "max_dims exceeds profile",
-            nothing,
-        )
-    end
+    # max_dims is fixed by the schema; any nonzero request is ignored.
 
     for lease in values(state.leases)
         if lease.stream_id == stream_id && lease.client_id == client_id && lease.role == role

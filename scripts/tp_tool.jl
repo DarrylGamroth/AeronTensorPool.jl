@@ -6,8 +6,8 @@ function usage()
     println("  julia --project scripts/tp_tool.jl validate-uri <uri>")
     println("  julia --project scripts/tp_tool.jl read-superblock <uri>")
     println("  julia --project scripts/tp_tool.jl read-header <uri> <index>")
-    println("  julia --project scripts/tp_tool.jl send-consumer-config <aeron_dir> <aeron_uri> <control_stream_id> <stream_id> <consumer_id> <use_shm> <mode> <decimation> [payload_fallback_uri]")
-    println("  julia --project scripts/tp_tool.jl driver-attach <aeron_dir> <control_channel> <control_stream_id> <client_id> <role> <stream_id> [publish_mode] [expected_layout_version] [max_dims] [require_hugepages_policy] [timeout_ms]")
+    println("  julia --project scripts/tp_tool.jl send-consumer-config <aeron_dir> <aeron_uri> <control_stream_id> <stream_id> <consumer_id> <use_shm> <mode> [payload_fallback_uri]")
+    println("  julia --project scripts/tp_tool.jl driver-attach <aeron_dir> <control_channel> <control_stream_id> <client_id> <role> <stream_id> [publish_mode] [expected_layout_version] [require_hugepages_policy] [timeout_ms]")
     println("  julia --project scripts/tp_tool.jl driver-detach <aeron_dir> <control_channel> <control_stream_id> <client_id> <role> <stream_id> <lease_id> [timeout_ms]")
     println("  julia --project scripts/tp_tool.jl driver-keepalive <aeron_dir> <control_channel> <control_stream_id> <client_id> <role> <stream_id> <lease_id>")
     exit(1)
@@ -25,8 +25,7 @@ end
 function parse_mode(val::String)
     v = lowercase(val)
     v == "stream" && return Mode.STREAM
-    v == "latest" && return Mode.LATEST
-    v == "decimated" && return Mode.DECIMATED
+    v == "rate_limited" && return Mode.RATE_LIMITED
     error("invalid mode: $val")
 end
 
@@ -130,11 +129,11 @@ elseif cmd == "read-header"
     size = SUPERBLOCK_SIZE + HEADER_SLOT_BYTES * (index + 1)
     buf = mmap_shm(uri, size)
     offset = header_slot_offset(index)
-    decoder = TensorSlotHeader256.Decoder(Vector{UInt8})
+    decoder = TensorSlotHeaderMsg.Decoder(Vector{UInt8})
     wrap_tensor_header!(decoder, buf, offset)
     header = read_tensor_slot_header(decoder)
-    println("commit_word=$(header.commit_word)")
-    println("frame_id=$(header.frame_id)")
+    println("seq_commit=$(header.seq_commit)")
+    println("seq=$(seqlock_sequence(header.seq_commit))")
     println("timestamp_ns=$(header.timestamp_ns)")
     println("meta_version=$(header.meta_version)")
     println("values_len_bytes=$(header.values_len_bytes)")
@@ -145,7 +144,7 @@ elseif cmd == "read-header"
     println("major_order=$(header.major_order)")
     println("ndims=$(header.ndims)")
 elseif cmd == "send-consumer-config"
-    length(ARGS) >= 9 || usage()
+    length(ARGS) >= 8 || usage()
     aeron_dir = ARGS[2]
     aeron_uri = ARGS[3]
     control_stream = parse(Int32, ARGS[4])
@@ -153,8 +152,7 @@ elseif cmd == "send-consumer-config"
     consumer_id = parse(UInt32, ARGS[6])
     use_shm = parse_bool(ARGS[7])
     mode = parse_mode(ARGS[8])
-    decimation = parse(UInt16, ARGS[9])
-    payload_fallback_uri = length(ARGS) >= 10 ? ARGS[10] : ""
+    payload_fallback_uri = length(ARGS) >= 9 ? ARGS[9] : ""
 
     ctx = Aeron.Context()
     Aeron.aeron_dir!(ctx, aeron_dir)
@@ -168,7 +166,6 @@ elseif cmd == "send-consumer-config"
     ConsumerConfigMsg.consumerId!(enc, consumer_id)
     ConsumerConfigMsg.useShm!(enc, use_shm ? ShmTensorpoolControl.Bool_.TRUE : ShmTensorpoolControl.Bool_.FALSE)
     ConsumerConfigMsg.mode!(enc, mode)
-    ConsumerConfigMsg.decimation!(enc, decimation)
     ConsumerConfigMsg.payloadFallbackUri!(enc, payload_fallback_uri)
 
     Aeron.offer(pub, view(buf, 1:sbe_message_length(enc)))
@@ -184,16 +181,14 @@ elseif cmd == "driver-attach"
     stream_id = parse(UInt32, ARGS[7])
     publish_mode = length(ARGS) >= 8 ? parse_publish_mode(ARGS[8]) : DriverPublishMode.REQUIRE_EXISTING
     expected_layout_version = length(ARGS) >= 9 ? parse(UInt32, ARGS[9]) : UInt32(0)
-    max_dims = length(ARGS) >= 10 ? parse(UInt8, ARGS[10]) : UInt8(0)
-    require_hugepages = length(ARGS) >= 11 ? parse_hugepages_policy(ARGS[11]) : DriverHugepagesPolicy.UNSPECIFIED
-    timeout_ms = length(ARGS) >= 12 ? parse(Int, ARGS[12]) : 5000
+    require_hugepages = length(ARGS) >= 10 ? parse_hugepages_policy(ARGS[10]) : DriverHugepagesPolicy.UNSPECIFIED
+    timeout_ms = length(ARGS) >= 11 ? parse(Int, ARGS[11]) : 5000
 
     with_driver_client(aeron_dir, control_channel, control_stream, client_id, role) do client
         correlation_id = send_attach_request!(
             client;
             stream_id = stream_id,
             expected_layout_version = expected_layout_version,
-            max_dims = max_dims,
             publish_mode = publish_mode,
             require_hugepages = require_hugepages,
         )

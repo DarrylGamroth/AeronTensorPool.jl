@@ -43,7 +43,7 @@ function init_producer(config::ProducerConfig; client::Aeron.Client)
         FixedSizeVectorDefault{UInt8}(undef, ANNOUNCE_BUF_BYTES),
         FixedSizeVectorDefault{UInt8}(undef, CONTROL_BUF_BYTES),
         sb_encoder,
-        TensorSlotHeader256.Encoder(Vector{UInt8}),
+        TensorSlotHeaderMsg.Encoder(Vector{UInt8}),
         FrameDescriptor.Encoder(UnsafeArrays.UnsafeArray{UInt8, 1}),
         FrameProgress.Encoder(UnsafeArrays.UnsafeArray{UInt8, 1}),
         ShmPoolAnnounce.Encoder(UnsafeArrays.UnsafeArray{UInt8, 1}),
@@ -121,7 +121,7 @@ function producer_config_from_attach(config::ProducerConfig, attach::AttachRespo
         config.producer_instance_id,
         String(attach.header_region_uri),
         pools,
-        attach.max_dims,
+        UInt8(MAX_DIMS),
         config.announce_interval_ns,
         config.qos_interval_ns,
         config.progress_interval_ns,
@@ -148,6 +148,7 @@ function init_producer_from_attach(
 )
     attach.code == DriverResponseCode.OK || throw(ArgumentError("attach failed"))
     attach.header_slot_bytes == UInt16(HEADER_SLOT_BYTES) || throw(ArgumentError("header_slot_bytes mismatch"))
+    attach.max_dims == UInt8(MAX_DIMS) || throw(ArgumentError("max_dims mismatch"))
 
     driver_config = producer_config_from_attach(config, attach)
     ispow2(driver_config.nslots) || throw(ArgumentError("header nslots must be power of two"))
@@ -184,7 +185,7 @@ function init_producer_from_attach(
         FixedSizeVectorDefault{UInt8}(undef, ANNOUNCE_BUF_BYTES),
         FixedSizeVectorDefault{UInt8}(undef, CONTROL_BUF_BYTES),
         ShmRegionSuperblock.Encoder(Vector{UInt8}),
-        TensorSlotHeader256.Encoder(Vector{UInt8}),
+        TensorSlotHeaderMsg.Encoder(Vector{UInt8}),
         FrameDescriptor.Encoder(UnsafeArrays.UnsafeArray{UInt8, 1}),
         FrameProgress.Encoder(UnsafeArrays.UnsafeArray{UInt8, 1}),
         ShmPoolAnnounce.Encoder(UnsafeArrays.UnsafeArray{UInt8, 1}),

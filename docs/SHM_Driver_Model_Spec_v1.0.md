@@ -73,7 +73,7 @@ The driver MAY create new SHM regions on demand when `publishMode=EXISTING_OR_CR
 
 `correlationId` is client-supplied; the driver MUST echo it unchanged in `ShmAttachResponse`.
 
-For `code=OK`, the response MUST include: `leaseId`, `streamId`, `epoch`, `layoutVersion`, `headerNslots`, `headerSlotBytes`, `maxDims`, `headerRegionUri`, and a complete `payloadPools` group with each pool's `regionUri`, `poolId`, `poolNslots`, and `strideBytes`. These fields are required even if the SBE schema marks them as optional.
+For `code=OK`, the response MUST include: `leaseId`, `streamId`, `epoch`, `layoutVersion`, `headerNslots`, `headerSlotBytes`, `maxDims`, `headerRegionUri`, and a complete `payloadPools` group with each pool's `regionUri`, `poolId`, `poolNslots`, and `strideBytes`. These fields are required even if the SBE schema marks them as optional. `headerSlotBytes` is fixed at `256` by the Wire Specification, and `maxDims` is fixed by the schema constant (v1.1: `8`).
 
 For `code != OK`, the response MUST include `correlationId` and `code`, and SHOULD include `errorMessage` with a diagnostic string.
 
@@ -96,7 +96,7 @@ If `errorMessage` is present, it MUST be limited to 1024 bytes; drivers SHOULD t
 ### 4.3 Attach Request Semantics (Normative)
 
 - `expectedLayoutVersion`: If present and nonzero, the driver MUST reject the request with `code=REJECTED` if the active layout version for the stream does not match. If absent or zero, the driver uses its configured layout version and returns it in the response.
-- `maxDims`: If present and nonzero, the driver MUST reject with `code=INVALID_PARAMS` if the requested value exceeds the configured `maxDims` for the stream. If it is less than or equal to the configured value, the driver MAY accept but MUST return the configured `maxDims` in the response.
+- `maxDims`: MUST be omitted or zero. The driver MUST ignore any nonzero value and MUST return the schema constant in the response.
 - `publishMode`: `REQUIRE_EXISTING` means the driver MUST reject if the stream is not already provisioned. `EXISTING_OR_CREATE` allows the driver to create or initialize SHM regions on demand.
 - `requireHugepages`: A `HugepagesPolicy` value. If `HUGEPAGES`, the driver MUST reject the request with `code=REJECTED` if it cannot provide hugepage-backed regions that satisfy Wire Specification validation rules. If `STANDARD`, the driver MUST reject the request with `code=REJECTED` if it cannot provide standard page-backed regions. If `UNSPECIFIED`, the driver applies its configured default policy.
 - Streams with zero payload pools are invalid in v1.0; the driver MUST reject attach requests for such streams with `code=INVALID_PARAMS`.
@@ -130,7 +130,7 @@ The driver MUST use response codes consistently:
 
 - `OK`: The request succeeded and all required fields are present.
 - `UNSUPPORTED`: The request uses a feature the driver does not implement (e.g., unsupported schema version or publish mode).
-- `INVALID_PARAMS`: The request is malformed or violates parameter constraints (e.g., invalid `maxDims`).
+- `INVALID_PARAMS`: The request is malformed or violates parameter constraints (e.g., invalid `expectedLayoutVersion`).
 - `REJECTED`: The request is valid but denied by policy or state (e.g., exclusive producer already attached, `requireHugepages=HUGEPAGES` not satisfiable, `expectedLayoutVersion` mismatch).
 - `INTERNAL_ERROR`: The driver encountered an unexpected failure while processing a valid request.
 
@@ -405,16 +405,15 @@ Optional keys and defaults:
 - `policies.announce_period_ms` (uint32): `ShmPoolAnnounce` cadence. Default: `1000`.
 - `policies.lease_keepalive_interval_ms` (uint32): client keepalive interval. Default: `1000`.
 - `policies.lease_expiry_grace_intervals` (uint32): missed keepalives before expiry. Default: `3`.
+- `policies.prefault_shm` (bool): prefault/zero SHM regions on create. Default: `true`.
 - `policies.shutdown_timeout_ms` (uint32): drain period before shutdown completes. Default: `2000`.
 - `policies.shutdown_token` (string): admin shutdown token. Default: empty (disabled).
 
 Profile fields:
 
 - `profiles.<name>.header_nslots` (uint32): power-of-two slot count. Default: `1024`.
-- `profiles.<name>.header_slot_bytes` (uint16): must be `256`. Default: `256`.
-- `profiles.<name>.max_dims` (uint8): max tensor dims. Default: `8`.
 - `profiles.<name>.payload_pools[].pool_id` (uint16): pool identifier (unique per profile).
-- `profiles.<name>.payload_pools[].stride_bytes` (uint32): stride size in bytes.
+- `profiles.<name>.payload_pools[].stride_bytes` (uint32): payload slot size in bytes (offset = `slot_index * stride_bytes`).
 
 Stream fields:
 

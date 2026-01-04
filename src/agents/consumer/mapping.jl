@@ -232,8 +232,8 @@ function map_from_attach_response!(state::ConsumerState, attach::AttachResponse)
     state.metrics.last_seq_seen = UInt64(0)
     state.metrics.seen_any = false
     state.metrics.remap_count += 1
+    attach.max_dims == UInt8(MAX_DIMS) || return false
     state.config.expected_layout_version = attach.layout_version
-    state.config.max_dims = attach.max_dims
     return true
 end
 

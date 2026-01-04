@@ -13,7 +13,7 @@ For a combined wire + driver overview, see `docs/IMPLEMENTATION_GUIDE.md`.
 
 ## 2. Code Generation (SBE)
 - Source schema: SHM_Tensor_Pool_Wire_Spec_v1.1.md §16 (also extracted to wire-schema.xml). MAX_DIMS is 8; if you change it, update the schema and regenerate.
-- Generate control-plane codecs and SHM composites (TensorSlotHeader256, ShmRegionSuperblock) directly with SBE.jl (no java tool required).
+- Generate control-plane codecs and SHM composites (TensorSlotHeader, ShmRegionSuperblock) directly with SBE.jl (no java tool required).
 - Enums use SBE numeric bodies (see Spiders schema style); if you edit enum values, keep the body text numeric and regenerate.
 - Julia codegen example (adjust paths):
   - Inline load: `modname = @load_schema "wire-schema.xml"` then `using .` to access types; suitable for tooling/tests.
@@ -32,30 +32,31 @@ For a combined wire + driver overview, see `docs/IMPLEMENTATION_GUIDE.md`.
 
 ## 3. Shared Constants (must match spec)
 - superblock_size = 64
-- header_slot_bytes = 256
+- header_slot_bytes = 256 (fixed by the wire spec; not configurable)
 - magic = TPOLSHM1 (0x544F504C53484D31 LE)
 - endianness = little-endian only
 - slot mapping v1.1: payload_slot = header_index; pool nslots == header nslots
+- driver prefault/zero on create: configurable via `policies.prefault_shm` (default: true)
 
 ## 4. Producer Flow (spec §15.19)
 1) header_index = seq & (nslots - 1)
-2) commit_word = (frame_id << 1) | 1 (store release/relaxed)
+2) seq_commit = (seq << 1) (store release)
 3) Fill payload bytes; ensure visibility (flush DMA if needed)
-4) Fill header (frame_id=seq, shape/strides, pool/slot, meta_version, etc.)
-5) commit_word = (frame_id << 1) (store release)
+4) Fill header (shape/strides, pool/slot, meta_version, etc.)
+5) seq_commit = (seq << 1) | 1 (store release)
 6) Publish FrameDescriptor; optional FrameProgress COMPLETE
 
 ## 5. Consumer Flow (spec §15.19)
 1) Validate epoch from FrameDescriptor; compute header_index
-2) Read commit_word (acquire); if odd → DROP
+2) Read seq_commit (acquire); if LSB=0 → DROP
 3) Read header + payload
-4) Re-read commit_word (acquire); if changed/odd → DROP
-5) Accept only if commit_word stable/even AND header.frame_id == FrameDescriptor.seq
+4) Re-read seq_commit (acquire); if changed/LSB=0 → DROP
+5) Accept only if seq_commit stable/LSB=1 AND (seq_commit >> 1) == FrameDescriptor.seq
 6) Track drops_gap (seq gaps) and drops_late (seqlock/identity failures)
 
 ## 6. Epoch and Mapping (spec §15.21)
 - States: UNMAPPED → MAPPED(epoch). Remap on epoch change or validation failure; drop in-flight frames.
-- On producer restart/layout change: bump epoch; reset seq/frame_id to 0; republish announce.
+- On producer restart/layout change: bump epoch; reset seq to 0; republish announce.
 
 ## 6a. Filesystem layout and path containment (spec §15.21a)
 - Producers MUST announce explicit absolute paths for all SHM regions; do not derive/synthesize paths on the consumer side.
@@ -88,7 +89,7 @@ For a combined wire + driver overview, see `docs/IMPLEMENTATION_GUIDE.md`.
 
 ## 9. QoS and Metrics
 - drops_gap: sequence gaps detected from FrameDescriptor.
-- drops_late: seqlock/identity failures (commit_word instability or frame_id != seq).
+- drops_late: seqlock/identity failures (seq_commit instability or seq mismatch).
 - Supervisor aggregates QosProducer/QosConsumer for liveness and throttling decisions.
 
 ## 10. Operational Defaults
@@ -99,8 +100,8 @@ For a combined wire + driver overview, see `docs/IMPLEMENTATION_GUIDE.md`.
 
 ## 11. Testing Checklist (spec §15.13)
 - Superblock/URI validation fails closed (magic/layout/version/endianness; scheme/hugepage/stride rules).
-- Seqlock prevents torn reads; commit_word monotonic; drop if regress or identity mismatch.
-- Epoch change triggers remap; in-flight frames dropped; header_index reuse guarded by frame_id==seq.
+- Seqlock prevents torn reads; seq_commit monotonic; drop if regress or identity mismatch.
+- Epoch change triggers remap; in-flight frames dropped; header_index reuse guarded by seq_commit match.
 - Progress gating respected; no progress when no subscriber supports it.
 - Fallback path works when SHM invalid/unsupported.
 
@@ -120,13 +121,13 @@ For a combined wire + driver overview, see `docs/IMPLEMENTATION_GUIDE.md`.
 - Producer: single writer of header/payload regions; refresh activity_timestamp_ns at announce cadence.
 - Consumer: must not spin-wait for commit; on any failure, drop and continue.
 - Supervisor: detect stale activity_timestamp_ns or missing announces; issue ConsumerConfig; arbitrate consumer IDs.
-- Bridge (optional): validate before republishing; preserve seq/frame_id; maintain its own epoch/layout in announces.
-- RateLimiter/Tap (optional): consumes STREAM, republishes LATEST/DECIMATED; may suppress progress for dropped frames.
+- Bridge (optional): validate before republishing; preserve seq; maintain its own epoch/layout in announces.
+- RateLimiter/Tap (optional): consumes STREAM, republishes RATE_LIMITED; may suppress progress for dropped frames.
 
 ## 13. Julia fast path guidance
 - Keep hot paths allocation-free and type-stable: preallocate buffers for decoded headers and reuse; avoid VarData/VarAscii decoding in the frame loop.
-- Use concrete structs for TensorSlotHeader256/Superblock views; avoid Any/Union in critical paths.
-- Ensure commit_word loads/stores use acquire/release semantics; prefer `Base.llvmcall`/atomic wrappers only if needed—otherwise rely on SBE.jl’s generated accessors when they are type-stable.
+- Use concrete structs for TensorSlotHeader/Superblock views; avoid Any/Union in critical paths.
+- Ensure seq_commit loads/stores use acquire/release semantics; prefer `Base.llvmcall`/atomic wrappers only if needed—otherwise rely on SBE.jl’s generated accessors when they are type-stable.
 - For progress/descriptor handling, stage work in small immutable structs to keep inference intact; avoid closures/allocating iterators in the poll loop.
 - Pin frequently accessed buffers and avoid String allocations for URIs in the hot path; parse URIs once at startup.
 
@@ -153,9 +154,8 @@ For a combined wire + driver overview, see `docs/IMPLEMENTATION_GUIDE.md`.
 
 ## 14. Codegen and build tasks
 - Set MAX_DIMS in schemas/wire-schema.xml (DimsArray/StridesArray length) before codegen; bump layout_version when changing it.
-- Generate codecs: `julia --project -e 'using SBE; SBE.generate("schemas/wire-schema.xml", "gen/TensorPool.jl")'`.
-- Keep generated codec at gen/TensorPool.jl; include it from src as needed.
-- Optional VS Code task/make target: regenerate codec, then `julia --project -e 'using Pkg; Pkg.test()'` or run agents.
+- Generate codecs: `julia --project -e 'using Pkg; Pkg.build("AeronTensorPool")'`.
+- Generated codecs live in `src/gen` and are ignored by git; run build after schema updates.
 - Tooling: `scripts/run_tests.sh` wraps the full test run for CI/local workflows.
 - Control CLI: `scripts/tp_tool.jl send-consumer-config` can push ConsumerConfig on the control stream.
 - Driver CLI: `scripts/tp_tool.jl driver-attach|driver-keepalive|driver-detach` exercise the driver control plane.
@@ -202,8 +202,6 @@ lease_expiry_grace_intervals = 3
 
 [profiles.raw_profile]
 header_nslots = 1024
-max_dims = 8
-header_slot_bytes = 256
 
 [[profiles.raw_profile.payload_pools]]
 pool_id = 1
@@ -221,9 +219,9 @@ profile = "raw_profile"
 - One Aeron URI is enough for these control-plane streams; keep separate URIs only when media params differ (e.g., smaller term-length for control vs larger for descriptors, or different endpoints/linger).
 - Agents in play:
   - Producer agent: publishes ShmPoolAnnounce, FrameDescriptor, optional FrameProgress.
-  - Consumer agent(s): subscribe to descriptors/progress, mmap SHM, apply mode (STREAM/LATEST/DECIMATED).
+  - Consumer agent(s): subscribe to descriptors/progress, mmap SHM, apply mode (STREAM/RATE_LIMITED).
   - Supervisor agent: receives announces, issues ConsumerConfig, aggregates QoS, liveness checks.
-  - Optional bridge/rate limiter/tap: republish or downsample while preserving seq/frame_id semantics.
+  - Optional bridge/rate limiter/tap: republish or downsample while preserving seq semantics.
 
 ## 17. Operational playbook
 - See `docs/OPERATIONAL_PLAYBOOK.md` for startup order, tuning guidance, and failure playbooks.
@@ -238,7 +236,7 @@ profile = "raw_profile"
 - Microbenchmarks: `julia --project scripts/run_benchmarks.jl`.
 - System benchmark: `julia --project scripts/run_benchmarks.jl --system --duration 5 --config config/defaults.toml`.
 - Results should include publish/consume rates and allocation behavior under load.
-- Map config → SBE messages: producer fills ShmPoolAnnounce from TOML/env (uris, nslots, stride_bytes, max_dims); supervisor sends ConsumerConfig based on consumer mode/bridge decisions.
+- Map config → SBE messages: producer fills ShmPoolAnnounce from TOML/env (uris, nslots, stride_bytes); max_dims comes from the compiled schema constant.
 - Consumers refuse SHM if announce values differ from compiled schema (max_dims/layout_version) or backend validation fails.
 
 ## 16a. Agent execution model (AgentRunner vs Invoker)
@@ -264,7 +262,7 @@ profile = "raw_profile"
 
 ## 17. Validation, logging, and errors
 - Backend checks before mmap: scheme==shm:file, require_hugepages honored, stride_bytes power-of-two and page/hugepage aligned; log and reject before mapping.
-- On epoch mismatch or commit_word regression: drop frame, increment drops_late, log at debug/info.
+- On epoch mismatch or seq_commit regression: drop frame, increment drops_late, log at debug/info.
 - On invalid superblock or failed mmap: log error, attempt fallback_uri if configured; otherwise fail the data source.
 - Log drops_gap/drops_late counts, remap events, progress throttling decisions; export counters (e.g., Prometheus) per stream.
 - Error taxonomy: SHM parsing/validation throws `ShmUriError` or `ShmValidationError` when used in strict contexts; most data-plane errors are handled by drops and counters rather than exceptions.
@@ -272,7 +270,7 @@ profile = "raw_profile"
 ## 18. Progress policy
 - Consumer hints: take smallest interval/deltas above producer floors; if none provided, use defaults (250 us, 64 KiB, rows unset).
 - Disable progress by either: no consumer supports_progress, producer config flag off, or interval/deltas set to very large values.
-- Never treat FrameProgress COMPLETE as commit; commit_word remains canonical.
+- Never treat FrameProgress COMPLETE as commit; seq_commit remains canonical.
 
 ## 19. QoS reporting
 - Cadence: ~1 Hz for QosProducer and QosConsumer.
@@ -308,14 +306,14 @@ profile = "raw_profile"
 ## 21. Testing matrix (tie to §15.13)
 - Superblock validation: good vs bad magic/version/layout/endianness.
 - Backend validation: reject bad scheme, bad stride alignment, missing hugepages when required.
-- Seqlock under overwrite: consumer detects commit_word instability and drops_late increments.
+- Seqlock under overwrite: consumer detects seq_commit instability and drops_late increments.
 - Epoch remap: producer bumps epoch; consumers drop in-flight, unmap, remap.
 - Fallback path: invalid SHM triggers fallback_uri usage.
-- Progress off/on: verify gating and throttling; COMPLETE does not bypass commit_word.
+- Progress off/on: verify gating and throttling; COMPLETE does not bypass seq_commit.
 
 ## 22. Bridge/rate limiter specifics
-- Bridge republishes with its own epoch/layout in announces; preserves seq/frame_id from source descriptors.
-- RateLimiter/Tap may suppress progress for dropped frames; must keep seq/frame_id identity and follow same commit_word rules on republished descriptors.
+- Bridge republishes with its own epoch/layout in announces; preserves seq from source descriptors.
+- RateLimiter/Tap may suppress progress for dropped frames; must keep seq identity and follow same seq_commit rules on republished descriptors.
 
 ## 23. Device DMA integration (zero-copy)
 - Use the producer to allocate payload pools, then register each payload slot with your device SDK for DMA writes.

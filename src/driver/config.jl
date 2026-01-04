@@ -37,6 +37,7 @@ struct DriverPolicies
     announce_period_ms::UInt32
     lease_keepalive_interval_ms::UInt32
     lease_expiry_grace_intervals::UInt32
+    prefault_shm::Bool
     shutdown_timeout_ms::UInt32
     shutdown_token::String
 end
@@ -159,6 +160,7 @@ function load_driver_config(path::AbstractString; env::AbstractDict = ENV)
         env_override(env, "policies.lease_keepalive_interval_ms", UInt32(get(policies_tbl, "lease_keepalive_interval_ms", 1000)))
     lease_expiry_grace_intervals =
         env_override(env, "policies.lease_expiry_grace_intervals", UInt32(get(policies_tbl, "lease_expiry_grace_intervals", 3)))
+    prefault_shm = env_override(env, "policies.prefault_shm", Bool(get(policies_tbl, "prefault_shm", true)))
     shutdown_timeout_ms =
         env_override(env, "policies.shutdown_timeout_ms", UInt32(get(policies_tbl, "shutdown_timeout_ms", 2000)))
     shutdown_token = String(env_override(env, "policies.shutdown_token", String(get(policies_tbl, "shutdown_token", ""))))
@@ -168,7 +170,7 @@ function load_driver_config(path::AbstractString; env::AbstractDict = ENV)
         profile_tbl = Dict{String, Any}(entry)
         header_nslots = UInt32(get(profile_tbl, "header_nslots", 1024))
         header_slot_bytes = UInt16(get(profile_tbl, "header_slot_bytes", 256))
-        max_dims = UInt8(get(profile_tbl, "max_dims", MAX_DIMS))
+        max_dims = UInt8(MAX_DIMS)
         pools_tbl = get(profile_tbl, "payload_pools", Any[])
         pools = DriverPoolConfig[]
         for pool_entry in pools_tbl
@@ -239,6 +241,7 @@ function load_driver_config(path::AbstractString; env::AbstractDict = ENV)
         announce_period_ms,
         lease_keepalive_interval_ms,
         lease_expiry_grace_intervals,
+        prefault_shm,
         shutdown_timeout_ms,
         shutdown_token,
     )
