@@ -1,6 +1,6 @@
 [driver]
 instance_id = "driver-example"
-aeron_dir = "/dev/shm/aeron-${USER}"
+aeron_dir = "/dev/shm/aeron"
 control_channel = "aeron:ipc"
 control_stream_id = 15000
 announce_channel = "aeron:ipc"

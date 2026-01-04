@@ -23,10 +23,6 @@ end
 
 Agent.name(::AppProducerAgent) = "app-producer"
 
-@inline function default_aeron_dir()
-    return "/dev/shm/aeron"
-end
-
 function Agent.on_start(agent::AppProducerAgent)
     env_driver = Dict(ENV)
     if haskey(ENV, "AERON_DIR")
@@ -39,8 +35,6 @@ function Agent.on_start(agent::AppProducerAgent)
     env = Dict(ENV)
     if !isempty(control.aeron_dir)
         env["AERON_DIR"] = control.aeron_dir
-    else
-        env["AERON_DIR"] = default_aeron_dir()
     end
     env["TP_STREAM_ID"] = string(stream_id)
     prod_cfg = load_producer_config(agent.producer_cfg_path; env = env)

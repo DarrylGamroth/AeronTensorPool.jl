@@ -12,6 +12,7 @@ mutable struct AppDriverAgent
     ctx::Union{Aeron.Context, Nothing}
     client::Union{Aeron.Client, Nothing}
     driver_agent::Union{DriverAgent, Nothing}
+    media_driver::Union{Aeron.MediaDriver.Driver, Nothing}
     ready::Bool
 end
 
@@ -23,6 +24,12 @@ function Agent.on_start(agent::AppDriverAgent)
         env["DRIVER_AERON_DIR"] = ENV["AERON_DIR"]
     end
     config = load_driver_config(agent.config_path; env = env)
+    launch_media_driver = get(ENV, "LAUNCH_MEDIA_DRIVER", "false") == "true"
+    if launch_media_driver
+        md_ctx = Aeron.MediaDriver.Context()
+        AeronTensorPool.set_aeron_dir!(md_ctx, config.endpoints.aeron_dir)
+        agent.media_driver = Aeron.MediaDriver.launch(md_ctx)
+    end
     agent.ctx = Aeron.Context()
     AeronTensorPool.set_aeron_dir!(agent.ctx, config.endpoints.aeron_dir)
     agent.client = Aeron.Client(agent.ctx)
@@ -40,6 +47,12 @@ function Agent.on_close(agent::AppDriverAgent)
     if agent.driver_agent !== nothing
         try
             Agent.on_close(agent.driver_agent)
+        catch
+        end
+    end
+    if agent.media_driver !== nothing
+        try
+            close(agent.media_driver)
         catch
         end
     end
@@ -62,7 +75,7 @@ function main()
     config_path = length(ARGS) >= 1 ? ARGS[1] : "docs/examples/driver_integration_example.toml"
     runner = nothing
     try
-        agent = AppDriverAgent(config_path, nothing, nothing, nothing, false)
+        agent = AppDriverAgent(config_path, nothing, nothing, nothing, nothing, false)
         runner = AgentRunner(BusySpinIdleStrategy(), agent)
         @info "Driver running" config_path
         Agent.start_on_thread(runner)

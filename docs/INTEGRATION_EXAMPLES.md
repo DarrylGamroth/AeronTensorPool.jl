@@ -19,7 +19,7 @@ Use `docs/examples/driver_integration_example.toml`:
 ```toml
 [driver]
 instance_id = "driver-example"
-aeron_dir = "/dev/shm/aeron-${USER}"
+aeron_dir = "/dev/shm/aeron"
 control_channel = "aeron:ipc"
 control_stream_id = 15000
 announce_channel = "aeron:ipc"
@@ -56,7 +56,7 @@ profile = "camera"
 ### Start driver (AgentRunner)
 
 ```bash
-julia --project scripts/example_driver.jl docs/examples/driver_integration_example.toml
+LAUNCH_MEDIA_DRIVER=true julia --project scripts/example_driver.jl docs/examples/driver_integration_example.toml
 ```
 
 ## Application 2: Frame Producer (application-defined Agent)
