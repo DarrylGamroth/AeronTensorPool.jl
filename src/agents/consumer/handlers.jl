@@ -13,7 +13,10 @@ function make_descriptor_assembler(state::ConsumerState)
         if MessageHeader.templateId(header) == TEMPLATE_FRAME_DESCRIPTOR
             @tp_info "consumer descriptor received"
             FrameDescriptor.wrap!(st.runtime.desc_decoder, buffer, 0; header = header)
-            try_read_frame!(st, st.runtime.desc_decoder) && (st.metrics.frames_ok += 1)
+            if try_read_frame!(st, st.runtime.desc_decoder)
+                st.metrics.frames_ok += 1
+                @tp_info "consumer frame ready" frame_id = st.runtime.frame_view.header.frame_id
+            end
         end
         nothing
     end

@@ -114,16 +114,31 @@ function try_read_frame!(
     desc::FrameDescriptor.Decoder,
     view::ConsumerFrameView,
 )
-    consumer_driver_active(state) || return false
-    state.mappings.header_mmap === nothing && return false
-    FrameDescriptor.epoch(desc) == state.mappings.mapped_epoch || return false
+    if !consumer_driver_active(state)
+        @tp_debug "try_read_frame drop" reason = :driver_inactive
+        return false
+    end
+    if state.mappings.header_mmap === nothing
+        @tp_debug "try_read_frame drop" reason = :no_header_mmap
+        return false
+    end
+    if FrameDescriptor.epoch(desc) != state.mappings.mapped_epoch
+        @tp_debug "try_read_frame drop" reason = :epoch_mismatch desc_epoch = FrameDescriptor.epoch(desc) mapped_epoch =
+            state.mappings.mapped_epoch
+        return false
+    end
     seq = FrameDescriptor.seq(desc)
-    should_process(state, seq) || return false
+    if !should_process(state, seq)
+        @tp_debug "try_read_frame drop" reason = :decimated seq
+        return false
+    end
 
     header_index = FrameDescriptor.headerIndex(desc)
     if state.mappings.mapped_nslots == 0 || header_index >= state.mappings.mapped_nslots
         state.metrics.drops_late += 1
         state.metrics.drops_header_invalid += 1
+        @tp_debug "try_read_frame drop" reason = :header_index_invalid header_index mapped_nslots =
+            state.mappings.mapped_nslots
         return false
     end
 
@@ -135,6 +150,7 @@ function try_read_frame!(
     if seqlock_is_write_in_progress(first)
         state.metrics.drops_late += 1
         state.metrics.drops_odd += 1
+        @tp_debug "try_read_frame drop" reason = :write_in_progress first
         return false
     end
 
@@ -144,6 +160,7 @@ function try_read_frame!(
     catch
         state.metrics.drops_late += 1
         state.metrics.drops_header_invalid += 1
+        @tp_debug "try_read_frame drop" reason = :header_decode_error
         return false
     end
 
@@ -151,6 +168,7 @@ function try_read_frame!(
     if first != second || seqlock_is_write_in_progress(second)
         state.metrics.drops_late += 1
         state.metrics.drops_changed += 1
+        @tp_debug "try_read_frame drop" reason = :seqlock_changed first second
         return false
     end
 
@@ -158,6 +176,8 @@ function try_read_frame!(
     if commit_frame != header.frame_id
         state.metrics.drops_late += 1
         state.metrics.drops_frame_id_mismatch += 1
+        @tp_debug "try_read_frame drop" reason = :commit_mismatch commit_frame header_frame_id =
+            header.frame_id
         return false
     end
 
@@ -165,30 +185,37 @@ function try_read_frame!(
     if second < last_commit
         state.metrics.drops_late += 1
         state.metrics.drops_changed += 1
+        @tp_debug "try_read_frame drop" reason = :commit_rewind last_commit second
         return false
     end
 
     if header.frame_id != seq
         state.metrics.drops_late += 1
         state.metrics.drops_frame_id_mismatch += 1
+        @tp_debug "try_read_frame drop" reason = :frame_id_mismatch header_frame_id = header.frame_id seq
         return false
     end
 
     if header.payload_slot != header_index
         state.metrics.drops_late += 1
         state.metrics.drops_header_invalid += 1
+        @tp_debug "try_read_frame drop" reason = :payload_slot_mismatch payload_slot = header.payload_slot header_index
         return false
     end
 
     if header.payload_offset != 0
         state.metrics.drops_late += 1
         state.metrics.drops_header_invalid += 1
+        @tp_debug "try_read_frame drop" reason = :payload_offset_nonzero payload_offset =
+            header.payload_offset
         return false
     end
 
     if !valid_dtype(header.dtype) || !valid_major_order(header.major_order)
         state.metrics.drops_late += 1
         state.metrics.drops_header_invalid += 1
+        @tp_debug "try_read_frame drop" reason = :dtype_or_order_invalid dtype = header.dtype major_order =
+            header.major_order
         return false
     end
 
@@ -197,6 +224,7 @@ function try_read_frame!(
        !validate_strides!(state, header, elem_size)
         state.metrics.drops_late += 1
         state.metrics.drops_header_invalid += 1
+        @tp_debug "try_read_frame drop" reason = :stride_invalid elem_size header_ndims = header.ndims
         return false
     end
 
@@ -204,12 +232,14 @@ function try_read_frame!(
     if pool_stride == 0
         state.metrics.drops_late += 1
         state.metrics.drops_payload_invalid += 1
+        @tp_debug "try_read_frame drop" reason = :pool_stride_missing pool_id = header.pool_id
         return false
     end
     payload_mmap = get(state.mappings.payload_mmaps, header.pool_id, nothing)
     if payload_mmap === nothing
         state.metrics.drops_late += 1
         state.metrics.drops_payload_invalid += 1
+        @tp_debug "try_read_frame drop" reason = :payload_mmap_missing pool_id = header.pool_id
         return false
     end
 
@@ -217,6 +247,7 @@ function try_read_frame!(
     if payload_len > Int(pool_stride)
         state.metrics.drops_late += 1
         state.metrics.drops_payload_invalid += 1
+        @tp_debug "try_read_frame drop" reason = :payload_len_invalid payload_len pool_stride
         return false
     end
     payload_offset = SUPERBLOCK_SIZE + Int(header.payload_slot) * Int(pool_stride)
