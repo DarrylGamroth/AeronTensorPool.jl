@@ -2,12 +2,15 @@
 
 This document provides a concrete, working example using three applications:
 1) Driver
-2) Frame Producer (pattern generator)
-3) Frame Consumer (pattern verifier)
+2) Frame Producer (application-defined Agent)
+3) Frame Consumer (application-defined Agent)
 
 It uses the driver model and client API to attach to driver-provisioned SHM.
 
 ## Application 1: Driver
+
+- Uses an `AgentRunner` to run `DriverAgent`.
+- Loads a config file for the driver.
 
 ### Example driver config
 
@@ -50,16 +53,39 @@ stream_id = 1
 profile = "camera"
 ```
 
-### Start driver
+### Start driver (AgentRunner)
 
 ```bash
 julia --project scripts/example_driver.jl docs/examples/driver_integration_example.toml
 ```
 
-## Application 2: Frame Producer (pattern generator)
+## Application 2: Frame Producer (application-defined Agent)
 
-The producer attaches to the driver and publishes a deterministic byte pattern
-(`frame_id % 256`) into SHM, then publishes descriptors.
+The application defines its own Agent, runs it with an `AgentRunner`, and uses
+the driver client API to attach and map SHM. The example uses a simple pattern
+generator, but the same flow applies to BGAPI2 buffer registration.
+
+### Producer Agent outline
+
+```julia
+struct AppProducerAgent
+    producer::ProducerState
+    control_asm::Aeron.FragmentAssembler
+    qos_asm::Aeron.FragmentAssembler
+end
+
+Agent.name(::AppProducerAgent) = "app-producer"
+
+function Agent.do_work(agent::AppProducerAgent)
+    # Application-defined work loop
+    payload = agent.producer.runtime.payload_buf
+    # fill payload with a known pattern...
+    publish_frame!(agent.producer, payload, shape, strides, Dtype.UINT8, UInt32(0))
+    return producer_do_work!(agent.producer, agent.control_asm; qos_assembler = agent.qos_asm)
+end
+```
+
+### Working example script
 
 ```bash
 julia --project scripts/example_producer.jl \
@@ -74,10 +100,37 @@ Arguments:
 - Frame count (0 = run forever)
 - Payload bytes (default: first pool stride)
 
-## Application 3: Frame Consumer (pattern verifier)
+Notes:
+- You can keep the application-defined Agent and call `ProducerAgent` in invoker mode
+  (i.e., directly call `Agent.do_work`) if you want to avoid a second runner.
+- For BGAPI2, use the same attach flow then register SHM slots as camera buffers.
 
-The consumer attaches to the driver and verifies the byte pattern produced by
-the generator.
+## Application 3: Frame Consumer (application-defined Agent)
+
+The application defines its own Agent, runs it with an `AgentRunner`, and uses
+the driver client API to attach and map SHM. The example below verifies a known
+pattern, but the handler can perform any processing.
+
+### Consumer Agent outline
+
+```julia
+struct AppConsumerAgent
+    consumer::ConsumerState
+    desc_asm::Aeron.FragmentAssembler
+    ctrl_asm::Aeron.FragmentAssembler
+end
+
+Agent.name(::AppConsumerAgent) = "app-consumer"
+
+function Agent.do_work(agent::AppConsumerAgent)
+    consumer_do_work!(agent.consumer, agent.desc_asm, agent.ctrl_asm)
+    view = agent.consumer.runtime.frame_view
+    # process payload view...
+    return 1
+end
+```
+
+### Working example script
 
 ```bash
 julia --project scripts/example_consumer.jl \
@@ -90,6 +143,12 @@ Arguments:
 - Driver config path
 - Consumer config path
 - Frame count (0 = run forever)
+
+Notes:
+- You can keep the application-defined Agent and call `ConsumerAgent` in invoker mode
+  if you want to avoid a second runner.
+- The example consumer verifies the byte pattern and prints `frame=<id> ok`.
+- Consumers must treat `FrameDescriptor` as the canonical availability signal.
 
 ## Manual BGAPI2 Integration (outline)
 
