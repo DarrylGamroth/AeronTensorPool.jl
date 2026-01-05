@@ -13,6 +13,11 @@
 
     reset!(timer, UInt64(7))
     @test timer.last_ns == UInt64(7)
+
+    AeronTensorPool.set_interval!(timer, UInt64(10))
+    AeronTensorPool.reset!(timer, UInt64(100))
+    AeronTensorPool.disable!(timer)
+    @test !AeronTensorPool.expired(timer, UInt64(200))
 end
 
 struct TestHandler1 end

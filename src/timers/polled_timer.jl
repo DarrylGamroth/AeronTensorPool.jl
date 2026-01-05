@@ -78,6 +78,20 @@ Returns:
 end
 
 """
+Disable a timer so it never expires until re-enabled.
+
+Arguments:
+- `timer`: timer to disable.
+
+Returns:
+- `nothing`.
+"""
+@inline function disable!(timer::PolledTimer)
+    timer.interval_ns = UInt64(0)
+    return nothing
+end
+
+"""
 Fixed set of timers and handlers with compile-time dispatch.
 """
 struct TimerSet{TTimers <: Tuple, THandlers <: Tuple}
