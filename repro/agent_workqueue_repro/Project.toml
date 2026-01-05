@@ -1,0 +1,6 @@
+name = "AgentWorkqueueRepro"
+uuid = "1f12d5f6-40c0-4e19-b0c4-6f9a65d69b53"
+version = "0.1.0"
+
+[deps]
+Agent = "f7939a7f-2bcc-4096-952b-c44031b5533b"
