@@ -75,7 +75,7 @@ in hot paths).
 - Phase 2: completed
 - Phase 3: completed
 - Phase 4: completed
-- Phase 5: pending
+- Phase 5: completed
 - Phase 6: pending
 - Phase 7: pending
 - Phase 8: pending
