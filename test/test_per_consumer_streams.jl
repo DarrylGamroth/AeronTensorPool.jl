@@ -86,6 +86,8 @@
             @test mapped
 
             connected = wait_for() do
+                Aeron.poll(producer_state.runtime.control.sub_control, prod_ctrl, fragment_limit)
+                Aeron.poll(consumer_state.runtime.control.sub_control, cons_ctrl, fragment_limit)
                 entry = get(producer_state.consumer_streams, consumer_cfg.consumer_id, nothing)
                 entry !== nothing &&
                     entry.descriptor_pub !== nothing &&
