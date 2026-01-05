@@ -68,6 +68,7 @@ using Test
             UInt64(100_000_000),
             UInt64(250_000),
             UInt64(65536),
+            false,
         )
         producer_state = init_producer_from_attach(
             producer_cfg,

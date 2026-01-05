@@ -101,6 +101,9 @@ Each agent follows the same organization for readability:
 - `scripts/run_benchmarks.jl`: benchmark runner
 - `scripts/tp_tool.jl`: control-plane CLI helpers
 
+## Codegen
+- Regenerate SBE codecs with `julia --project -e 'using Pkg; Pkg.build("AeronTensorPool")'`.
+
 ## Notes
 - Bridge/decimator are optional; current focus is wire-level correctness and zero-allocation hot paths.
 - Driver and client are both implemented in Julia; the driver is expected to remain in Julia even if

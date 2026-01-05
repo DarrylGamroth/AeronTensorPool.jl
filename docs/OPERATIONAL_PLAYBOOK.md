@@ -17,7 +17,7 @@ This playbook complements the spec and implementation guide with deployment and 
 
 ## Common Profiles
 - Low-latency: small nslots, smaller stride classes, IPC transport, pinned CPU for producer/consumer.
-- Throughput: larger nslots, larger stride classes (hugepages), relaxed consumer mode (LATEST/DECIMATED).
+- Throughput: larger nslots, larger stride classes (hugepages), relaxed consumer mode (RATE_LIMITED).
 - Multi-consumer: increase nslots for worst-case consumer latency; set supervisor liveness timeout to 3-5x announce cadence.
 
 ## Tuning Matrix

@@ -38,8 +38,6 @@ lease_expiry_grace_intervals = 3
 
 [profiles.camera]
 header_nslots = 64
-header_slot_bytes = 256
-max_dims = 8
 payload_pools = [
   { pool_id = 1, stride_bytes = 4096 }
 ]
@@ -70,7 +68,6 @@ shm_base_dir = "$(dir)"
 shm_namespace = "tensorpool"
 producer_instance_id = "external-producer"
 header_uri = ""
-max_dims = 8
 announce_interval_ns = 1000000000
 qos_interval_ns = 1000000000
 progress_interval_ns = 250000
@@ -98,9 +95,7 @@ qos_stream_id = 1200
 stream_id = 1
 consumer_id = 1
 expected_layout_version = 1
-max_dims = 8
 mode = "STREAM"
-decimation = 1
 max_outstanding_seq_gap = 0
 use_shm = true
 supports_shm = true

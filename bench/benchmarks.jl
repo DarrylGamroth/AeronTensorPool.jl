@@ -5,13 +5,12 @@ using AeronTensorPool
 
 function bench_write_header()
     buffer = Vector{UInt8}(undef, HEADER_SLOT_BYTES)
-    encoder = TensorSlotHeader256.Encoder(Vector{UInt8})
+    encoder = TensorSlotHeaderMsg.Encoder(Vector{UInt8})
     wrap_tensor_header!(encoder, buffer, 0)
     dims = Int32[4, 4]
     strides = Int32[4, 1]
     return @benchmark write_tensor_slot_header!(
         $encoder,
-        UInt64(1),
         UInt64(2),
         UInt32(0),
         UInt32(16),
@@ -28,11 +27,10 @@ end
 
 function bench_read_header()
     buffer = Vector{UInt8}(undef, HEADER_SLOT_BYTES)
-    encoder = TensorSlotHeader256.Encoder(Vector{UInt8})
+    encoder = TensorSlotHeaderMsg.Encoder(Vector{UInt8})
     wrap_tensor_header!(encoder, buffer, 0)
     write_tensor_slot_header!(
         encoder,
-        UInt64(1),
         UInt64(2),
         UInt32(0),
         UInt32(16),
@@ -45,7 +43,7 @@ function bench_read_header()
         Int32[4, 4],
         Int32[4, 1],
     )
-    decoder = TensorSlotHeader256.Decoder(Vector{UInt8})
+    decoder = TensorSlotHeaderMsg.Decoder(Vector{UInt8})
     wrap_tensor_header!(decoder, buffer, 0)
     return @benchmark read_tensor_slot_header($decoder)
 end

@@ -69,7 +69,7 @@ function republish_descriptor!(
             FrameDescriptor.wrap_and_apply_header!(st.descriptor_encoder, buf, 0)
             FrameDescriptor.streamId!(st.descriptor_encoder, st.config.stream_id)
             FrameDescriptor.epoch!(st.descriptor_encoder, st.config.epoch)
-            FrameDescriptor.seq!(st.descriptor_encoder, header.frame_id)
+            FrameDescriptor.seq!(st.descriptor_encoder, seqlock_sequence(header.seq_commit))
             FrameDescriptor.headerIndex!(st.descriptor_encoder, UInt32(header.payload_slot))
             FrameDescriptor.timestampNs!(st.descriptor_encoder, header.timestamp_ns)
             FrameDescriptor.metaVersion!(st.descriptor_encoder, header.meta_version)

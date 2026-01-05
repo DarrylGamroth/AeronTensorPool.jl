@@ -1,7 +1,5 @@
 @inline function should_process(state::ConsumerState, seq::UInt64)
-    if state.config.mode == Mode.DECIMATED
-        return state.config.decimation > 0 && (seq % state.config.decimation == 0)
-    end
+    state.config.mode == Mode.RATE_LIMITED || return true
     return true
 end
 
@@ -147,7 +145,7 @@ function try_read_frame!(
 
     commit_ptr = header_commit_ptr_from_offset(header_mmap, header_offset)
     first = seqlock_read_begin(commit_ptr)
-    if seqlock_is_write_in_progress(first)
+    if !seqlock_is_committed(first)
         state.metrics.drops_late += 1
         state.metrics.drops_odd += 1
         @tp_debug "try_read_frame drop" reason = :write_in_progress first
@@ -165,19 +163,18 @@ function try_read_frame!(
     end
 
     second = seqlock_read_end(commit_ptr)
-    if first != second || seqlock_is_write_in_progress(second)
+    if first != second || !seqlock_is_committed(second)
         state.metrics.drops_late += 1
         state.metrics.drops_changed += 1
         @tp_debug "try_read_frame drop" reason = :seqlock_changed first second
         return false
     end
 
-    commit_frame = seqlock_frame_id(second)
-    if commit_frame != header.frame_id
+    if header.seq_commit != second
         state.metrics.drops_late += 1
         state.metrics.drops_frame_id_mismatch += 1
-        @tp_debug "try_read_frame drop" reason = :commit_mismatch commit_frame header_frame_id =
-            header.frame_id
+        @tp_debug "try_read_frame drop" reason = :seq_commit_mismatch header_seq_commit = header.seq_commit seq_commit =
+            second
         return false
     end
 
@@ -189,10 +186,11 @@ function try_read_frame!(
         return false
     end
 
-    if header.frame_id != seq
+    commit_seq = seqlock_sequence(second)
+    if commit_seq != seq
         state.metrics.drops_late += 1
         state.metrics.drops_frame_id_mismatch += 1
-        @tp_debug "try_read_frame drop" reason = :frame_id_mismatch header_frame_id = header.frame_id seq
+        @tp_debug "try_read_frame drop" reason = :seq_mismatch seq_commit = commit_seq seq
         return false
     end
 
@@ -220,7 +218,7 @@ function try_read_frame!(
     end
 
     elem_size = dtype_size_bytes(header.dtype)
-    if elem_size == 0 || header.ndims > state.config.max_dims ||
+    if elem_size == 0 || header.ndims == 0 || header.ndims > state.config.max_dims ||
        !validate_strides!(state, header, elem_size)
         state.metrics.drops_late += 1
         state.metrics.drops_header_invalid += 1
@@ -248,6 +246,12 @@ function try_read_frame!(
         state.metrics.drops_late += 1
         state.metrics.drops_payload_invalid += 1
         @tp_debug "try_read_frame drop" reason = :payload_len_invalid payload_len pool_stride
+        return false
+    end
+    if Int(header.payload_offset) + payload_len > Int(pool_stride)
+        state.metrics.drops_late += 1
+        state.metrics.drops_payload_invalid += 1
+        @tp_debug "try_read_frame drop" reason = :payload_bounds_invalid payload_offset = header.payload_offset payload_len pool_stride
         return false
     end
     payload_offset = SUPERBLOCK_SIZE + Int(header.payload_slot) * Int(pool_stride)

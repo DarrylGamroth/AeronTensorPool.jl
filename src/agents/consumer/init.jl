@@ -43,13 +43,12 @@ function init_consumer(config::ConsumerSettings; client::Aeron.Client)
         ShmPoolAnnounce.Decoder(UnsafeArrays.UnsafeArray{UInt8, 1}),
         ConsumerConfigMsg.Decoder(UnsafeArrays.UnsafeArray{UInt8, 1}),
         FrameProgress.Decoder(UnsafeArrays.UnsafeArray{UInt8, 1}),
-        TensorSlotHeader256.Decoder(Vector{UInt8}),
+        TensorSlotHeaderMsg.Decoder(Vector{UInt8}),
         ShmRegionSuperblock.Decoder(Vector{UInt8}),
         FixedSizeVectorDefault{Int64}(undef, MAX_DIMS),
         FixedSizeVectorDefault{Int64}(undef, MAX_DIMS),
         ConsumerFrameView(
             TensorSlotHeader(
-                UInt64(0),
                 UInt64(0),
                 UInt64(0),
                 UInt32(0),

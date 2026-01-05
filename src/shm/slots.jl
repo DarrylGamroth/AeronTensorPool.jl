@@ -15,8 +15,7 @@ end
 Decoded slot header fields for consumer-side validation.
 """
 struct TensorSlotHeader
-    commit_word::UInt64
-    frame_id::UInt64
+    seq_commit::UInt64
     timestamp_ns::UInt64
     meta_version::UInt32
     values_len_bytes::UInt32

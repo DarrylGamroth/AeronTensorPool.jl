@@ -20,13 +20,12 @@
     @test @allocated(write_superblock!(sb_enc, sb_fields)) == 0
 
     hdr_buf = Vector{UInt8}(undef, HEADER_SLOT_BYTES)
-    hdr_enc = TensorSlotHeader256.Encoder(Vector{UInt8})
+    hdr_enc = TensorSlotHeaderMsg.Encoder(Vector{UInt8})
     wrap_tensor_header!(hdr_enc, hdr_buf, 0)
     dims = [Int32(1), Int32(2), Int32(3), Int32(4), Int32(0), Int32(0), Int32(0), Int32(0)]
     strides = [Int32(4), Int32(8), Int32(16), Int32(32), Int32(0), Int32(0), Int32(0), Int32(0)]
     write_tensor_slot_header!(
         hdr_enc,
-        UInt64(1),
         UInt64(2),
         UInt32(3),
         UInt32(64),
@@ -41,7 +40,6 @@
     )
     @test @allocated(write_tensor_slot_header!(
         hdr_enc,
-        UInt64(1),
         UInt64(2),
         UInt32(3),
         UInt32(64),
@@ -55,7 +53,7 @@
         strides,
     )) == 0
 
-    hdr_dec = TensorSlotHeader256.Decoder(Vector{UInt8})
+    hdr_dec = TensorSlotHeaderMsg.Decoder(Vector{UInt8})
     wrap_tensor_header!(hdr_dec, hdr_buf, 0)
     @test @allocated(read_tensor_slot_header(hdr_dec)) == 0
 

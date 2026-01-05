@@ -268,7 +268,6 @@ Arguments:
 - `state`: supervisor state.
 - `consumer_id`: consumer identifier.
 - `mode`: consumer mode enum.
-- `decimation`: decimation ratio (default: 1).
 - `fallback_uri`: payload fallback URI (default: "").
 
 Returns:
@@ -279,7 +278,6 @@ function emit_consumer_config!(
     consumer_id::UInt32;
     use_shm::Bool = true,
     mode::Mode.SbeEnum = Mode.STREAM,
-    decimation::UInt16 = UInt16(1),
     payload_fallback_uri::String = "",
     descriptor_channel::AbstractString = "",
     descriptor_stream_id::UInt32 = UInt32(0),
@@ -297,7 +295,6 @@ function emit_consumer_config!(
         consumer_id = consumer_id,
         use_shm = use_shm,
         mode = mode,
-        decimation = decimation,
         payload_fallback_uri = payload_fallback_uri,
         descriptor_channel = descriptor_channel,
         descriptor_stream_id = descriptor_stream_id,
@@ -312,7 +309,6 @@ function emit_consumer_config!(
                 use_shm ? ShmTensorpoolControl.Bool_.TRUE : ShmTensorpoolControl.Bool_.FALSE,
             )
             ConsumerConfigMsg.mode!(st.runtime.config_encoder, mode)
-            ConsumerConfigMsg.decimation!(st.runtime.config_encoder, decimation)
             ConsumerConfigMsg.descriptorStreamId!(
                 st.runtime.config_encoder,
                 descriptor_stream_id != 0 ?

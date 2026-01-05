@@ -89,7 +89,7 @@ mutable struct BridgeSenderState
     metadata_claim::Aeron.BufferClaim
     metadata_announce_encoder::DataSourceAnnounce.Encoder{UnsafeArrays.UnsafeArray{UInt8, 1}}
     metadata_meta_encoder::DataSourceMeta.Encoder{UnsafeArrays.UnsafeArray{UInt8, 1}}
-    header_decoder::TensorSlotHeader256.Decoder{Vector{UInt8}}
+    header_decoder::TensorSlotHeaderMsg.Decoder{Vector{UInt8}}
     header_buf::FixedSizeVectorDefault{UInt8}
     scratch_dims::FixedSizeVectorDefault{Int32}
     scratch_strides::FixedSizeVectorDefault{Int32}
@@ -143,7 +143,7 @@ mutable struct BridgeReceiverState{ClockT <: Clocks.AbstractClock}
     progress_decoder::FrameProgress.Decoder{UnsafeArrays.UnsafeArray{UInt8, 1}}
     chunk_decoder::BridgeFrameChunk.Decoder{UnsafeArrays.UnsafeArray{UInt8, 1}}
     announce_decoder::ShmPoolAnnounce.Decoder{UnsafeArrays.UnsafeArray{UInt8, 1}}
-    header_decoder::TensorSlotHeader256.Decoder{FixedSizeVectorDefault{UInt8}}
+    header_decoder::TensorSlotHeaderMsg.Decoder{FixedSizeVectorDefault{UInt8}}
     scratch_dims::FixedSizeVectorDefault{Int32}
     scratch_strides::FixedSizeVectorDefault{Int32}
     have_announce::Bool

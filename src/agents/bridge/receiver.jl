@@ -93,7 +93,7 @@ function init_bridge_receiver(
         FrameProgress.Decoder(UnsafeArrays.UnsafeArray{UInt8, 1}),
         BridgeFrameChunk.Decoder(UnsafeArrays.UnsafeArray{UInt8, 1}),
         ShmPoolAnnounce.Decoder(UnsafeArrays.UnsafeArray{UInt8, 1}),
-        TensorSlotHeader256.Decoder(FixedSizeVectorDefault{UInt8}),
+        TensorSlotHeaderMsg.Decoder(FixedSizeVectorDefault{UInt8}),
         FixedSizeVectorDefault{Int32}(undef, MAX_DIMS),
         FixedSizeVectorDefault{Int32}(undef, MAX_DIMS),
         false,
@@ -134,7 +134,6 @@ function bridge_rematerialize!(
     payload_len <= Int(pool.stride_bytes) || return false
 
     seq = state.assembly.seq
-    frame_id = seq
     header_index = UInt32(seq & (UInt64(producer_state.config.nslots) - 1))
 
     payload_slot = header_index
@@ -143,7 +142,7 @@ function bridge_rematerialize!(
 
     header_offset = header_slot_offset(header_index)
     commit_ptr = header_commit_ptr_from_offset(producer_state.mappings.header_mmap, header_offset)
-    seqlock_begin_write!(commit_ptr, frame_id)
+    seqlock_begin_write!(commit_ptr, seq)
 
     copyto!(payload_mmap, payload_offset + 1, payload, 1, payload_len)
 
@@ -159,7 +158,6 @@ function bridge_rematerialize!(
     end
     write_tensor_slot_header!(
         producer_state.runtime.header_encoder,
-        frame_id,
         header.timestamp_ns,
         header.meta_version,
         UInt32(payload_len),
@@ -173,7 +171,7 @@ function bridge_rematerialize!(
         strides,
     )
 
-    seqlock_commit_write!(commit_ptr, frame_id)
+    seqlock_commit_write!(commit_ptr, seq)
 
     now_ns = UInt64(Clocks.time_nanos(state.clock))
     shared_sent = let st = producer_state,
@@ -325,7 +323,8 @@ function bridge_receive_chunk!(
     wrap_tensor_header!(state.header_decoder, state.assembly.header_bytes, 0)
     header = read_tensor_slot_header(state.header_decoder)
 
-    header.frame_id == state.assembly.seq || return false
+    seqlock_is_committed(header.seq_commit) || return false
+    seqlock_sequence(header.seq_commit) == state.assembly.seq || return false
     header.ndims <= state.source_info.max_dims || return false
 
     state.assembly.payload_length <= length(state.assembly.payload) || return false

@@ -1,9 +1,9 @@
 @testset "Allocation load checks" begin
     hdr_buf = Vector{UInt8}(undef, HEADER_SLOT_BYTES)
-    hdr_enc = TensorSlotHeader256.Encoder(Vector{UInt8})
+    hdr_enc = TensorSlotHeaderMsg.Encoder(Vector{UInt8})
     wrap_tensor_header!(hdr_enc, hdr_buf, 0)
 
-    hdr_dec = TensorSlotHeader256.Decoder(Vector{UInt8})
+    hdr_dec = TensorSlotHeaderMsg.Decoder(Vector{UInt8})
     wrap_tensor_header!(hdr_dec, hdr_buf, 0)
 
     dims = Vector{Int32}(undef, MAX_DIMS)
@@ -17,7 +17,6 @@
         for i in 1:iters
             write_tensor_slot_header!(
                 enc,
-                UInt64(i),
                 UInt64(2),
                 UInt32(3),
                 UInt32(64),
@@ -43,7 +42,6 @@
 
     write_tensor_slot_header!(
         hdr_enc,
-        UInt64(1),
         UInt64(2),
         UInt32(3),
         UInt32(64),

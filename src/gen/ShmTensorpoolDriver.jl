@@ -1613,8 +1613,11 @@ begin
             end
 end
 begin
+    @inline function errorMessage(m::Decoder, ::Type{String})
+            return String(StringView(rstrip_nul(errorMessage(m))))
+        end
     @inline function errorMessage(m::Decoder, ::Type{T}) where T <: AbstractString
-            return T(StringView(rstrip_nul(errorMessage(m))))
+            return StringView(rstrip_nul(errorMessage(m)))
         end
     @inline function errorMessage(m::Decoder, ::Type{T}) where T <: Symbol
             return Symbol(errorMessage(m, StringView))
@@ -2038,8 +2041,11 @@ begin
             end
 end
 begin
+    @inline function errorMessage(m::Decoder, ::Type{String})
+            return String(StringView(rstrip_nul(errorMessage(m))))
+        end
     @inline function errorMessage(m::Decoder, ::Type{T}) where T <: AbstractString
-            return T(StringView(rstrip_nul(errorMessage(m))))
+            return StringView(rstrip_nul(errorMessage(m)))
         end
     @inline function errorMessage(m::Decoder, ::Type{T}) where T <: Symbol
             return Symbol(errorMessage(m, StringView))
@@ -2740,8 +2746,11 @@ begin
             end
 end
 begin
+    @inline function errorMessage(m::Decoder, ::Type{String})
+            return String(StringView(rstrip_nul(errorMessage(m))))
+        end
     @inline function errorMessage(m::Decoder, ::Type{T}) where T <: AbstractString
-            return T(StringView(rstrip_nul(errorMessage(m))))
+            return StringView(rstrip_nul(errorMessage(m)))
         end
     @inline function errorMessage(m::Decoder, ::Type{T}) where T <: Symbol
             return Symbol(errorMessage(m, StringView))
@@ -4081,8 +4090,11 @@ begin
             end
 end
 begin
+    @inline function regionUri(m::Decoder, ::Type{String})
+            return String(StringView(rstrip_nul(regionUri(m))))
+        end
     @inline function regionUri(m::Decoder, ::Type{T}) where T <: AbstractString
-            return T(StringView(rstrip_nul(regionUri(m))))
+            return StringView(rstrip_nul(regionUri(m)))
         end
     @inline function regionUri(m::Decoder, ::Type{T}) where T <: Symbol
             return Symbol(regionUri(m, StringView))
@@ -4234,8 +4246,11 @@ begin
             end
 end
 begin
+    @inline function headerRegionUri(m::Decoder, ::Type{String})
+            return String(StringView(rstrip_nul(headerRegionUri(m))))
+        end
     @inline function headerRegionUri(m::Decoder, ::Type{T}) where T <: AbstractString
-            return T(StringView(rstrip_nul(headerRegionUri(m))))
+            return StringView(rstrip_nul(headerRegionUri(m)))
         end
     @inline function headerRegionUri(m::Decoder, ::Type{T}) where T <: Symbol
             return Symbol(headerRegionUri(m, StringView))
@@ -4355,8 +4370,11 @@ begin
             end
 end
 begin
+    @inline function errorMessage(m::Decoder, ::Type{String})
+            return String(StringView(rstrip_nul(errorMessage(m))))
+        end
     @inline function errorMessage(m::Decoder, ::Type{T}) where T <: AbstractString
-            return T(StringView(rstrip_nul(errorMessage(m))))
+            return StringView(rstrip_nul(errorMessage(m)))
         end
     @inline function errorMessage(m::Decoder, ::Type{T}) where T <: Symbol
             return Symbol(errorMessage(m, StringView))
@@ -4786,8 +4804,11 @@ begin
             end
 end
 begin
+    @inline function token(m::Decoder, ::Type{String})
+            return String(StringView(rstrip_nul(token(m))))
+        end
     @inline function token(m::Decoder, ::Type{T}) where T <: AbstractString
-            return T(StringView(rstrip_nul(token(m))))
+            return StringView(rstrip_nul(token(m)))
         end
     @inline function token(m::Decoder, ::Type{T}) where T <: Symbol
             return Symbol(token(m, StringView))
@@ -4907,8 +4928,11 @@ begin
             end
 end
 begin
+    @inline function errorMessage(m::Decoder, ::Type{String})
+            return String(StringView(rstrip_nul(errorMessage(m))))
+        end
     @inline function errorMessage(m::Decoder, ::Type{T}) where T <: AbstractString
-            return T(StringView(rstrip_nul(errorMessage(m))))
+            return StringView(rstrip_nul(errorMessage(m)))
         end
     @inline function errorMessage(m::Decoder, ::Type{T}) where T <: Symbol
             return Symbol(errorMessage(m, StringView))

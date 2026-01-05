@@ -29,8 +29,6 @@ shutdown_token = ""
 
 [profiles.raw_profile]
 header_nslots = 1024
-max_dims = 8
-header_slot_bytes = 256
 
 [[profiles.raw_profile.payload_pools]]
 pool_id = 1
@@ -42,8 +40,6 @@ stride_bytes = 4194304
 
 [profiles.processed_profile]
 header_nslots = 512
-max_dims = 8
-header_slot_bytes = 256
 
 [[profiles.processed_profile.payload_pools]]
 pool_id = 1

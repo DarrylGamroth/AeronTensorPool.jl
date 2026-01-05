@@ -267,7 +267,6 @@ function update_consumer_streams!(state::ProducerState, msg::ConsumerHello.Decod
             consumer_id;
             use_shm = true,
             mode = ConsumerHello.mode(msg),
-            decimation = UInt16(1),
             payload_fallback_uri = "",
             descriptor_channel = "",
             descriptor_stream_id = UInt32(0),
@@ -283,7 +282,6 @@ function update_consumer_streams!(state::ProducerState, msg::ConsumerHello.Decod
             consumer_id;
             use_shm = true,
             mode = ConsumerHello.mode(msg),
-            decimation = UInt16(1),
             payload_fallback_uri = "",
             descriptor_channel = entry.descriptor_channel,
             descriptor_stream_id = entry.descriptor_stream_id,

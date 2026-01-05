@@ -11,11 +11,11 @@ const Mode = ShmTensorpoolControl.Mode
 const QosProducer = ShmTensorpoolControl.QosProducer
 const ShmPoolAnnounce = ShmTensorpoolControl.ShmPoolAnnounce
 const ShmRegionSuperblock = ShmTensorpoolControl.ShmRegionSuperblock
-const TensorSlotHeader256 = ShmTensorpoolControl.TensorSlotHeader256
+const TensorSlotHeaderMsg = ShmTensorpoolControl.TensorSlotHeader
 const DataSourceAnnounce = ShmTensorpoolControl.DataSourceAnnounce
 const DataSourceMeta = ShmTensorpoolControl.DataSourceMeta
 
-const MAX_DIMS::Int = Int(TensorSlotHeader256.maxDims(TensorSlotHeader256.Decoder))
+const MAX_DIMS::Int = Int(TensorSlotHeaderMsg.maxDims(TensorSlotHeaderMsg.Decoder))
 
 const DriverMessageHeader = ShmTensorpoolDriver.MessageHeader
 const DriverHugepagesPolicy = ShmTensorpoolDriver.HugepagesPolicy

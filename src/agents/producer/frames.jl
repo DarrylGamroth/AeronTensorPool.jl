@@ -67,7 +67,6 @@ function offer_frame!(
     producer_driver_active(state) || return false
 
     seq = state.seq
-    frame_id = seq
     header_index = UInt32(seq & (UInt64(state.config.nslots) - 1))
 
     values_len = length(payload_data)
@@ -81,14 +80,13 @@ function offer_frame!(
 
     header_offset = header_slot_offset(header_index)
     commit_ptr = header_commit_ptr_from_offset(state.mappings.header_mmap, header_offset)
-    seqlock_begin_write!(commit_ptr, frame_id)
+    seqlock_begin_write!(commit_ptr, seq)
 
     copyto!(payload_mmap, payload_offset + 1, payload_data, 1, values_len)
 
     wrap_tensor_header!(state.runtime.header_encoder, state.mappings.header_mmap, header_offset)
     write_tensor_slot_header!(
         state.runtime.header_encoder,
-        frame_id,
         UInt64(Clocks.time_nanos(state.clock)),
         meta_version,
         UInt32(values_len),
@@ -102,7 +100,7 @@ function offer_frame!(
         strides,
     )
 
-    seqlock_commit_write!(commit_ptr, frame_id)
+    seqlock_commit_write!(commit_ptr, seq)
 
     now_ns = UInt64(Clocks.time_nanos(state.clock))
     shared_sent = let st = state,
@@ -125,7 +123,7 @@ function offer_frame!(
     hooks.on_frame_published!(state, seq, header_index)
 
     if state.supports_progress && should_emit_progress!(state, UInt64(values_len), true)
-        emit_progress_complete!(state, frame_id, header_index, UInt64(values_len))
+        emit_progress_complete!(state, seq, header_index, UInt64(values_len))
     end
 
     state.seq += 1
@@ -334,7 +332,7 @@ function commit_slot!(
     expected_index = UInt32(claim.seq & (UInt64(state.config.nslots) - 1))
     claim.header_index == expected_index || return false
 
-    frame_id = claim.seq
+    seq = claim.seq
 
     header_offset = header_slot_offset(claim.header_index)
     commit_ptr = header_commit_ptr_from_offset(state.mappings.header_mmap, header_offset)
@@ -342,7 +340,6 @@ function commit_slot!(
     wrap_tensor_header!(state.runtime.header_encoder, state.mappings.header_mmap, header_offset)
     write_tensor_slot_header!(
         state.runtime.header_encoder,
-        frame_id,
         UInt64(Clocks.time_nanos(state.clock)),
         meta_version,
         UInt32(values_len),
@@ -356,7 +353,7 @@ function commit_slot!(
         strides,
     )
 
-    seqlock_commit_write!(commit_ptr, frame_id)
+    seqlock_commit_write!(commit_ptr, seq)
 
     now_ns = UInt64(Clocks.time_nanos(state.clock))
     shared_sent = let st = state,
@@ -374,7 +371,7 @@ function commit_slot!(
     (shared_sent || per_consumer_sent) || return false
 
     if state.supports_progress && should_emit_progress!(state, UInt64(values_len), true)
-        emit_progress_complete!(state, frame_id, claim.header_index, UInt64(values_len))
+        emit_progress_complete!(state, seq, claim.header_index, UInt64(values_len))
     end
 
     return true

@@ -1,11 +1,25 @@
-#!/usr/bin/env julia
+# Regenerate SBE codecs from schema definitions.
+function regen_sbe()
+    @info "Regenerating SBE codecs"
+    @eval begin
+        using SBE
+        root = abspath(joinpath(@__DIR__, ".."))
+        SBE.generate(
+            joinpath(root, "schemas", "wire-schema.xml"),
+            joinpath(root, "src", "gen", "ShmTensorpoolControl.jl");
+            module_name="ShmTensorpoolControl",
+        )
+        SBE.generate(
+            joinpath(root, "schemas", "driver-schema.xml"),
+            joinpath(root, "src", "gen", "ShmTensorpoolDriver.jl");
+            module_name="ShmTensorpoolDriver",
+        )
+        SBE.generate(
+            joinpath(root, "schemas", "bridge-schema.xml"),
+            joinpath(root, "src", "gen", "ShmTensorpoolBridge.jl");
+            module_name="ShmTensorpoolBridge",
+        )
+    end
+end
 
-using SBE
-
-# Define paths
-const PACKAGE_ROOT = dirname(@__DIR__)
-const SCHEMA_PATH = joinpath(PACKAGE_ROOT, "schemas", "wire-schema.xml")
-const OUTPUT_FILE = joinpath(PACKAGE_ROOT, "src", "gen", "ShmTensorpoolControl.jl")
-
-# Generate code from schema
-SBE.generate(SCHEMA_PATH, OUTPUT_FILE)
+regen_sbe()

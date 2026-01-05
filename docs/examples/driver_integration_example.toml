@@ -23,8 +23,6 @@ lease_expiry_grace_intervals = 3
 
 [profiles.camera]
 header_nslots = 64
-header_slot_bytes = 256
-max_dims = 8
 payload_pools = [
   { pool_id = 1, stride_bytes = 1048576 }
 ]

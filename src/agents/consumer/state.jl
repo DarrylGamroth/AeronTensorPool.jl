@@ -28,7 +28,7 @@ mutable struct ConsumerRuntime
     announce_decoder::ShmPoolAnnounce.Decoder{UnsafeArrays.UnsafeArray{UInt8, 1}}
     config_decoder::ConsumerConfigMsg.Decoder{UnsafeArrays.UnsafeArray{UInt8, 1}}
     progress_decoder::FrameProgress.Decoder{UnsafeArrays.UnsafeArray{UInt8, 1}}
-    header_decoder::TensorSlotHeader256.Decoder{Vector{UInt8}}
+    header_decoder::TensorSlotHeaderMsg.Decoder{Vector{UInt8}}
     superblock_decoder::ShmRegionSuperblock.Decoder{Vector{UInt8}}
     scratch_dims::FixedSizeVectorDefault{Int64}
     scratch_strides::FixedSizeVectorDefault{Int64}

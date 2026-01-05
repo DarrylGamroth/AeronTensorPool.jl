@@ -17,7 +17,7 @@ function make_descriptor_assembler(state::ConsumerState; hooks::ConsumerHooks = 
             if try_read_frame!(st, st.runtime.desc_decoder)
                 st.metrics.frames_ok += 1
                 hooks.on_frame!(st, st.runtime.frame_view)
-                @tp_info "consumer frame ready" frame_id = st.runtime.frame_view.header.frame_id
+                @tp_info "consumer frame ready" seq = seqlock_sequence(st.runtime.frame_view.header.seq_commit)
             end
         end
         nothing
@@ -157,7 +157,6 @@ function apply_consumer_config!(state::ConsumerState, msg::ConsumerConfigMsg.Dec
 
     state.config.use_shm = (ConsumerConfigMsg.useShm(msg) == ShmTensorpoolControl.Bool_.TRUE)
     state.config.mode = ConsumerConfigMsg.mode(msg)
-    state.config.decimation = ConsumerConfigMsg.decimation(msg)
     state.config.payload_fallback_uri = String(ConsumerConfigMsg.payloadFallbackUri(msg))
 
     descriptor_channel = String(ConsumerConfigMsg.descriptorChannel(msg))

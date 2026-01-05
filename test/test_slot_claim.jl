@@ -30,6 +30,7 @@
                 UInt64(1_000_000_000),
                 UInt64(250_000),
                 UInt64(65536),
+                false,
             )
 
             state = init_producer(cfg; client = client)

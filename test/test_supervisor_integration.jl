@@ -134,7 +134,7 @@
         cfg_asm = Aeron.FragmentAssembler(cfg_handler)
         sub_cfg = Aeron.add_subscription(client, uri, control_stream)
 
-        emit_consumer_config!(supervisor_state, UInt32(21); use_shm = false, mode = Mode.LATEST)
+        emit_consumer_config!(supervisor_state, UInt32(21); use_shm = false, mode = Mode.STREAM)
 
         ok_cfg = wait_for() do
             Aeron.poll(sub_cfg, cfg_asm, AeronTensorPool.DEFAULT_FRAGMENT_LIMIT) > 0

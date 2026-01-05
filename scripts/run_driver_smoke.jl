@@ -37,8 +37,6 @@ lease_expiry_grace_intervals = 3
 
 [profiles.raw]
 header_nslots = 8
-header_slot_bytes = 256
-max_dims = 8
 payload_pools = [
   { pool_id = 1, stride_bytes = 4096 }
 ]

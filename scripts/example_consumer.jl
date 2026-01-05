@@ -30,20 +30,20 @@ struct AppConsumerOnFrame
 end
 
 function (hook::AppConsumerOnFrame)(state::ConsumerState, frame::ConsumerFrameView)
-    frame_id = frame.header.frame_id
-    expected = UInt8(frame_id % UInt64(256))
+    seq = seqlock_sequence(frame.header.seq_commit)
+    expected = UInt8(seq % UInt64(256))
     payload = payload_view(frame.payload)
     if hook.app.validated < hook.app.validate_limit
         hook.app.validated += 1
         if !check_pattern(payload, expected)
             actual = isempty(payload) ? UInt8(0) : @inbounds payload[1]
-            @warn "payload mismatch" frame_id expected actual
+            @warn "payload mismatch" seq expected actual
         end
     end
     hook.app.seen += 1
-    hook.app.last_frame = frame_id
+    hook.app.last_frame = seq
     if hook.app.seen % 100 == 0
-        println("frame=$(frame_id) ok")
+        println("frame=$(seq) ok")
     end
     return nothing
 end
@@ -115,7 +115,7 @@ function Agent.do_work(agent::AppConsumerAgent)
     metrics = agent.consumer_agent.state.metrics
     if metrics.frames_ok != agent.last_frames_ok
         header = agent.consumer_agent.state.runtime.frame_view.header
-        @info "Consumer frames_ok updated" frames_ok = metrics.frames_ok header_frame_id = header.frame_id
+        @info "Consumer frames_ok updated" frames_ok = metrics.frames_ok header_seq_commit = header.seq_commit
         agent.last_frames_ok = metrics.frames_ok
     end
     now_ns = UInt64(time_ns())
