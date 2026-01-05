@@ -126,6 +126,9 @@ function run_consumer(
     stream_id = first_stream_id(driver_cfg)
 
     env = Dict(ENV)
+    if !haskey(env, "TP_CONSUMER_ID")
+        env["TP_CONSUMER_ID"] = "2"
+    end
     env["TP_STREAM_ID"] = string(stream_id)
     consumer_cfg = load_consumer_config(consumer_cfg_path; env = env)
 
