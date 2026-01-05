@@ -305,23 +305,25 @@ function run_consumer(driver_cfg_path::String, consumer_cfg_path::String, count:
                 10,
                 0,
             )
-            runner = AgentRunner(BackoffIdleStrategy(), agent)
-            if isnothing(core_id)
-                Agent.start_on_thread(runner)
-            else
-                Agent.start_on_thread(runner, core_id)
-            end
+            isnothing(core_id) || @info "AGENT_TASK_CORE ignored in invoker mode" core_id
+            idle_strategy = BackoffIdleStrategy()
+            invoker = AgentInvoker(agent)
+            Agent.start(invoker)
             try
-                while !agent.ready
-                    yield()
+                while !agent.ready && Agent.is_running(invoker)
+                    work = Agent.invoke(invoker)
+                    Agent.idle(idle_strategy, work)
                 end
                 if count > 0
-                    while agent.seen < count
-                        yield()
+                    while agent.seen < count && Agent.is_running(invoker)
+                        work = Agent.invoke(invoker)
+                        Agent.idle(idle_strategy, work)
                     end
-                    close(runner)
                 else
-                    wait(runner)
+                    while Agent.is_running(invoker)
+                        work = Agent.invoke(invoker)
+                        Agent.idle(idle_strategy, work)
+                    end
                 end
             catch e
                 if e isa InterruptException
@@ -330,7 +332,7 @@ function run_consumer(driver_cfg_path::String, consumer_cfg_path::String, count:
                     @error "Consumer error" exception = (e, catch_backtrace())
                 end
             finally
-                close(runner)
+                close(invoker)
             end
             @info "Consumer done" agent.seen
         end

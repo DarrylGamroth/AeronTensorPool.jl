@@ -28,14 +28,15 @@ function run_agent(config_path::String)
             @info "Driver agent init" aeron_dir = config.endpoints.aeron_dir control_channel =
                 config.endpoints.control_channel control_stream_id = config.endpoints.control_stream_id
             agent = DriverAgent(config; client = client)
-            runner = AgentRunner(BackoffIdleStrategy(), agent)
-            if isnothing(core_id)
-                Agent.start_on_thread(runner)
-            else
-                Agent.start_on_thread(runner, core_id)
-            end
+            isnothing(core_id) || @info "AGENT_TASK_CORE ignored in invoker mode" core_id
+            idle_strategy = BackoffIdleStrategy()
+            invoker = AgentInvoker(agent)
+            Agent.start(invoker)
             try
-                wait(runner)
+                while Agent.is_running(invoker)
+                    work = Agent.invoke(invoker)
+                    Agent.idle(idle_strategy, work)
+                end
             catch e
                 if e isa InterruptException
                     @info "Shutting down..."
@@ -43,7 +44,7 @@ function run_agent(config_path::String)
                     @error "Driver error" exception = (e, catch_backtrace())
                 end
             finally
-                close(runner)
+                close(invoker)
             end
         end
     end
