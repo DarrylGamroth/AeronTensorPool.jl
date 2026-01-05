@@ -135,7 +135,7 @@ end
 
 @inline function update_descriptor_timer!(entry::ProducerConsumerStream, now_ns::UInt64)
     if entry.max_rate_hz == 0
-        set_interval!(entry.descriptor_timer, UInt64(0))
+        disable!(entry.descriptor_timer)
         return nothing
     end
     period_ns = UInt64(1_000_000_000) ÷ UInt64(entry.max_rate_hz)
@@ -158,8 +158,8 @@ function clear_consumer_stream!(entry::ProducerConsumerStream)
     entry.descriptor_stream_id = UInt32(0)
     entry.control_stream_id = UInt32(0)
     entry.max_rate_hz = UInt16(0)
-    set_interval!(entry.descriptor_timer, UInt64(0))
-    set_interval!(entry.timeout_timer, UInt64(0))
+    disable!(entry.descriptor_timer)
+    disable!(entry.timeout_timer)
     entry.last_hello_ns = UInt64(0)
     entry.last_qos_ns = UInt64(0)
     return nothing

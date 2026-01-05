@@ -34,7 +34,7 @@ end
 
 @on_event function(sm::DriverLifecycle, ::Draining, ::ShutdownTimeout, state::DriverState)
     emit_driver_shutdown!(state, state.shutdown_reason, state.shutdown_message)
-    set_interval!(driver_shutdown_timer(state), UInt64(0))
+    disable!(driver_shutdown_timer(state))
     return Hsm.transition!(sm, :Stopped)
 end
 
