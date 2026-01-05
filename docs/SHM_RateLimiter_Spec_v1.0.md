@@ -17,9 +17,9 @@ The key words “MUST”, “MUST NOT”, “REQUIRED”, “SHOULD”, “SHOUL
 
 This specification defines:
 
-- Decimation behavior for SHM Tensor Pool streams.
+- Rate-limited delivery for SHM Tensor Pool streams.
 - Re-materialization into a destination SHM pool.
-- Metadata forwarding for decimated outputs.
+- Metadata forwarding for rate-limited outputs.
 
 This specification does **not** modify SHM layout or wire formats; it defines agent behavior.
 
@@ -44,20 +44,15 @@ The rate limiter MUST NOT publish `FrameDescriptor` messages for the source stre
 
 ## 4. Rate Limiting Rules (Normative)
 
-For each mapping, the rate limiter applies one of:
-
 - **Rate-limit**: accept frames at most `max_rate_hz` (0 = unlimited). The rate limiter SHOULD publish the most recent frame available when the next rate slot opens.
-- **Latest**: keep only the most recent frame observed since the last publish; any older frames seen in that interval are dropped.
 
-Only one rate-limit policy is active per mapping. `rate_limiter.mode` applies to all mappings; per-mapping mode selection is not supported. If multiple policies are required, they MUST be expressed as distinct rate limiter instances.
+Only one rate-limit policy is active per instance. If multiple policies are required, they MUST be expressed as distinct rate limiter instances.
 
-The rate limiter MUST preserve `frame_id`/`seq` identity when republishing.
+The rate limiter MUST preserve logical sequence identity when republishing: `FrameDescriptor.seq` MUST equal `seq_commit >> 1` in the destination header.
 
-When operating per-consumer, the rate limiter MUST treat `ConsumerHello.max_rate_hz` as the authoritative rate limit for that consumer when `mode=rate_limit`. `ConsumerConfig` MAY override the rate limiter mode (e.g., force `latest`), but `max_rate_hz` is sourced from `ConsumerHello`. The rate limiter MUST NOT aggregate or apply policies across multiple consumers.
+When operating per-consumer, the rate limiter MUST treat `ConsumerHello.max_rate_hz` as the authoritative rate limit for that consumer. A value of `0` means unlimited. The rate limiter MUST NOT aggregate or apply policies across multiple consumers.
 
-When `mode=latest`, `max_rate_hz` MUST be ignored.
-
-For `rate_limit`, the first accepted frame after start or remap is eligible immediately, and the rate timer MUST reset on rate limiter restart and on source epoch change.
+The first accepted frame after start or remap is eligible immediately, and the rate timer MUST reset on rate limiter restart and on source epoch change.
 
 ---
 
@@ -68,8 +63,8 @@ Upon accepting a source frame:
 1. Validate source `epoch` and header/payload consistency per the wire spec.
 2. Select a destination pool using configured mapping rules (e.g., smallest stride >= payload length).
 3. Write payload bytes into the destination SHM pool.
-4. Write `TensorSlotHeader256` into the destination header ring, preserving `frame_id`, `meta_version`, and `timestamp_ns`, and overriding `pool_id`/`payload_slot` for the destination pool.
-5. Commit via the standard `commit_word` protocol.
+4. Write `TensorSlotHeader` into the destination header ring, preserving `meta_version` and `timestamp_ns`, and overriding `pool_id`/`payload_slot` for the destination pool.
+5. Commit via the standard `seq_commit` protocol.
 6. Publish a destination `FrameDescriptor` on the destination stream.
 
 If the destination pool cannot fit the payload, the rate limiter MUST drop the frame.
@@ -113,7 +108,6 @@ Optional keys and defaults:
 - `rate_limiter.forward_metadata` (bool): forward metadata. Default: `true`.
 - `rate_limiter.forward_progress` (bool): forward `FrameProgress`. Default: `false`.
 - `rate_limiter.forward_qos` (bool): forward QoS messages. Default: `false`.
-- `rate_limiter.mode` (string): `rate_limit` or `latest`. Default: `rate_limit`.
 - `rate_limiter.max_rate_hz` (uint32): fallback publish rate when `ConsumerHello.max_rate_hz` is absent. Default: `0` (unlimited).
 - `rate_limiter.control_channel` (string): local IPC control channel for forwarded progress. Default: `"aeron:ipc"`.
 - `rate_limiter.source_control_stream_id` (uint32): source control stream ID to subscribe for `FrameProgress`. Default: `0` (disabled).
