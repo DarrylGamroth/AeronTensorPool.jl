@@ -82,6 +82,9 @@ function provision_stream_epoch!(state::DriverState, stream_state::DriverStreamS
     if state.config.policies.prefault_shm
         fill!(header_mmap, 0x00)
     end
+    if state.config.policies.mlock_shm
+        mlock_buffer!(header_mmap, "header")
+    end
     wrap_superblock!(state.runtime.superblock_encoder, header_mmap, 0)
     now_ns = UInt64(Clocks.time_nanos(state.clock))
     write_superblock!(
@@ -111,6 +114,9 @@ function provision_stream_epoch!(state::DriverState, stream_state::DriverStreamS
         if state.config.policies.prefault_shm
             fill!(pool_mmap, 0x00)
         end
+        if state.config.policies.mlock_shm
+            mlock_buffer!(pool_mmap, "pool")
+        end
         wrap_superblock!(state.runtime.superblock_encoder, pool_mmap, 0)
         write_superblock!(
             state.runtime.superblock_encoder,
@@ -130,6 +136,13 @@ function provision_stream_epoch!(state::DriverState, stream_state::DriverStreamS
             ),
         )
     end
+    return nothing
+end
+
+function mlock_buffer!(buffer::AbstractVector{UInt8}, label::String)
+    ptr = Ptr{UInt8}(pointer(buffer))
+    res = Libc.mlock(ptr, length(buffer))
+    res == 0 || throw(ArgumentError("mlock failed for $(label) (errno=$(Libc.errno()))"))
     return nothing
 end
 

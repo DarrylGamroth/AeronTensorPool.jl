@@ -37,6 +37,7 @@ For a combined wire + driver overview, see `docs/IMPLEMENTATION_GUIDE.md`.
 - endianness = little-endian only
 - slot mapping v1.1: payload_slot = header_index; pool nslots == header nslots
 - driver prefault/zero on create: configurable via `policies.prefault_shm` (default: true)
+- driver mlock on create: configurable via `policies.mlock_shm` (default: false; fatal if enabled and mlock fails)
 
 ## 4. Producer Flow (spec §15.19)
 1) header_index = seq & (nslots - 1)

@@ -38,6 +38,7 @@ struct DriverPolicies
     lease_keepalive_interval_ms::UInt32
     lease_expiry_grace_intervals::UInt32
     prefault_shm::Bool
+    mlock_shm::Bool
     shutdown_timeout_ms::UInt32
     shutdown_token::String
 end
@@ -161,6 +162,7 @@ function load_driver_config(path::AbstractString; env::AbstractDict = ENV)
     lease_expiry_grace_intervals =
         env_override(env, "policies.lease_expiry_grace_intervals", UInt32(get(policies_tbl, "lease_expiry_grace_intervals", 3)))
     prefault_shm = env_override(env, "policies.prefault_shm", Bool(get(policies_tbl, "prefault_shm", true)))
+    mlock_shm = env_override(env, "policies.mlock_shm", Bool(get(policies_tbl, "mlock_shm", false)))
     shutdown_timeout_ms =
         env_override(env, "policies.shutdown_timeout_ms", UInt32(get(policies_tbl, "shutdown_timeout_ms", 2000)))
     shutdown_token = String(env_override(env, "policies.shutdown_token", String(get(policies_tbl, "shutdown_token", ""))))
@@ -242,6 +244,7 @@ function load_driver_config(path::AbstractString; env::AbstractDict = ENV)
         lease_keepalive_interval_ms,
         lease_expiry_grace_intervals,
         prefault_shm,
+        mlock_shm,
         shutdown_timeout_ms,
         shutdown_token,
     )

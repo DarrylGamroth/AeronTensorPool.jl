@@ -6,6 +6,8 @@ using Test
     @test cfg.endpoints.control_stream_id == 1000
     @test cfg.endpoints.announce_stream_id == 1001
     @test cfg.policies.allow_dynamic_streams == true
+    @test cfg.policies.prefault_shm == true
+    @test cfg.policies.mlock_shm == false
     @test cfg.policies.shutdown_token == ""
     @test haskey(cfg.profiles, "raw_profile")
     @test haskey(cfg.streams, "cam1")
