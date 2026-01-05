@@ -406,7 +406,7 @@ Optional keys and defaults:
 - `policies.lease_keepalive_interval_ms` (uint32): client keepalive interval. Default: `1000`.
 - `policies.lease_expiry_grace_intervals` (uint32): missed keepalives before expiry. Default: `3`.
 - `policies.prefault_shm` (bool): prefault/zero SHM regions on create. Default: `true`.
-- `policies.mlock_shm` (bool): mlock SHM regions on create; if enabled and `mlock` fails, the driver MUST treat it as a fatal error. `mlock` is per-process; clients SHOULD mlock their own mappings when enabled. On unsupported platforms, implementations MAY warn and treat it as a no-op. Default: `false`.
+- `policies.mlock_shm` (bool): mlock SHM regions on create; if enabled and `mlock` fails, the driver MUST treat it as a fatal error. `mlock` is per-process; clients SHOULD mlock their own mappings when enabled. On unsupported platforms, implementations SHOULD warn and treat it as a no-op. Default: `false`.
 - `policies.shutdown_timeout_ms` (uint32): drain period before shutdown completes. Default: `2000`.
 - `policies.shutdown_token` (string): admin shutdown token. Default: empty (disabled).
 
