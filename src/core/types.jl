@@ -164,6 +164,7 @@ mutable struct DiscoveryEntry
     data_source_name::FixedString
     tags::Vector{FixedString}
     pools::Vector{DiscoveryPoolEntry}
+    expiry_timer::PolledTimer
     last_announce_ns::UInt64
 end
 

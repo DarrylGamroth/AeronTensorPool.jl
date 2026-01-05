@@ -135,6 +135,7 @@ end
         FixedString(DISCOVERY_MAX_DATASOURCE_NAME_BYTES),
         Vector{FixedString}(),
         Vector{DiscoveryPoolEntry}(),
+        PolledTimer(UInt64(0)),
         UInt64(0),
     )
 end

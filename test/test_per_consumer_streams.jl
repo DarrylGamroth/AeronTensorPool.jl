@@ -114,7 +114,8 @@ end
         UInt32(0),
         UInt32(0),
         UInt16(0),
-        UInt64(0),
+        AeronTensorPool.PolledTimer(UInt64(0)),
+        AeronTensorPool.PolledTimer(UInt64(0)),
         UInt64(0),
         UInt64(10),
     )

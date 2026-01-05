@@ -34,11 +34,14 @@ function ensure_pool_capacity!(pools::Vector{DiscoveryPoolEntry}, count::Int)
     return nothing
 end
 
-@inline function entry_expired(entry::DiscoveryEntry, now_ns::UInt64, expiry_ns::UInt64)
-    expiry_ns == 0 && return false
-    last_seen = entry.last_announce_ns
-    last_seen == 0 && return true
-    return now_ns - last_seen > expiry_ns
+@inline function entry_expired(entry::DiscoveryEntry, now_ns::UInt64)
+    return expired(entry.expiry_timer, now_ns)
+end
+
+@inline function reset_entry_expiry!(state::AbstractDiscoveryState, entry::DiscoveryEntry, now_ns::UInt64)
+    set_interval!(entry.expiry_timer, state.config.expiry_ns)
+    reset!(entry.expiry_timer, now_ns)
+    return nothing
 end
 
 function entry_for_stream!(
@@ -67,6 +70,7 @@ function entry_for_stream!(
             FixedString(DISCOVERY_MAX_DATASOURCE_NAME_BYTES),
             Vector{FixedString}(),
             Vector{DiscoveryPoolEntry}(),
+            PolledTimer(state.config.expiry_ns),
             UInt64(0),
         )
         copyto!(entry.driver_instance_id, driver_instance_id)
@@ -117,7 +121,9 @@ function update_entry_from_announce!(
     resize!(entry.pools, pool_count)
 
     copyto!(entry.header_region_uri, ShmPoolAnnounce.headerRegionUri(msg, StringView))
-    entry.last_announce_ns = UInt64(Clocks.time_nanos(state.clock))
+    now_ns = UInt64(Clocks.time_nanos(state.clock))
+    entry.last_announce_ns = now_ns
+    reset_entry_expiry!(state, entry, now_ns)
     return true
 end
 
@@ -145,7 +151,9 @@ function update_entry_from_metadata_announce!(
     entry.epoch = epoch
     copyto!(entry.data_source_name, DataSourceAnnounce.name(msg, StringView))
     DataSourceAnnounce.summary(msg, StringView)
-    entry.last_announce_ns = UInt64(Clocks.time_nanos(state.clock))
+    now_ns = UInt64(Clocks.time_nanos(state.clock))
+    entry.last_announce_ns = now_ns
+    reset_entry_expiry!(state, entry, now_ns)
     return true
 end
 
@@ -164,7 +172,9 @@ function touch_entry_from_metadata_meta!(
         driver_control_stream_id,
         stream_id,
     )
-    entry.last_announce_ns = UInt64(Clocks.time_nanos(state.clock))
+    now_ns = UInt64(Clocks.time_nanos(state.clock))
+    entry.last_announce_ns = now_ns
+    reset_entry_expiry!(state, entry, now_ns)
     return true
 end
 
@@ -423,7 +433,7 @@ function handle_discovery_request!(state::AbstractDiscoveryState, msg::Discovery
     empty!(state.matching_entries)
     now_ns = UInt64(Clocks.time_nanos(state.clock))
     for entry in values(state.entries)
-        entry_expired(entry, now_ns, state.config.expiry_ns) && continue
+        entry_expired(entry, now_ns) && continue
         if entry_matches!(
             entry,
             stream_filter,

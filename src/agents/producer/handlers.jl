@@ -127,6 +127,27 @@ end
     return max(entry.last_hello_ns, entry.last_qos_ns)
 end
 
+@inline function reset_consumer_timeout!(state::ProducerState, entry::ProducerConsumerStream, now_ns::UInt64)
+    set_interval!(entry.timeout_timer, consumer_stream_timeout_ns(state))
+    reset!(entry.timeout_timer, now_ns)
+    return nothing
+end
+
+@inline function update_descriptor_timer!(entry::ProducerConsumerStream, now_ns::UInt64)
+    if entry.max_rate_hz == 0
+        set_interval!(entry.descriptor_timer, UInt64(0))
+        return nothing
+    end
+    period_ns = UInt64(1_000_000_000) ÷ UInt64(entry.max_rate_hz)
+    set_interval!(entry.descriptor_timer, period_ns)
+    if now_ns > period_ns
+        reset!(entry.descriptor_timer, now_ns - period_ns)
+    else
+        reset!(entry.descriptor_timer, UInt64(0))
+    end
+    return nothing
+end
+
 function clear_consumer_stream!(entry::ProducerConsumerStream)
     entry.descriptor_pub === nothing || close(entry.descriptor_pub)
     entry.control_pub === nothing || close(entry.control_pub)
@@ -137,19 +158,19 @@ function clear_consumer_stream!(entry::ProducerConsumerStream)
     entry.descriptor_stream_id = UInt32(0)
     entry.control_stream_id = UInt32(0)
     entry.max_rate_hz = UInt16(0)
-    entry.next_descriptor_ns = UInt64(0)
+    set_interval!(entry.descriptor_timer, UInt64(0))
+    set_interval!(entry.timeout_timer, UInt64(0))
     entry.last_hello_ns = UInt64(0)
     entry.last_qos_ns = UInt64(0)
     return nothing
 end
 
 function cleanup_consumer_streams!(state::ProducerState, now_ns::UInt64)
-    timeout_ns = consumer_stream_timeout_ns(state)
     closed = 0
     for entry in values(state.consumer_streams)
         last_seen = consumer_stream_last_seen_ns(entry)
         last_seen == 0 && continue
-        if now_ns - last_seen > timeout_ns
+        if expired(entry.timeout_timer, now_ns)
             clear_consumer_stream!(entry)
             closed += 1
         end
@@ -191,7 +212,8 @@ function update_consumer_streams!(state::ProducerState, msg::ConsumerHello.Decod
             UInt32(0),
             UInt32(0),
             UInt16(0),
-            UInt64(0),
+            PolledTimer(UInt64(0)),
+            PolledTimer(consumer_stream_timeout_ns(state)),
             now_ns,
             UInt64(0),
         )
@@ -200,6 +222,8 @@ function update_consumer_streams!(state::ProducerState, msg::ConsumerHello.Decod
 
     entry.last_hello_ns = now_ns
     entry.max_rate_hz = ConsumerHello.maxRateHz(msg)
+    reset_consumer_timeout!(state, entry, now_ns)
+    update_descriptor_timer!(entry, now_ns)
 
     changed = false
     if descriptor_requested
@@ -215,7 +239,6 @@ function update_consumer_streams!(state::ProducerState, msg::ConsumerHello.Decod
                 )
                 entry.descriptor_stream_id = descriptor_stream_id
                 entry.descriptor_channel = descriptor_channel
-                entry.next_descriptor_ns = now_ns
                 changed = true
             catch
                 entry.descriptor_pub = nothing
@@ -316,13 +339,16 @@ function handle_qos_consumer!(state::ProducerState, msg::QosConsumer.Decoder)
             UInt32(0),
             UInt32(0),
             UInt16(0),
-            UInt64(0),
+            PolledTimer(UInt64(0)),
+            PolledTimer(consumer_stream_timeout_ns(state)),
             UInt64(0),
             now_ns,
         )
         state.consumer_streams[consumer_id] = entry
     end
     entry.last_qos_ns = now_ns
+    reset_consumer_timeout!(state, entry, now_ns)
+    update_descriptor_timer!(entry, now_ns)
     return true
 end
 

@@ -1,18 +1,19 @@
 """
 Supervisor tracking info for a producer.
 """
-struct ProducerInfo
+mutable struct ProducerInfo
     stream_id::UInt32
     epoch::UInt64
     last_announce_ns::UInt64
     last_qos_ns::UInt64
     current_seq::UInt64
+    liveness_timer::PolledTimer
 end
 
 """
 Supervisor tracking info for a consumer.
 """
-struct ConsumerInfo
+mutable struct ConsumerInfo
     stream_id::UInt32
     consumer_id::UInt32
     epoch::UInt64
@@ -22,6 +23,7 @@ struct ConsumerInfo
     last_seq_seen::UInt64
     drops_gap::UInt64
     drops_late::UInt64
+    liveness_timer::PolledTimer
 end
 
 """

@@ -217,7 +217,7 @@ function publish_descriptor_to_consumers!(
     for entry in values(state.consumer_streams)
         pub = entry.descriptor_pub
         pub === nothing && continue
-        if entry.max_rate_hz != 0 && now_ns < entry.next_descriptor_ns
+        if entry.max_rate_hz != 0 && !expired(entry.descriptor_timer, now_ns)
             continue
         end
         sent = let st = state,
@@ -235,8 +235,7 @@ function publish_descriptor_to_consumers!(
             any_sent = true
         end
         if sent && entry.max_rate_hz != 0
-            period_ns = UInt64(1_000_000_000) ÷ UInt64(entry.max_rate_hz)
-            entry.next_descriptor_ns = now_ns + period_ns
+            reset!(entry.descriptor_timer, now_ns)
         end
     end
     return any_sent

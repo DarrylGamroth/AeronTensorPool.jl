@@ -58,7 +58,8 @@ mutable struct ProducerConsumerStream
     descriptor_stream_id::UInt32
     control_stream_id::UInt32
     max_rate_hz::UInt16
-    next_descriptor_ns::UInt64
+    descriptor_timer::PolledTimer
+    timeout_timer::PolledTimer
     last_hello_ns::UInt64
     last_qos_ns::UInt64
 end

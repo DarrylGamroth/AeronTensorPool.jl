@@ -112,16 +112,23 @@ function handle_shm_pool_announce!(state::SupervisorState, msg::ShmPoolAnnounce.
     pid = ShmPoolAnnounce.producerId(msg)
     ep = ShmPoolAnnounce.epoch(msg)
     info = get(state.tracking.producers, pid, nothing)
-    last_qos = isnothing(info) ? UInt64(0) : info.last_qos_ns
-    current_seq = isnothing(info) ? UInt64(0) : info.current_seq
-
-    state.tracking.producers[pid] = ProducerInfo(
-        ShmPoolAnnounce.streamId(msg),
-        ep,
-        now_ns,
-        last_qos,
-        current_seq,
-    )
+    if info === nothing
+        timer = PolledTimer(state.config.liveness_timeout_ns)
+        reset!(timer, now_ns)
+        state.tracking.producers[pid] = ProducerInfo(
+            ShmPoolAnnounce.streamId(msg),
+            ep,
+            now_ns,
+            UInt64(0),
+            UInt64(0),
+            timer,
+        )
+    else
+        info.stream_id = ShmPoolAnnounce.streamId(msg)
+        info.epoch = ep
+        info.last_announce_ns = now_ns
+        reset!(info.liveness_timer, now_ns)
+    end
     return nothing
 end
 
@@ -140,22 +147,22 @@ function handle_qos_producer!(state::SupervisorState, msg::QosProducer.Decoder)
 
     pid = QosProducer.producerId(msg)
     info = get(state.tracking.producers, pid, nothing)
-    if isnothing(info)
+    if info === nothing
+        timer = PolledTimer(state.config.liveness_timeout_ns)
+        reset!(timer, now_ns)
         state.tracking.producers[pid] = ProducerInfo(
             QosProducer.streamId(msg),
             QosProducer.epoch(msg),
             UInt64(0),
             now_ns,
             QosProducer.currentSeq(msg),
+            timer,
         )
     else
-        state.tracking.producers[pid] = ProducerInfo(
-            info.stream_id,
-            QosProducer.epoch(msg),
-            info.last_announce_ns,
-            now_ns,
-            QosProducer.currentSeq(msg),
-        )
+        info.epoch = QosProducer.epoch(msg)
+        info.last_qos_ns = now_ns
+        info.current_seq = QosProducer.currentSeq(msg)
+        reset!(info.liveness_timer, now_ns)
     end
     return nothing
 end
@@ -175,22 +182,25 @@ function handle_consumer_hello!(state::SupervisorState, msg::ConsumerHello.Decod
 
     cid = ConsumerHello.consumerId(msg)
     info = get(state.tracking.consumers, cid, nothing)
-    last_qos = isnothing(info) ? UInt64(0) : info.last_qos_ns
-    last_seq = isnothing(info) ? UInt64(0) : info.last_seq_seen
-    drops_gap = isnothing(info) ? UInt64(0) : info.drops_gap
-    drops_late = isnothing(info) ? UInt64(0) : info.drops_late
-
-    state.tracking.consumers[cid] = ConsumerInfo(
-        ConsumerHello.streamId(msg),
-        cid,
-        UInt64(0),
-        ConsumerHello.mode(msg),
-        now_ns,
-        last_qos,
-        last_seq,
-        drops_gap,
-        drops_late,
-    )
+    if info === nothing
+        timer = PolledTimer(state.config.liveness_timeout_ns)
+        reset!(timer, now_ns)
+        state.tracking.consumers[cid] = ConsumerInfo(
+            ConsumerHello.streamId(msg),
+            cid,
+            UInt64(0),
+            ConsumerHello.mode(msg),
+            now_ns,
+            UInt64(0),
+            UInt64(0),
+            UInt64(0),
+            UInt64(0),
+            timer,
+        )
+    else
+        info.last_hello_ns = now_ns
+        reset!(info.liveness_timer, now_ns)
+    end
     return nothing
 end
 
@@ -209,7 +219,9 @@ function handle_qos_consumer!(state::SupervisorState, msg::QosConsumer.Decoder)
 
     cid = QosConsumer.consumerId(msg)
     info = get(state.tracking.consumers, cid, nothing)
-    if isnothing(info)
+    if info === nothing
+        timer = PolledTimer(state.config.liveness_timeout_ns)
+        reset!(timer, now_ns)
         state.tracking.consumers[cid] = ConsumerInfo(
             QosConsumer.streamId(msg),
             cid,
@@ -220,19 +232,15 @@ function handle_qos_consumer!(state::SupervisorState, msg::QosConsumer.Decoder)
             QosConsumer.lastSeqSeen(msg),
             QosConsumer.dropsGap(msg),
             QosConsumer.dropsLate(msg),
+            timer,
         )
     else
-        state.tracking.consumers[cid] = ConsumerInfo(
-            info.stream_id,
-            cid,
-            QosConsumer.epoch(msg),
-            info.mode,
-            info.last_hello_ns,
-            now_ns,
-            QosConsumer.lastSeqSeen(msg),
-            QosConsumer.dropsGap(msg),
-            QosConsumer.dropsLate(msg),
-        )
+        info.epoch = QosConsumer.epoch(msg)
+        info.last_qos_ns = now_ns
+        info.last_seq_seen = QosConsumer.lastSeqSeen(msg)
+        info.drops_gap = QosConsumer.dropsGap(msg)
+        info.drops_late = QosConsumer.dropsLate(msg)
+        reset!(info.liveness_timer, now_ns)
     end
     return nothing
 end
@@ -242,16 +250,13 @@ Check liveness and return true if any action was taken.
 """
 function check_liveness!(state::SupervisorState, now_ns::UInt64)
     state.tracking.liveness_count += 1
-    timeout = state.config.liveness_timeout_ns
     for (pid, info) in state.tracking.producers
-        last_seen = max(info.last_announce_ns, info.last_qos_ns)
-        if last_seen > 0 && now_ns - last_seen > timeout
+        if expired(info.liveness_timer, now_ns)
             @tp_warn "Producer stale" producer_id = pid epoch = info.epoch
         end
     end
     for (cid, info) in state.tracking.consumers
-        last_seen = max(info.last_qos_ns, info.last_hello_ns)
-        if last_seen > 0 && now_ns - last_seen > timeout
+        if expired(info.liveness_timer, now_ns)
             @tp_warn "Consumer stale" consumer_id = cid epoch = info.epoch
         end
         if info.drops_gap > 0 || info.drops_late > 0
