@@ -22,11 +22,14 @@ function parse_args(args)
     do_publish = true
     poll_subs = true
     run_system = false
+    run_bridge = false
     i = 1
     while i <= length(args)
         arg = args[i]
         if arg == "--system"
             run_system = true
+        elseif arg == "--bridge"
+            run_bridge = true
         elseif arg == "--config" && i < length(args)
             i += 1
             config = args[i]
@@ -65,16 +68,36 @@ function parse_args(args)
         end
         i += 1
     end
-    return run_system, config, duration_s, payload_bytes, payload_bytes_list, warmup_s, alloc_sample, alloc_probe_iters, fixed_iters, alloc_breakdown, noop_loop, do_yield, poll_timers, do_publish, poll_subs
+    return run_system, run_bridge, config, duration_s, payload_bytes, payload_bytes_list, warmup_s, alloc_sample, alloc_probe_iters, fixed_iters, alloc_breakdown, noop_loop, do_yield, poll_timers, do_publish, poll_subs
 end
 
-run_system, config, duration_s, payload_bytes, payload_bytes_list, warmup_s, alloc_sample, alloc_probe_iters, fixed_iters, alloc_breakdown, noop_loop, do_yield, poll_timers, do_publish, poll_subs = parse_args(ARGS)
+run_system, run_bridge, config, duration_s, payload_bytes, payload_bytes_list, warmup_s, alloc_sample, alloc_probe_iters, fixed_iters, alloc_breakdown, noop_loop, do_yield, poll_timers, do_publish, poll_subs = parse_args(ARGS)
 
 run_benchmarks()
 
-if run_system
+if run_system || run_bridge
     include(joinpath(@__DIR__, "..", "bench", "system_bench.jl"))
+end
+if run_system
     run_system_bench(
+        config,
+        duration_s;
+        payload_bytes = payload_bytes,
+        payload_bytes_list = payload_bytes_list,
+        warmup_s = warmup_s,
+        alloc_sample = alloc_sample,
+        alloc_probe_iters = alloc_probe_iters,
+        fixed_iters = fixed_iters,
+        alloc_breakdown = alloc_breakdown,
+        noop_loop = noop_loop,
+        do_yield = do_yield,
+        poll_timers = poll_timers,
+        do_publish = do_publish,
+        poll_subs = poll_subs,
+    )
+end
+if run_bridge
+    run_bridge_bench(
         config,
         duration_s;
         payload_bytes = payload_bytes,

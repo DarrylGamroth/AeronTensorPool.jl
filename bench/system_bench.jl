@@ -33,6 +33,34 @@ function close_supervisor!(supervisor)
     return nothing
 end
 
+function close_bridge_sender!(sender)
+    close(sender.pub_payload)
+    close(sender.pub_control)
+    close(sender.sub_control)
+    if sender.pub_metadata !== nothing
+        close(sender.pub_metadata)
+    end
+    if sender.sub_metadata !== nothing
+        close(sender.sub_metadata)
+    end
+    return nothing
+end
+
+function close_bridge_receiver!(receiver)
+    close(receiver.sub_payload)
+    close(receiver.sub_control)
+    if receiver.sub_metadata !== nothing
+        close(receiver.sub_metadata)
+    end
+    if receiver.pub_metadata_local !== nothing
+        close(receiver.pub_metadata_local)
+    end
+    if receiver.pub_control_local !== nothing
+        close(receiver.pub_control_local)
+    end
+    return nothing
+end
+
 function apply_canonical_layout(
     config::ProducerConfig,
     base_dir::String;
@@ -98,6 +126,83 @@ function apply_canonical_layout(config::ConsumerSettings, base_dir::String)
         config.payload_fallback_uri,
         base_dir,
         [base_dir],
+        config.require_hugepages,
+        config.progress_interval_us,
+        config.progress_bytes_delta,
+        config.progress_rows_delta,
+        config.hello_interval_ns,
+        config.qos_interval_ns,
+        config.announce_freshness_ns,
+        config.requested_descriptor_channel,
+        config.requested_descriptor_stream_id,
+        config.requested_control_channel,
+        config.requested_control_stream_id,
+        config.mlock_shm,
+    )
+end
+
+function override_producer_streams(
+    config::ProducerConfig;
+    stream_id::UInt32,
+    descriptor_stream_id::Int32,
+    control_stream_id::Int32,
+    qos_stream_id::Int32,
+    metadata_stream_id::Int32,
+    producer_id::UInt32,
+    producer_instance_id::String,
+)
+    return ProducerConfig(
+        config.aeron_dir,
+        config.aeron_uri,
+        descriptor_stream_id,
+        control_stream_id,
+        qos_stream_id,
+        metadata_stream_id,
+        stream_id,
+        producer_id,
+        config.layout_version,
+        config.nslots,
+        config.shm_base_dir,
+        config.shm_namespace,
+        producer_instance_id,
+        config.header_uri,
+        config.payload_pools,
+        config.max_dims,
+        config.announce_interval_ns,
+        config.qos_interval_ns,
+        config.progress_interval_ns,
+        config.progress_bytes_delta,
+        config.mlock_shm,
+    )
+end
+
+function override_consumer_streams(
+    config::ConsumerSettings;
+    stream_id::UInt32,
+    descriptor_stream_id::Int32,
+    control_stream_id::Int32,
+    qos_stream_id::Int32,
+    consumer_id::UInt32,
+)
+    return ConsumerSettings(
+        config.aeron_dir,
+        config.aeron_uri,
+        descriptor_stream_id,
+        control_stream_id,
+        qos_stream_id,
+        stream_id,
+        consumer_id,
+        config.expected_layout_version,
+        config.max_dims,
+        config.mode,
+        config.max_outstanding_seq_gap,
+        config.use_shm,
+        config.supports_shm,
+        config.supports_progress,
+        config.max_rate_hz,
+        config.payload_fallback_uri,
+        config.shm_base_dir,
+        config.allowed_base_dirs,
         config.require_hugepages,
         config.progress_interval_us,
         config.progress_bytes_delta,
@@ -434,6 +539,365 @@ function run_system_bench(
                             close_supervisor!(supervisor)
                             close_consumer!(consumer)
                             close_producer!(producer)
+                        end
+                    end
+                end
+            end
+            return nothing
+        end
+    end
+end
+
+function run_bridge_bench(
+    config_path::AbstractString,
+    duration_s::Float64;
+    payload_bytes::Int = 1024,
+    payload_bytes_list::Vector{Int} = Int[],
+    warmup_s::Float64 = 0.2,
+    alloc_sample::Bool = false,
+    alloc_probe_iters::Int = 0,
+    fixed_iters::Int = 0,
+    alloc_breakdown::Bool = false,
+    noop_loop::Bool = false,
+    do_yield::Bool = true,
+    poll_timers::Bool = true,
+    do_publish::Bool = true,
+    poll_subs::Bool = true,
+)
+    Aeron.MediaDriver.launch_embedded() do driver
+        GC.@preserve driver begin
+            Aeron.Context() do context
+                Aeron.aeron_dir!(context, Aeron.MediaDriver.aeron_dir(driver))
+                Aeron.Client(context) do client
+                    env = Dict(ENV)
+                    env["AERON_DIR"] = Aeron.MediaDriver.aeron_dir(driver)
+                    system = load_system_config(config_path; env = env)
+                    sizes = isempty(payload_bytes_list) ? [payload_bytes] : payload_bytes_list
+
+                    src_stream_id = system.producer.stream_id
+                    dst_stream_id = src_stream_id + UInt32(1)
+                    src_descriptor = system.producer.descriptor_stream_id
+                    src_control = system.producer.control_stream_id
+                    src_qos = system.producer.qos_stream_id
+                    src_meta = system.producer.metadata_stream_id
+                    dst_descriptor = src_descriptor + Int32(1000)
+                    dst_control = src_control + Int32(1000)
+                    dst_qos = src_qos + Int32(1000)
+                    dst_meta = src_meta + Int32(1000)
+
+                    for bytes in sizes
+                        bytes > 0 || error("payload_bytes must be > 0")
+                        mktempdir() do src_dir
+                            mktempdir() do dst_dir
+                                src_producer_cfg = override_producer_streams(
+                                    system.producer;
+                                    stream_id = src_stream_id,
+                                    descriptor_stream_id = src_descriptor,
+                                    control_stream_id = src_control,
+                                    qos_stream_id = src_qos,
+                                    metadata_stream_id = src_meta,
+                                    producer_id = system.producer.producer_id,
+                                    producer_instance_id = "bench-src",
+                                )
+                                dst_producer_cfg = override_producer_streams(
+                                    system.producer;
+                                    stream_id = dst_stream_id,
+                                    descriptor_stream_id = dst_descriptor,
+                                    control_stream_id = dst_control,
+                                    qos_stream_id = dst_qos,
+                                    metadata_stream_id = dst_meta,
+                                    producer_id = system.producer.producer_id + UInt32(1),
+                                    producer_instance_id = "bench-dst",
+                                )
+                                producer_src = init_producer(
+                                    apply_canonical_layout(src_producer_cfg, src_dir; producer_instance_id = "bench-src"),
+                                    client = client,
+                                )
+                                producer_dst = init_producer(
+                                    apply_canonical_layout(dst_producer_cfg, dst_dir; producer_instance_id = "bench-dst"),
+                                    client = client,
+                                )
+
+                                consumer_src_cfg = override_consumer_streams(
+                                    system.consumer;
+                                    stream_id = src_stream_id,
+                                    descriptor_stream_id = src_descriptor,
+                                    control_stream_id = src_control,
+                                    qos_stream_id = src_qos,
+                                    consumer_id = system.consumer.consumer_id,
+                                )
+                                consumer_dst_cfg = override_consumer_streams(
+                                    system.consumer;
+                                    stream_id = dst_stream_id,
+                                    descriptor_stream_id = dst_descriptor,
+                                    control_stream_id = dst_control,
+                                    qos_stream_id = dst_qos,
+                                    consumer_id = system.consumer.consumer_id + UInt32(1),
+                                )
+                                consumer_src = init_consumer(apply_canonical_layout(consumer_src_cfg, src_dir); client = client)
+                                consumer_dst = init_consumer(apply_canonical_layout(consumer_dst_cfg, dst_dir); client = client)
+
+                                bridge_cfg = BridgeConfig(
+                                    "bridge-bench",
+                                    Aeron.MediaDriver.aeron_dir(driver),
+                                    "aeron:ipc",
+                                    Int32(3100),
+                                    "aeron:ipc",
+                                    Int32(3000),
+                                    "",
+                                    Int32(0),
+                                    Int32(0),
+                                    UInt32(1408),
+                                    UInt32(1024),
+                                    UInt32(0),
+                                    UInt32(max(bytes, 1)),
+                                    UInt64(250_000_000),
+                                    false,
+                                    false,
+                                    false,
+                                )
+                                mapping = BridgeMapping(UInt32(src_stream_id), UInt32(dst_stream_id), "bench", UInt32(0), Int32(0), Int32(0))
+                                bridge_sender = init_bridge_sender(consumer_src, bridge_cfg, mapping; client = client)
+                                bridge_receiver = init_bridge_receiver(bridge_cfg, mapping; producer_state = producer_dst, client = client)
+
+                                fragment_limit = Int32(4096)
+                                prod_src_ctrl = make_control_assembler(producer_src)
+                                prod_dst_ctrl = make_control_assembler(producer_dst)
+                                cons_src_ctrl = make_control_assembler(consumer_src)
+                                cons_dst_ctrl = make_control_assembler(consumer_dst)
+
+                                cons_src_desc = Aeron.FragmentAssembler(Aeron.FragmentHandler(consumer_src) do st, buffer, _
+                                    header = MessageHeader.Decoder(buffer, 0)
+                                    if MessageHeader.templateId(header) == AeronTensorPool.TEMPLATE_FRAME_DESCRIPTOR
+                                        FrameDescriptor.wrap!(st.runtime.desc_decoder, buffer, 0; header = header)
+                                        bridge_send_frame!(bridge_sender, st.runtime.desc_decoder)
+                                    end
+                                    nothing
+                                end)
+                                consumed = Ref(0)
+                                cons_dst_desc = Aeron.FragmentAssembler(Aeron.FragmentHandler(consumer_dst) do st, buffer, _
+                                    header = MessageHeader.Decoder(buffer, 0)
+                                    if MessageHeader.templateId(header) == AeronTensorPool.TEMPLATE_FRAME_DESCRIPTOR
+                                        FrameDescriptor.wrap!(st.runtime.desc_decoder, buffer, 0; header = header)
+                                        try_read_frame!(st, st.runtime.desc_decoder) && (consumed[] += 1)
+                                    end
+                                    nothing
+                                end)
+
+                                payload = fill(UInt8(1), bytes)
+                                shape = Int32[bytes]
+                                strides = Int32[1]
+                                published = 0
+
+                                if warmup_s > 0
+                                    warmup_start = time_ns()
+                                    warmup_limit = warmup_start + Int64(round(warmup_s * 1e9))
+                                    while time_ns() < warmup_limit
+                                        producer_do_work!(producer_src, prod_src_ctrl)
+                                        producer_do_work!(producer_dst, prod_dst_ctrl)
+                                        consumer_do_work!(
+                                            consumer_src,
+                                            cons_src_desc,
+                                            cons_src_ctrl;
+                                            fragment_limit = fragment_limit,
+                                        )
+                                        consumer_do_work!(
+                                            consumer_dst,
+                                            cons_dst_desc,
+                                            cons_dst_ctrl;
+                                            fragment_limit = fragment_limit,
+                                        )
+                                        bridge_sender_do_work!(bridge_sender; fragment_limit = fragment_limit)
+                                        bridge_receiver_do_work!(bridge_receiver; fragment_limit = fragment_limit)
+                                        if consumer_src.mappings.header_mmap !== nothing && do_publish
+                                            offer_frame!(producer_src, payload, shape, strides, Dtype.UINT8, UInt32(0))
+                                        end
+                                        yield()
+                                    end
+                                    consumed[] = 0
+                                    published = 0
+                                end
+
+                                if alloc_probe_iters > 0
+                                    GC.gc()
+                                    probe_start = Base.gc_num().allocd
+                                    for _ in 1:alloc_probe_iters
+                                        producer_do_work!(producer_src, prod_src_ctrl)
+                                        producer_do_work!(producer_dst, prod_dst_ctrl)
+                                        consumer_do_work!(
+                                            consumer_src,
+                                            cons_src_desc,
+                                            cons_src_ctrl;
+                                            fragment_limit = fragment_limit,
+                                        )
+                                        consumer_do_work!(
+                                            consumer_dst,
+                                            cons_dst_desc,
+                                            cons_dst_ctrl;
+                                            fragment_limit = fragment_limit,
+                                        )
+                                        bridge_sender_do_work!(bridge_sender; fragment_limit = fragment_limit)
+                                        bridge_receiver_do_work!(bridge_receiver; fragment_limit = fragment_limit)
+                                        if consumer_src.mappings.header_mmap !== nothing && do_publish
+                                            offer_frame!(producer_src, payload, shape, strides, Dtype.UINT8, UInt32(0))
+                                        end
+                                        yield()
+                                    end
+                                    probe_end = Base.gc_num().allocd
+                                    println("Alloc delta (probe $(alloc_probe_iters) iters): $(probe_end - probe_start) bytes")
+                                    consumed[] = 0
+                                    published = 0
+                                end
+
+                                GC.gc()
+                                gc_num_overhead = Base.gc_num().allocd
+                                gc_num_overhead = Base.gc_num().allocd - gc_num_overhead
+                                time_overhead = Base.gc_num().allocd
+                                _ = time_ns()
+                                time_overhead = Base.gc_num().allocd - time_overhead
+                                start_num = Base.gc_num()
+                                start_live = Base.gc_live_bytes()
+                                start = time_ns()
+                                iter_count = 0
+                                if fixed_iters > 0
+                                    while iter_count < fixed_iters
+                                        if !noop_loop
+                                            if poll_subs
+                                                poll_control!(producer_src, prod_src_ctrl)
+                                                poll_control!(producer_dst, prod_dst_ctrl)
+                                                poll_descriptor!(consumer_src, cons_src_desc, fragment_limit)
+                                                poll_control!(consumer_src, cons_src_ctrl, fragment_limit)
+                                                poll_descriptor!(consumer_dst, cons_dst_desc, fragment_limit)
+                                                poll_control!(consumer_dst, cons_dst_ctrl, fragment_limit)
+                                                bridge_sender_do_work!(bridge_sender; fragment_limit = fragment_limit)
+                                                bridge_receiver_do_work!(bridge_receiver; fragment_limit = fragment_limit)
+                                            end
+                                            if poll_timers
+                                                Clocks.fetch!(producer_src.clock)
+                                                poll_timers!(producer_src, UInt64(Clocks.time_nanos(producer_src.clock)))
+                                                Clocks.fetch!(producer_dst.clock)
+                                                poll_timers!(producer_dst, UInt64(Clocks.time_nanos(producer_dst.clock)))
+                                                Clocks.fetch!(consumer_src.clock)
+                                                poll_timers!(consumer_src, UInt64(Clocks.time_nanos(consumer_src.clock)))
+                                                Clocks.fetch!(consumer_dst.clock)
+                                                poll_timers!(consumer_dst, UInt64(Clocks.time_nanos(consumer_dst.clock)))
+                                            end
+                                            if !poll_subs && !poll_timers
+                                                producer_do_work!(producer_src, prod_src_ctrl)
+                                                producer_do_work!(producer_dst, prod_dst_ctrl)
+                                                consumer_do_work!(
+                                                    consumer_src,
+                                                    cons_src_desc,
+                                                    cons_src_ctrl;
+                                                    fragment_limit = fragment_limit,
+                                                )
+                                                consumer_do_work!(
+                                                    consumer_dst,
+                                                    cons_dst_desc,
+                                                    cons_dst_ctrl;
+                                                    fragment_limit = fragment_limit,
+                                                )
+                                                bridge_sender_do_work!(bridge_sender; fragment_limit = fragment_limit)
+                                                bridge_receiver_do_work!(bridge_receiver; fragment_limit = fragment_limit)
+                                            end
+                                            if do_publish && consumer_src.mappings.header_mmap !== nothing
+                                                offer_frame!(producer_src, payload, shape, strides, Dtype.UINT8, UInt32(0))
+                                                published += 1
+                                            end
+                                        end
+                                        iter_count += 1
+                                        do_yield && yield()
+                                    end
+                                else
+                                    end_limit = start + Int64(round(duration_s * 1e9))
+                                    while time_ns() < end_limit
+                                        if !noop_loop
+                                            if poll_subs
+                                                poll_control!(producer_src, prod_src_ctrl)
+                                                poll_control!(producer_dst, prod_dst_ctrl)
+                                                poll_descriptor!(consumer_src, cons_src_desc, fragment_limit)
+                                                poll_control!(consumer_src, cons_src_ctrl, fragment_limit)
+                                                poll_descriptor!(consumer_dst, cons_dst_desc, fragment_limit)
+                                                poll_control!(consumer_dst, cons_dst_ctrl, fragment_limit)
+                                                bridge_sender_do_work!(bridge_sender; fragment_limit = fragment_limit)
+                                                bridge_receiver_do_work!(bridge_receiver; fragment_limit = fragment_limit)
+                                            end
+                                            if poll_timers
+                                                Clocks.fetch!(producer_src.clock)
+                                                poll_timers!(producer_src, UInt64(Clocks.time_nanos(producer_src.clock)))
+                                                Clocks.fetch!(producer_dst.clock)
+                                                poll_timers!(producer_dst, UInt64(Clocks.time_nanos(producer_dst.clock)))
+                                                Clocks.fetch!(consumer_src.clock)
+                                                poll_timers!(consumer_src, UInt64(Clocks.time_nanos(consumer_src.clock)))
+                                                Clocks.fetch!(consumer_dst.clock)
+                                                poll_timers!(consumer_dst, UInt64(Clocks.time_nanos(consumer_dst.clock)))
+                                            end
+                                            if !poll_subs && !poll_timers
+                                                producer_do_work!(producer_src, prod_src_ctrl)
+                                                producer_do_work!(producer_dst, prod_dst_ctrl)
+                                                consumer_do_work!(
+                                                    consumer_src,
+                                                    cons_src_desc,
+                                                    cons_src_ctrl;
+                                                    fragment_limit = fragment_limit,
+                                                )
+                                                consumer_do_work!(
+                                                    consumer_dst,
+                                                    cons_dst_desc,
+                                                    cons_dst_ctrl;
+                                                    fragment_limit = fragment_limit,
+                                                )
+                                                bridge_sender_do_work!(bridge_sender; fragment_limit = fragment_limit)
+                                                bridge_receiver_do_work!(bridge_receiver; fragment_limit = fragment_limit)
+                                            end
+                                            if do_publish && consumer_src.mappings.header_mmap !== nothing
+                                                offer_frame!(producer_src, payload, shape, strides, Dtype.UINT8, UInt32(0))
+                                                published += 1
+                                            end
+                                        end
+                                        do_yield && yield()
+                                    end
+                                end
+
+                                elapsed = (time_ns() - start) / 1e9
+                                mid_num = Base.gc_num()
+                                mid_live = Base.gc_live_bytes()
+                                GC.gc()
+                                end_num = Base.gc_num()
+                                end_live = Base.gc_live_bytes()
+                                allocd_loop_raw = mid_num.allocd - start_num.allocd
+                                allocd_loop = max(Int64(0), allocd_loop_raw - gc_num_overhead - time_overhead)
+                                live_loop = mid_live - start_live
+                                allocd_total_raw = end_num.allocd - start_num.allocd
+                                allocd_total = max(Int64(0), allocd_total_raw - (2 * gc_num_overhead + time_overhead))
+                                live_total = end_live - start_live
+                                publish_rate = published / elapsed
+                                consume_rate = consumed[] / elapsed
+                                bytes_per_frame = Float64(bytes)
+                                publish_mib_s = (publish_rate * bytes_per_frame) / (1024.0 * 1024.0)
+                                consume_mib_s = (consume_rate * bytes_per_frame) / (1024.0 * 1024.0)
+                                println("Bridge benchmark: payload_bytes=$(bytes)")
+                                println("Published: $(published) frames in $(round(elapsed, digits=3))s")
+                                println("Consumed:  $(consumed[]) frames in $(round(elapsed, digits=3))s")
+                                println("Publish rate: $(round(publish_rate, digits=1)) fps")
+                                println("Consume rate: $(round(consume_rate, digits=1)) fps")
+                                println("Publish bandwidth: $(round(publish_mib_s, digits=1)) MiB/s")
+                                println("Consume bandwidth: $(round(consume_mib_s, digits=1)) MiB/s")
+                                println("GC allocd overhead per sample: $(gc_num_overhead) bytes")
+                                println("GC allocd overhead per time_ns(): $(time_overhead) bytes")
+                                println("GC allocd delta (loop):  $(allocd_loop) bytes")
+                                println("GC live delta (loop):   $(live_loop) bytes")
+                                println("GC allocd delta (total): $(allocd_total) bytes")
+                                println("GC live delta (total):  $(live_total) bytes")
+                                println()
+
+                                close_bridge_receiver!(bridge_receiver)
+                                close_bridge_sender!(bridge_sender)
+                                close_consumer!(consumer_dst)
+                                close_consumer!(consumer_src)
+                                close_producer!(producer_dst)
+                                close_producer!(producer_src)
+                            end
                         end
                     end
                 end
