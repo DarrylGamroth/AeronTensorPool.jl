@@ -85,6 +85,15 @@
             end
             @test mapped
 
+            connected = wait_for() do
+                entry = get(producer_state.consumer_streams, consumer_cfg.consumer_id, nothing)
+                entry !== nothing &&
+                    entry.descriptor_pub !== nothing &&
+                    Aeron.is_connected(entry.descriptor_pub) &&
+                    Aeron.is_connected(consumer_state.runtime.sub_descriptor)
+            end
+            @test connected
+
             payload = UInt8[1, 2, 3, 4]
             shape = Int32[4]
             strides = Int32[1]
