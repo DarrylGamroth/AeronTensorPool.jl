@@ -63,25 +63,6 @@ function close_bridge_receiver!(receiver)
     return nothing
 end
 
-struct DualAgent{A, B}
-    a::A
-    b::B
-end
-
-Agent.name(::DualAgent) = "dual"
-
-function Agent.do_work(agent::DualAgent)
-    work_done = Agent.do_work(agent.a)
-    work_done += Agent.do_work(agent.b)
-    return work_done
-end
-
-function Agent.on_close(agent::DualAgent)
-    Agent.on_close(agent.a)
-    Agent.on_close(agent.b)
-    return nothing
-end
-
 struct ProducerWork
     state::ProducerState
     control_assembler::Aeron.FragmentAssembler
@@ -294,6 +275,12 @@ function run_system_bench(
                             producer_agent = ProducerAgent(producer_cfg; client = client)
                             consumer_agent = ConsumerAgent(consumer_cfg; client = client, hooks = consumer_hooks)
                             supervisor_agent = SupervisorAgent(supervisor_cfg; client = client)
+                            producer_invoker = AgentInvoker(producer_agent)
+                            consumer_invoker = AgentInvoker(consumer_agent)
+                            supervisor_invoker = AgentInvoker(supervisor_agent)
+                            Agent.start(producer_invoker)
+                            Agent.start(consumer_invoker)
+                            Agent.start(supervisor_invoker)
 
                             producer = producer_agent.state
                             consumer = consumer_agent.state
@@ -306,9 +293,9 @@ function run_system_bench(
                         warmup_start = time_ns()
                         warmup_limit = warmup_start + Int64(round(warmup_s * 1e9))
                         while time_ns() < warmup_limit
-                            Agent.do_work(producer_agent)
-                            Agent.do_work(consumer_agent)
-                            Agent.do_work(supervisor_agent)
+                            Agent.invoke(producer_invoker)
+                            Agent.invoke(consumer_invoker)
+                            Agent.invoke(supervisor_invoker)
                             if consumer.mappings.header_mmap !== nothing
                                 offer_frame!(producer, payload, shape, strides, Dtype.UINT8, UInt32(0))
                             end
@@ -322,24 +309,24 @@ function run_system_bench(
                         wait_start = time_ns()
                         wait_limit = wait_start + Int64(2e9)
                         while consumer.mappings.header_mmap === nothing && time_ns() < wait_limit
-                            Agent.do_work(producer_agent)
-                            Agent.do_work(consumer_agent)
-                            Agent.do_work(supervisor_agent)
+                            Agent.invoke(producer_invoker)
+                            Agent.invoke(consumer_invoker)
+                            Agent.invoke(supervisor_invoker)
                             yield()
                         end
                         for _ in 1:32
-                            Agent.do_work(producer_agent)
-                            Agent.do_work(consumer_agent)
-                            Agent.do_work(supervisor_agent)
+                            Agent.invoke(producer_invoker)
+                            Agent.invoke(consumer_invoker)
+                            Agent.invoke(supervisor_invoker)
                             if consumer.mappings.header_mmap !== nothing
                                 offer_frame!(producer, payload, shape, strides, Dtype.UINT8, UInt32(0))
                             end
                             yield()
                         end
                         sample_before = Base.gc_num().allocd
-                        Agent.do_work(producer_agent)
-                        Agent.do_work(consumer_agent)
-                        Agent.do_work(supervisor_agent)
+                        Agent.invoke(producer_invoker)
+                        Agent.invoke(consumer_invoker)
+                        Agent.invoke(supervisor_invoker)
                         if consumer.mappings.header_mmap !== nothing
                             offer_frame!(producer, payload, shape, strides, Dtype.UINT8, UInt32(0))
                         end
@@ -351,15 +338,15 @@ function run_system_bench(
                         wait_start = time_ns()
                         wait_limit = wait_start + Int64(2e9)
                         while consumer.mappings.header_mmap === nothing && time_ns() < wait_limit
-                            Agent.do_work(producer_agent)
-                            Agent.do_work(consumer_agent)
-                            Agent.do_work(supervisor_agent)
+                            Agent.invoke(producer_invoker)
+                            Agent.invoke(consumer_invoker)
+                            Agent.invoke(supervisor_invoker)
                             yield()
                         end
                         for _ in 1:32
-                            Agent.do_work(producer_agent)
-                            Agent.do_work(consumer_agent)
-                            Agent.do_work(supervisor_agent)
+                            Agent.invoke(producer_invoker)
+                            Agent.invoke(consumer_invoker)
+                            Agent.invoke(supervisor_invoker)
                             if consumer.mappings.header_mmap !== nothing
                                 offer_frame!(producer, payload, shape, strides, Dtype.UINT8, UInt32(0))
                             end
@@ -375,19 +362,19 @@ function run_system_bench(
                             GC.gc()
                         end
                         measure_allocd("producer_do_work") do
-                            Agent.do_work(producer_agent)
+                            Agent.invoke(producer_invoker)
                         end
                         measure_allocd("consumer_do_work") do
-                            Agent.do_work(consumer_agent)
+                            Agent.invoke(consumer_invoker)
                         end
                         if consumer.mappings.header_mmap !== nothing
                             offer_frame!(producer, payload, shape, strides, Dtype.UINT8, UInt32(0))
                             measure_allocd("consumer_do_work (with frame)") do
-                                Agent.do_work(consumer_agent)
+                                Agent.invoke(consumer_invoker)
                             end
                         end
                         measure_allocd("supervisor_do_work") do
-                            Agent.do_work(supervisor_agent)
+                            Agent.invoke(supervisor_invoker)
                         end
                         measure_allocd("publish_frame") do
                             if consumer.mappings.header_mmap !== nothing
@@ -432,9 +419,9 @@ function run_system_bench(
                         GC.gc()
                         probe_start = Base.gc_num().allocd
                         for _ in 1:alloc_probe_iters
-                            Agent.do_work(producer_agent)
-                            Agent.do_work(consumer_agent)
-                            Agent.do_work(supervisor_agent)
+                            Agent.invoke(producer_invoker)
+                            Agent.invoke(consumer_invoker)
+                            Agent.invoke(supervisor_invoker)
                             if consumer.mappings.header_mmap !== nothing
                                 offer_frame!(producer, payload, shape, strides, Dtype.UINT8, UInt32(0))
                             end
@@ -462,9 +449,9 @@ function run_system_bench(
                     if fixed_iters > 0
                         while iter_count < fixed_iters
                             if !noop_loop
-                                Agent.do_work(producer_agent)
-                                Agent.do_work(consumer_agent)
-                                Agent.do_work(supervisor_agent)
+                                Agent.invoke(producer_invoker)
+                                Agent.invoke(consumer_invoker)
+                                Agent.invoke(supervisor_invoker)
 
                                 if do_publish && consumer.mappings.header_mmap !== nothing
                                     offer_frame!(producer, payload, shape, strides, Dtype.UINT8, UInt32(0))
@@ -478,9 +465,9 @@ function run_system_bench(
                         end_limit = start + Int64(round(duration_s * 1e9))
                         while time_ns() < end_limit
                             if !noop_loop
-                                Agent.do_work(producer_agent)
-                                Agent.do_work(consumer_agent)
-                                Agent.do_work(supervisor_agent)
+                                Agent.invoke(producer_invoker)
+                                Agent.invoke(consumer_invoker)
+                                Agent.invoke(supervisor_invoker)
 
                                 if do_publish && consumer.mappings.header_mmap !== nothing
                                     offer_frame!(producer, payload, shape, strides, Dtype.UINT8, UInt32(0))
@@ -523,9 +510,9 @@ function run_system_bench(
                     println("GC live delta (total):  $(live_total) bytes")
                     println()
 
-                            Agent.on_close(supervisor_agent)
-                            Agent.on_close(consumer_agent)
-                            Agent.on_close(producer_agent)
+                            close(supervisor_invoker)
+                            close(consumer_invoker)
+                            close(producer_invoker)
                         end
                     end
                 end
@@ -672,7 +659,7 @@ function run_bridge_bench_runners(
                                 end
                                 runner_src = AgentRunner(
                                     BackoffIdleStrategy(),
-                                    DualAgent(DualAgent(producer_src_agent, bridge_agent), producer_dst_work),
+                                    CompositeAgent(producer_src_agent, bridge_agent, producer_dst_work),
                                 )
                                 runner_dst = AgentRunner(BackoffIdleStrategy(), consumer_dst_agent)
                                 Agent.start_on_thread(runner_src)
@@ -968,6 +955,12 @@ function run_bridge_bench(
                                     producer_dst_cfg;
                                     client = client,
                                 )
+                                producer_invoker = AgentInvoker(producer_src_agent)
+                                bridge_invoker = AgentInvoker(bridge_agent)
+                                consumer_invoker = AgentInvoker(consumer_dst_agent)
+                                Agent.start(producer_invoker)
+                                Agent.start(bridge_invoker)
+                                Agent.start(consumer_invoker)
 
                                 payload = fill(UInt8(1), bytes)
                                 shape = Int32[bytes]
@@ -978,9 +971,9 @@ function run_bridge_bench(
                                     warmup_start = time_ns()
                                     warmup_limit = warmup_start + Int64(round(warmup_s * 1e9))
                                     while time_ns() < warmup_limit
-                                        Agent.do_work(producer_src_agent)
-                                        Agent.do_work(bridge_agent)
-                                        Agent.do_work(consumer_dst_agent)
+                                        Agent.invoke(producer_invoker)
+                                        Agent.invoke(bridge_invoker)
+                                        Agent.invoke(consumer_invoker)
                                         if bridge_agent.sender.consumer_state.mappings.header_mmap !== nothing && do_publish
                                             offer_frame!(
                                                 producer_src_agent.state,
@@ -1001,9 +994,9 @@ function run_bridge_bench(
                                     GC.gc()
                                     probe_start = Base.gc_num().allocd
                                     for _ in 1:alloc_probe_iters
-                                        Agent.do_work(producer_src_agent)
-                                        Agent.do_work(bridge_agent)
-                                        Agent.do_work(consumer_dst_agent)
+                                        Agent.invoke(producer_invoker)
+                                        Agent.invoke(bridge_invoker)
+                                        Agent.invoke(consumer_invoker)
                                         if bridge_agent.sender.consumer_state.mappings.header_mmap !== nothing && do_publish
                                             offer_frame!(
                                                 producer_src_agent.state,
@@ -1035,9 +1028,9 @@ function run_bridge_bench(
                                 if fixed_iters > 0
                                     while iter_count < fixed_iters
                                         if !noop_loop
-                                            Agent.do_work(producer_src_agent)
-                                            Agent.do_work(bridge_agent)
-                                            Agent.do_work(consumer_dst_agent)
+                                            Agent.invoke(producer_invoker)
+                                            Agent.invoke(bridge_invoker)
+                                            Agent.invoke(consumer_invoker)
                                             if do_publish && bridge_agent.sender.consumer_state.mappings.header_mmap !== nothing
                                                 offer_frame!(
                                                     producer_src_agent.state,
@@ -1057,9 +1050,9 @@ function run_bridge_bench(
                                     end_limit = start + Int64(round(duration_s * 1e9))
                                     while time_ns() < end_limit
                                         if !noop_loop
-                                            Agent.do_work(producer_src_agent)
-                                            Agent.do_work(bridge_agent)
-                                            Agent.do_work(consumer_dst_agent)
+                                            Agent.invoke(producer_invoker)
+                                            Agent.invoke(bridge_invoker)
+                                            Agent.invoke(consumer_invoker)
                                             if do_publish && bridge_agent.sender.consumer_state.mappings.header_mmap !== nothing
                                                 offer_frame!(
                                                     producer_src_agent.state,
@@ -1108,9 +1101,9 @@ function run_bridge_bench(
                                 println("GC live delta (total):  $(live_total) bytes")
                                 println()
 
-                                Agent.on_close(bridge_agent)
-                                Agent.on_close(consumer_dst_agent)
-                                Agent.on_close(producer_src_agent)
+                                close(bridge_invoker)
+                                close(consumer_invoker)
+                                close(producer_invoker)
                             end
                         end
                     end
