@@ -46,11 +46,13 @@ include("agents/consumer/consumer.jl")
 include("agents/supervisor/supervisor.jl")
 include("agents/bridge/bridge.jl")
 include("agents/decimator/decimator.jl")
+include("agents/discovery/discovery.jl")
 include("agents/producer_agent.jl")
 include("agents/consumer_agent.jl")
 include("agents/supervisor_agent.jl")
 include("agents/driver_agent.jl")
 include("agents/bridge_agent.jl")
+include("agents/discovery_agent.jl")
 include("config/config_loader.jl")
 
 export AeronInitError,
@@ -81,6 +83,7 @@ export AeronInitError,
     DecimatorState,
     DetachRequestProxy,
     DetachResponse,
+    DiscoveryAgent,
     DiscoveryMessageHeader,
     DiscoveryConfig,
     DiscoveryEntry,
@@ -89,6 +92,7 @@ export AeronInitError,
     DiscoveryResponse,
     DiscoveryResultView,
     DiscoveryStatus,
+    DiscoveryProviderState,
     DriverAgent,
     DriverClientState,
     DriverConfig,
@@ -174,6 +178,7 @@ export AeronInitError,
     driver_client_do_work!,
     driver_do_work!,
     discovery_result_view,
+    discovery_do_work!,
     due!,
     emit_announce!,
     emit_consumer_config!,
@@ -191,6 +196,7 @@ export AeronInitError,
     init_consumer,
     init_consumer_from_attach,
     init_decimator,
+    init_discovery_provider,
     init_driver,
     init_driver_client,
     init_producer,
