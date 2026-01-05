@@ -26,6 +26,7 @@ include("core/fixed_string.jl")
 include("core/messages.jl")
 include("core/types.jl")
 include("core/errors.jl")
+include("core/validation.jl")
 include("shm/uri.jl")
 include("shm/linux.jl")
 include("shm/backend.jl")
@@ -271,6 +272,7 @@ export AeronInitError,
     with_claimed_slot!,
     try_read_frame!,
     validate_stride,
+    validate_discovery_endpoints,
     validate_superblock_fields,
     validate_uri,
     wrap_superblock!,

@@ -60,6 +60,14 @@ function Agent.on_start(agent::AppConsumerAgent)
     discovery_stream_id = parse(Int32, get(ENV, "TP_DISCOVERY_STREAM_ID", "16000"))
     response_channel = discovery_channel
     response_stream_id = UInt32(discovery_stream_id + 1)
+    validate_discovery_endpoints(
+        control.control_channel,
+        control.control_stream_id,
+        discovery_channel,
+        discovery_stream_id,
+        response_channel,
+        response_stream_id,
+    )
 
     try
         discovery_cfg = DiscoveryConfig(
