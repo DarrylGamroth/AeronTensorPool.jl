@@ -176,25 +176,23 @@ function run_producer(driver_cfg_path::String, producer_cfg_path::String, count:
                 UInt64(0),
                 false,
             )
-            isnothing(core_id) || @info "AGENT_TASK_CORE ignored in invoker mode" core_id
-            idle_strategy = BackoffIdleStrategy()
-            invoker = AgentInvoker(agent)
-            Agent.start(invoker)
+            runner = AgentRunner(BackoffIdleStrategy(), agent)
+            if isnothing(core_id)
+                Agent.start_on_thread(runner)
+            else
+                Agent.start_on_thread(runner, core_id)
+            end
             try
-                while !agent.ready && Agent.is_running(invoker)
-                    work = Agent.invoke(invoker)
-                    Agent.idle(idle_strategy, work)
+                while !agent.ready
+                    yield()
                 end
                 if count > 0
-                    while agent.sent < count && Agent.is_running(invoker)
-                        work = Agent.invoke(invoker)
-                        Agent.idle(idle_strategy, work)
+                    while agent.sent < count
+                        yield()
                     end
+                    close(runner)
                 else
-                    while Agent.is_running(invoker)
-                        work = Agent.invoke(invoker)
-                        Agent.idle(idle_strategy, work)
-                    end
+                    wait(runner)
                 end
             catch e
                 if e isa InterruptException
@@ -203,7 +201,7 @@ function run_producer(driver_cfg_path::String, producer_cfg_path::String, count:
                     @error "Producer error" exception = (e, catch_backtrace())
                 end
             finally
-                close(invoker)
+                close(runner)
             end
             @info "Producer done" agent.sent
         end
