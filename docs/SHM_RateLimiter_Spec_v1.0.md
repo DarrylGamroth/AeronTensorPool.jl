@@ -39,6 +39,7 @@ The RateLimiter Agent is intended to run per-consumer. It consumes `FrameDescrip
 - **Destination Stream**: a distinct stream_id with its own SHM pools.
 
 The rate limiter MUST NOT publish `FrameDescriptor` messages for the source stream and MUST only publish to the destination stream.
+The rate limiter MUST attach as the sole producer for the destination stream and MUST enforce exclusive producer semantics (per the Driver Model).
 
 ---
 
@@ -48,7 +49,7 @@ The rate limiter MUST NOT publish `FrameDescriptor` messages for the source stre
 
 Only one rate-limit policy is active per instance. If multiple policies are required, they MUST be expressed as distinct rate limiter instances.
 
-The rate limiter MUST preserve logical sequence identity when republishing: `FrameDescriptor.seq` MUST equal `seq_commit >> 1` in the destination header.
+The rate limiter MUST preserve logical sequence identity when republishing: `FrameDescriptor.seq` MUST equal `seq_commit >> 1` in the destination header. The rate limiter MUST copy the source sequence into the destination header/descriptor; dropped frames result in sequence gaps on the destination stream.
 
 When operating per-consumer, the rate limiter MUST treat `ConsumerHello.max_rate_hz` as the authoritative rate limit for that consumer. A value of `0` means unlimited. The rate limiter MUST NOT aggregate or apply policies across multiple consumers.
 
@@ -68,12 +69,13 @@ Upon accepting a source frame:
 6. Publish a destination `FrameDescriptor` on the destination stream.
 
 If the destination pool cannot fit the payload, the rate limiter MUST drop the frame.
+If the destination slot cannot be claimed immediately (e.g., ring overwrite under load), the rate limiter MUST drop the frame and continue; it MUST NOT block.
 
 ---
 
 ## 6. Metadata Forwarding (Normative)
 
-When `rate_limiter.forward_metadata=true`, rate limiters MUST forward `DataSourceAnnounce` and `DataSourceMeta` from the source stream to the destination stream. The forwarded metadata MUST preserve `meta_version` and MUST rewrite `stream_id` to the destination stream_id for the mapping. When `rate_limiter.forward_metadata=false`, metadata MAY be omitted and consumers will lack metadata.
+When `rate_limiter.forward_metadata=true`, rate limiters MUST forward `DataSourceAnnounce` and `DataSourceMeta` from the source stream to the destination stream. The forwarded metadata MUST preserve `meta_version` and MUST rewrite `stream_id` to the destination stream_id for the mapping. If `metadata_stream_id` is configured for the mapping, the rate limiter MUST publish metadata on that stream and set `stream_id` accordingly. When `rate_limiter.forward_metadata=false`, metadata MAY be omitted and consumers will lack metadata.
 
 ---
 
