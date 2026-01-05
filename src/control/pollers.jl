@@ -132,6 +132,9 @@ end
 
 function handle_driver_response!(poller::DriverResponsePoller, buffer::AbstractVector{UInt8})
     header = DriverMessageHeader.Decoder(buffer, 0)
+    if DriverMessageHeader.version(header) > ShmAttachResponse.sbe_schema_version(ShmAttachResponse.Decoder)
+        return false
+    end
     template_id = DriverMessageHeader.templateId(header)
     poller.last_template_id = template_id
     @tp_info "driver response" template_id

@@ -63,6 +63,12 @@ using Test
             @test attach !== nothing
             @test attach.code == DriverResponseCode.OK
             @test attach.stream_id == UInt32(1001)
+            @test attach.lease_id != ShmAttachResponse.leaseId_null_value(ShmAttachResponse.Decoder)
+            @test attach.epoch != ShmAttachResponse.epoch_null_value(ShmAttachResponse.Decoder)
+            @test attach.layout_version != ShmAttachResponse.layoutVersion_null_value(ShmAttachResponse.Decoder)
+            @test attach.header_nslots != ShmAttachResponse.headerNslots_null_value(ShmAttachResponse.Decoder)
+            @test attach.header_slot_bytes == UInt16(HEADER_SLOT_BYTES)
+            @test attach.max_dims == UInt8(MAX_DIMS)
             @test !isempty(view(attach.header_region_uri))
             @test attach.pool_count > 0
             producer_lease_id = attach.lease_id
