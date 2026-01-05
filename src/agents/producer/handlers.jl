@@ -374,6 +374,7 @@ function handle_consumer_hello!(state::ProducerState, msg::ConsumerHello.Decoder
                 state.config.progress_interval_ns,
                 min(state.progress_interval_ns, hint_ns),
             )
+            set_interval!(state.progress_timer, state.progress_interval_ns)
         end
         if bytes_delta != typemax(UInt32)
             hint_bytes = UInt64(bytes_delta)

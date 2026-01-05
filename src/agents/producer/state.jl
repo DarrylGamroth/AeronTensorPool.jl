@@ -41,7 +41,6 @@ end
 Mutable producer counters and progress tracking.
 """
 mutable struct ProducerMetrics
-    last_progress_ns::UInt64
     last_progress_bytes::UInt64
     announce_count::UInt64
     qos_count::UInt64
@@ -77,6 +76,7 @@ mutable struct ProducerState{ClockT<:Clocks.AbstractClock}
     seq::UInt64
     progress_interval_ns::UInt64
     progress_bytes_delta::UInt64
+    progress_timer::PolledTimer
     driver_client::Union{DriverClientState, Nothing}
     pending_attach_id::Int64
     timer_set::TimerSet{Tuple{PolledTimer, PolledTimer}, Tuple{ProducerAnnounceHandler, ProducerQosHandler}}

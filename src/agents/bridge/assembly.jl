@@ -67,7 +67,29 @@ Returns:
     assembly.payload_length = payload_length
     assembly.received_chunks = 0
     assembly.header_present = false
-    assembly.last_update_ns = now_ns
+    reset!(assembly.assembly_timer, now_ns)
+    fill!(assembly.received, false)
+    return nothing
+end
+
+"""
+Clear assembly state without an active frame.
+
+Arguments:
+- `assembly`: bridge assembly state.
+- `now_ns`: current time in nanoseconds.
+
+Returns:
+- `nothing`.
+"""
+@inline function clear_bridge_assembly!(assembly::BridgeAssembly, now_ns::UInt64)
+    assembly.seq = 0
+    assembly.epoch = 0
+    assembly.chunk_count = 0
+    assembly.payload_length = 0
+    assembly.received_chunks = 0
+    assembly.header_present = false
+    reset!(assembly.assembly_timer, now_ns)
     fill!(assembly.received, false)
     return nothing
 end

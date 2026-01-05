@@ -56,7 +56,7 @@ function init_producer(config::ProducerConfig; client::Aeron.Client)
         ConsumerHello.Decoder(UnsafeArrays.UnsafeArray{UInt8, 1}),
         QosConsumer.Decoder(UnsafeArrays.UnsafeArray{UInt8, 1}),
     )
-    metrics = ProducerMetrics(UInt64(0), UInt64(0), UInt64(0), UInt64(0))
+    metrics = ProducerMetrics(UInt64(0), UInt64(0), UInt64(0))
     state = ProducerState(
         config,
         clock,
@@ -67,6 +67,7 @@ function init_producer(config::ProducerConfig; client::Aeron.Client)
         UInt64(0),
         config.progress_interval_ns,
         config.progress_bytes_delta,
+        PolledTimer(config.progress_interval_ns),
         nothing,
         Int64(0),
         timer_set,
@@ -199,7 +200,7 @@ function init_producer_from_attach(
         ConsumerHello.Decoder(UnsafeArrays.UnsafeArray{UInt8, 1}),
         QosConsumer.Decoder(UnsafeArrays.UnsafeArray{UInt8, 1}),
     )
-    metrics = ProducerMetrics(UInt64(0), UInt64(0), UInt64(0), UInt64(0))
+    metrics = ProducerMetrics(UInt64(0), UInt64(0), UInt64(0))
     state = ProducerState(
         driver_config,
         clock,
@@ -210,6 +211,7 @@ function init_producer_from_attach(
         UInt64(0),
         driver_config.progress_interval_ns,
         driver_config.progress_bytes_delta,
+        PolledTimer(driver_config.progress_interval_ns),
         driver_client,
         Int64(0),
         timer_set,

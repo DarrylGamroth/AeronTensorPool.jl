@@ -42,7 +42,7 @@ function init_bridge_receiver(
         FixedSizeVectorDefault{UInt8}(undef, HEADER_SLOT_BYTES),
         FixedSizeVectorDefault{UInt8}(undef, max_payload),
         received,
-        UInt64(0),
+        PolledTimer(config.assembly_timeout_ns),
         false,
     )
 
@@ -313,7 +313,7 @@ function bridge_receive_chunk!(
     )
     state.assembly.received[chunk_index + 1] = true
     state.assembly.received_chunks += 1
-    state.assembly.last_update_ns = now_ns
+    reset!(state.assembly.assembly_timer, now_ns)
 
     if state.assembly.received_chunks != state.assembly.chunk_count ||
        !state.assembly.header_present

@@ -171,11 +171,17 @@ function bridge_receiver_do_work!(
     fragment_limit::Int32 = DEFAULT_FRAGMENT_LIMIT,
 )
     fetch!(state.clock)
+    now_ns = UInt64(Clocks.time_nanos(state.clock))
+    state.now_ns = now_ns
     work_count = 0
     work_count += Aeron.poll(state.sub_control, state.control_assembler, fragment_limit)
     work_count += Aeron.poll(state.sub_payload, state.payload_assembler, fragment_limit)
     if state.sub_metadata !== nothing
         work_count += Aeron.poll(state.sub_metadata, state.metadata_assembler, fragment_limit)
+    end
+    if state.assembly.chunk_count != 0 && expired(state.assembly.assembly_timer, now_ns)
+        clear_bridge_assembly!(state.assembly, now_ns)
+        work_count += 1
     end
     return work_count
 end

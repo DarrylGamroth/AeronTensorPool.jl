@@ -6,7 +6,7 @@ Return true if a progress update should be emitted.
         return true
     end
     now_ns = UInt64(Clocks.time_nanos(state.clock))
-    if now_ns - state.metrics.last_progress_ns < state.progress_interval_ns &&
+    if !expired(state.progress_timer, now_ns) &&
        bytes_filled - state.metrics.last_progress_bytes < state.progress_bytes_delta
         return false
     end
@@ -46,7 +46,8 @@ function emit_progress_complete!(
         end
     end
     sent || return false
-    state.metrics.last_progress_ns = UInt64(Clocks.time_nanos(state.clock))
+    now_ns = UInt64(Clocks.time_nanos(state.clock))
+    reset!(state.progress_timer, now_ns)
     state.metrics.last_progress_bytes = bytes_filled
     publish_progress_to_consumers!(state, frame_id, header_index, bytes_filled)
     return true

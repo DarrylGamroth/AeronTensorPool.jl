@@ -56,7 +56,7 @@ mutable struct BridgeAssembly
     header_bytes::FixedSizeVectorDefault{UInt8}
     payload::FixedSizeVectorDefault{UInt8}
     received::FixedSizeVectorDefault{Bool}
-    last_update_ns::UInt64
+    assembly_timer::PolledTimer
     header_present::Bool
 end
 
