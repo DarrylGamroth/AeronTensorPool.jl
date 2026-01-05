@@ -60,6 +60,7 @@
   - QoS/FrameProgress forwarding with headerIndex mapping.
   - Assembly timeout drop/reset path.
   - Bidirectional mappings with feedback loop protection.
+  - Discovery integration: ensure bridged streams can be discovered via the Discovery service and that forwarded announces/metadata are visible to discovery.
 - Add a multi-mapping example config and runner script.
 - Extend bridge benchmarks (optional) for chunking and rematerialization throughput.
 
