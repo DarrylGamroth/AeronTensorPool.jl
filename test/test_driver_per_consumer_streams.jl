@@ -29,8 +29,8 @@ using Test
             policies,
             Dict("raw" => profile),
             streams;
-            descriptor_stream_id_range = DriverStreamIdRange(UInt32(2000), UInt32(2002)),
-            control_stream_id_range = DriverStreamIdRange(UInt32(2100), UInt32(2102)),
+            descriptor_stream_id_range = AeronTensorPool.DriverStreamIdRange(UInt32(2000), UInt32(2002)),
+            control_stream_id_range = AeronTensorPool.DriverStreamIdRange(UInt32(2100), UInt32(2102)),
         )
 
         driver_state = init_driver(cfg; client = client)
