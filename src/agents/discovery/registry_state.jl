@@ -19,9 +19,9 @@ end
 """
 Discovery registry state.
 """
-mutable struct DiscoveryRegistryState <: AbstractDiscoveryState
+mutable struct DiscoveryRegistryState{ClockT<:Clocks.AbstractClock} <: AbstractDiscoveryState
     config::DiscoveryRegistryConfig
-    clock::Clocks.AbstractClock
+    clock::ClockT
     runtime::DiscoveryRegistryRuntime
     entries::Dict{Tuple{String, UInt32}, DiscoveryEntry}
     request_tags::Vector{StringView}

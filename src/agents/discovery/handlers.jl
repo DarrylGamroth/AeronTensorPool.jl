@@ -54,6 +54,10 @@ function entry_for_stream!(
     key = (driver_instance_id, stream_id)
     entry = get(state.entries, key, nothing)
     if entry === nothing
+        tags = Vector{FixedString}()
+        sizehint!(tags, Int(state.config.max_tags_per_entry))
+        pools = Vector{DiscoveryPoolEntry}()
+        sizehint!(pools, Int(state.config.max_pools_per_entry))
         entry = DiscoveryEntry(
             FixedString(DISCOVERY_INSTANCE_ID_MAX_BYTES),
             FixedString(DISCOVERY_CONTROL_CHANNEL_MAX_BYTES),
@@ -68,8 +72,8 @@ function entry_for_stream!(
             UInt8(0),
             discovery_data_source_id_null(),
             FixedString(DISCOVERY_MAX_DATASOURCE_NAME_BYTES),
-            Vector{FixedString}(),
-            Vector{DiscoveryPoolEntry}(),
+            tags,
+            pools,
             PolledTimer(state.config.expiry_ns),
             UInt64(0),
         )

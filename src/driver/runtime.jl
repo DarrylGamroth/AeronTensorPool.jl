@@ -56,7 +56,6 @@ function init_driver(config::DriverConfig; client::Aeron.Client)
     state = DriverState(
         config,
         clock,
-        UInt64(0),
         runtime,
         streams,
         leases,
@@ -97,10 +96,10 @@ Returns:
 """
 function driver_do_work!(state::DriverState)
     fetch!(state.clock)
-    state.now_ns = UInt64(Clocks.time_nanos(state.clock))
+    now_ns = UInt64(Clocks.time_nanos(state.clock))
     state.work_count = 0
     state.work_count += poll_driver_control!(state)
-    state.work_count += poll_timers!(state, state.now_ns)
+    state.work_count += poll_timers!(state, now_ns)
     return state.work_count
 end
 

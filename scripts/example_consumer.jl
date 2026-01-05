@@ -83,6 +83,8 @@ function Agent.on_start(agent::AppConsumerAgent)
             AeronTensorPool.DISCOVERY_MAX_RESULTS_DEFAULT,
             UInt64(5_000_000_000),
             AeronTensorPool.DISCOVERY_RESPONSE_BUF_BYTES,
+            AeronTensorPool.DISCOVERY_MAX_TAGS_PER_ENTRY_DEFAULT,
+            AeronTensorPool.DISCOVERY_MAX_POOLS_PER_ENTRY_DEFAULT,
         )
         agent.discovery_agent = DiscoveryAgent(discovery_cfg; client = agent.client)
         @info "Discovery agent ready" channel = discovery_cfg.channel stream_id = discovery_cfg.stream_id

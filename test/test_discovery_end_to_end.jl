@@ -84,6 +84,8 @@ end
                 AeronTensorPool.DISCOVERY_MAX_RESULTS_DEFAULT,
                 UInt64(5_000_000_000),
                 AeronTensorPool.DISCOVERY_RESPONSE_BUF_BYTES,
+                AeronTensorPool.DISCOVERY_MAX_TAGS_PER_ENTRY_DEFAULT,
+                AeronTensorPool.DISCOVERY_MAX_POOLS_PER_ENTRY_DEFAULT,
             )
             validate_discovery_endpoints(
                 endpoints.control_channel,

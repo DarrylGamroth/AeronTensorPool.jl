@@ -109,6 +109,8 @@ end
                 UInt32(100),
                 UInt64(1_000_000_000),
                 UInt32(65536),
+                AeronTensorPool.DISCOVERY_MAX_TAGS_PER_ENTRY_DEFAULT,
+                AeronTensorPool.DISCOVERY_MAX_POOLS_PER_ENTRY_DEFAULT,
             )
             state = init_discovery_provider(config; client = client)
             request_asm = AeronTensorPool.make_request_assembler(state)
@@ -194,6 +196,8 @@ end
                 UInt32(10),
                 UInt64(1_000_000_000),
                 UInt32(65536),
+                AeronTensorPool.DISCOVERY_MAX_TAGS_PER_ENTRY_DEFAULT,
+                AeronTensorPool.DISCOVERY_MAX_POOLS_PER_ENTRY_DEFAULT,
             )
             state = init_discovery_provider(config; client = client)
             request_asm = AeronTensorPool.make_request_assembler(state)

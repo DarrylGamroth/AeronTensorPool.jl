@@ -172,7 +172,6 @@ function bridge_receiver_do_work!(
 )
     fetch!(state.clock)
     now_ns = UInt64(Clocks.time_nanos(state.clock))
-    state.now_ns = now_ns
     work_count = 0
     work_count += Aeron.poll(state.sub_control, state.control_assembler, fragment_limit)
     work_count += Aeron.poll(state.sub_payload, state.payload_assembler, fragment_limit)

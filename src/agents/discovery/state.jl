@@ -21,9 +21,9 @@ abstract type AbstractDiscoveryState end
 """
 Discovery provider state.
 """
-mutable struct DiscoveryProviderState <: AbstractDiscoveryState
+mutable struct DiscoveryProviderState{ClockT<:Clocks.AbstractClock} <: AbstractDiscoveryState
     config::DiscoveryConfig
-    clock::Clocks.AbstractClock
+    clock::ClockT
     runtime::DiscoveryRuntime
     entries::Dict{Tuple{String, UInt32}, DiscoveryEntry}
     request_tags::Vector{StringView}

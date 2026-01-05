@@ -119,6 +119,10 @@ Returns:
 end
 
 @inline function DiscoveryEntry()
+    tags = Vector{FixedString}()
+    sizehint!(tags, Int(DISCOVERY_MAX_TAGS_PER_ENTRY_DEFAULT))
+    pools = Vector{DiscoveryPoolEntry}()
+    sizehint!(pools, Int(DISCOVERY_MAX_POOLS_PER_ENTRY_DEFAULT))
     return DiscoveryEntry(
         FixedString(DISCOVERY_INSTANCE_ID_MAX_BYTES),
         FixedString(DISCOVERY_CONTROL_CHANNEL_MAX_BYTES),
@@ -133,8 +137,8 @@ end
         UInt8(0),
         DiscoveryResponse.Results.dataSourceId_null_value(DiscoveryResponse.Results.Decoder),
         FixedString(DISCOVERY_MAX_DATASOURCE_NAME_BYTES),
-        Vector{FixedString}(),
-        Vector{DiscoveryPoolEntry}(),
+        tags,
+        pools,
         PolledTimer(UInt64(0)),
         UInt64(0),
     )

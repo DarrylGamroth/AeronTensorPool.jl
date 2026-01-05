@@ -23,7 +23,7 @@ end
     timeout_ns = UInt64(state.config.policies.shutdown_timeout_ms) * 1_000_000
     timer = driver_shutdown_timer(state)
     set_interval!(timer, timeout_ns)
-    reset!(timer, state.now_ns)
+    reset!(timer, UInt64(Clocks.time_nanos(state.clock)))
     announce_all_streams!(state)
     return Hsm.transition!(sm, :Draining)
 end

@@ -67,7 +67,6 @@ function init_bridge_receiver(
         mapping,
         client,
         clock,
-        UInt64(0),
         producer_state,
         source_info,
         assembly,

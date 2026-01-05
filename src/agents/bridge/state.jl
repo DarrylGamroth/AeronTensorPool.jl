@@ -117,7 +117,6 @@ mutable struct BridgeReceiverState{ClockT <: Clocks.AbstractClock}
     mapping::BridgeMapping
     client::Aeron.Client
     clock::ClockT
-    now_ns::UInt64
     producer_state::Union{Nothing, ProducerState}
     source_info::BridgeSourceInfo
     assembly::BridgeAssembly

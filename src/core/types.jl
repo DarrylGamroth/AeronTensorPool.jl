@@ -108,6 +108,8 @@ struct DiscoveryConfig
     max_results::UInt32
     expiry_ns::UInt64
     response_buf_bytes::UInt32
+    max_tags_per_entry::UInt16
+    max_pools_per_entry::UInt16
 end
 
 """
@@ -133,6 +135,8 @@ struct DiscoveryRegistryConfig
     max_results::UInt32
     expiry_ns::UInt64
     response_buf_bytes::UInt32
+    max_tags_per_entry::UInt16
+    max_pools_per_entry::UInt16
 end
 
 """

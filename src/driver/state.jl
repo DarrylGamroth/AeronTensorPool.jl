@@ -56,7 +56,6 @@ Driver mutable state.
 mutable struct DriverState{ClockT<:Clocks.AbstractClock}
     config::DriverConfig
     clock::ClockT
-    now_ns::UInt64
     runtime::DriverRuntime
     streams::Dict{UInt32, DriverStreamState}
     leases::Dict{UInt64, DriverLease}

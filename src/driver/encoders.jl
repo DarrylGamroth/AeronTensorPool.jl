@@ -204,7 +204,7 @@ function emit_driver_announce!(state::DriverState, stream_state::DriverStreamSta
     return let st = state,
         stream_state = stream_state,
         payload_count = payload_count,
-        now_ns = (st.now_ns == 0 ? UInt64(Clocks.time_nanos(st.clock)) : st.now_ns)
+        now_ns = UInt64(Clocks.time_nanos(st.clock))
         with_claimed_buffer!(st.runtime.pub_announce, st.runtime.control_claim, msg_len) do buf
             ShmPoolAnnounce.wrap_and_apply_header!(st.runtime.announce_encoder, buf, 0)
             ShmPoolAnnounce.streamId!(st.runtime.announce_encoder, stream_state.stream_id)
@@ -249,7 +249,7 @@ function emit_driver_shutdown!(
         Int(ShmDriverShutdown.sbe_block_length(ShmDriverShutdown.Decoder)) +
         ShmDriverShutdown.errorMessage_header_length +
         sizeof(error_message)
-    now_ns = state.now_ns
+    now_ns = UInt64(Clocks.time_nanos(state.clock))
     return let st = state,
         now_ns = now_ns,
         reason = reason,
