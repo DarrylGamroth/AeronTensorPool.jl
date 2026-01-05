@@ -11,6 +11,9 @@ mutable struct AppConsumerAgent
     max_count::Int
     client::Aeron.Client
     driver_client::Union{DriverClientState, Nothing}
+    discovery_agent::Union{DiscoveryAgent, Nothing}
+    discovery_client::Union{DiscoveryClientState, Nothing}
+    discovery_entries::Vector{DiscoveryEntry}
     consumer_agent::Union{ConsumerAgent, Nothing}
     last_frame::UInt64
     seen::Int
@@ -49,19 +52,100 @@ function (hook::AppConsumerOnFrame)(state::ConsumerState, frame::ConsumerFrameVi
 end
 
 function Agent.on_start(agent::AppConsumerAgent)
+    @info "Consumer on_start begin"
     control = agent.driver_cfg.endpoints
     retry_timeout_ns = UInt64(5_000_000_000)
 
+    discovery_channel = get(ENV, "TP_DISCOVERY_CHANNEL", "aeron:ipc")
+    discovery_stream_id = parse(Int32, get(ENV, "TP_DISCOVERY_STREAM_ID", "16000"))
+    response_channel = discovery_channel
+    response_stream_id = UInt32(discovery_stream_id + 1)
+
+    try
+        discovery_cfg = DiscoveryConfig(
+            discovery_channel,
+            discovery_stream_id,
+            control.announce_channel,
+            control.announce_stream_id,
+            "",
+            0,
+            control.instance_id,
+            control.control_channel,
+            UInt32(control.control_stream_id),
+            AeronTensorPool.DISCOVERY_MAX_RESULTS_DEFAULT,
+            UInt64(5_000_000_000),
+            AeronTensorPool.DISCOVERY_RESPONSE_BUF_BYTES,
+        )
+        agent.discovery_agent = DiscoveryAgent(discovery_cfg; client = agent.client)
+        @info "Discovery agent ready" channel = discovery_cfg.channel stream_id = discovery_cfg.stream_id
+
+        agent.discovery_client = init_discovery_client(
+            agent.client,
+            discovery_cfg.channel,
+            discovery_cfg.stream_id,
+            response_channel,
+            response_stream_id,
+            agent.consumer_cfg.consumer_id,
+        )
+        agent.discovery_entries = Vector{DiscoveryEntry}()
+
+        data_source_name = get(ENV, "TP_DISCOVERY_DATA_SOURCE", "")
+        request_id = UInt64(0)
+        last_request_ns = UInt64(0)
+        discovery_deadline = UInt64(time_ns()) + UInt64(5_000_000_000)
+        discovered = false
+        while UInt64(time_ns()) < discovery_deadline
+            Agent.do_work(agent.discovery_agent)
+            now_ns = UInt64(time_ns())
+            if request_id == 0 || now_ns - last_request_ns > UInt64(1_000_000_000)
+                request_id = discover_streams!(
+                    agent.discovery_client,
+                    agent.discovery_entries;
+                    data_source_name = data_source_name,
+                )
+                last_request_ns = now_ns
+            end
+            if request_id != 0
+                slot = poll_discovery_response!(agent.discovery_client, request_id)
+                if slot !== nothing
+                    if slot.status == DiscoveryStatus.OK && slot.count > 0
+                        entry = slot.out_entries[1]
+                        agent.stream_id = entry.stream_id
+                        @info "Discovery selected stream" stream_id = entry.stream_id data_source =
+                            String(entry.data_source_name) header_uri = String(entry.header_region_uri)
+                        if !isempty(entry.driver_control_channel) && entry.driver_control_stream_id != 0
+                            response_channel = String(entry.driver_control_channel)
+                            response_stream_id = entry.driver_control_stream_id
+                            @info "Discovery control endpoint" channel = response_channel stream_id =
+                                Int32(response_stream_id)
+                        end
+                        discovered = true
+                        break
+                    else
+                        request_id = UInt64(0)
+                    end
+                end
+            end
+            yield()
+        end
+        discovered || @warn "Discovery did not return entries, using configured stream"
+    catch e
+        @error "Discovery init failed, using configured stream" exception = (e, catch_backtrace())
+        agent.discovery_agent = nothing
+        agent.discovery_client = nothing
+        empty!(agent.discovery_entries)
+    end
+
     agent.driver_client = init_driver_client(
         agent.client,
-        control.control_channel,
-        control.control_stream_id,
+        response_channel,
+        Int32(response_stream_id),
         UInt32(21),
         DriverRole.CONSUMER;
         attach_purge_interval_ns = retry_timeout_ns * 3,
     )
-    @info "Consumer control client ready" control_channel = control.control_channel control_stream_id =
-        control.control_stream_id
+    @info "Consumer control client ready" control_channel = response_channel control_stream_id =
+        Int32(response_stream_id)
     wait_for_control_connection(agent.driver_client, UInt64(5_000_000_000))
 
     attach_id = Int64(0)
@@ -111,7 +195,11 @@ end
 
 function Agent.do_work(agent::AppConsumerAgent)
     agent.consumer_agent === nothing && return 0
-    work_count = Agent.do_work(agent.consumer_agent)
+    work_count = 0
+    if agent.discovery_agent !== nothing
+        work_count += Agent.do_work(agent.discovery_agent)
+    end
+    work_count += Agent.do_work(agent.consumer_agent)
     metrics = agent.consumer_agent.state.metrics
     if metrics.frames_ok != agent.last_frames_ok
         header = agent.consumer_agent.state.runtime.frame_view.header
@@ -136,11 +224,19 @@ function Agent.do_work(agent::AppConsumerAgent)
 end
 
 function Agent.on_close(agent::AppConsumerAgent)
+    agent.discovery_agent === nothing || Agent.on_close(agent.discovery_agent)
     agent.consumer_agent === nothing || Agent.on_close(agent.consumer_agent)
     if agent.driver_client !== nothing
         try
             close(agent.driver_client.pub)
             close(agent.driver_client.sub)
+        catch
+        end
+    end
+    if agent.discovery_client !== nothing
+        try
+            close(agent.discovery_client.pub)
+            close(agent.discovery_client.sub)
         catch
         end
     end
@@ -186,6 +282,9 @@ function run_consumer(driver_cfg_path::String, consumer_cfg_path::String, count:
                 client,
                 nothing,
                 nothing,
+                nothing,
+                Vector{DiscoveryEntry}(),
+                nothing,
                 UInt64(0),
                 0,
                 UInt64(0),
@@ -228,6 +327,7 @@ function run_consumer(driver_cfg_path::String, consumer_cfg_path::String, count:
     end
     return nothing
 end
+
 
 function wait_for_control_connection(state::DriverClientState, timeout_ns::UInt64)
     deadline = UInt64(time_ns()) + timeout_ns
