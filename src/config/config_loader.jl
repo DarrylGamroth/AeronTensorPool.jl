@@ -392,5 +392,6 @@ function load_bridge_config(path::AbstractString; env::AbstractDict = ENV)
     )
 
     mappings = parse_bridge_mappings(cfg, env)
+    validate_bridge_config(bridge_config, mappings)
     return BridgeSystemConfig(bridge_config, mappings)
 end

@@ -41,6 +41,7 @@ function bridge_forward_announce!(state::BridgeSenderState, msg::ShmPoolAnnounce
         end
     end
     sent || return false
+    state.metrics.control_forwarded += 1
     return true
 end
 
@@ -173,14 +174,19 @@ Returns:
 - `true` if the message was committed, `false` otherwise.
 """
 function bridge_forward_qos_producer!(state::BridgeSenderState, msg::QosProducer.Decoder)
+    state.config.forward_qos || return false
+    QosProducer.streamId(msg) == state.mapping.source_stream_id || return false
     msg_len = MESSAGE_HEADER_LEN + Int(QosProducer.sbe_decoded_length(msg))
-    return with_claimed_buffer!(state.pub_control, state.control_claim, msg_len) do buf
+    sent = with_claimed_buffer!(state.pub_control, state.control_claim, msg_len) do buf
         QosProducer.wrap_and_apply_header!(state.qos_producer_encoder, buf, 0)
         QosProducer.streamId!(state.qos_producer_encoder, state.mapping.dest_stream_id)
         QosProducer.producerId!(state.qos_producer_encoder, QosProducer.producerId(msg))
         QosProducer.epoch!(state.qos_producer_encoder, QosProducer.epoch(msg))
         QosProducer.currentSeq!(state.qos_producer_encoder, QosProducer.currentSeq(msg))
     end
+    sent || return false
+    state.metrics.control_forwarded += 1
+    return true
 end
 
 """
@@ -194,8 +200,10 @@ Returns:
 - `true` if the message was committed, `false` otherwise.
 """
 function bridge_forward_qos_consumer!(state::BridgeSenderState, msg::QosConsumer.Decoder)
+    state.config.forward_qos || return false
+    QosConsumer.streamId(msg) == state.mapping.source_stream_id || return false
     msg_len = MESSAGE_HEADER_LEN + Int(QosConsumer.sbe_decoded_length(msg))
-    return with_claimed_buffer!(state.pub_control, state.control_claim, msg_len) do buf
+    sent = with_claimed_buffer!(state.pub_control, state.control_claim, msg_len) do buf
         QosConsumer.wrap_and_apply_header!(state.qos_consumer_encoder, buf, 0)
         QosConsumer.streamId!(state.qos_consumer_encoder, state.mapping.dest_stream_id)
         QosConsumer.consumerId!(state.qos_consumer_encoder, QosConsumer.consumerId(msg))
@@ -205,6 +213,9 @@ function bridge_forward_qos_consumer!(state::BridgeSenderState, msg::QosConsumer
         QosConsumer.dropsLate!(state.qos_consumer_encoder, QosConsumer.dropsLate(msg))
         QosConsumer.mode!(state.qos_consumer_encoder, QosConsumer.mode(msg))
     end
+    sent || return false
+    state.metrics.control_forwarded += 1
+    return true
 end
 
 """
@@ -218,8 +229,10 @@ Returns:
 - `true` if the message was committed, `false` otherwise.
 """
 function bridge_forward_progress!(state::BridgeSenderState, msg::FrameProgress.Decoder)
+    state.config.forward_progress || return false
+    FrameProgress.streamId(msg) == state.mapping.source_stream_id || return false
     msg_len = MESSAGE_HEADER_LEN + Int(FrameProgress.sbe_decoded_length(msg))
-    return with_claimed_buffer!(state.pub_control, state.control_claim, msg_len) do buf
+    sent = with_claimed_buffer!(state.pub_control, state.control_claim, msg_len) do buf
         FrameProgress.wrap_and_apply_header!(state.progress_encoder, buf, 0)
         FrameProgress.streamId!(state.progress_encoder, state.mapping.dest_stream_id)
         FrameProgress.epoch!(state.progress_encoder, FrameProgress.epoch(msg))
@@ -229,6 +242,9 @@ function bridge_forward_progress!(state::BridgeSenderState, msg::FrameProgress.D
         FrameProgress.state!(state.progress_encoder, FrameProgress.state(msg))
         FrameProgress.rowsFilled!(state.progress_encoder, FrameProgress.rowsFilled(msg))
     end
+    sent || return false
+    state.metrics.control_forwarded += 1
+    return true
 end
 
 """
@@ -242,17 +258,22 @@ Returns:
 - `true` if the message was committed, `false` otherwise.
 """
 function bridge_publish_qos_producer!(state::BridgeReceiverState, msg::QosProducer.Decoder)
+    state.config.forward_qos || return false
+    QosProducer.streamId(msg) == state.mapping.dest_stream_id || return false
     msg_len = MESSAGE_HEADER_LEN + Int(QosProducer.sbe_decoded_length(msg))
     pub = state.pub_control_local
     pub === nothing && return false
 
-    return with_claimed_buffer!(pub, state.control_claim, msg_len) do buf
+    sent = with_claimed_buffer!(pub, state.control_claim, msg_len) do buf
         QosProducer.wrap_and_apply_header!(state.qos_producer_encoder, buf, 0)
         QosProducer.streamId!(state.qos_producer_encoder, state.mapping.dest_stream_id)
         QosProducer.producerId!(state.qos_producer_encoder, QosProducer.producerId(msg))
         QosProducer.epoch!(state.qos_producer_encoder, QosProducer.epoch(msg))
         QosProducer.currentSeq!(state.qos_producer_encoder, QosProducer.currentSeq(msg))
     end
+    sent || return false
+    state.metrics.control_forwarded += 1
+    return true
 end
 
 """
@@ -266,11 +287,13 @@ Returns:
 - `true` if the message was committed, `false` otherwise.
 """
 function bridge_publish_qos_consumer!(state::BridgeReceiverState, msg::QosConsumer.Decoder)
+    state.config.forward_qos || return false
+    QosConsumer.streamId(msg) == state.mapping.dest_stream_id || return false
     msg_len = MESSAGE_HEADER_LEN + Int(QosConsumer.sbe_decoded_length(msg))
     pub = state.pub_control_local
     pub === nothing && return false
 
-    return with_claimed_buffer!(pub, state.control_claim, msg_len) do buf
+    sent = with_claimed_buffer!(pub, state.control_claim, msg_len) do buf
         QosConsumer.wrap_and_apply_header!(state.qos_consumer_encoder, buf, 0)
         QosConsumer.streamId!(state.qos_consumer_encoder, state.mapping.dest_stream_id)
         QosConsumer.consumerId!(state.qos_consumer_encoder, QosConsumer.consumerId(msg))
@@ -280,6 +303,9 @@ function bridge_publish_qos_consumer!(state::BridgeReceiverState, msg::QosConsum
         QosConsumer.dropsLate!(state.qos_consumer_encoder, QosConsumer.dropsLate(msg))
         QosConsumer.mode!(state.qos_consumer_encoder, QosConsumer.mode(msg))
     end
+    sent || return false
+    state.metrics.control_forwarded += 1
+    return true
 end
 
 """
@@ -293,18 +319,27 @@ Returns:
 - `true` if the message was committed, `false` otherwise.
 """
 function bridge_publish_progress!(state::BridgeReceiverState, msg::FrameProgress.Decoder)
+    state.config.forward_progress || return false
+    FrameProgress.streamId(msg) == state.mapping.dest_stream_id || return false
+    producer_state = state.producer_state
+    producer_state === nothing && return false
+    local_header_index = UInt32(FrameProgress.frameId(msg) & (UInt64(producer_state.config.nslots) - 1))
+    FrameProgress.headerIndex(msg) == local_header_index || return false
     msg_len = MESSAGE_HEADER_LEN + Int(FrameProgress.sbe_decoded_length(msg))
     pub = state.pub_control_local
     pub === nothing && return false
 
-    return with_claimed_buffer!(pub, state.control_claim, msg_len) do buf
+    sent = with_claimed_buffer!(pub, state.control_claim, msg_len) do buf
         FrameProgress.wrap_and_apply_header!(state.progress_encoder, buf, 0)
         FrameProgress.streamId!(state.progress_encoder, state.mapping.dest_stream_id)
         FrameProgress.epoch!(state.progress_encoder, FrameProgress.epoch(msg))
         FrameProgress.frameId!(state.progress_encoder, FrameProgress.frameId(msg))
-        FrameProgress.headerIndex!(state.progress_encoder, FrameProgress.headerIndex(msg))
+        FrameProgress.headerIndex!(state.progress_encoder, local_header_index)
         FrameProgress.payloadBytesFilled!(state.progress_encoder, FrameProgress.payloadBytesFilled(msg))
         FrameProgress.state!(state.progress_encoder, FrameProgress.state(msg))
         FrameProgress.rowsFilled!(state.progress_encoder, FrameProgress.rowsFilled(msg))
     end
+    sent || return false
+    state.metrics.control_forwarded += 1
+    return true
 end

@@ -31,6 +31,13 @@ struct DiscoveryConfigError <: TensorPoolError
     message::String
 end
 
+"""
+Raised when bridge configuration is invalid.
+"""
+struct BridgeConfigError <: TensorPoolError
+    message::String
+end
+
 function Base.showerror(io::IO, err::TensorPoolError)
     print(io, err.message)
 end

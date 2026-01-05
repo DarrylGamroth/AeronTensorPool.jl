@@ -1,16 +1,4 @@
 """
-Per-stream mapping for the bridge.
-"""
-struct BridgeMapping
-    source_stream_id::UInt32
-    dest_stream_id::UInt32
-    profile::String
-    metadata_stream_id::UInt32
-    source_control_stream_id::Int32
-    dest_control_stream_id::Int32
-end
-
-"""
 Forwarded source pool announce metadata for validation.
 """
 mutable struct BridgeSourceInfo
@@ -19,29 +7,6 @@ mutable struct BridgeSourceInfo
     layout_version::UInt32
     max_dims::UInt8
     pool_stride_bytes::Dict{UInt16, UInt32}
-end
-
-"""
-Configuration for the optional bridge role.
-"""
-mutable struct BridgeConfig
-    instance_id::String
-    aeron_dir::String
-    payload_channel::String
-    payload_stream_id::Int32
-    control_channel::String
-    control_stream_id::Int32
-    metadata_channel::String
-    metadata_stream_id::Int32
-    source_metadata_stream_id::Int32
-    mtu_bytes::UInt32
-    chunk_bytes::UInt32
-    max_chunk_bytes::UInt32
-    max_payload_bytes::UInt32
-    assembly_timeout_ns::UInt64
-    forward_metadata::Bool
-    forward_qos::Bool
-    forward_progress::Bool
 end
 
 """
@@ -58,6 +23,26 @@ mutable struct BridgeAssembly
     received::FixedSizeVectorDefault{Bool}
     assembly_timer::PolledTimer
     header_present::Bool
+end
+
+"""
+Bridge sender metrics.
+"""
+mutable struct BridgeSenderMetrics
+    frames_forwarded::UInt64
+    chunks_sent::UInt64
+    chunks_dropped::UInt64
+    control_forwarded::UInt64
+end
+
+"""
+Bridge receiver metrics.
+"""
+mutable struct BridgeReceiverMetrics
+    frames_rematerialized::UInt64
+    assemblies_reset::UInt64
+    chunks_dropped::UInt64
+    control_forwarded::UInt64
 end
 
 """
@@ -78,6 +63,7 @@ mutable struct BridgeSenderState
     consumer_state::ConsumerState
     config::BridgeConfig
     mapping::BridgeMapping
+    metrics::BridgeSenderMetrics
     client::Aeron.Client
     pub_payload::Aeron.Publication
     pub_control::Aeron.Publication
@@ -117,6 +103,7 @@ mutable struct BridgeReceiverState{ClockT <: Clocks.AbstractClock}
     mapping::BridgeMapping
     client::Aeron.Client
     clock::ClockT
+    metrics::BridgeReceiverMetrics
     producer_state::Union{Nothing, ProducerState}
     source_info::BridgeSourceInfo
     assembly::BridgeAssembly

@@ -40,13 +40,13 @@ function make_bridge_control_assembler(state::BridgeReceiverState)
             bridge_apply_source_announce!(st, st.announce_decoder)
         elseif template_id == TEMPLATE_QOS_PRODUCER
             QosProducer.wrap!(st.qos_producer_decoder, buffer, 0; header = header)
-            bridge_publish_qos_producer!(st, st.qos_producer_decoder)
+            st.config.forward_qos && bridge_publish_qos_producer!(st, st.qos_producer_decoder)
         elseif template_id == TEMPLATE_QOS_CONSUMER
             QosConsumer.wrap!(st.qos_consumer_decoder, buffer, 0; header = header)
-            bridge_publish_qos_consumer!(st, st.qos_consumer_decoder)
+            st.config.forward_qos && bridge_publish_qos_consumer!(st, st.qos_consumer_decoder)
         elseif template_id == TEMPLATE_FRAME_PROGRESS
             FrameProgress.wrap!(st.progress_decoder, buffer, 0; header = header)
-            bridge_publish_progress!(st, st.progress_decoder)
+            st.config.forward_progress && bridge_publish_progress!(st, st.progress_decoder)
         end
         nothing
     end
@@ -71,13 +71,13 @@ function make_bridge_control_sender_assembler(state::BridgeSenderState)
             bridge_forward_announce!(st, st.announce_decoder)
         elseif template_id == TEMPLATE_QOS_PRODUCER
             QosProducer.wrap!(st.qos_producer_decoder, buffer, 0; header = header)
-            bridge_forward_qos_producer!(st, st.qos_producer_decoder)
+            st.config.forward_qos && bridge_forward_qos_producer!(st, st.qos_producer_decoder)
         elseif template_id == TEMPLATE_QOS_CONSUMER
             QosConsumer.wrap!(st.qos_consumer_decoder, buffer, 0; header = header)
-            bridge_forward_qos_consumer!(st, st.qos_consumer_decoder)
+            st.config.forward_qos && bridge_forward_qos_consumer!(st, st.qos_consumer_decoder)
         elseif template_id == TEMPLATE_FRAME_PROGRESS
             FrameProgress.wrap!(st.progress_decoder, buffer, 0; header = header)
-            bridge_forward_progress!(st, st.progress_decoder)
+            st.config.forward_progress && bridge_forward_progress!(st, st.progress_decoder)
         end
         nothing
     end
@@ -179,6 +179,7 @@ function bridge_receiver_do_work!(
         work_count += Aeron.poll(state.sub_metadata, state.metadata_assembler, fragment_limit)
     end
     if state.assembly.chunk_count != 0 && expired(state.assembly.assembly_timer, now_ns)
+        state.metrics.assemblies_reset += 1
         clear_bridge_assembly!(state.assembly, now_ns)
         work_count += 1
     end

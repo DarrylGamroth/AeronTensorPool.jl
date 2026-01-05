@@ -68,10 +68,9 @@ elseif role == "bridge"
     if isempty(bridge_cfg.mappings)
         error("Bridge config requires at least one mapping")
     end
-    mapping = bridge_cfg.mappings[1]
     consumer_cfg = load_consumer_config(config_path)
     producer_cfg = load_producer_config(config_path)
-    agent = BridgeAgent(bridge_cfg.bridge, mapping, consumer_cfg, producer_cfg)
+    agent = BridgeSystemAgent(bridge_cfg.bridge, bridge_cfg.mappings, consumer_cfg, producer_cfg)
     try
         while true
             work = Agent.do_work(agent)

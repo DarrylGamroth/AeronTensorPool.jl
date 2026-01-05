@@ -43,11 +43,20 @@
                 @test driver.announces isa Aeron.Counter
                 @test driver.lease_hsm_unhandled isa Aeron.Counter
 
+                bridge = BridgeCounters(client, 6, "Bridge")
+                @test bridge.frames_forwarded isa Aeron.Counter
+                @test bridge.chunks_sent isa Aeron.Counter
+                @test bridge.chunks_dropped isa Aeron.Counter
+                @test bridge.assemblies_reset isa Aeron.Counter
+                @test bridge.control_forwarded isa Aeron.Counter
+                @test bridge.frames_rematerialized isa Aeron.Counter
+
                 close(base)
                 close(prod)
                 close(cons)
                 close(sup)
                 close(driver)
+                close(bridge)
             end
         end
     end

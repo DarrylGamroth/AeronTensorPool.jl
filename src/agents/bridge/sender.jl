@@ -36,6 +36,7 @@ function init_bridge_sender(
         consumer_state,
         config,
         mapping,
+        BridgeSenderMetrics(UInt64(0), UInt64(0), UInt64(0), UInt64(0)),
         client,
         pub_payload,
         pub_control,
@@ -84,6 +85,7 @@ Returns:
 - `true` if any chunks were published, `false` otherwise.
 """
 function bridge_send_frame!(state::BridgeSenderState, desc::FrameDescriptor.Decoder)
+    FrameDescriptor.streamId(desc) == state.mapping.source_stream_id || return false
     FrameDescriptor.epoch(desc) == state.consumer_state.mappings.mapped_epoch || return false
     header_index = FrameDescriptor.headerIndex(desc)
     header_index >= state.consumer_state.mappings.mapped_nslots && return false
@@ -175,8 +177,15 @@ function bridge_send_frame!(state::BridgeSenderState, desc::FrameDescriptor.Deco
                 )
             end
         end
-        sent || return false
+        if sent
+            state.metrics.chunks_sent += 1
+        else
+            state.metrics.chunks_dropped += 1
+            @tp_warn "bridge payload claim failed" stream_id = state.mapping.dest_stream_id
+            return false
+        end
     end
 
+    state.metrics.frames_forwarded += 1
     return true
 end

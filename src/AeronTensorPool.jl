@@ -54,6 +54,7 @@ include("agents/consumer_agent.jl")
 include("agents/supervisor_agent.jl")
 include("agents/driver_agent.jl")
 include("agents/bridge_agent.jl")
+include("agents/bridge_system_agent.jl")
 include("agents/discovery_agent.jl")
 include("agents/discovery_registry_agent.jl")
 include("config/config_loader.jl")
@@ -62,6 +63,8 @@ export AeronInitError,
     AttachRequestProxy,
     AttachResponse,
     BridgeAgent,
+    BridgeSystemAgent,
+    BridgeConfigError,
     BridgeAssembledFrame,
     BridgeConfig,
     BridgeCounters,
@@ -274,6 +277,7 @@ export AeronInitError,
     try_read_frame!,
     validate_stride,
     validate_discovery_endpoints,
+    validate_bridge_config,
     validate_superblock_fields,
     validate_uri,
     wrap_superblock!,

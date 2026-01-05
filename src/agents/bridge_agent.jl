@@ -9,6 +9,67 @@ struct BridgeAgent
     counters::BridgeCounters
 end
 
+@inline function bridge_consumer_settings(config::ConsumerSettings, mapping::BridgeMapping)
+    return ConsumerSettings(
+        config.aeron_dir,
+        config.aeron_uri,
+        config.descriptor_stream_id,
+        config.control_stream_id,
+        config.qos_stream_id,
+        mapping.source_stream_id,
+        config.consumer_id,
+        config.expected_layout_version,
+        config.max_dims,
+        config.mode,
+        config.max_outstanding_seq_gap,
+        config.use_shm,
+        config.supports_shm,
+        config.supports_progress,
+        config.max_rate_hz,
+        config.payload_fallback_uri,
+        config.shm_base_dir,
+        config.allowed_base_dirs,
+        config.require_hugepages,
+        config.progress_interval_us,
+        config.progress_bytes_delta,
+        config.progress_rows_delta,
+        config.hello_interval_ns,
+        config.qos_interval_ns,
+        config.announce_freshness_ns,
+        config.requested_descriptor_channel,
+        config.requested_descriptor_stream_id,
+        config.requested_control_channel,
+        config.requested_control_stream_id,
+        config.mlock_shm,
+    )
+end
+
+@inline function bridge_producer_config(config::ProducerConfig, mapping::BridgeMapping)
+    return ProducerConfig(
+        config.aeron_dir,
+        config.aeron_uri,
+        config.descriptor_stream_id,
+        config.control_stream_id,
+        config.qos_stream_id,
+        config.metadata_stream_id,
+        mapping.dest_stream_id,
+        config.producer_id,
+        config.layout_version,
+        config.nslots,
+        config.shm_base_dir,
+        config.shm_namespace,
+        config.producer_instance_id,
+        config.header_uri,
+        config.payload_pools,
+        config.max_dims,
+        config.announce_interval_ns,
+        config.qos_interval_ns,
+        config.progress_interval_ns,
+        config.progress_bytes_delta,
+        config.mlock_shm,
+    )
+end
+
 """
 Create a descriptor assembler that forwards frames to the bridge sender.
 
@@ -52,8 +113,9 @@ function BridgeAgent(
     client::Aeron.Client,
     hooks::BridgeHooks = NOOP_BRIDGE_HOOKS,
 )
-    consumer_state = init_consumer(consumer_config; client = client)
-    producer_state = init_producer(producer_config; client = client)
+    validate_bridge_config(bridge_config, [mapping])
+    consumer_state = init_consumer(bridge_consumer_settings(consumer_config, mapping); client = client)
+    producer_state = init_producer(bridge_producer_config(producer_config, mapping); client = client)
     sender = init_bridge_sender(
         consumer_state,
         bridge_config,
@@ -92,10 +154,13 @@ function Agent.do_work(agent::BridgeAgent)
     if work_count > 0
         Aeron.add!(agent.counters.base.total_work_done, Int64(work_count))
     end
-    producer = agent.receiver.producer_state
-    if producer !== nothing
-        agent.counters.frames_rematerialized[] = Int64(producer.seq)
-    end
+    agent.counters.frames_forwarded[] = Int64(agent.sender.metrics.frames_forwarded)
+    agent.counters.chunks_sent[] = Int64(agent.sender.metrics.chunks_sent)
+    agent.counters.chunks_dropped[] = Int64(agent.sender.metrics.chunks_dropped)
+    agent.counters.assemblies_reset[] = Int64(agent.receiver.metrics.assemblies_reset)
+    agent.counters.control_forwarded[] = Int64(agent.sender.metrics.control_forwarded +
+                                               agent.receiver.metrics.control_forwarded)
+    agent.counters.frames_rematerialized[] = Int64(agent.receiver.metrics.frames_rematerialized)
     return work_count
 end
 

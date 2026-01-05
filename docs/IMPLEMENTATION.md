@@ -380,8 +380,20 @@ profile = "raw_profile"
 - Progress off/on: verify gating and throttling; COMPLETE does not bypass seq_commit.
 
 ## 22. Bridge/rate limiter specifics
-- Bridge republishes with its own epoch/layout in announces; preserves seq from source descriptors.
+- Bridge sender forwards `ShmPoolAnnounce` on the bridge control channel and rewrites `stream_id` to `dest_stream_id`.
+- Bridge receiver MUST drop chunks until at least one forwarded announce is observed for the mapping.
+- Bridge receiver validates `headerBytes.pool_id` against the most recent forwarded announce; invalid pool IDs are dropped.
+- Bridge receiver selects the local payload pool by smallest stride that fits `payloadLength`, ignores source `pool_id`/`payload_slot`, and rewrites `pool_id`/`payload_slot` in the local header.
+- Bridge receiver rematerializes with preserved `seq/frame_id`; it publishes local `FrameDescriptor` only on IPC.
+- Progress forwarding: sender rewrites `stream_id`; receiver remaps `headerIndex` to the local header index (drop if mapping mismatch).
+- QoS/FrameProgress forwarding is gated by `forward_qos`/`forward_progress` and uses per-mapping control stream IDs.
+- Metadata forwarding uses the bridge metadata channel; forwarded `stream_id` is rewritten to `metadata_stream_id` (defaulting to `dest_stream_id`).
+- Discovery visibility: to discover bridged streams, run discovery providers/registries that subscribe to the bridge control (announce) and metadata channels.
+- Multi-mapping is supported via `BridgeSystemAgent`; each mapping uses separate sender/receiver state and counters.
+- Schema/version mismatches are rejected at decode time; bridge does not attempt to coerce unknown templates.
+- Bridge backpressure: `try_claim` failure drops chunks and increments bridge counters (no retries in hot path).
 - RateLimiter/Tap may suppress progress for dropped frames; must keep seq identity and follow same seq_commit rules on republished descriptors.
+- Tooling: `scripts/run_role.jl bridge <config>` runs a multi-mapping bridge agent from TOML config.
 
 ## 23. Device DMA integration (zero-copy)
 - Use the producer to allocate payload pools, then register each payload slot with your device SDK for DMA writes.

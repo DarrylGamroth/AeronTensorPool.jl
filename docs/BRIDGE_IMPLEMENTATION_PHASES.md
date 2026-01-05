@@ -3,9 +3,10 @@
 The bridge specification is the authoritative source of truth; this plan only tracks implementation work.
 
 ### Status Snapshot
-- Bridge sender/receiver core is implemented (chunking, rematerialization, metadata/QoS/progress forwarding hooks).
-- BridgeAgent exists but only supports a single mapping per agent instance.
-- Config loader supports `BridgeConfig` + mappings, but no multi-mapping runner/agent wiring.
+- Bridge sender/receiver core is implemented (chunking, rematerialization, metadata/QoS/progress forwarding).
+- `BridgeSystemAgent` supports multiple mappings with per-mapping counters.
+- Config loader validates `BridgeConfig` + mappings and enforces MTU/chunk sizing rules.
+- Integration tests cover progress remap, assembly timeout, backpressure, and discovery visibility.
 
 ### Phase 0: Spec Alignment Checklist
 - Map each normative requirement in `docs/SHM_Aeron_UDP_Bridge_Spec_v1.0.md` to a code path or TODO.
@@ -22,6 +23,15 @@ The bridge specification is the authoritative source of truth; this plan only tr
   - Logging policy (INFO/WARN) for invalid chunks, backpressure, and version mismatches.
 - Produce a short checklist table with spec section → implementation file/function.
 
+Spec mapping (key items):
+- §7.2/§10 control channel forwarding: `src/agents/bridge/adapters.jl`, `src/agents/bridge/proxy.jl`.
+- §8 chunking rules: `src/agents/bridge/sender.jl`, `src/agents/bridge/assembly.jl`.
+- §9 progress rewrite/remap: `src/agents/bridge/proxy.jl`, `src/agents/bridge/receiver.jl`.
+- §9 invalid config/drop behavior: `src/core/validation.jl`, `src/agents/bridge/receiver.jl`.
+- §11 schema usage: `src/gen/ShmTensorpoolBridge.jl`, `src/agents/bridge/*`.
+
+Status: completed.
+
 ### Phase 1: Config + Validation Hardening
 - Validate bridge config and mappings:
   - Enforce `source_control_stream_id`/`dest_control_stream_id` when `forward_qos` or `forward_progress` is true.
@@ -31,6 +41,8 @@ The bridge specification is the authoritative source of truth; this plan only tr
   - Validate `max_payload_bytes` against pool strides and system limits.
 - Add a validation helper for bridge config (similar to discovery validation).
 - Ensure config defaults match spec and docs/examples.
+
+Status: completed.
 
 ### Phase 2: Sender Compliance
 - Gate forwarding by config flags:
@@ -45,6 +57,8 @@ The bridge specification is the authoritative source of truth; this plan only tr
   - Validate `chunkCount` and `payloadLength` derivation against spec.
 - Ensure per-consumer control/descriptor streams honor rate limiting (max_rate_hz) when forwarding descriptors.
 
+Status: completed.
+
 ### Phase 3: Receiver Compliance + Robustness
 - Apply forwarded ShmPoolAnnounce for validation:
   - Validate payload pool stride/pool IDs before rematerialization.
@@ -58,7 +72,9 @@ The bridge specification is the authoritative source of truth; this plan only tr
 - Ensure all SBE decoding respects field order and handles missing header correctly.
 - Define error handling policy:
   - Invalid chunks → drop and optionally reset assembly (documented behavior).
-  - `try_claim` failures → drop with counter, avoid retries in hot path.
+- `try_claim` failures → drop with counter, avoid retries in hot path.
+
+Status: completed.
 
 ### Phase 4: Multi-Mapping Bridge Agent
 - Implement a `BridgeSystemAgent` (or equivalent) that:
@@ -69,6 +85,8 @@ The bridge specification is the authoritative source of truth; this plan only tr
 - Keep existing `BridgeAgent` as a single-mapping convenience wrapper.
 - Decide whether per-mapping senders/receivers should share pubs/subs or allocate separate ones.
 - Define shutdown ordering for multi-mapping agent cleanup.
+
+Status: completed.
 
 ### Phase 5: Tests + Examples
 - Add integration tests:
@@ -83,6 +101,8 @@ The bridge specification is the authoritative source of truth; this plan only tr
 - Add a multi-mapping example config and runner script.
 - Extend bridge benchmarks (optional) for chunking and rematerialization throughput.
 
+Status: completed (benchmarks optional, not added).
+
 ### Phase 6: Docs + Ops
 - Update `docs/IMPLEMENTATION.md` Bridge section with:
   - Multi-mapping setup instructions.
@@ -92,3 +112,5 @@ The bridge specification is the authoritative source of truth; this plan only tr
   - Document schema/version compatibility expectations.
 - Add a short CLI/tooling note for bridge status/health inspection.
 - Add a short troubleshooting section for common bridge misconfigurations.
+
+Status: completed.

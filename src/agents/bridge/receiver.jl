@@ -67,6 +67,7 @@ function init_bridge_receiver(
         mapping,
         client,
         clock,
+        BridgeReceiverMetrics(UInt64(0), UInt64(0), UInt64(0), UInt64(0)),
         producer_state,
         source_info,
         assembly,
@@ -106,6 +107,11 @@ function init_bridge_receiver(
     return state
 end
 
+@inline function bridge_drop_chunk!(state::BridgeReceiverState)
+    state.metrics.chunks_dropped += 1
+    return false
+end
+
 """
 Write an assembled bridge frame into the destination SHM and publish a descriptor.
 
@@ -126,17 +132,18 @@ function bridge_rematerialize!(
     producer_state === nothing && return false
     producer_driver_active(producer_state) || return false
 
-    pool_id = header.pool_id
     payload_len = Int(header.values_len_bytes)
-    pool = payload_pool_config(producer_state, pool_id)
-    pool === nothing && return false
-    payload_len <= Int(pool.stride_bytes) || return false
+    pool_idx = select_pool(producer_state.config.payload_pools, payload_len)
+    pool_idx == 0 && return false
+    pool = producer_state.config.payload_pools[pool_idx]
 
     seq = state.assembly.seq
     header_index = UInt32(seq & (UInt64(producer_state.config.nslots) - 1))
 
     payload_slot = header_index
+    pool_id = pool.pool_id
     payload_mmap = producer_state.mappings.payload_mmaps[pool_id]
+    payload_mmap === nothing && return false
     payload_offset = SUPERBLOCK_SIZE + Int(payload_slot) * Int(pool.stride_bytes)
 
     header_offset = header_slot_offset(header_index)
@@ -188,6 +195,7 @@ function bridge_rematerialize!(
     if producer_state.seq <= seq
         producer_state.seq = seq + 1
     end
+    state.metrics.frames_rematerialized += 1
     return true
 end
 
@@ -234,27 +242,31 @@ function bridge_receive_chunk!(
     decoder::BridgeFrameChunk.Decoder,
     now_ns::UInt64,
 )
-    BridgeFrameChunk.streamId(decoder) == state.mapping.dest_stream_id || return false
+    state.have_announce || return bridge_drop_chunk!(state)
+    BridgeFrameChunk.streamId(decoder) == state.mapping.dest_stream_id || return bridge_drop_chunk!(state)
 
     chunk_index = BridgeFrameChunk.chunkIndex(decoder)
     chunk_count = BridgeFrameChunk.chunkCount(decoder)
-    chunk_count == 0 && return false
-    chunk_index < chunk_count || return false
+    chunk_count == 0 && return bridge_drop_chunk!(state)
+    chunk_index < chunk_count || return bridge_drop_chunk!(state)
 
     header_included = BridgeFrameChunk.headerIncluded(decoder) == BridgeBool.TRUE
     payload_length = BridgeFrameChunk.payloadLength(decoder)
+    payload_length == 0 && return bridge_drop_chunk!(state)
+    payload_length > state.config.max_payload_bytes && return bridge_drop_chunk!(state)
     header_bytes = BridgeFrameChunk.headerBytes(decoder)
     header_len = length(header_bytes)
     payload_bytes = BridgeFrameChunk.payloadBytes(decoder)
     payload_len = length(payload_bytes)
 
-    header_included && header_len != HEADER_SLOT_BYTES && return false
-    !header_included && header_len != 0 && return false
+    header_included && header_len != HEADER_SLOT_BYTES && return bridge_drop_chunk!(state)
+    !header_included && header_len != 0 && return bridge_drop_chunk!(state)
 
-    (chunk_index == 0) == header_included || return false
+    (chunk_index == 0) == header_included || return bridge_drop_chunk!(state)
 
     if state.assembly.seq != BridgeFrameChunk.seq(decoder) ||
        state.assembly.epoch != BridgeFrameChunk.epoch(decoder)
+        state.metrics.assemblies_reset += 1
         reset_bridge_assembly!(
             state.assembly,
             BridgeFrameChunk.seq(decoder),
@@ -265,6 +277,7 @@ function bridge_receive_chunk!(
         )
     elseif state.assembly.chunk_count != chunk_count ||
            state.assembly.payload_length != payload_length
+        state.metrics.assemblies_reset += 1
         reset_bridge_assembly!(
             state.assembly,
             BridgeFrameChunk.seq(decoder),
@@ -276,15 +289,15 @@ function bridge_receive_chunk!(
     end
 
     if payload_length > length(state.assembly.payload)
-        return false
+        return bridge_drop_chunk!(state)
     end
 
     if chunk_index >= length(state.assembly.received)
-        return false
+        return bridge_drop_chunk!(state)
     end
 
     if state.assembly.received[chunk_index + 1]
-        return false
+        return bridge_drop_chunk!(state)
     end
 
     if header_included
@@ -300,7 +313,7 @@ function bridge_receive_chunk!(
 
     payload_start = chunk_index * bridge_effective_chunk_bytes(state.config)
     if payload_start + payload_len > length(state.assembly.payload)
-        return false
+        return bridge_drop_chunk!(state)
     end
 
     copyto!(
@@ -322,11 +335,15 @@ function bridge_receive_chunk!(
     wrap_tensor_header!(state.header_decoder, state.assembly.header_bytes, 0)
     header = read_tensor_slot_header(state.header_decoder)
 
-    seqlock_is_committed(header.seq_commit) || return false
-    seqlock_sequence(header.seq_commit) == state.assembly.seq || return false
-    header.ndims <= state.source_info.max_dims || return false
+    seqlock_is_committed(header.seq_commit) || return bridge_drop_chunk!(state)
+    seqlock_sequence(header.seq_commit) == state.assembly.seq || return bridge_drop_chunk!(state)
+    header.ndims <= state.source_info.max_dims || return bridge_drop_chunk!(state)
+    UInt32(header.values_len_bytes) == payload_length || return bridge_drop_chunk!(state)
+    source_stride = get(state.source_info.pool_stride_bytes, header.pool_id, UInt32(0))
+    source_stride == 0 && return bridge_drop_chunk!(state)
+    payload_length <= source_stride || return bridge_drop_chunk!(state)
 
-    state.assembly.payload_length <= length(state.assembly.payload) || return false
+    state.assembly.payload_length <= length(state.assembly.payload) || return bridge_drop_chunk!(state)
     return bridge_rematerialize!(
         state,
         header,
