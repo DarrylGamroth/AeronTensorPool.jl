@@ -33,6 +33,7 @@
 - Verify header/payload chunking:
   - Enforce headerBytes presence only on first chunk.
   - Validate `chunkCount` and `payloadLength` derivation against spec.
+ - Ensure per-consumer control/descriptor streams honor rate limiting (max_rate_hz) when forwarding descriptors.
 
 ### Phase 3: Receiver Compliance + Robustness
 - Apply forwarded ShmPoolAnnounce for validation:
