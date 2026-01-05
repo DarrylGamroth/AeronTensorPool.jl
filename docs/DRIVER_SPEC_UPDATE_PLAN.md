@@ -74,14 +74,14 @@ This plan tracks code changes required to conform to `docs/SHM_Driver_Model_Spec
 
 ## Progress
 
-- Phase 1: in progress (client ID uniqueness, response completeness, null sentinels, publish-mode UNSUPPORTED).
-- Phase 2: in progress (revocation emission, keepalive handling, producer epoch bump on revoke/expire, client keepalive failure).
-- Phase 3: in progress (hugepages policy, maxDims handling, payload pool validation; detach idempotence pending).
-- Phase 3b: in progress (dynamic stream ID ranges, per-consumer stream ranges, range validation, decline on exhaustion).
-- Phase 4: in progress (driver schema version check for attach, fail-closed producer mapping).
-- Phase 4b: pending.
-- Phase 4c: pending.
-- Phase 4d: pending.
-- Phase 4e: pending.
-- Phase 5: in progress (per-consumer stream allocation tests added; more driver attach/revoke tests pending).
-- Phase 6: pending.
+- Phase 1: complete (client ID uniqueness, response completeness, null sentinels, publish-mode UNSUPPORTED).
+- Phase 2: complete (revocation emission, keepalive handling, producer epoch bump on revoke/expire, client keepalive failure).
+- Phase 3: complete (hugepages policy, maxDims handling, payload pool validation, detach idempotence per spec).
+- Phase 3b: complete (dynamic stream ID ranges, per-consumer stream ranges, range validation, decline on exhaustion).
+- Phase 4: complete (driver schema version checks, fail-closed attach mapping).
+- Phase 4b: complete (restart epoch bump behavior validated).
+- Phase 4c: complete (canonical layout already in driver paths).
+- Phase 4d: complete (defaults/env overrides aligned with spec).
+- Phase 4e: complete (control-plane messages on configured control stream).
+- Phase 5: complete (attach completeness, per-consumer allocation, restart epoch tests).
+- Phase 6: complete (guidance and migration notes updated).
