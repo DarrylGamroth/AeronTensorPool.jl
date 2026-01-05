@@ -99,7 +99,7 @@ using Test
         assigned = Ref(false)
         handler = Aeron.FragmentHandler(nothing) do _, buffer, _
             header = MessageHeader.Decoder(buffer, 0)
-            if MessageHeader.templateId(header) == TEMPLATE_CONSUMER_CONFIG
+            if MessageHeader.templateId(header) == AeronTensorPool.TEMPLATE_CONSUMER_CONFIG
                 ConsumerConfigMsg.wrap!(config_decoder, buffer, 0; header = header)
                 assigned_descriptor[] = ConsumerConfigMsg.descriptorStreamId(config_decoder)
                 assigned_control[] = ConsumerConfigMsg.controlStreamId(config_decoder)
@@ -224,7 +224,7 @@ end
         assigned = Ref(false)
         handler = Aeron.FragmentHandler(nothing) do _, buffer, _
             header = MessageHeader.Decoder(buffer, 0)
-            if MessageHeader.templateId(header) == TEMPLATE_CONSUMER_CONFIG
+            if MessageHeader.templateId(header) == AeronTensorPool.TEMPLATE_CONSUMER_CONFIG
                 ConsumerConfigMsg.wrap!(config_decoder, buffer, 0; header = header)
                 assigned_descriptor[] = ConsumerConfigMsg.descriptorStreamId(config_decoder)
                 assigned_control[] = ConsumerConfigMsg.controlStreamId(config_decoder)
