@@ -18,6 +18,8 @@ The bridge specification is the authoritative source of truth; this plan only tr
   - Backpressure behavior on `try_claim` failures.
   - Error handling policy for invalid chunks.
   - Schema/version compatibility handling (reject vs warn).
+  - Discovery registry visibility expectations (provider vs registry).
+  - Logging policy (INFO/WARN) for invalid chunks, backpressure, and version mismatches.
 - Produce a short checklist table with spec section → implementation file/function.
 
 ### Phase 1: Config + Validation Hardening
@@ -77,6 +79,7 @@ The bridge specification is the authoritative source of truth; this plan only tr
   - Discovery integration: ensure bridged streams can be discovered via the Discovery service and that forwarded announces/metadata are visible to discovery.
   - Backpressure: simulate `try_claim` failures and assert counters/behavior.
 - Add metrics tests (chunks sent/dropped, assemblies reset, frames rematerialized).
+- Add allocation-free checks for bridge sender/receiver hot paths.
 - Add a multi-mapping example config and runner script.
 - Extend bridge benchmarks (optional) for chunking and rematerialization throughput.
 
@@ -86,5 +89,6 @@ The bridge specification is the authoritative source of truth; this plan only tr
   - Config validation rules and error behavior.
   - Operational notes (MTU, chunk sizing, control channel usage).
   - Discovery visibility expectations for bridged streams.
-- Document schema/version compatibility expectations.
+  - Document schema/version compatibility expectations.
+- Add a short CLI/tooling note for bridge status/health inspection.
 - Add a short troubleshooting section for common bridge misconfigurations.
