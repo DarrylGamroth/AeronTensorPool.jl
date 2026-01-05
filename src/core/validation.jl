@@ -24,10 +24,10 @@ function validate_discovery_endpoints(
     response_stream_id::UInt32,
 )
     if request_channel == control_channel && request_stream_id == control_stream_id
-        throw(ArgumentError("discovery request endpoint overlaps driver control"))
+        throw(DiscoveryConfigError("discovery request endpoint overlaps driver control"))
     end
     if response_channel == control_channel && Int32(response_stream_id) == control_stream_id
-        throw(ArgumentError("discovery response endpoint overlaps driver control"))
+        throw(DiscoveryConfigError("discovery response endpoint overlaps driver control"))
     end
     return true
 end

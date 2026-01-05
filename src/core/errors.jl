@@ -24,6 +24,13 @@ struct AeronInitError <: TensorPoolError
     message::String
 end
 
+"""
+Raised when discovery configuration is invalid.
+"""
+struct DiscoveryConfigError <: TensorPoolError
+    message::String
+end
+
 function Base.showerror(io::IO, err::TensorPoolError)
     print(io, err.message)
 end

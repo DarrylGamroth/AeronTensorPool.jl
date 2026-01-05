@@ -2,7 +2,7 @@ using Test
 using AeronTensorPool
 
 @testset "Discovery endpoint validation" begin
-    @test_throws ArgumentError validate_discovery_endpoints(
+    @test_throws DiscoveryConfigError validate_discovery_endpoints(
         "aeron:ipc",
         Int32(15000),
         "aeron:ipc",
@@ -10,7 +10,7 @@ using AeronTensorPool
         "aeron:ipc",
         UInt32(16001),
     )
-    @test_throws ArgumentError validate_discovery_endpoints(
+    @test_throws DiscoveryConfigError validate_discovery_endpoints(
         "aeron:ipc",
         Int32(15000),
         "aeron:ipc",
