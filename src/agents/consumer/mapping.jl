@@ -62,6 +62,9 @@ function map_from_announce!(state::ConsumerState, msg::ShmPoolAnnounce.Decoder)
     hugepage_size = require_hugepages ? hugepage_size_bytes() : 0
     require_hugepages && hugepage_size == 0 && return false
     header_mmap = mmap_shm(header_uri, SUPERBLOCK_SIZE + HEADER_SLOT_BYTES * Int(header_nslots))
+    if state.config.mlock_shm
+        mlock_buffer!(header_mmap, "consumer header")
+    end
 
     sb_dec = state.runtime.superblock_decoder
     wrap_superblock!(sb_dec, header_mmap, 0)
@@ -98,6 +101,9 @@ function map_from_announce!(state::ConsumerState, msg::ShmPoolAnnounce.Decoder)
         ) || return false
 
         pool_mmap = mmap_shm(pool.uri, SUPERBLOCK_SIZE + Int(pool.nslots) * Int(pool.stride_bytes))
+        if state.config.mlock_shm
+            mlock_buffer!(pool_mmap, "consumer pool")
+        end
         wrap_superblock!(sb_dec, pool_mmap, 0)
         pool_fields = try
             read_superblock(sb_dec)
@@ -163,6 +169,9 @@ function map_from_attach_response!(state::ConsumerState, attach::AttachResponse)
     require_hugepages && hugepage_size == 0 && return false
 
     header_mmap = mmap_shm(header_uri, SUPERBLOCK_SIZE + HEADER_SLOT_BYTES * Int(header_nslots))
+    if state.config.mlock_shm
+        mlock_buffer!(header_mmap, "consumer header")
+    end
     sb_dec = state.runtime.superblock_decoder
     wrap_superblock!(sb_dec, header_mmap, 0)
     header_fields = try
@@ -200,6 +209,9 @@ function map_from_attach_response!(state::ConsumerState, attach::AttachResponse)
         ) || return false
 
         pool_mmap = mmap_shm(pool_uri, SUPERBLOCK_SIZE + Int(pool.pool_nslots) * Int(pool.stride_bytes))
+        if state.config.mlock_shm
+            mlock_buffer!(pool_mmap, "consumer pool")
+        end
         wrap_superblock!(sb_dec, pool_mmap, 0)
         pool_fields = try
             read_superblock(sb_dec)

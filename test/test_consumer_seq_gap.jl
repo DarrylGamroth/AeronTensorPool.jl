@@ -11,7 +11,6 @@
             UInt32(1),
             UInt8(MAX_DIMS),
             Mode.STREAM,
-            UInt16(1),
             UInt32(2),
             false,
             true,
@@ -31,6 +30,7 @@
             UInt32(0),
             "",
             UInt32(0),
+            false,
         )
         state = init_consumer(consumer_cfg; client = client)
         try

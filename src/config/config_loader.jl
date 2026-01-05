@@ -160,11 +160,12 @@ function load_producer_config(path::AbstractString; env::AbstractDict = ENV)
     end
     header_uri = env_default(env, "TP_HEADER_URI", String(get(prod, "header_uri", "")))
     payload_pools = parse_payload_pools(prod, env)
-    max_dims = UInt8(get(prod, "max_dims", MAX_DIMS))
+    max_dims = UInt8(MAX_DIMS)
     announce_interval_ns = UInt64(get(prod, "announce_interval_ns", 1_000_000_000))
     qos_interval_ns = UInt64(get(prod, "qos_interval_ns", 1_000_000_000))
     progress_interval_ns = UInt64(get(prod, "progress_interval_ns", 250_000))
     progress_bytes_delta = UInt64(get(prod, "progress_bytes_delta", 65536))
+    mlock_shm = Bool(get(prod, "mlock_shm", false))
 
     header_uri, payload_pools = resolve_producer_paths(
         header_uri,
@@ -196,6 +197,7 @@ function load_producer_config(path::AbstractString; env::AbstractDict = ENV)
         qos_interval_ns,
         progress_interval_ns,
         progress_bytes_delta,
+        mlock_shm,
     )
 end
 
@@ -221,10 +223,11 @@ function load_consumer_config(path::AbstractString; env::AbstractDict = ENV)
     stream_id = env_default(env, "TP_STREAM_ID", UInt32(get(cons, "stream_id", 1)))
     consumer_id = env_default(env, "TP_CONSUMER_ID", UInt32(get(cons, "consumer_id", 1)))
     expected_layout_version = UInt32(get(cons, "expected_layout_version", 1))
-    max_dims = UInt8(get(cons, "max_dims", MAX_DIMS))
-    mode = get(cons, "mode", "STREAM") == "LATEST" ? Mode.LATEST :
-           get(cons, "mode", "STREAM") == "DECIMATED" ? Mode.DECIMATED : Mode.STREAM
-    decimation = UInt16(get(cons, "decimation", 1))
+    max_dims = UInt8(MAX_DIMS)
+    mode_raw = get(cons, "mode", "STREAM")
+    mode = mode_raw == "RATE_LIMITED" ? Mode.RATE_LIMITED :
+           mode_raw == "STREAM" ? Mode.STREAM :
+           error("invalid consumer mode: $mode_raw (use STREAM or RATE_LIMITED)")
     max_outstanding_seq_gap = UInt32(get(cons, "max_outstanding_seq_gap", 0))
     use_shm = Bool(get(cons, "use_shm", true))
     supports_shm = Bool(get(cons, "supports_shm", true))
@@ -249,6 +252,7 @@ function load_consumer_config(path::AbstractString; env::AbstractDict = ENV)
     hello_interval_ns = UInt64(get(cons, "hello_interval_ns", 1_000_000_000))
     qos_interval_ns = UInt64(get(cons, "qos_interval_ns", 1_000_000_000))
     announce_freshness_ns = UInt64(get(cons, "announce_freshness_ns", 3_000_000_000))
+    mlock_shm = Bool(get(cons, "mlock_shm", false))
 
     return ConsumerSettings(
         aeron_dir,
@@ -261,7 +265,6 @@ function load_consumer_config(path::AbstractString; env::AbstractDict = ENV)
         expected_layout_version,
         max_dims,
         mode,
-        decimation,
         max_outstanding_seq_gap,
         use_shm,
         supports_shm,
@@ -281,6 +284,7 @@ function load_consumer_config(path::AbstractString; env::AbstractDict = ENV)
         requested_descriptor_stream_id,
         requested_control_channel,
         requested_control_stream_id,
+        mlock_shm,
     )
 end
 

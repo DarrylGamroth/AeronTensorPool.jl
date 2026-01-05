@@ -32,6 +32,7 @@ struct ProducerConfig
     qos_interval_ns::UInt64
     progress_interval_ns::UInt64
     progress_bytes_delta::UInt64
+    mlock_shm::Bool
 end
 
 """
@@ -48,7 +49,6 @@ mutable struct ConsumerSettings
     expected_layout_version::UInt32
     max_dims::UInt8
     mode::Mode.SbeEnum
-    decimation::UInt16
     max_outstanding_seq_gap::UInt32
     use_shm::Bool
     supports_shm::Bool
@@ -68,6 +68,7 @@ mutable struct ConsumerSettings
     requested_descriptor_stream_id::UInt32
     requested_control_channel::String
     requested_control_stream_id::UInt32
+    mlock_shm::Bool
 end
 
 """

@@ -4,6 +4,9 @@ Initialize SHM regions, write superblocks, and return mappings plus encoder.
 function init_producer_shm!(config::ProducerConfig, clock::Clocks.AbstractClock)
     header_size = SUPERBLOCK_SIZE + Int(config.nslots) * HEADER_SLOT_BYTES
     header_mmap = mmap_shm(config.header_uri, header_size; write = true)
+    if config.mlock_shm
+        mlock_buffer!(header_mmap, "producer header")
+    end
 
     sb_encoder = ShmRegionSuperblock.Encoder(Vector{UInt8})
     wrap_superblock!(sb_encoder, header_mmap, 0)
@@ -30,6 +33,9 @@ function init_producer_shm!(config::ProducerConfig, clock::Clocks.AbstractClock)
     for pool in config.payload_pools
         pool_size = SUPERBLOCK_SIZE + Int(pool.nslots) * Int(pool.stride_bytes)
         pmmap = mmap_shm(pool.uri, pool_size; write = true)
+        if config.mlock_shm
+            mlock_buffer!(pmmap, "producer pool")
+        end
         wrap_superblock!(sb_encoder, pmmap, 0)
         write_superblock!(
             sb_encoder,
@@ -63,6 +69,9 @@ function map_producer_from_attach(config::ProducerConfig, attach::AttachResponse
 
     header_size = SUPERBLOCK_SIZE + Int(config.nslots) * HEADER_SLOT_BYTES
     header_mmap = mmap_shm_existing(config.header_uri, header_size; write = true)
+    if config.mlock_shm
+        mlock_buffer!(header_mmap, "producer header")
+    end
 
     sb_dec = ShmRegionSuperblock.Decoder(Vector{UInt8})
     wrap_superblock!(sb_dec, header_mmap, 0)
@@ -87,6 +96,9 @@ function map_producer_from_attach(config::ProducerConfig, attach::AttachResponse
     for pool in config.payload_pools
         pool_size = SUPERBLOCK_SIZE + Int(pool.nslots) * Int(pool.stride_bytes)
         pmmap = mmap_shm_existing(pool.uri, pool_size; write = true)
+        if config.mlock_shm
+            mlock_buffer!(pmmap, "producer pool")
+        end
         wrap_superblock!(sb_dec, pmmap, 0)
         pool_fields = try
             read_superblock(sb_dec)

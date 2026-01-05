@@ -32,10 +32,12 @@ consumer_cfg = ConsumerSettings(
     UInt32(0),
     UInt64(1_000_000_000),
     UInt64(1_000_000_000),
+    UInt64(3_000_000_000),
     "aeron:ipc",
     UInt32(2300), # requested per-consumer descriptor stream
     "aeron:ipc",
     UInt32(2301), # requested per-consumer control (progress) stream
+    false,
 )
 ```
 

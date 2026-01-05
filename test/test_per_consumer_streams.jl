@@ -25,6 +25,7 @@
                 UInt64(1_000_000_000),
                 UInt64(250_000),
                 UInt64(65536),
+                false,
             )
 
             consumer_cfg = ConsumerSettings(
@@ -38,7 +39,6 @@
                 UInt32(1),
                 UInt8(MAX_DIMS),
                 Mode.STREAM,
-                UInt16(1),
                 UInt32(0),
                 true,
                 true,
@@ -58,6 +58,7 @@
                 UInt32(2300),
                 "aeron:ipc",
                 UInt32(2301),
+                false,
             )
 
             producer_state = init_producer(producer_cfg; client = client)
@@ -148,6 +149,7 @@ end
                 UInt64(1_000_000_000),
                 UInt64(250_000),
                 UInt64(65536),
+                false,
             )
 
             consumer_cfg = ConsumerSettings(
@@ -161,7 +163,6 @@ end
                 UInt32(1),
                 UInt8(MAX_DIMS),
                 Mode.STREAM,
-                UInt16(1),
                 UInt32(0),
                 true,
                 true,
@@ -181,6 +182,7 @@ end
                 UInt32(0),
                 "",
                 UInt32(0),
+                false,
             )
 
             producer_state = init_producer(producer_cfg; client = client)

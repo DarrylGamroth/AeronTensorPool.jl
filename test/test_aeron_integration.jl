@@ -18,7 +18,6 @@ using UnsafeArrays
             UInt32(1),
             UInt8(MAX_DIMS),
             Mode.STREAM,
-            UInt16(1),
             UInt32(256),
             false,
             true,
@@ -38,6 +37,7 @@ using UnsafeArrays
             UInt32(0),
             "",
             UInt32(0),
+            false,
         )
         consumer_state = init_consumer(consumer_cfg; client = client)
         ctrl_asm = make_control_assembler(consumer_state)
@@ -59,8 +59,7 @@ using UnsafeArrays
             ConsumerConfigMsg.streamId!(enc, consumer_state.config.stream_id)
             ConsumerConfigMsg.consumerId!(enc, consumer_state.config.consumer_id)
             ConsumerConfigMsg.useShm!(enc, AeronTensorPool.ShmTensorpoolControl.Bool_.TRUE)
-            ConsumerConfigMsg.mode!(enc, Mode.LATEST)
-            ConsumerConfigMsg.decimation!(enc, UInt16(1))
+            ConsumerConfigMsg.mode!(enc, Mode.STREAM)
             ConsumerConfigMsg.descriptorStreamId!(
                 enc,
                 ConsumerConfigMsg.descriptorStreamId_null_value(ConsumerConfigMsg.Encoder),
@@ -84,7 +83,7 @@ using UnsafeArrays
         end
         @test ok
         @test consumer_state.config.use_shm == true
-        @test consumer_state.config.mode == Mode.LATEST
+        @test consumer_state.config.mode == Mode.STREAM
 
         sent_desc = AeronTensorPool.with_claimed_buffer!(pub_descriptor, claim, AeronTensorPool.FRAME_DESCRIPTOR_LEN) do buf
             enc = FrameDescriptor.Encoder(UnsafeArrays.UnsafeArray{UInt8, 1})

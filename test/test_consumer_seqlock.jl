@@ -69,7 +69,6 @@
                 layout_version,
                 UInt8(MAX_DIMS),
                 Mode.STREAM,
-                UInt16(1),
                 UInt32(256),
                 true,
                 true,
@@ -89,6 +88,7 @@
             UInt32(0),
             "",
             UInt32(0),
+                false,
         )
             state = init_consumer(consumer_cfg; client = client)
             try
@@ -130,13 +130,12 @@
             FrameDescriptor.wrap!(desc_dec, desc_buf, 0; header = desc_header)
 
             header_offset = header_slot_offset(UInt32(0))
-            hdr_enc = TensorSlotHeader256.Encoder(Vector{UInt8})
+            hdr_enc = TensorSlotHeaderMsg.Encoder(Vector{UInt8})
             wrap_tensor_header!(hdr_enc, header_mmap, header_offset)
             write_tensor_slot_header!(
                 hdr_enc,
-                UInt64(1),
                 UInt64(0),
-                UInt32(1),
+                UInt32(0),
                 UInt32(16),
                 UInt32(0),
                 UInt32(0),
@@ -161,10 +160,9 @@
             write_tensor_slot_header!(
                 hdr_enc,
                 UInt64(2),
-                UInt64(0),
+                UInt32(0),
                 UInt32(1),
                 UInt32(16),
-                UInt32(0),
                 UInt32(0),
                 UInt16(1),
                 Dtype.UINT8,
@@ -179,10 +177,9 @@
             write_tensor_slot_header!(
                 hdr_enc,
                 UInt64(1),
-                UInt64(0),
+                UInt32(0),
                 UInt32(1),
                 UInt32(16),
-                UInt32(0),
                 UInt32(4),
                 UInt16(1),
                 Dtype.UINT8,

@@ -74,6 +74,7 @@ function apply_canonical_layout(
         config.qos_interval_ns,
         config.progress_interval_ns,
         config.progress_bytes_delta,
+        config.mlock_shm,
     )
 end
 
@@ -89,7 +90,6 @@ function apply_canonical_layout(config::ConsumerSettings, base_dir::String)
         config.expected_layout_version,
         config.max_dims,
         config.mode,
-        config.decimation,
         config.max_outstanding_seq_gap,
         config.use_shm,
         config.supports_shm,
@@ -109,6 +109,7 @@ function apply_canonical_layout(config::ConsumerSettings, base_dir::String)
         config.requested_descriptor_stream_id,
         config.requested_control_channel,
         config.requested_control_stream_id,
+        config.mlock_shm,
     )
 end
 

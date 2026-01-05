@@ -104,6 +104,7 @@
             UInt32(0),
             "",
             UInt32(0),
+            false,
         )
         consumer_state = init_consumer(consumer_cfg; client = client)
 

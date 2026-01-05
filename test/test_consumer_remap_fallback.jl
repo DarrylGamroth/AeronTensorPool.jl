@@ -45,7 +45,6 @@
                 layout_version,
                 UInt8(MAX_DIMS),
                 Mode.STREAM,
-                UInt16(1),
                 UInt32(256),
                 true,
                 true,
@@ -65,6 +64,7 @@
             UInt32(0),
             "",
             UInt32(0),
+                false,
         )
             state = init_consumer(consumer_cfg; client = client)
             fallback_state = nothing
@@ -191,7 +191,6 @@
                         layout_version,
                         UInt8(MAX_DIMS),
                         Mode.STREAM,
-                        UInt16(1),
                         UInt32(256),
                         true,
                         true,
@@ -211,6 +210,7 @@
                     UInt32(0),
                     "",
                     UInt32(0),
+                        false,
                 )
                     fallback_state = init_consumer(fallback_cfg; client = client)
                     (_, announce_dec_bad) = build_announce(epoch2, header_uri2, bad_pool_uri)
@@ -229,7 +229,6 @@
                         layout_version,
                         UInt8(MAX_DIMS - 1),
                         Mode.STREAM,
-                        UInt16(1),
                         UInt32(256),
                         true,
                         true,
@@ -249,6 +248,7 @@
                     UInt32(0),
                     "",
                     UInt32(0),
+                        false,
                 )
                     maxdims_state = init_consumer(maxdims_cfg; client = client)
                     (_, announce_dec_good) = build_announce(epoch2, header_uri2, pool_uri2)

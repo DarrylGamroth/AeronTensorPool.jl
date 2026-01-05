@@ -98,6 +98,7 @@ end
                 UInt64(1_000_000_000),
                 UInt64(250_000),
                 UInt64(65536),
+                false,
             )
             consumer_cfg = ConsumerSettings(
                 Aeron.MediaDriver.aeron_dir(media_driver),
@@ -129,6 +130,7 @@ end
                 UInt32(0),
                 "",
                 UInt32(0),
+                false,
             )
 
             producer_state = init_producer_from_attach(

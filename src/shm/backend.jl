@@ -60,3 +60,24 @@ Returns:
 function mmap_shm_existing(uri::AbstractString, size::Integer; write::Bool = false)
     return mmap_shm_existing_linux(uri, size; write = write)
 end
+
+"""
+Attempt to mlock a mapped buffer. On non-Unix platforms this is a no-op with a warning.
+
+Arguments:
+- `buffer`: mapped bytes.
+- `label`: identifier for logging.
+
+Returns:
+- `nothing`.
+"""
+function mlock_buffer!(buffer::AbstractVector{UInt8}, label::String)
+    if !Sys.isunix()
+        @tp_warn "mlock unsupported on this platform; skipping" label
+        return nothing
+    end
+    ptr = Ptr{UInt8}(pointer(buffer))
+    res = Libc.mlock(ptr, length(buffer))
+    res == 0 || throw(ArgumentError("mlock failed for $(label) (errno=$(Libc.errno()))"))
+    return nothing
+end

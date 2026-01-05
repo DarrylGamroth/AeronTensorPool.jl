@@ -57,6 +57,7 @@
                 UInt64(1_000_000_000),
                 UInt64(250_000),
                 UInt64(65536),
+                false,
             )
 
             dst_config = ProducerConfig(
@@ -80,6 +81,7 @@
                 UInt64(1_000_000_000),
                 UInt64(250_000),
                 UInt64(65536),
+                false,
             )
 
             src_consumer = ConsumerSettings(
@@ -93,7 +95,6 @@
                 UInt32(1),
                 UInt8(MAX_DIMS),
                 Mode.STREAM,
-                UInt16(1),
                 UInt32(256),
                 true,
                 true,
@@ -113,6 +114,7 @@
                 UInt32(0),
                 "",
                 UInt32(0),
+                false,
             )
 
             dst_consumer = ConsumerSettings(
@@ -126,7 +128,6 @@
                 UInt32(1),
                 UInt8(MAX_DIMS),
                 Mode.STREAM,
-                UInt16(1),
                 UInt32(256),
                 true,
                 true,
@@ -146,6 +147,7 @@
                 UInt32(0),
                 "",
                 UInt32(0),
+                false,
             )
 
             producer_src = init_producer(src_config; client = client)

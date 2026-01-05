@@ -11,7 +11,6 @@
             UInt32(1),
             UInt8(MAX_DIMS),
             Mode.STREAM,
-            UInt16(1),
             UInt32(256),
             false,
             true,
@@ -31,6 +30,7 @@
             UInt32(0),
             "",
             UInt32(0),
+            false,
         )
         state = init_consumer(consumer_cfg; client = client)
         try
@@ -41,10 +41,9 @@
             header_ok = TensorSlotHeader(
                 UInt64(0),
                 UInt64(1),
-                UInt64(0),
+                UInt32(0),
                 UInt32(1),
                 UInt32(16),
-                UInt32(0),
                 UInt32(0),
                 UInt16(1),
                 Dtype.FLOAT32,
@@ -57,10 +56,9 @@
             header_bad = TensorSlotHeader(
                 UInt64(0),
                 UInt64(1),
-                UInt64(0),
+                UInt32(0),
                 UInt32(1),
                 UInt32(16),
-                UInt32(0),
                 UInt32(0),
                 UInt16(1),
                 Dtype.FLOAT32,

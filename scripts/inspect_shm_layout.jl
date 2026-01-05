@@ -67,6 +67,7 @@ Aeron.MediaDriver.launch_embedded() do driver
         UInt64(1_000_000_000),
         UInt64(250_000),
         UInt64(65536),
+        false,
     )
 
     state = init_producer(producer_cfg)

@@ -126,6 +126,7 @@ function producer_config_from_attach(config::ProducerConfig, attach::AttachRespo
         config.qos_interval_ns,
         config.progress_interval_ns,
         config.progress_bytes_delta,
+        config.mlock_shm,
     )
 end
 

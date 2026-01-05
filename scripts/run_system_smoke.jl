@@ -46,11 +46,12 @@ function apply_canonical_layout(
         config.qos_interval_ns,
         config.progress_interval_ns,
         config.progress_bytes_delta,
+        config.mlock_shm,
     )
 end
 
-function apply_canonical_layout(config::ConsumerConfig, base_dir::String)
-    return ConsumerConfig(
+function apply_canonical_layout(config::ConsumerSettings, base_dir::String)
+    return ConsumerSettings(
         config.aeron_dir,
         config.aeron_uri,
         config.descriptor_stream_id,
@@ -61,7 +62,6 @@ function apply_canonical_layout(config::ConsumerConfig, base_dir::String)
         config.expected_layout_version,
         config.max_dims,
         config.mode,
-        config.decimation,
         config.max_outstanding_seq_gap,
         config.use_shm,
         config.supports_shm,
@@ -76,6 +76,12 @@ function apply_canonical_layout(config::ConsumerConfig, base_dir::String)
         config.progress_rows_delta,
         config.hello_interval_ns,
         config.qos_interval_ns,
+        config.announce_freshness_ns,
+        config.requested_descriptor_channel,
+        config.requested_descriptor_stream_id,
+        config.requested_control_channel,
+        config.requested_control_stream_id,
+        config.mlock_shm,
     )
 end
 

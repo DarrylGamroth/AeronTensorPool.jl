@@ -139,17 +139,6 @@ function provision_stream_epoch!(state::DriverState, stream_state::DriverStreamS
     return nothing
 end
 
-function mlock_buffer!(buffer::AbstractVector{UInt8}, label::String)
-    if !Sys.isunix()
-        @tp_warn "mlock unsupported on this platform; skipping" label
-        return nothing
-    end
-    ptr = Ptr{UInt8}(pointer(buffer))
-    res = Libc.mlock(ptr, length(buffer))
-    res == 0 || throw(ArgumentError("mlock failed for $(label) (errno=$(Libc.errno()))"))
-    return nothing
-end
-
 @inline function parse_mode(mode_str::String)
     return parse(UInt32, mode_str; base = 8)
 end
