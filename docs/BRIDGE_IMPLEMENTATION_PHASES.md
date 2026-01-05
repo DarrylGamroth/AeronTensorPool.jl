@@ -12,6 +12,9 @@
   - HeaderIndex mapping/validation for FrameProgress.
   - Announce forwarding rules and rewriting.
   - Assembly timeout behavior and recovery.
+  - Discovery integration visibility (what discovery should see for bridged streams).
+  - Backpressure behavior on `try_claim` failures.
+  - Error handling policy for invalid chunks.
 - Produce a short checklist table with spec section → implementation file/function.
 
 ### Phase 1: Config + Validation Hardening
@@ -33,7 +36,7 @@
 - Verify header/payload chunking:
   - Enforce headerBytes presence only on first chunk.
   - Validate `chunkCount` and `payloadLength` derivation against spec.
- - Ensure per-consumer control/descriptor streams honor rate limiting (max_rate_hz) when forwarding descriptors.
+- Ensure per-consumer control/descriptor streams honor rate limiting (max_rate_hz) when forwarding descriptors.
 
 ### Phase 3: Receiver Compliance + Robustness
 - Apply forwarded ShmPoolAnnounce for validation:
@@ -46,6 +49,9 @@
   - On timer expiry, drop partial assembly and reset cleanly.
   - Ensure epoch/seq change resets assembly immediately.
 - Ensure all SBE decoding respects field order and handles missing header correctly.
+- Define error handling policy:
+  - Invalid chunks → drop and optionally reset assembly (documented behavior).
+  - `try_claim` failures → drop with counter, avoid retries in hot path.
 
 ### Phase 4: Multi-Mapping Bridge Agent
 - Implement a `BridgeSystemAgent` (or equivalent) that:
@@ -54,6 +60,7 @@
   - Polls subscriptions per mapping with clear work accounting.
   - Provides counters per mapping (prefix with `dest_stream_id` or mapping name).
 - Keep existing `BridgeAgent` as a single-mapping convenience wrapper.
+- Decide whether per-mapping senders/receivers should share pubs/subs or allocate separate ones.
 
 ### Phase 5: Tests + Examples
 - Add integration tests:
@@ -62,6 +69,7 @@
   - Assembly timeout drop/reset path.
   - Bidirectional mappings with feedback loop protection.
   - Discovery integration: ensure bridged streams can be discovered via the Discovery service and that forwarded announces/metadata are visible to discovery.
+  - Backpressure: simulate `try_claim` failures and assert counters/behavior.
 - Add a multi-mapping example config and runner script.
 - Extend bridge benchmarks (optional) for chunking and rematerialization throughput.
 
@@ -70,4 +78,5 @@
   - Multi-mapping setup instructions.
   - Config validation rules and error behavior.
   - Operational notes (MTU, chunk sizing, control channel usage).
+  - Discovery visibility expectations for bridged streams.
 - Add a short troubleshooting section for common bridge misconfigurations.
