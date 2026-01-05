@@ -98,8 +98,16 @@ Discovery service configuration.
 struct DiscoveryConfig
     channel::String
     stream_id::Int32
+    announce_channel::String
+    announce_stream_id::Int32
+    metadata_channel::String
+    metadata_stream_id::Int32
+    driver_instance_id::String
+    driver_control_channel::String
+    driver_control_stream_id::UInt32
     max_results::UInt32
     expiry_ns::UInt64
+    response_buf_bytes::UInt32
 end
 
 """
