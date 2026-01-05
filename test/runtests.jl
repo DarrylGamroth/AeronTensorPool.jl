@@ -59,6 +59,7 @@ include("test_bridge_backpressure.jl")
 include("test_allocations_bridge.jl")
 include("test_bridge_discovery_integration.jl")
 include("test_full_stack_driver_mode.jl")
+include("test_client_api.jl")
 if get(ENV, "TP_RUN_SYSTEM_SMOKE", "false") == "true"
     include("test_system_smoke.jl")
 end

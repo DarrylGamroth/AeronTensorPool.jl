@@ -5,14 +5,8 @@ using AeronTensorPool
 using Logging
 
 mutable struct AppProducerAgent
-    driver_cfg::DriverConfig
-    producer_cfg::ProducerConfig
-    stream_id::UInt32
+    handle::ProducerHandle
     max_count::Int
-    payload_bytes::Int
-    client::Aeron.Client
-    driver_client::Union{DriverClientState, Nothing}
-    producer_agent::Union{ProducerAgent, Nothing}
     payload::Vector{UInt8}
     shape::Vector{Int32}
     strides::Vector{Int32}
@@ -25,77 +19,19 @@ end
 Agent.name(::AppProducerAgent) = "app-producer"
 
 function Agent.on_start(agent::AppProducerAgent)
-    control = agent.driver_cfg.endpoints
-    retry_timeout_ns = UInt64(5_000_000_000)
-
-    agent.driver_client = init_driver_client(
-        agent.client,
-        control.control_channel,
-        control.control_stream_id,
-        UInt32(7),
-        DriverRole.PRODUCER;
-        attach_purge_interval_ns = retry_timeout_ns * 3,
-    )
-    @info "Producer control client ready" control_channel = control.control_channel control_stream_id =
-        control.control_stream_id
-    wait_for_control_connection(agent.driver_client, UInt64(5_000_000_000))
-
-    attach_id = Int64(0)
-    attach = nothing
-    last_send_ns = UInt64(0)
-    while attach === nothing
-        now_ns = UInt64(time_ns())
-        if attach_id == 0
-            attach_id = send_attach_request!(agent.driver_client; stream_id = agent.stream_id)
-            attach_id != 0 && @info("Producer attach sent", correlation_id = attach_id)
-            attach_id != 0 && (last_send_ns = now_ns)
-        elseif now_ns - last_send_ns > retry_timeout_ns
-            @info "Producer attach retry timeout" correlation_id = attach_id
-            attach_id = Int64(0)
-        end
-        attach_id == 0 && (yield(); continue)
-        attach = poll_attach!(agent.driver_client, attach_id, now_ns)
-        if attach !== nothing && attach.code != DriverResponseCode.OK
-            @warn "Producer attach rejected" code = attach.code message = attach.error_message
-            attach = nothing
-            attach_id = Int64(0)
-        end
-        yield()
-    end
-    @info "Producer attach received" code = attach.code lease_id = attach.lease_id stream_id = attach.stream_id
-
-    producer_state =
-        init_producer_from_attach(agent.producer_cfg, attach; driver_client = agent.driver_client, client = agent.client)
-    control_asm = make_control_assembler(producer_state)
-    qos_asm = make_qos_assembler(producer_state)
-    counters =
-        ProducerCounters(producer_state.runtime.control.client, Int(producer_state.config.producer_id), "Producer")
-    agent.producer_agent = ProducerAgent(producer_state, control_asm, qos_asm, counters)
-    @info "Producer data plane" aeron_uri = producer_state.config.aeron_uri descriptor_stream_id =
-        producer_state.config.descriptor_stream_id
-
-    agent.payload = Vector{UInt8}(undef, agent.payload_bytes)
-    agent.shape = Int32[agent.payload_bytes]
-    agent.strides = Int32[1]
-    agent.sent = 0
-    agent.last_send_ns = UInt64(0)
-    agent.send_interval_ns = UInt64(10_000_000)
-    wait_for_descriptor_connection(agent.producer_agent)
     agent.ready = true
-    @info "Producer ready" payload_bytes = agent.payload_bytes
     return nothing
 end
 
 function Agent.do_work(agent::AppProducerAgent)
-    agent.producer_agent === nothing && return 0
     now_ns = UInt64(time_ns())
     if now_ns - agent.last_send_ns < agent.send_interval_ns
-        return Agent.do_work(agent.producer_agent)
+        return 0
     end
     if agent.max_count == 0 || agent.sent < agent.max_count
         fill!(agent.payload, UInt8(agent.sent % 256))
         sent = offer_frame!(
-            agent.producer_agent.state,
+            agent.handle,
             agent.payload,
             agent.shape,
             agent.strides,
@@ -105,25 +41,13 @@ function Agent.do_work(agent::AppProducerAgent)
         if sent
             agent.sent += 1
             agent.last_send_ns = now_ns
-            @info "Producer published frame" seq = agent.producer_agent.state.seq - 1
+            @info "Producer published frame" seq = agent.handle.producer_agent.state.seq - 1
         else
-            connected = Aeron.is_connected(agent.producer_agent.state.runtime.pub_descriptor)
+            connected = Aeron.is_connected(agent.handle.producer_agent.state.runtime.pub_descriptor)
             @info "Producer publish skipped" descriptor_connected = connected
         end
     end
-    return Agent.do_work(agent.producer_agent)
-end
-
-function Agent.on_close(agent::AppProducerAgent)
-    agent.producer_agent === nothing || Agent.on_close(agent.producer_agent)
-    if agent.driver_client !== nothing
-        try
-            close(agent.driver_client.pub)
-            close(agent.driver_client.sub)
-        catch
-        end
-    end
-    return nothing
+    return 0
 end
 
 function usage()
@@ -156,88 +80,57 @@ function run_producer(driver_cfg_path::String, producer_cfg_path::String, count:
     effective_payload_bytes = payload_bytes == 0 ? default_payload_bytes(driver_cfg) : payload_bytes
     core_id = haskey(ENV, "AGENT_TASK_CORE") ? parse(Int, ENV["AGENT_TASK_CORE"]) : nothing
 
-    Aeron.Context() do context
-        AeronTensorPool.set_aeron_dir!(context, driver_cfg.endpoints.aeron_dir)
-        Aeron.Client(context) do client
-            agent = AppProducerAgent(
-                driver_cfg,
-                producer_cfg,
-                stream_id,
-                count,
-                effective_payload_bytes,
-                client,
-                nothing,
-                nothing,
-                UInt8[],
-                Int32[],
-                Int32[],
-                0,
-                UInt64(0),
-                UInt64(0),
-                false,
-            )
-            runner = AgentRunner(BackoffIdleStrategy(), agent)
-            if isnothing(core_id)
-                Agent.start_on_thread(runner)
-            else
-                Agent.start_on_thread(runner, core_id)
+    ctx = TensorPoolContext(driver_cfg.endpoints)
+    tp_client = connect(ctx)
+    try
+        handle = attach_producer(tp_client, producer_cfg; discover = false)
+        payload = Vector{UInt8}(undef, effective_payload_bytes)
+        shape = Int32[effective_payload_bytes]
+        strides = Int32[1]
+        agent = AppProducerAgent(
+            handle,
+            count,
+            payload,
+            shape,
+            strides,
+            0,
+            UInt64(0),
+            UInt64(10_000_000),
+            false,
+        )
+        composite = CompositeAgent(handle.producer_agent, agent)
+        runner = AgentRunner(BackoffIdleStrategy(), composite)
+        if isnothing(core_id)
+            Agent.start_on_thread(runner)
+        else
+            Agent.start_on_thread(runner, core_id)
+        end
+        try
+            while !agent.ready
+                yield()
             end
-            try
-                while !agent.ready
+            if count > 0
+                while agent.sent < count
                     yield()
                 end
-                if count > 0
-                    while agent.sent < count
-                        yield()
-                    end
-                    close(runner)
-                else
-                    wait(runner)
-                end
-            catch e
-                if e isa InterruptException
-                    @info "Producer shutting down..."
-                else
-                    @error "Producer error" exception = (e, catch_backtrace())
-                end
-            finally
                 close(runner)
+            else
+                wait(runner)
             end
-            @info "Producer done" agent.sent
+        catch e
+            if e isa InterruptException
+                @info "Producer shutting down..."
+            else
+                @error "Producer error" exception = (e, catch_backtrace())
+            end
+        finally
+            close(runner)
         end
+        @info "Producer done" agent.sent
+        close(handle)
+    finally
+        close(tp_client)
     end
-    return nothing
-end
-
-function wait_for_control_connection(state::DriverClientState, timeout_ns::UInt64)
-    deadline = UInt64(time_ns()) + timeout_ns
-    while UInt64(time_ns()) < deadline
-        pub_ok = Aeron.is_connected(state.pub)
-        sub_ok = Aeron.is_connected(state.sub)
-        if pub_ok && sub_ok
-            return nothing
-        end
-        @info "Producer waiting for control connection" pub_connected = pub_ok sub_connected = sub_ok
-        yield()
-    end
-    error("driver control channel not connected")
-end
-
-function wait_for_descriptor_connection(agent::ProducerAgent, timeout_ns::UInt64 = UInt64(5_000_000_000))
-    deadline = UInt64(time_ns()) + timeout_ns
-    last_log_ns = UInt64(0)
-    while UInt64(time_ns()) < deadline
-        if Aeron.is_connected(agent.state.runtime.pub_descriptor)
-            return nothing
-        end
-        now_ns = UInt64(time_ns())
-        if now_ns - last_log_ns > 1_000_000_000
-            @info "Producer waiting for descriptor subscriber"
-            last_log_ns = now_ns
-        end
-        yield()
-    end
-    @warn "Producer descriptor not connected before timeout"
     return nothing
 end
 

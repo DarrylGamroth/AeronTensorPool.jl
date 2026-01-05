@@ -4,7 +4,7 @@ using Aeron
 using AeronTensorPool
 using Logging
 
-mutable struct AppConsumerAgent
+mutable struct AppRateLimitedConsumerAgent
     handle::ConsumerHandle
     max_count::Int
     last_frame::UInt64
@@ -18,10 +18,10 @@ mutable struct AppConsumerAgent
     ready::Bool
 end
 
-Agent.name(::AppConsumerAgent) = "app-consumer"
+Agent.name(::AppRateLimitedConsumerAgent) = "app-rate-limited-consumer"
 
 struct AppConsumerOnFrame
-    app_ref::Base.RefValue{AppConsumerAgent}
+    app_ref::Base.RefValue{AppRateLimitedConsumerAgent}
 end
 
 function (hook::AppConsumerOnFrame)(state::ConsumerState, frame::ConsumerFrameView)
@@ -44,12 +44,12 @@ function (hook::AppConsumerOnFrame)(state::ConsumerState, frame::ConsumerFrameVi
     return nothing
 end
 
-function Agent.on_start(agent::AppConsumerAgent)
+function Agent.on_start(agent::AppRateLimitedConsumerAgent)
     agent.ready = true
     return nothing
 end
 
-function Agent.do_work(agent::AppConsumerAgent)
+function Agent.do_work(agent::AppRateLimitedConsumerAgent)
     metrics = agent.handle.consumer_agent.state.metrics
     if metrics.frames_ok != agent.last_frames_ok
         header = agent.handle.consumer_agent.state.runtime.frame_view.header
@@ -74,7 +74,9 @@ function Agent.do_work(agent::AppConsumerAgent)
 end
 
 function usage()
-    println("Usage: julia --project scripts/example_consumer.jl [driver_config] [consumer_config] [count]")
+    println(
+        "Usage: julia --project scripts/example_rate_limited_consumer.jl [driver_config] [consumer_config] [count] [max_rate_hz]",
+    )
 end
 
 function first_stream_id(cfg::DriverConfig)
@@ -87,7 +89,35 @@ function check_pattern(payload::AbstractVector{UInt8}, expected::UInt8)
     @inbounds return payload[1] == expected
 end
 
-function run_consumer(driver_cfg_path::String, consumer_cfg_path::String, count::Int)
+function apply_per_consumer_channels!(
+    cfg::ConsumerSettings,
+    channel::String,
+    descriptor_stream_id::UInt32,
+    control_stream_id::UInt32,
+    max_rate_hz::UInt16,
+)
+    cfg.aeron_uri = channel
+    cfg.descriptor_stream_id = Int32(descriptor_stream_id)
+    cfg.control_stream_id = Int32(control_stream_id)
+    cfg.max_rate_hz = max_rate_hz
+    cfg.mode = Mode.RATE_LIMITED
+    cfg.requested_descriptor_channel = channel
+    cfg.requested_descriptor_stream_id = descriptor_stream_id
+    cfg.requested_control_channel = channel
+    cfg.requested_control_stream_id = control_stream_id
+    return nothing
+end
+
+function per_consumer_stream_id(base::UInt32, consumer_id::UInt32)
+    return base + consumer_id
+end
+
+function run_consumer(
+    driver_cfg_path::String,
+    consumer_cfg_path::String,
+    count::Int,
+    max_rate_hz::UInt16,
+)
     env_driver = Dict(ENV)
     if haskey(ENV, "AERON_DIR")
         env_driver["DRIVER_AERON_DIR"] = ENV["AERON_DIR"]
@@ -99,23 +129,30 @@ function run_consumer(driver_cfg_path::String, consumer_cfg_path::String, count:
     env["TP_STREAM_ID"] = string(stream_id)
     consumer_cfg = load_consumer_config(consumer_cfg_path; env = env)
 
-    discovery_channel = get(ENV, "TP_DISCOVERY_CHANNEL", "")
-    discovery_stream_id = parse(Int32, get(ENV, "TP_DISCOVERY_STREAM_ID", "0"))
+    per_consumer_channel = get(ENV, "TP_PER_CONSUMER_CHANNEL", "aeron:ipc")
+    base_descriptor_id = UInt32(parse(Int, get(ENV, "TP_PER_CONSUMER_DESCRIPTOR_BASE", "21000")))
+    base_control_id = UInt32(parse(Int, get(ENV, "TP_PER_CONSUMER_CONTROL_BASE", "22000")))
+    descriptor_stream_id = per_consumer_stream_id(base_descriptor_id, consumer_cfg.consumer_id)
+    control_stream_id = per_consumer_stream_id(base_control_id, consumer_cfg.consumer_id)
+    apply_per_consumer_channels!(
+        consumer_cfg,
+        per_consumer_channel,
+        descriptor_stream_id,
+        control_stream_id,
+        max_rate_hz,
+    )
+    @info "Per-consumer streams requested" channel = per_consumer_channel descriptor_stream_id =
+        Int32(descriptor_stream_id) control_stream_id = Int32(control_stream_id) max_rate_hz = max_rate_hz
 
     core_id = haskey(ENV, "AGENT_TASK_CORE") ? parse(Int, ENV["AGENT_TASK_CORE"]) : nothing
 
-    ctx = TensorPoolContext(
-        driver_cfg.endpoints;
-        discovery_channel = discovery_channel,
-        discovery_stream_id = discovery_stream_id,
-    )
-
+    ctx = TensorPoolContext(driver_cfg.endpoints)
     tp_client = connect(ctx)
     try
-        app_ref = Ref{AppConsumerAgent}()
+        app_ref = Ref{AppRateLimitedConsumerAgent}()
         hooks = ConsumerHooks(AppConsumerOnFrame(app_ref))
-        handle = attach_consumer(tp_client, consumer_cfg; discover = !isempty(discovery_channel), hooks = hooks)
-        agent = AppConsumerAgent(
+        handle = attach_consumer(tp_client, consumer_cfg; discover = false, hooks = hooks)
+        agent = AppRateLimitedConsumerAgent(
             handle,
             count,
             UInt64(0),
@@ -167,7 +204,7 @@ end
 
 function main()
     Base.exit_on_sigint(false)
-    if length(ARGS) > 3
+    if length(ARGS) > 4
         usage()
         exit(1)
     end
@@ -175,8 +212,9 @@ function main()
     driver_cfg = length(ARGS) >= 1 ? ARGS[1] : "docs/examples/driver_integration_example.toml"
     consumer_cfg = length(ARGS) >= 2 ? ARGS[2] : "config/defaults.toml"
     count = length(ARGS) >= 3 ? parse(Int, ARGS[3]) : 0
+    max_rate_hz = length(ARGS) >= 4 ? UInt16(parse(Int, ARGS[4])) : UInt16(30)
 
-    run_consumer(driver_cfg, consumer_cfg, count)
+    run_consumer(driver_cfg, consumer_cfg, count, max_rate_hz)
     return nothing
 end
 

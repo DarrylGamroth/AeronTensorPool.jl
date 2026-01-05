@@ -185,12 +185,12 @@ For TensorPool, the equivalent should be `do_work(client)` on a `TensorPoolClien
 - Add public error types and map protocol failures to them.
 - Make retry/backoff policy configurable (context fields).
 
-### Phase 5: Examples and Migration
+### Phase 5: Examples and Migration (Completed)
 - Update examples to the new client API.
 - Provide a migration guide mapping old calls to new API.
 - Deprecate direct use of low-level client/agent types in examples.
 
-### Phase 6: Validation and Parity
+### Phase 6: Validation and Parity (Completed)
 - Add tests for invoker vs runner modes.
 - Add tests for supplied vs internal Aeron client ownership.
 - Ensure API surface matches cross-language constraints for future C client.
