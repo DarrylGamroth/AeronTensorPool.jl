@@ -1,6 +1,8 @@
 using Aeron
 using AeronTensorPool
+using Agent
 using Clocks
+using Base.Threads: Atomic, atomic_add!
 
 function ensure_shm_dir(uri::AbstractString)
     parsed = AeronTensorPool.parse_shm_uri(uri)
@@ -60,6 +62,39 @@ function close_bridge_receiver!(receiver)
     end
     return nothing
 end
+
+struct DualAgent{A, B}
+    a::A
+    b::B
+end
+
+Agent.name(::DualAgent) = "dual"
+
+function Agent.do_work(agent::DualAgent)
+    work_done = Agent.do_work(agent.a)
+    work_done += Agent.do_work(agent.b)
+    return work_done
+end
+
+function Agent.on_close(agent::DualAgent)
+    Agent.on_close(agent.a)
+    Agent.on_close(agent.b)
+    return nothing
+end
+
+struct ProducerWork
+    state::ProducerState
+    control_assembler::Aeron.FragmentAssembler
+    qos_assembler::Aeron.FragmentAssembler
+end
+
+Agent.name(::ProducerWork) = "producer-work"
+
+function Agent.do_work(agent::ProducerWork)
+    return producer_do_work!(agent.state, agent.control_assembler; qos_assembler = agent.qos_assembler)
+end
+
+Agent.on_close(::ProducerWork) = nothing
 
 function apply_canonical_layout(
     config::ProducerConfig,
@@ -250,36 +285,30 @@ function run_system_bench(
                             consumer_cfg = apply_canonical_layout(system.consumer, dir)
                             supervisor_cfg = system.supervisor
 
-                            producer = init_producer(producer_cfg; client = client)
-                            consumer = init_consumer(consumer_cfg; client = client)
-                            supervisor = init_supervisor(supervisor_cfg; client = client)
+                            published = 0
+                            consumed = Ref(0)
+                            consumer_hooks = let consumed = consumed
+                                ConsumerHooks((st, _) -> (consumed[] += 1))
+                            end
 
-                    prod_ctrl = make_control_assembler(producer)
-                    cons_ctrl = make_control_assembler(consumer)
-                    sup_ctrl = make_control_assembler(supervisor)
-                    sup_qos = make_qos_assembler(supervisor)
+                            producer_agent = ProducerAgent(producer_cfg; client = client)
+                            consumer_agent = ConsumerAgent(consumer_cfg; client = client, hooks = consumer_hooks)
+                            supervisor_agent = SupervisorAgent(supervisor_cfg; client = client)
 
-                    consumed = Ref(0)
-                    cons_desc = Aeron.FragmentAssembler(Aeron.FragmentHandler(consumer) do st, buffer, _
-                        header = MessageHeader.Decoder(buffer, 0)
-                        if MessageHeader.templateId(header) == AeronTensorPool.TEMPLATE_FRAME_DESCRIPTOR
-                            FrameDescriptor.wrap!(st.runtime.desc_decoder, buffer, 0; header = header)
-                            try_read_frame!(st, st.runtime.desc_decoder) && (consumed[] += 1)
-                        end
-                        nothing
-                    end)
+                            producer = producer_agent.state
+                            consumer = consumer_agent.state
+                            supervisor = supervisor_agent.state
 
                     payload = fill(UInt8(1), bytes)
                     shape = Int32[bytes]
                     strides = Int32[1]
-                    published = 0
                     if warmup_s > 0
                         warmup_start = time_ns()
                         warmup_limit = warmup_start + Int64(round(warmup_s * 1e9))
                         while time_ns() < warmup_limit
-                            producer_do_work!(producer, prod_ctrl)
-                            consumer_do_work!(consumer, cons_desc, cons_ctrl)
-                            supervisor_do_work!(supervisor, sup_ctrl, sup_qos)
+                            Agent.do_work(producer_agent)
+                            Agent.do_work(consumer_agent)
+                            Agent.do_work(supervisor_agent)
                             if consumer.mappings.header_mmap !== nothing
                                 offer_frame!(producer, payload, shape, strides, Dtype.UINT8, UInt32(0))
                             end
@@ -293,24 +322,24 @@ function run_system_bench(
                         wait_start = time_ns()
                         wait_limit = wait_start + Int64(2e9)
                         while consumer.mappings.header_mmap === nothing && time_ns() < wait_limit
-                            producer_do_work!(producer, prod_ctrl)
-                            consumer_do_work!(consumer, cons_desc, cons_ctrl)
-                            supervisor_do_work!(supervisor, sup_ctrl, sup_qos)
+                            Agent.do_work(producer_agent)
+                            Agent.do_work(consumer_agent)
+                            Agent.do_work(supervisor_agent)
                             yield()
                         end
                         for _ in 1:32
-                            producer_do_work!(producer, prod_ctrl)
-                            consumer_do_work!(consumer, cons_desc, cons_ctrl)
-                            supervisor_do_work!(supervisor, sup_ctrl, sup_qos)
+                            Agent.do_work(producer_agent)
+                            Agent.do_work(consumer_agent)
+                            Agent.do_work(supervisor_agent)
                             if consumer.mappings.header_mmap !== nothing
                                 offer_frame!(producer, payload, shape, strides, Dtype.UINT8, UInt32(0))
                             end
                             yield()
                         end
                         sample_before = Base.gc_num().allocd
-                        producer_do_work!(producer, prod_ctrl)
-                        consumer_do_work!(consumer, cons_desc, cons_ctrl)
-                        supervisor_do_work!(supervisor, sup_ctrl, sup_qos)
+                        Agent.do_work(producer_agent)
+                        Agent.do_work(consumer_agent)
+                        Agent.do_work(supervisor_agent)
                         if consumer.mappings.header_mmap !== nothing
                             offer_frame!(producer, payload, shape, strides, Dtype.UINT8, UInt32(0))
                         end
@@ -322,15 +351,15 @@ function run_system_bench(
                         wait_start = time_ns()
                         wait_limit = wait_start + Int64(2e9)
                         while consumer.mappings.header_mmap === nothing && time_ns() < wait_limit
-                            producer_do_work!(producer, prod_ctrl)
-                            consumer_do_work!(consumer, cons_desc, cons_ctrl)
-                            supervisor_do_work!(supervisor, sup_ctrl, sup_qos)
+                            Agent.do_work(producer_agent)
+                            Agent.do_work(consumer_agent)
+                            Agent.do_work(supervisor_agent)
                             yield()
                         end
                         for _ in 1:32
-                            producer_do_work!(producer, prod_ctrl)
-                            consumer_do_work!(consumer, cons_desc, cons_ctrl)
-                            supervisor_do_work!(supervisor, sup_ctrl, sup_qos)
+                            Agent.do_work(producer_agent)
+                            Agent.do_work(consumer_agent)
+                            Agent.do_work(supervisor_agent)
                             if consumer.mappings.header_mmap !== nothing
                                 offer_frame!(producer, payload, shape, strides, Dtype.UINT8, UInt32(0))
                             end
@@ -346,19 +375,19 @@ function run_system_bench(
                             GC.gc()
                         end
                         measure_allocd("producer_do_work") do
-                            producer_do_work!(producer, prod_ctrl)
+                            Agent.do_work(producer_agent)
                         end
                         measure_allocd("consumer_do_work") do
-                            consumer_do_work!(consumer, cons_desc, cons_ctrl)
+                            Agent.do_work(consumer_agent)
                         end
                         if consumer.mappings.header_mmap !== nothing
                             offer_frame!(producer, payload, shape, strides, Dtype.UINT8, UInt32(0))
                             measure_allocd("consumer_do_work (with frame)") do
-                                consumer_do_work!(consumer, cons_desc, cons_ctrl)
+                                Agent.do_work(consumer_agent)
                             end
                         end
                         measure_allocd("supervisor_do_work") do
-                            supervisor_do_work!(supervisor, sup_ctrl, sup_qos)
+                            Agent.do_work(supervisor_agent)
                         end
                         measure_allocd("publish_frame") do
                             if consumer.mappings.header_mmap !== nothing
@@ -403,9 +432,9 @@ function run_system_bench(
                         GC.gc()
                         probe_start = Base.gc_num().allocd
                         for _ in 1:alloc_probe_iters
-                            producer_do_work!(producer, prod_ctrl)
-                            consumer_do_work!(consumer, cons_desc, cons_ctrl)
-                            supervisor_do_work!(supervisor, sup_ctrl, sup_qos)
+                            Agent.do_work(producer_agent)
+                            Agent.do_work(consumer_agent)
+                            Agent.do_work(supervisor_agent)
                             if consumer.mappings.header_mmap !== nothing
                                 offer_frame!(producer, payload, shape, strides, Dtype.UINT8, UInt32(0))
                             end
@@ -433,30 +462,9 @@ function run_system_bench(
                     if fixed_iters > 0
                         while iter_count < fixed_iters
                             if !noop_loop
-                                if poll_subs
-                                    work = 0
-                                    work += poll_control!(producer, prod_ctrl)
-                                    work += poll_descriptor!(consumer, cons_desc)
-                                    work += poll_control!(consumer, cons_ctrl)
-                                    work += poll_control!(supervisor, sup_ctrl)
-                                    work += poll_qos!(supervisor, sup_qos)
-                                end
-                                if poll_timers
-                                    Clocks.fetch!(producer.clock)
-                                    now_ns = UInt64(Clocks.time_nanos(producer.clock))
-                                    poll_timers!(producer, now_ns)
-                                    Clocks.fetch!(consumer.clock)
-                                    now_ns = UInt64(Clocks.time_nanos(consumer.clock))
-                                    poll_timers!(consumer, now_ns)
-                                    Clocks.fetch!(supervisor.clock)
-                                    now_ns = UInt64(Clocks.time_nanos(supervisor.clock))
-                                    poll_timers!(supervisor, now_ns)
-                                end
-                                if !poll_subs && !poll_timers
-                                    producer_do_work!(producer, prod_ctrl)
-                                    consumer_do_work!(consumer, cons_desc, cons_ctrl)
-                                    supervisor_do_work!(supervisor, sup_ctrl, sup_qos)
-                                end
+                                Agent.do_work(producer_agent)
+                                Agent.do_work(consumer_agent)
+                                Agent.do_work(supervisor_agent)
 
                                 if do_publish && consumer.mappings.header_mmap !== nothing
                                     offer_frame!(producer, payload, shape, strides, Dtype.UINT8, UInt32(0))
@@ -470,30 +478,9 @@ function run_system_bench(
                         end_limit = start + Int64(round(duration_s * 1e9))
                         while time_ns() < end_limit
                             if !noop_loop
-                                if poll_subs
-                                    work = 0
-                                    work += poll_control!(producer, prod_ctrl)
-                                    work += poll_descriptor!(consumer, cons_desc)
-                                    work += poll_control!(consumer, cons_ctrl)
-                                    work += poll_control!(supervisor, sup_ctrl)
-                                    work += poll_qos!(supervisor, sup_qos)
-                                end
-                                if poll_timers
-                                    Clocks.fetch!(producer.clock)
-                                    now_ns = UInt64(Clocks.time_nanos(producer.clock))
-                                    poll_timers!(producer, now_ns)
-                                    Clocks.fetch!(consumer.clock)
-                                    now_ns = UInt64(Clocks.time_nanos(consumer.clock))
-                                    poll_timers!(consumer, now_ns)
-                                    Clocks.fetch!(supervisor.clock)
-                                    now_ns = UInt64(Clocks.time_nanos(supervisor.clock))
-                                    poll_timers!(supervisor, now_ns)
-                                end
-                                if !poll_subs && !poll_timers
-                                    producer_do_work!(producer, prod_ctrl)
-                                    consumer_do_work!(consumer, cons_desc, cons_ctrl)
-                                    supervisor_do_work!(supervisor, sup_ctrl, sup_qos)
-                                end
+                                Agent.do_work(producer_agent)
+                                Agent.do_work(consumer_agent)
+                                Agent.do_work(supervisor_agent)
 
                                 if do_publish && consumer.mappings.header_mmap !== nothing
                                     offer_frame!(producer, payload, shape, strides, Dtype.UINT8, UInt32(0))
@@ -536,9 +523,317 @@ function run_system_bench(
                     println("GC live delta (total):  $(live_total) bytes")
                     println()
 
-                            close_supervisor!(supervisor)
-                            close_consumer!(consumer)
-                            close_producer!(producer)
+                            Agent.on_close(supervisor_agent)
+                            Agent.on_close(consumer_agent)
+                            Agent.on_close(producer_agent)
+                        end
+                    end
+                end
+            end
+            return nothing
+        end
+    end
+end
+
+function run_bridge_bench_runners(
+    config_path::AbstractString,
+    duration_s::Float64;
+    payload_bytes::Int = 1024,
+    payload_bytes_list::Vector{Int} = Int[],
+    warmup_s::Float64 = 0.2,
+    alloc_sample::Bool = false,
+    alloc_probe_iters::Int = 0,
+    fixed_iters::Int = 0,
+    alloc_breakdown::Bool = false,
+    noop_loop::Bool = false,
+    do_yield::Bool = true,
+    poll_timers::Bool = true,
+    do_publish::Bool = true,
+    poll_subs::Bool = true,
+)
+    if Threads.nthreads() < 2
+        println("Bridge runners benchmark requires JULIA_NUM_THREADS >= 2")
+        return nothing
+    end
+    Aeron.MediaDriver.launch_embedded() do driver
+        GC.@preserve driver begin
+            Aeron.Context() do context
+                Aeron.aeron_dir!(context, Aeron.MediaDriver.aeron_dir(driver))
+                Aeron.Client(context) do client
+                    env = Dict(ENV)
+                    env["AERON_DIR"] = Aeron.MediaDriver.aeron_dir(driver)
+                    system = load_system_config(config_path; env = env)
+                    sizes = isempty(payload_bytes_list) ? [payload_bytes] : payload_bytes_list
+
+                    src_stream_id = system.producer.stream_id
+                    dst_stream_id = src_stream_id + UInt32(1)
+                    src_descriptor = system.producer.descriptor_stream_id
+                    src_control = system.producer.control_stream_id
+                    src_qos = system.producer.qos_stream_id
+                    src_meta = system.producer.metadata_stream_id
+                    dst_descriptor = src_descriptor + Int32(1000)
+                    dst_control = src_control + Int32(1000)
+                    dst_qos = src_qos + Int32(1000)
+                    dst_meta = src_meta + Int32(1000)
+
+                    for bytes in sizes
+                        bytes > 0 || error("payload_bytes must be > 0")
+                        mktempdir() do src_dir
+                            mktempdir() do dst_dir
+                                src_producer_cfg = override_producer_streams(
+                                    system.producer;
+                                    stream_id = src_stream_id,
+                                    descriptor_stream_id = src_descriptor,
+                                    control_stream_id = src_control,
+                                    qos_stream_id = src_qos,
+                                    metadata_stream_id = src_meta,
+                                    producer_id = system.producer.producer_id,
+                                    producer_instance_id = "bench-src",
+                                )
+                                dst_producer_cfg = override_producer_streams(
+                                    system.producer;
+                                    stream_id = dst_stream_id,
+                                    descriptor_stream_id = dst_descriptor,
+                                    control_stream_id = dst_control,
+                                    qos_stream_id = dst_qos,
+                                    metadata_stream_id = dst_meta,
+                                    producer_id = system.producer.producer_id + UInt32(1),
+                                    producer_instance_id = "bench-dst",
+                                )
+                                producer_src_cfg = apply_canonical_layout(
+                                    src_producer_cfg,
+                                    src_dir;
+                                    producer_instance_id = "bench-src",
+                                )
+                                producer_dst_cfg = apply_canonical_layout(
+                                    dst_producer_cfg,
+                                    dst_dir;
+                                    producer_instance_id = "bench-dst",
+                                )
+                                producer_src_agent = ProducerAgent(producer_src_cfg; client = client)
+
+                                bridge_consumer_cfg = override_consumer_streams(
+                                    system.consumer;
+                                    stream_id = src_stream_id,
+                                    descriptor_stream_id = src_descriptor,
+                                    control_stream_id = src_control,
+                                    qos_stream_id = src_qos,
+                                    consumer_id = system.consumer.consumer_id + UInt32(2),
+                                )
+                                consumer_dst_cfg = override_consumer_streams(
+                                    system.consumer;
+                                    stream_id = dst_stream_id,
+                                    descriptor_stream_id = dst_descriptor,
+                                    control_stream_id = dst_control,
+                                    qos_stream_id = dst_qos,
+                                    consumer_id = system.consumer.consumer_id + UInt32(1),
+                                )
+                                bridge_consumer_cfg = apply_canonical_layout(bridge_consumer_cfg, src_dir)
+                                consumer_dst_cfg = apply_canonical_layout(consumer_dst_cfg, dst_dir)
+
+                                bridge_cfg = BridgeConfig(
+                                    "bridge-bench",
+                                    Aeron.MediaDriver.aeron_dir(driver),
+                                    "aeron:ipc",
+                                    Int32(3100),
+                                    "aeron:ipc",
+                                    Int32(3000),
+                                    "",
+                                    Int32(0),
+                                    Int32(0),
+                                    UInt32(1408),
+                                    UInt32(1024),
+                                    UInt32(0),
+                                    UInt32(max(bytes, 1)),
+                                    UInt64(250_000_000),
+                                    false,
+                                    false,
+                                    false,
+                                )
+                                mapping =
+                                    BridgeMapping(UInt32(src_stream_id), UInt32(dst_stream_id), "bench", UInt32(0), Int32(0), Int32(0))
+                                consumed = Atomic{Int}(0)
+                                consumer_hooks = let consumed = consumed
+                                    ConsumerHooks((_, _) -> atomic_add!(consumed, 1))
+                                end
+                                consumer_dst_agent = ConsumerAgent(consumer_dst_cfg; client = client, hooks = consumer_hooks)
+                                bridge_agent = BridgeAgent(
+                                    bridge_cfg,
+                                    mapping,
+                                    bridge_consumer_cfg,
+                                    producer_dst_cfg;
+                                    client = client,
+                                )
+                                fetch!(bridge_agent.receiver.producer_state.clock)
+                                emit_announce!(bridge_agent.receiver.producer_state)
+
+                                producer_dst_work = let st = bridge_agent.receiver.producer_state
+                                    ProducerWork(st, make_control_assembler(st), make_qos_assembler(st))
+                                end
+                                runner_src = AgentRunner(
+                                    BackoffIdleStrategy(),
+                                    DualAgent(DualAgent(producer_src_agent, bridge_agent), producer_dst_work),
+                                )
+                                runner_dst = AgentRunner(BackoffIdleStrategy(), consumer_dst_agent)
+                                Agent.start_on_thread(runner_src)
+                                Agent.start_on_thread(runner_dst)
+
+                                payload = fill(UInt8(1), bytes)
+                                shape = Int32[bytes]
+                                strides = Int32[1]
+                                published = 0
+
+                                try
+                                    ready_deadline = time_ns() + Int64(2e9)
+                                    next_announce = Int64(0)
+                                    while time_ns() < ready_deadline
+                                        if bridge_agent.sender.consumer_state.mappings.header_mmap !== nothing &&
+                                           consumer_dst_agent.state.mappings.header_mmap !== nothing
+                                            break
+                                        end
+                                        now_ns = time_ns()
+                                        if now_ns >= next_announce
+                                            fetch!(producer_src_agent.state.clock)
+                                            emit_announce!(producer_src_agent.state)
+                                            fetch!(bridge_agent.receiver.producer_state.clock)
+                                            emit_announce!(bridge_agent.receiver.producer_state)
+                                            next_announce = now_ns + Int64(50_000_000)
+                                        end
+                                        yield()
+                                    end
+                                    if bridge_agent.sender.consumer_state.mappings.header_mmap === nothing ||
+                                       consumer_dst_agent.state.mappings.header_mmap === nothing
+                                        println("Bridge runner benchmark: mappings not ready before start")
+                                    end
+
+                                    if warmup_s > 0
+                                        warmup_start = time_ns()
+                                        warmup_limit = warmup_start + Int64(round(warmup_s * 1e9))
+                                        while time_ns() < warmup_limit
+                                            if bridge_agent.sender.consumer_state.mappings.header_mmap !== nothing && do_publish
+                                                offer_frame!(
+                                                    producer_src_agent.state,
+                                                    payload,
+                                                    shape,
+                                                    strides,
+                                                    Dtype.UINT8,
+                                                    UInt32(0),
+                                                )
+                                            end
+                                            yield()
+                                        end
+                                        consumed[] = 0
+                                        published = 0
+                                    end
+
+                                    if alloc_probe_iters > 0
+                                        GC.gc()
+                                        probe_start = Base.gc_num().allocd
+                                        for _ in 1:alloc_probe_iters
+                                            if bridge_agent.sender.consumer_state.mappings.header_mmap !== nothing && do_publish
+                                                offer_frame!(
+                                                    producer_src_agent.state,
+                                                    payload,
+                                                    shape,
+                                                    strides,
+                                                    Dtype.UINT8,
+                                                    UInt32(0),
+                                                )
+                                            end
+                                            yield()
+                                        end
+                                        probe_end = Base.gc_num().allocd
+                                        println("Alloc delta (probe $(alloc_probe_iters) iters): $(probe_end - probe_start) bytes")
+                                        consumed[] = 0
+                                        published = 0
+                                    end
+
+                                    GC.gc()
+                                    gc_num_overhead = Base.gc_num().allocd
+                                    gc_num_overhead = Base.gc_num().allocd - gc_num_overhead
+                                    time_overhead = Base.gc_num().allocd
+                                    _ = time_ns()
+                                    time_overhead = Base.gc_num().allocd - time_overhead
+                                    start_num = Base.gc_num()
+                                    start_live = Base.gc_live_bytes()
+                                    start = time_ns()
+                                    iter_count = 0
+                                    if fixed_iters > 0
+                                        while iter_count < fixed_iters
+                                            if !noop_loop
+                                                if do_publish && bridge_agent.sender.consumer_state.mappings.header_mmap !== nothing
+                                                    offer_frame!(
+                                                        producer_src_agent.state,
+                                                        payload,
+                                                        shape,
+                                                        strides,
+                                                        Dtype.UINT8,
+                                                        UInt32(0),
+                                                    )
+                                                    published += 1
+                                                end
+                                            end
+                                            iter_count += 1
+                                            do_yield && yield()
+                                        end
+                                    else
+                                        end_limit = start + Int64(round(duration_s * 1e9))
+                                        while time_ns() < end_limit
+                                            if !noop_loop
+                                                if do_publish && bridge_agent.sender.consumer_state.mappings.header_mmap !== nothing
+                                                    offer_frame!(
+                                                        producer_src_agent.state,
+                                                        payload,
+                                                        shape,
+                                                        strides,
+                                                        Dtype.UINT8,
+                                                        UInt32(0),
+                                                    )
+                                                    published += 1
+                                                end
+                                            end
+                                            do_yield && yield()
+                                        end
+                                    end
+
+                                    elapsed = (time_ns() - start) / 1e9
+                                    mid_num = Base.gc_num()
+                                    mid_live = Base.gc_live_bytes()
+                                    GC.gc()
+                                    end_num = Base.gc_num()
+                                    end_live = Base.gc_live_bytes()
+                                    allocd_loop_raw = mid_num.allocd - start_num.allocd
+                                    allocd_loop = max(Int64(0), allocd_loop_raw - gc_num_overhead - time_overhead)
+                                    live_loop = mid_live - start_live
+                                    allocd_total_raw = end_num.allocd - start_num.allocd
+                                    allocd_total = max(Int64(0), allocd_total_raw - (2 * gc_num_overhead + time_overhead))
+                                    live_total = end_live - start_live
+                                    publish_rate = published / elapsed
+                                    consume_rate = consumed[] / elapsed
+                                    bytes_per_frame = Float64(bytes)
+                                    publish_mib_s = (publish_rate * bytes_per_frame) / (1024.0 * 1024.0)
+                                    consume_mib_s = (consume_rate * bytes_per_frame) / (1024.0 * 1024.0)
+                                    println("Bridge benchmark (runners): payload_bytes=$(bytes)")
+                                    println("Published: $(published) frames in $(round(elapsed, digits=3))s")
+                                    println("Consumed:  $(consumed[]) frames in $(round(elapsed, digits=3))s")
+                                    println("Publish rate: $(round(publish_rate, digits=1)) fps")
+                                    println("Consume rate: $(round(consume_rate, digits=1)) fps")
+                                    println("Publish bandwidth: $(round(publish_mib_s, digits=1)) MiB/s")
+                                    println("Consume bandwidth: $(round(consume_mib_s, digits=1)) MiB/s")
+                                    println("GC allocd overhead per sample: $(gc_num_overhead) bytes")
+                                    println("GC allocd overhead per time_ns(): $(time_overhead) bytes")
+                                    println("GC allocd delta (loop):  $(allocd_loop) bytes")
+                                    println("GC live delta (loop):   $(live_loop) bytes")
+                                    println("GC allocd delta (total): $(allocd_total) bytes")
+                                    println("GC live delta (total):  $(live_total) bytes")
+                                    println()
+                                finally
+                                    close(runner_dst)
+                                    close(runner_src)
+                                    wait(runner_dst)
+                                    wait(runner_src)
+                                end
+                            end
                         end
                     end
                 end
@@ -609,22 +904,25 @@ function run_bridge_bench(
                                     producer_id = system.producer.producer_id + UInt32(1),
                                     producer_instance_id = "bench-dst",
                                 )
-                                producer_src = init_producer(
-                                    apply_canonical_layout(src_producer_cfg, src_dir; producer_instance_id = "bench-src"),
-                                    client = client,
+                                producer_src_cfg = apply_canonical_layout(
+                                    src_producer_cfg,
+                                    src_dir;
+                                    producer_instance_id = "bench-src",
                                 )
-                                producer_dst = init_producer(
-                                    apply_canonical_layout(dst_producer_cfg, dst_dir; producer_instance_id = "bench-dst"),
-                                    client = client,
+                                producer_dst_cfg = apply_canonical_layout(
+                                    dst_producer_cfg,
+                                    dst_dir;
+                                    producer_instance_id = "bench-dst",
                                 )
+                                producer_src_agent = ProducerAgent(producer_src_cfg; client = client)
 
-                                consumer_src_cfg = override_consumer_streams(
+                                bridge_consumer_cfg = override_consumer_streams(
                                     system.consumer;
                                     stream_id = src_stream_id,
                                     descriptor_stream_id = src_descriptor,
                                     control_stream_id = src_control,
                                     qos_stream_id = src_qos,
-                                    consumer_id = system.consumer.consumer_id,
+                                    consumer_id = system.consumer.consumer_id + UInt32(2),
                                 )
                                 consumer_dst_cfg = override_consumer_streams(
                                     system.consumer;
@@ -634,8 +932,8 @@ function run_bridge_bench(
                                     qos_stream_id = dst_qos,
                                     consumer_id = system.consumer.consumer_id + UInt32(1),
                                 )
-                                consumer_src = init_consumer(apply_canonical_layout(consumer_src_cfg, src_dir); client = client)
-                                consumer_dst = init_consumer(apply_canonical_layout(consumer_dst_cfg, dst_dir); client = client)
+                                bridge_consumer_cfg = apply_canonical_layout(bridge_consumer_cfg, src_dir)
+                                consumer_dst_cfg = apply_canonical_layout(consumer_dst_cfg, dst_dir)
 
                                 bridge_cfg = BridgeConfig(
                                     "bridge-bench",
@@ -656,33 +954,20 @@ function run_bridge_bench(
                                     false,
                                     false,
                                 )
-                                mapping = BridgeMapping(UInt32(src_stream_id), UInt32(dst_stream_id), "bench", UInt32(0), Int32(0), Int32(0))
-                                bridge_sender = init_bridge_sender(consumer_src, bridge_cfg, mapping; client = client)
-                                bridge_receiver = init_bridge_receiver(bridge_cfg, mapping; producer_state = producer_dst, client = client)
-
-                                fragment_limit = Int32(4096)
-                                prod_src_ctrl = make_control_assembler(producer_src)
-                                prod_dst_ctrl = make_control_assembler(producer_dst)
-                                cons_src_ctrl = make_control_assembler(consumer_src)
-                                cons_dst_ctrl = make_control_assembler(consumer_dst)
-
-                                cons_src_desc = Aeron.FragmentAssembler(Aeron.FragmentHandler(consumer_src) do st, buffer, _
-                                    header = MessageHeader.Decoder(buffer, 0)
-                                    if MessageHeader.templateId(header) == AeronTensorPool.TEMPLATE_FRAME_DESCRIPTOR
-                                        FrameDescriptor.wrap!(st.runtime.desc_decoder, buffer, 0; header = header)
-                                        bridge_send_frame!(bridge_sender, st.runtime.desc_decoder)
-                                    end
-                                    nothing
-                                end)
+                                mapping =
+                                    BridgeMapping(UInt32(src_stream_id), UInt32(dst_stream_id), "bench", UInt32(0), Int32(0), Int32(0))
                                 consumed = Ref(0)
-                                cons_dst_desc = Aeron.FragmentAssembler(Aeron.FragmentHandler(consumer_dst) do st, buffer, _
-                                    header = MessageHeader.Decoder(buffer, 0)
-                                    if MessageHeader.templateId(header) == AeronTensorPool.TEMPLATE_FRAME_DESCRIPTOR
-                                        FrameDescriptor.wrap!(st.runtime.desc_decoder, buffer, 0; header = header)
-                                        try_read_frame!(st, st.runtime.desc_decoder) && (consumed[] += 1)
-                                    end
-                                    nothing
-                                end)
+                                consumer_hooks = let consumed = consumed
+                                    ConsumerHooks((_, _) -> (consumed[] += 1))
+                                end
+                                consumer_dst_agent = ConsumerAgent(consumer_dst_cfg; client = client, hooks = consumer_hooks)
+                                bridge_agent = BridgeAgent(
+                                    bridge_cfg,
+                                    mapping,
+                                    bridge_consumer_cfg,
+                                    producer_dst_cfg;
+                                    client = client,
+                                )
 
                                 payload = fill(UInt8(1), bytes)
                                 shape = Int32[bytes]
@@ -693,24 +978,18 @@ function run_bridge_bench(
                                     warmup_start = time_ns()
                                     warmup_limit = warmup_start + Int64(round(warmup_s * 1e9))
                                     while time_ns() < warmup_limit
-                                        producer_do_work!(producer_src, prod_src_ctrl)
-                                        producer_do_work!(producer_dst, prod_dst_ctrl)
-                                        consumer_do_work!(
-                                            consumer_src,
-                                            cons_src_desc,
-                                            cons_src_ctrl;
-                                            fragment_limit = fragment_limit,
-                                        )
-                                        consumer_do_work!(
-                                            consumer_dst,
-                                            cons_dst_desc,
-                                            cons_dst_ctrl;
-                                            fragment_limit = fragment_limit,
-                                        )
-                                        bridge_sender_do_work!(bridge_sender; fragment_limit = fragment_limit)
-                                        bridge_receiver_do_work!(bridge_receiver; fragment_limit = fragment_limit)
-                                        if consumer_src.mappings.header_mmap !== nothing && do_publish
-                                            offer_frame!(producer_src, payload, shape, strides, Dtype.UINT8, UInt32(0))
+                                        Agent.do_work(producer_src_agent)
+                                        Agent.do_work(bridge_agent)
+                                        Agent.do_work(consumer_dst_agent)
+                                        if bridge_agent.sender.consumer_state.mappings.header_mmap !== nothing && do_publish
+                                            offer_frame!(
+                                                producer_src_agent.state,
+                                                payload,
+                                                shape,
+                                                strides,
+                                                Dtype.UINT8,
+                                                UInt32(0),
+                                            )
                                         end
                                         yield()
                                     end
@@ -722,24 +1001,18 @@ function run_bridge_bench(
                                     GC.gc()
                                     probe_start = Base.gc_num().allocd
                                     for _ in 1:alloc_probe_iters
-                                        producer_do_work!(producer_src, prod_src_ctrl)
-                                        producer_do_work!(producer_dst, prod_dst_ctrl)
-                                        consumer_do_work!(
-                                            consumer_src,
-                                            cons_src_desc,
-                                            cons_src_ctrl;
-                                            fragment_limit = fragment_limit,
-                                        )
-                                        consumer_do_work!(
-                                            consumer_dst,
-                                            cons_dst_desc,
-                                            cons_dst_ctrl;
-                                            fragment_limit = fragment_limit,
-                                        )
-                                        bridge_sender_do_work!(bridge_sender; fragment_limit = fragment_limit)
-                                        bridge_receiver_do_work!(bridge_receiver; fragment_limit = fragment_limit)
-                                        if consumer_src.mappings.header_mmap !== nothing && do_publish
-                                            offer_frame!(producer_src, payload, shape, strides, Dtype.UINT8, UInt32(0))
+                                        Agent.do_work(producer_src_agent)
+                                        Agent.do_work(bridge_agent)
+                                        Agent.do_work(consumer_dst_agent)
+                                        if bridge_agent.sender.consumer_state.mappings.header_mmap !== nothing && do_publish
+                                            offer_frame!(
+                                                producer_src_agent.state,
+                                                payload,
+                                                shape,
+                                                strides,
+                                                Dtype.UINT8,
+                                                UInt32(0),
+                                            )
                                         end
                                         yield()
                                     end
@@ -762,46 +1035,18 @@ function run_bridge_bench(
                                 if fixed_iters > 0
                                     while iter_count < fixed_iters
                                         if !noop_loop
-                                            if poll_subs
-                                                poll_control!(producer_src, prod_src_ctrl)
-                                                poll_control!(producer_dst, prod_dst_ctrl)
-                                                poll_descriptor!(consumer_src, cons_src_desc, fragment_limit)
-                                                poll_control!(consumer_src, cons_src_ctrl, fragment_limit)
-                                                poll_descriptor!(consumer_dst, cons_dst_desc, fragment_limit)
-                                                poll_control!(consumer_dst, cons_dst_ctrl, fragment_limit)
-                                                bridge_sender_do_work!(bridge_sender; fragment_limit = fragment_limit)
-                                                bridge_receiver_do_work!(bridge_receiver; fragment_limit = fragment_limit)
-                                            end
-                                            if poll_timers
-                                                Clocks.fetch!(producer_src.clock)
-                                                poll_timers!(producer_src, UInt64(Clocks.time_nanos(producer_src.clock)))
-                                                Clocks.fetch!(producer_dst.clock)
-                                                poll_timers!(producer_dst, UInt64(Clocks.time_nanos(producer_dst.clock)))
-                                                Clocks.fetch!(consumer_src.clock)
-                                                poll_timers!(consumer_src, UInt64(Clocks.time_nanos(consumer_src.clock)))
-                                                Clocks.fetch!(consumer_dst.clock)
-                                                poll_timers!(consumer_dst, UInt64(Clocks.time_nanos(consumer_dst.clock)))
-                                            end
-                                            if !poll_subs && !poll_timers
-                                                producer_do_work!(producer_src, prod_src_ctrl)
-                                                producer_do_work!(producer_dst, prod_dst_ctrl)
-                                                consumer_do_work!(
-                                                    consumer_src,
-                                                    cons_src_desc,
-                                                    cons_src_ctrl;
-                                                    fragment_limit = fragment_limit,
+                                            Agent.do_work(producer_src_agent)
+                                            Agent.do_work(bridge_agent)
+                                            Agent.do_work(consumer_dst_agent)
+                                            if do_publish && bridge_agent.sender.consumer_state.mappings.header_mmap !== nothing
+                                                offer_frame!(
+                                                    producer_src_agent.state,
+                                                    payload,
+                                                    shape,
+                                                    strides,
+                                                    Dtype.UINT8,
+                                                    UInt32(0),
                                                 )
-                                                consumer_do_work!(
-                                                    consumer_dst,
-                                                    cons_dst_desc,
-                                                    cons_dst_ctrl;
-                                                    fragment_limit = fragment_limit,
-                                                )
-                                                bridge_sender_do_work!(bridge_sender; fragment_limit = fragment_limit)
-                                                bridge_receiver_do_work!(bridge_receiver; fragment_limit = fragment_limit)
-                                            end
-                                            if do_publish && consumer_src.mappings.header_mmap !== nothing
-                                                offer_frame!(producer_src, payload, shape, strides, Dtype.UINT8, UInt32(0))
                                                 published += 1
                                             end
                                         end
@@ -812,46 +1057,18 @@ function run_bridge_bench(
                                     end_limit = start + Int64(round(duration_s * 1e9))
                                     while time_ns() < end_limit
                                         if !noop_loop
-                                            if poll_subs
-                                                poll_control!(producer_src, prod_src_ctrl)
-                                                poll_control!(producer_dst, prod_dst_ctrl)
-                                                poll_descriptor!(consumer_src, cons_src_desc, fragment_limit)
-                                                poll_control!(consumer_src, cons_src_ctrl, fragment_limit)
-                                                poll_descriptor!(consumer_dst, cons_dst_desc, fragment_limit)
-                                                poll_control!(consumer_dst, cons_dst_ctrl, fragment_limit)
-                                                bridge_sender_do_work!(bridge_sender; fragment_limit = fragment_limit)
-                                                bridge_receiver_do_work!(bridge_receiver; fragment_limit = fragment_limit)
-                                            end
-                                            if poll_timers
-                                                Clocks.fetch!(producer_src.clock)
-                                                poll_timers!(producer_src, UInt64(Clocks.time_nanos(producer_src.clock)))
-                                                Clocks.fetch!(producer_dst.clock)
-                                                poll_timers!(producer_dst, UInt64(Clocks.time_nanos(producer_dst.clock)))
-                                                Clocks.fetch!(consumer_src.clock)
-                                                poll_timers!(consumer_src, UInt64(Clocks.time_nanos(consumer_src.clock)))
-                                                Clocks.fetch!(consumer_dst.clock)
-                                                poll_timers!(consumer_dst, UInt64(Clocks.time_nanos(consumer_dst.clock)))
-                                            end
-                                            if !poll_subs && !poll_timers
-                                                producer_do_work!(producer_src, prod_src_ctrl)
-                                                producer_do_work!(producer_dst, prod_dst_ctrl)
-                                                consumer_do_work!(
-                                                    consumer_src,
-                                                    cons_src_desc,
-                                                    cons_src_ctrl;
-                                                    fragment_limit = fragment_limit,
+                                            Agent.do_work(producer_src_agent)
+                                            Agent.do_work(bridge_agent)
+                                            Agent.do_work(consumer_dst_agent)
+                                            if do_publish && bridge_agent.sender.consumer_state.mappings.header_mmap !== nothing
+                                                offer_frame!(
+                                                    producer_src_agent.state,
+                                                    payload,
+                                                    shape,
+                                                    strides,
+                                                    Dtype.UINT8,
+                                                    UInt32(0),
                                                 )
-                                                consumer_do_work!(
-                                                    consumer_dst,
-                                                    cons_dst_desc,
-                                                    cons_dst_ctrl;
-                                                    fragment_limit = fragment_limit,
-                                                )
-                                                bridge_sender_do_work!(bridge_sender; fragment_limit = fragment_limit)
-                                                bridge_receiver_do_work!(bridge_receiver; fragment_limit = fragment_limit)
-                                            end
-                                            if do_publish && consumer_src.mappings.header_mmap !== nothing
-                                                offer_frame!(producer_src, payload, shape, strides, Dtype.UINT8, UInt32(0))
                                                 published += 1
                                             end
                                         end
@@ -891,12 +1108,9 @@ function run_bridge_bench(
                                 println("GC live delta (total):  $(live_total) bytes")
                                 println()
 
-                                close_bridge_receiver!(bridge_receiver)
-                                close_bridge_sender!(bridge_sender)
-                                close_consumer!(consumer_dst)
-                                close_consumer!(consumer_src)
-                                close_producer!(producer_dst)
-                                close_producer!(producer_src)
+                                Agent.on_close(bridge_agent)
+                                Agent.on_close(consumer_dst_agent)
+                                Agent.on_close(producer_src_agent)
                             end
                         end
                     end
