@@ -193,6 +193,8 @@ function send_discovery_request!(
     data_source_name::AbstractString = "",
     tags::AbstractVector{<:AbstractString} = EMPTY_STRING_VECTOR,
 )
+    isempty(state.response_channel) && return UInt64(0)
+    state.response_stream_id == 0 && return UInt64(0)
     request_id = next_request_id!(state)
     msg_len = discovery_request_length(tags, state.response_channel, data_source_name)
     sent = let st = state,

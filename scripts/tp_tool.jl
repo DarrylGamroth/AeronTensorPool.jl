@@ -10,6 +10,7 @@ function usage()
     println("  julia --project scripts/tp_tool.jl driver-attach <aeron_dir> <control_channel> <control_stream_id> <client_id> <role> <stream_id> [publish_mode] [expected_layout_version] [require_hugepages_policy] [timeout_ms]")
     println("  julia --project scripts/tp_tool.jl driver-detach <aeron_dir> <control_channel> <control_stream_id> <client_id> <role> <stream_id> <lease_id> [timeout_ms]")
     println("  julia --project scripts/tp_tool.jl driver-keepalive <aeron_dir> <control_channel> <control_stream_id> <client_id> <role> <stream_id> <lease_id>")
+    println("  julia --project scripts/tp_tool.jl discover <aeron_dir> <request_channel> <request_stream_id> <response_channel> <response_stream_id> [stream_id] [producer_id] [data_source_id] [data_source_name] [tags_csv] [timeout_ms]")
     exit(1)
 end
 
@@ -77,6 +78,55 @@ function with_driver_client(
         catch
         end
     end
+end
+
+function with_discovery_client(
+    f::Function,
+    aeron_dir::String,
+    request_channel::String,
+    request_stream_id::Int32,
+    response_channel::String,
+    response_stream_id::UInt32,
+    client_id::UInt32,
+)
+    ctx = Aeron.Context()
+    Aeron.aeron_dir!(ctx, aeron_dir)
+    client = Aeron.Client(ctx)
+    state = init_discovery_client(
+        client,
+        request_channel,
+        request_stream_id,
+        response_channel,
+        response_stream_id,
+        client_id,
+    )
+    try
+        return f(state)
+    finally
+        try
+            close(state.pub)
+            close(state.sub)
+            close(client)
+            close(ctx)
+        catch
+        end
+    end
+end
+
+function wait_for_discovery_response(
+    client::DiscoveryClientState,
+    request_id::UInt64;
+    timeout_ms::Int = 5000,
+)
+    deadline = time_ns() + Int64(timeout_ms) * 1_000_000
+    while time_ns() < deadline
+        slot = poll_discovery_response!(client, request_id)
+        if slot !== nothing
+            return slot
+        end
+        yield()
+    end
+    return nothing
 end
 
 function wait_for_response(
@@ -260,6 +310,65 @@ elseif cmd == "driver-keepalive"
             client_timestamp_ns = UInt64(time_ns()),
         )
         println(sent)
+    end
+elseif cmd == "discover"
+    length(ARGS) >= 6 || usage()
+    aeron_dir = ARGS[2]
+    request_channel = ARGS[3]
+    request_stream_id = parse(Int32, ARGS[4])
+    response_channel = ARGS[5]
+    response_stream_id = parse(UInt32, ARGS[6])
+    stream_id = length(ARGS) >= 7 ? parse(UInt32, ARGS[7]) : nothing
+    producer_id = length(ARGS) >= 8 ? parse(UInt32, ARGS[8]) : nothing
+    data_source_id = length(ARGS) >= 9 ? parse(UInt64, ARGS[9]) : nothing
+    data_source_name = length(ARGS) >= 10 ? ARGS[10] : ""
+    tags_csv = length(ARGS) >= 11 ? ARGS[11] : ""
+    timeout_ms = length(ARGS) >= 12 ? parse(Int, ARGS[12]) : 5000
+    tags = isempty(tags_csv) ? String[] : split(tags_csv, ',')
+    client_id = UInt32(getpid())
+
+    with_discovery_client(
+        aeron_dir,
+        request_channel,
+        request_stream_id,
+        response_channel,
+        response_stream_id,
+        client_id,
+    ) do client
+        entries = Vector{DiscoveryEntry}()
+        request_id = discover_streams!(
+            client,
+            entries;
+            stream_id = stream_id,
+            producer_id = producer_id,
+            data_source_id = data_source_id,
+            data_source_name = data_source_name,
+            tags = tags,
+        )
+        request_id == 0 && error("discover send failed")
+        slot = wait_for_discovery_response(client, request_id; timeout_ms = timeout_ms)
+        slot === nothing && error("discover response timed out")
+        println("status=$(slot.status)")
+        println("count=$(slot.count)")
+        if !isempty(slot.error_message)
+            println("error=$(String(view(slot.error_message)))")
+        end
+        for entry in slot.out_entries
+            println("stream_id=$(entry.stream_id) producer_id=$(entry.producer_id) epoch=$(entry.epoch) layout=$(entry.layout_version)")
+            println("driver_instance_id=$(String(view(entry.driver_instance_id)))")
+            println("driver_control=$(String(view(entry.driver_control_channel))) stream=$(entry.driver_control_stream_id)")
+            println("header_uri=$(String(view(entry.header_region_uri))) nslots=$(entry.header_nslots) slot_bytes=$(entry.header_slot_bytes) max_dims=$(entry.max_dims)")
+            println("data_source_name=$(String(view(entry.data_source_name))) data_source_id=$(entry.data_source_id)")
+            if !isempty(entry.tags)
+                tag_list = join([String(view(tag)) for tag in entry.tags], ",")
+                println("tags=$tag_list")
+            end
+            if !isempty(entry.pools)
+                for pool in entry.pools
+                    println("pool_id=$(pool.pool_id) nslots=$(pool.pool_nslots) stride=$(pool.stride_bytes) uri=$(String(view(pool.region_uri)))")
+                end
+            end
+        end
     end
 else
     usage()
