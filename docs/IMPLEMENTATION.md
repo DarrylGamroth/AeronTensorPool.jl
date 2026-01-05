@@ -303,6 +303,8 @@ profile = "raw_profile"
 ## 20. Benchmarking
 - Microbenchmarks: `julia --project scripts/run_benchmarks.jl`.
 - System benchmark: `julia --project scripts/run_benchmarks.jl --system --duration 5 --config config/defaults.toml`.
+- Bridge benchmark (single-thread): `julia --project scripts/run_benchmarks.jl --bridge --duration 5 --config config/defaults.toml`.
+- Bridge benchmark (AgentRunners, requires `JULIA_NUM_THREADS>=2`): `JULIA_NUM_THREADS=2 julia --project scripts/run_benchmarks.jl --bridge-runners --duration 5 --config config/defaults.toml`.
 - Results should include publish/consume rates and allocation behavior under load.
 - Map config → SBE messages: producer fills ShmPoolAnnounce from TOML/env (uris, nslots, stride_bytes); max_dims comes from the compiled schema constant.
 - Consumers refuse SHM if announce values differ from compiled schema (max_dims/layout_version) or backend validation fails.

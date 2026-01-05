@@ -38,3 +38,10 @@ Results:
 - `yield`: 0 bytes
 - Empty loop (256 iters): 0 bytes
 - Loop alloc delta: 128 bytes (over 256 iters)
+
+## Bridge Bench (AgentRunner path)
+
+Command:
+```bash
+JULIA_NUM_THREADS=2 julia --project scripts/run_benchmarks.jl --bridge-runners --duration 5 --payload-bytes 655360 --config config/defaults.toml
+```
