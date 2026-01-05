@@ -93,6 +93,67 @@ struct SlotClaim
 end
 
 """
+Discovery service configuration.
+"""
+struct DiscoveryConfig
+    channel::String
+    stream_id::Int32
+    max_results::UInt32
+    expiry_ns::UInt64
+end
+
+"""
+Discovery service payload pool entry.
+"""
+struct DiscoveryPoolEntry
+    pool_id::UInt16
+    pool_nslots::UInt32
+    stride_bytes::UInt32
+    region_uri::FixedString
+end
+
+"""
+Discovery service stream entry.
+"""
+mutable struct DiscoveryEntry
+    driver_instance_id::FixedString
+    driver_control_channel::FixedString
+    driver_control_stream_id::UInt32
+    stream_id::UInt32
+    producer_id::UInt32
+    epoch::UInt64
+    layout_version::UInt32
+    header_region_uri::FixedString
+    header_nslots::UInt32
+    header_slot_bytes::UInt16
+    max_dims::UInt8
+    data_source_id::UInt64
+    data_source_name::FixedString
+    tags::Vector{FixedString}
+    pools::Vector{DiscoveryPoolEntry}
+    last_announce_ns::UInt64
+end
+
+"""
+View of a discovery entry with StringView fields.
+"""
+struct DiscoveryResultView
+    driver_instance_id::StringView
+    driver_control_channel::StringView
+    header_region_uri::StringView
+    data_source_name::StringView
+end
+
+@inline function discovery_result_view(entry::DiscoveryEntry)
+    return DiscoveryResultView(
+        view(entry.driver_instance_id),
+        view(entry.driver_control_channel),
+        view(entry.header_region_uri),
+        view(entry.data_source_name),
+    )
+end
+
+"""
 Return a view over the payload bytes for a PayloadView.
 
 Arguments:
