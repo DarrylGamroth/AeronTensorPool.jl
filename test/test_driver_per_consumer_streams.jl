@@ -74,11 +74,11 @@ using Test
             ConsumerHello.consumerId!(hello_encoder, UInt32(7))
             ConsumerHello.supportsShm!(
                 hello_encoder,
-                ShmTensorpoolControl.Bool_.TRUE,
+                AeronTensorPool.ShmTensorpoolControl.Bool_.TRUE,
             )
             ConsumerHello.supportsProgress!(
                 hello_encoder,
-                ShmTensorpoolControl.Bool_.FALSE,
+                AeronTensorPool.ShmTensorpoolControl.Bool_.FALSE,
             )
             ConsumerHello.mode!(hello_encoder, Mode.STREAM)
             ConsumerHello.maxRateHz!(hello_encoder, UInt16(0))
@@ -199,11 +199,11 @@ end
             ConsumerHello.consumerId!(hello_encoder, UInt32(9))
             ConsumerHello.supportsShm!(
                 hello_encoder,
-                ShmTensorpoolControl.Bool_.TRUE,
+                AeronTensorPool.ShmTensorpoolControl.Bool_.TRUE,
             )
             ConsumerHello.supportsProgress!(
                 hello_encoder,
-                ShmTensorpoolControl.Bool_.FALSE,
+                AeronTensorPool.ShmTensorpoolControl.Bool_.FALSE,
             )
             ConsumerHello.mode!(hello_encoder, Mode.STREAM)
             ConsumerHello.maxRateHz!(hello_encoder, UInt16(0))
