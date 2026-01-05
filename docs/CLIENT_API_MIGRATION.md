@@ -61,3 +61,4 @@ close(client)
 
 - Invoker mode uses `do_work(client)` when `use_invoker=true`.
 - Low-level client/agent types remain available, but the high-level client API is the preferred entry point.
+- Attach helpers fail closed on malformed OK responses (missing URIs/fields); reattach after correcting driver state.

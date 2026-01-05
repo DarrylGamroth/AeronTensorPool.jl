@@ -60,6 +60,7 @@ Control plane:
 Per-consumer streams (optional):
 - Consumers may request per-consumer descriptor/control streams in ConsumerHello.
 - Producers may assign them via ConsumerConfig; if declined, consumers remain on shared streams.
+- Drivers may allocate per-consumer stream IDs when ConsumerHello supplies a channel with stream_id=0; the driver returns ConsumerConfig and producers should honor it.
 - Per-consumer descriptor streams may be rate-limited with max_rate_hz; shared descriptor streams are never gated.
 - Producers MUST close per-consumer publications when the consumer is stale (no ConsumerHello/QoS for 3–5× cadence).
 
