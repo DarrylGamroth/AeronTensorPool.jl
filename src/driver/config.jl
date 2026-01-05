@@ -110,27 +110,27 @@ DriverConfig(
     streams,
 )
 
-@inline function env_key(key::String)
+@inline function env_key(key::AbstractString)
     return uppercase(replace(key, "." => "_"))
 end
 
-@inline function env_override(env::AbstractDict, key::String, fallback::String)
+@inline function env_override(env::AbstractDict, key::AbstractString, fallback::AbstractString)
     return get(env, env_key(key), fallback)
 end
 
-@inline function env_override(env::AbstractDict, key::String, fallback::UInt32)
+@inline function env_override(env::AbstractDict, key::AbstractString, fallback::UInt32)
     return parse(UInt32, get(env, env_key(key), string(fallback)))
 end
 
-@inline function env_override(env::AbstractDict, key::String, fallback::UInt16)
+@inline function env_override(env::AbstractDict, key::AbstractString, fallback::UInt16)
     return parse(UInt16, get(env, env_key(key), string(fallback)))
 end
 
-@inline function env_override(env::AbstractDict, key::String, fallback::Int32)
+@inline function env_override(env::AbstractDict, key::AbstractString, fallback::Int32)
     return parse(Int32, get(env, env_key(key), string(fallback)))
 end
 
-@inline function env_override(env::AbstractDict, key::String, fallback::Bool)
+@inline function env_override(env::AbstractDict, key::AbstractString, fallback::Bool)
     return lowercase(get(env, env_key(key), string(fallback))) == "true"
 end
 
@@ -306,7 +306,7 @@ function load_driver_config(path::AbstractString; env::AbstractDict = ENV)
     )
 end
 
-function parse_stream_id_range(tbl::Dict{String, Any}, env::AbstractDict, key::String)
+function parse_stream_id_range(tbl::AbstractDict, env::AbstractDict, key::AbstractString)
     key_name = split(key, ".")[end]
     env_val = get(env, env_key(key), nothing)
     raw = env_val === nothing ? get(tbl, key_name, nothing) : String(env_val)

@@ -193,11 +193,11 @@ function provision_stream_epoch!(state::DriverState, stream_state::DriverStreamS
     return nothing
 end
 
-@inline function parse_mode(mode_str::String)
+@inline function parse_mode(mode_str::AbstractString)
     return parse(UInt32, mode_str; base = 8)
 end
 
-function ensure_shm_file!(state::DriverState, path::String, size::Int, mode_str::String)
+function ensure_shm_file!(state::DriverState, path::AbstractString, size::Int, mode_str::AbstractString)
     isabspath(path) || throw(ArgumentError("SHM path must be absolute"))
     path_allowed(path, state.config.shm.allowed_base_dirs) ||
         throw(ArgumentError("SHM path not within allowed_base_dirs"))
@@ -216,11 +216,11 @@ function ensure_shm_file!(state::DriverState, path::String, size::Int, mode_str:
     return nothing
 end
 
-@inline function add_hugepage_flag(uri::String)
+@inline function add_hugepage_flag(uri::AbstractString)
     return "$(uri)|require_hugepages=true"
 end
 
-function path_allowed(path::String, allowed_dirs::Vector{String})
+function path_allowed(path::AbstractString, allowed_dirs::AbstractVector{<:AbstractString})
     abs_path = abspath(path)
     abs_path = ispath(abs_path) ? realpath(abs_path) : abs_path
     for dir in allowed_dirs

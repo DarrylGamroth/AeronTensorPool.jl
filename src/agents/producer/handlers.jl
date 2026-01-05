@@ -328,6 +328,7 @@ function update_consumer_streams_from_config!(state::ProducerState, msg::Consume
     ConsumerConfigMsg.streamId(msg) == state.config.stream_id || return false
 
     consumer_id = ConsumerConfigMsg.consumerId(msg)
+    ConsumerConfigMsg.payloadFallbackUri(msg, Nothing)
     descriptor_channel = String(ConsumerConfigMsg.descriptorChannel(msg))
     control_channel = String(ConsumerConfigMsg.controlChannel(msg))
     descriptor_stream_id = ConsumerConfigMsg.descriptorStreamId(msg)

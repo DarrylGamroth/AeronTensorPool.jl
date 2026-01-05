@@ -1,7 +1,7 @@
 """
 Initialize SHM regions, write superblocks, and return mappings plus encoder.
 """
-function init_producer_shm!(config::ProducerConfig, clock::Clocks.CachedEpochClock)
+function init_producer_shm!(config::ProducerConfig, clock::Clocks.AbstractClock)
     header_size = SUPERBLOCK_SIZE + Int(config.nslots) * HEADER_SLOT_BYTES
     header_mmap = mmap_shm(config.header_uri, header_size; write = true)
     if config.mlock_shm

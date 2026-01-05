@@ -17,10 +17,22 @@ function emit_consumer_hello!(state::ConsumerState)
         progress_rows = typemax(UInt32)
     end
 
-    requested_descriptor_channel = state.config.requested_descriptor_channel
-    requested_descriptor_stream_id = state.config.requested_descriptor_stream_id
-    requested_control_channel = state.config.requested_control_channel
-    requested_control_stream_id = state.config.requested_control_stream_id
+    requested_descriptor_channel =
+        state.assigned_descriptor_stream_id != 0 ?
+        state.assigned_descriptor_channel :
+        state.config.requested_descriptor_channel
+    requested_descriptor_stream_id =
+        state.assigned_descriptor_stream_id != 0 ?
+        state.assigned_descriptor_stream_id :
+        state.config.requested_descriptor_stream_id
+    requested_control_channel =
+        state.assigned_control_stream_id != 0 ?
+        state.assigned_control_channel :
+        state.config.requested_control_channel
+    requested_control_stream_id =
+        state.assigned_control_stream_id != 0 ?
+        state.assigned_control_stream_id :
+        state.config.requested_control_stream_id
 
     descriptor_requested = !isempty(requested_descriptor_channel)
     control_requested = !isempty(requested_control_channel)
@@ -60,6 +72,16 @@ function emit_consumer_hello!(state::ConsumerState)
             ConsumerHello.progressIntervalUs!(st.runtime.hello_encoder, interval)
             ConsumerHello.progressBytesDelta!(st.runtime.hello_encoder, bytes)
             ConsumerHello.progressRowsDelta!(st.runtime.hello_encoder, rows)
+            if descriptor_requested
+                ConsumerHello.descriptorChannel!(st.runtime.hello_encoder, requested_descriptor_channel)
+            else
+                ConsumerHello.descriptorChannel_length!(st.runtime.hello_encoder, 0)
+            end
+            if control_requested
+                ConsumerHello.controlChannel!(st.runtime.hello_encoder, requested_control_channel)
+            else
+                ConsumerHello.controlChannel_length!(st.runtime.hello_encoder, 0)
+            end
             ConsumerHello.descriptorStreamId!(
                 st.runtime.hello_encoder,
                 descriptor_requested ?
@@ -71,16 +93,6 @@ function emit_consumer_hello!(state::ConsumerState)
                 control_requested ? requested_control_stream_id :
                 ConsumerHello.controlStreamId_null_value(ConsumerHello.Encoder),
             )
-            if descriptor_requested
-                ConsumerHello.descriptorChannel!(st.runtime.hello_encoder, requested_descriptor_channel)
-            else
-                ConsumerHello.descriptorChannel_length!(st.runtime.hello_encoder, 0)
-            end
-            if control_requested
-                ConsumerHello.controlChannel!(st.runtime.hello_encoder, requested_control_channel)
-            else
-                ConsumerHello.controlChannel_length!(st.runtime.hello_encoder, 0)
-            end
         end
     end
     sent || return false

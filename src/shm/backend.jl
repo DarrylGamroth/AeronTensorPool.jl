@@ -71,7 +71,7 @@ Arguments:
 Returns:
 - `nothing`.
 """
-function mlock_buffer!(buffer::AbstractVector{UInt8}, label::String)
+function mlock_buffer!(buffer::AbstractVector{UInt8}, label::AbstractString)
     if !Sys.isunix()
         @tp_warn "mlock unsupported on this platform; skipping" label
         return nothing
