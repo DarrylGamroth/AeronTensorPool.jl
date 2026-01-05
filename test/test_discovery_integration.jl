@@ -2,6 +2,7 @@ using Test
 using Aeron
 using AeronTensorPool
 using SBE
+using UnsafeArrays
 
 function offer_shm_pool_announce!(
     pub::Aeron.Publication,
@@ -11,23 +12,23 @@ function offer_shm_pool_announce!(
     pool_uri::AbstractString,
 )
     buf = Vector{UInt8}(undef, 1024)
-    enc = ShmPoolAnnounce.Encoder(Vector{UInt8})
-    ShmPoolAnnounce.wrap_and_apply_header!(enc, buf, 0)
-    ShmPoolAnnounce.streamId!(enc, stream_id)
-    ShmPoolAnnounce.producerId!(enc, producer_id)
-    ShmPoolAnnounce.epoch!(enc, UInt64(1))
-    ShmPoolAnnounce.announceTimestampNs!(enc, UInt64(time_ns()))
-    ShmPoolAnnounce.layoutVersion!(enc, UInt32(1))
-    ShmPoolAnnounce.headerNslots!(enc, UInt32(8))
-    ShmPoolAnnounce.headerSlotBytes!(enc, UInt16(HEADER_SLOT_BYTES))
-    ShmPoolAnnounce.maxDims!(enc, UInt8(MAX_DIMS))
-    pools = ShmPoolAnnounce.payloadPools!(enc, 1)
-    pool_entry = ShmPoolAnnounce.PayloadPools.next!(pools)
-    ShmPoolAnnounce.PayloadPools.poolId!(pool_entry, UInt16(1))
-    ShmPoolAnnounce.PayloadPools.poolNslots!(pool_entry, UInt32(8))
-    ShmPoolAnnounce.PayloadPools.strideBytes!(pool_entry, UInt32(1024))
-    ShmPoolAnnounce.PayloadPools.regionUri!(pool_entry, pool_uri)
-    ShmPoolAnnounce.headerRegionUri!(enc, header_uri)
+    enc = AeronTensorPool.ShmPoolAnnounce.Encoder(Vector{UInt8})
+    AeronTensorPool.ShmPoolAnnounce.wrap_and_apply_header!(enc, buf, 0)
+    AeronTensorPool.ShmPoolAnnounce.streamId!(enc, stream_id)
+    AeronTensorPool.ShmPoolAnnounce.producerId!(enc, producer_id)
+    AeronTensorPool.ShmPoolAnnounce.epoch!(enc, UInt64(1))
+    AeronTensorPool.ShmPoolAnnounce.announceTimestampNs!(enc, UInt64(time_ns()))
+    AeronTensorPool.ShmPoolAnnounce.layoutVersion!(enc, UInt32(1))
+    AeronTensorPool.ShmPoolAnnounce.headerNslots!(enc, UInt32(8))
+    AeronTensorPool.ShmPoolAnnounce.headerSlotBytes!(enc, UInt16(AeronTensorPool.HEADER_SLOT_BYTES))
+    AeronTensorPool.ShmPoolAnnounce.maxDims!(enc, UInt8(AeronTensorPool.MAX_DIMS))
+    pools = AeronTensorPool.ShmPoolAnnounce.payloadPools!(enc, 1)
+    pool_entry = AeronTensorPool.ShmPoolAnnounce.PayloadPools.next!(pools)
+    AeronTensorPool.ShmPoolAnnounce.PayloadPools.poolId!(pool_entry, UInt16(1))
+    AeronTensorPool.ShmPoolAnnounce.PayloadPools.poolNslots!(pool_entry, UInt32(8))
+    AeronTensorPool.ShmPoolAnnounce.PayloadPools.strideBytes!(pool_entry, UInt32(1024))
+    AeronTensorPool.ShmPoolAnnounce.PayloadPools.regionUri!(pool_entry, pool_uri)
+    AeronTensorPool.ShmPoolAnnounce.headerRegionUri!(enc, header_uri)
     Aeron.offer(pub, view(buf, 1:sbe_message_length(enc)))
     return nothing
 end
@@ -39,14 +40,14 @@ function offer_data_source_announce!(
     name::AbstractString,
 )
     buf = Vector{UInt8}(undef, 512)
-    enc = DataSourceAnnounce.Encoder(Vector{UInt8})
-    DataSourceAnnounce.wrap_and_apply_header!(enc, buf, 0)
-    DataSourceAnnounce.streamId!(enc, stream_id)
-    DataSourceAnnounce.producerId!(enc, producer_id)
-    DataSourceAnnounce.epoch!(enc, UInt64(1))
-    DataSourceAnnounce.metaVersion!(enc, UInt32(1))
-    DataSourceAnnounce.name!(enc, name)
-    DataSourceAnnounce.summary!(enc, "")
+    enc = AeronTensorPool.DataSourceAnnounce.Encoder(Vector{UInt8})
+    AeronTensorPool.DataSourceAnnounce.wrap_and_apply_header!(enc, buf, 0)
+    AeronTensorPool.DataSourceAnnounce.streamId!(enc, stream_id)
+    AeronTensorPool.DataSourceAnnounce.producerId!(enc, producer_id)
+    AeronTensorPool.DataSourceAnnounce.epoch!(enc, UInt64(1))
+    AeronTensorPool.DataSourceAnnounce.metaVersion!(enc, UInt32(1))
+    AeronTensorPool.DataSourceAnnounce.name!(enc, name)
+    AeronTensorPool.DataSourceAnnounce.summary!(enc, "")
     Aeron.offer(pub, view(buf, 1:sbe_message_length(enc)))
     return nothing
 end
@@ -58,18 +59,27 @@ function offer_discovery_request!(
     response_stream_id::UInt32,
 )
     buf = Vector{UInt8}(undef, 512)
-    enc = DiscoveryRequest.Encoder(Vector{UInt8})
-    DiscoveryRequest.wrap_and_apply_header!(enc, buf, 0)
-    DiscoveryRequest.requestId!(enc, request_id)
-    DiscoveryRequest.clientId!(enc, UInt32(1))
-    DiscoveryRequest.responseStreamId!(enc, response_stream_id)
-    DiscoveryRequest.streamId!(enc, DiscoveryRequest.streamId_null_value(DiscoveryRequest.Decoder))
-    DiscoveryRequest.producerId!(enc, DiscoveryRequest.producerId_null_value(DiscoveryRequest.Decoder))
-    DiscoveryRequest.dataSourceId!(enc, DiscoveryRequest.dataSourceId_null_value(DiscoveryRequest.Decoder))
-    DiscoveryRequest.tags!(enc, 0)
-    DiscoveryRequest.responseChannel!(enc, response_channel)
-    DiscoveryRequest.dataSourceName!(enc, "")
-    msg_len = DISCOVERY_MESSAGE_HEADER_LEN + sbe_encoded_length(enc)
+    enc = AeronTensorPool.DiscoveryRequest.Encoder(Vector{UInt8})
+    AeronTensorPool.DiscoveryRequest.wrap_and_apply_header!(enc, buf, 0)
+    AeronTensorPool.DiscoveryRequest.requestId!(enc, request_id)
+    AeronTensorPool.DiscoveryRequest.clientId!(enc, UInt32(1))
+    AeronTensorPool.DiscoveryRequest.responseStreamId!(enc, response_stream_id)
+    AeronTensorPool.DiscoveryRequest.streamId!(
+        enc,
+        AeronTensorPool.DiscoveryRequest.streamId_null_value(AeronTensorPool.DiscoveryRequest.Decoder),
+    )
+    AeronTensorPool.DiscoveryRequest.producerId!(
+        enc,
+        AeronTensorPool.DiscoveryRequest.producerId_null_value(AeronTensorPool.DiscoveryRequest.Decoder),
+    )
+    AeronTensorPool.DiscoveryRequest.dataSourceId!(
+        enc,
+        AeronTensorPool.DiscoveryRequest.dataSourceId_null_value(AeronTensorPool.DiscoveryRequest.Decoder),
+    )
+    AeronTensorPool.DiscoveryRequest.tags!(enc, 0)
+    AeronTensorPool.DiscoveryRequest.responseChannel!(enc, response_channel)
+    AeronTensorPool.DiscoveryRequest.dataSourceName!(enc, "")
+    msg_len = AeronTensorPool.DISCOVERY_MESSAGE_HEADER_LEN + sbe_encoded_length(enc)
     Aeron.offer(pub, view(buf, 1:msg_len))
     return nothing
 end
@@ -101,9 +111,9 @@ end
                 UInt32(65536),
             )
             state = init_discovery_provider(config; client = client)
-            request_asm = make_request_assembler(state)
-            announce_asm = make_announce_assembler(state)
-            metadata_asm = make_metadata_assembler(state)
+            request_asm = AeronTensorPool.make_request_assembler(state)
+            announce_asm = AeronTensorPool.make_announce_assembler(state)
+            metadata_asm = AeronTensorPool.make_metadata_assembler(state)
 
             pub_announce = Aeron.add_publication(client, announce_channel, announce_stream_id)
             pub_metadata = Aeron.add_publication(client, metadata_channel, metadata_stream_id)
@@ -186,9 +196,9 @@ end
                 UInt32(65536),
             )
             state = init_discovery_provider(config; client = client)
-            request_asm = make_request_assembler(state)
-            announce_asm = make_announce_assembler(state)
-            metadata_asm = make_metadata_assembler(state)
+            request_asm = AeronTensorPool.make_request_assembler(state)
+            announce_asm = AeronTensorPool.make_announce_assembler(state)
+            metadata_asm = AeronTensorPool.make_metadata_assembler(state)
 
             pub_req = Aeron.add_publication(client, request_channel, request_stream_id)
             offer_discovery_request!(
@@ -211,10 +221,11 @@ end
             status = Ref(DiscoveryStatus.OK)
             assembler = Aeron.FragmentAssembler(Aeron.FragmentHandler(nothing) do _, buffer, _
                 header = DiscoveryMessageHeader.Decoder(buffer, 0)
-                if DiscoveryMessageHeader.templateId(header) == TEMPLATE_DISCOVERY_RESPONSE
-                    resp = DiscoveryResponse.Decoder(buffer)
-                    DiscoveryResponse.wrap!(resp, buffer, 0; header = header)
-                    status[] = DiscoveryResponse.status(resp)
+                if AeronTensorPool.DiscoveryMessageHeader.templateId(header) ==
+                   AeronTensorPool.TEMPLATE_DISCOVERY_RESPONSE
+                    resp = AeronTensorPool.DiscoveryResponse.Decoder(UnsafeArrays.UnsafeArray{UInt8, 1})
+                    AeronTensorPool.DiscoveryResponse.wrap!(resp, buffer, 0; header = header)
+                    status[] = AeronTensorPool.DiscoveryResponse.status(resp)
                     got[] = true
                 end
                 nothing

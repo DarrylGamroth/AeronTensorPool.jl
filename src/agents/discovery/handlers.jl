@@ -259,7 +259,7 @@ function discovery_response_length(
     count::Int,
     error_message::AbstractString,
 )
-    results_block_len = Int(DiscoveryResponse.Results.sbe_block_length(DiscoveryResponse.Results.Decoder))
+    results_block_len = Int(DISCOVERY_RESULT_BLOCK_LEN)
     total = DISCOVERY_MESSAGE_HEADER_LEN +
         Int(DiscoveryResponse.sbe_block_length(DiscoveryResponse.Decoder)) +
         DISCOVERY_GROUP_HEADER_LEN +

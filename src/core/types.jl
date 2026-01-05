@@ -138,7 +138,7 @@ end
 """
 Discovery service payload pool entry.
 """
-struct DiscoveryPoolEntry
+mutable struct DiscoveryPoolEntry
     pool_id::UInt16
     pool_nslots::UInt32
     stride_bytes::UInt32

@@ -20,6 +20,7 @@ end
 
 Base.codeunit(::Type{FixedString}) = UInt8
 Base.codeunit(::FixedString) = UInt8
+Base.codeunit(fs::FixedString, i::Integer) = fs.buf[i]
 Base.ncodeunits(fs::FixedString) = length(fs)
 Base.length(fs::FixedString) = (pos = findfirst(iszero, fs.buf); pos === nothing ? length(fs.buf) : pos - 1)
 Base.isempty(fs::FixedString) = length(fs) == 0

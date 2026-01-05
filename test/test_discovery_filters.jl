@@ -8,7 +8,10 @@ using StringViews
     entry.producer_id = UInt32(20)
     entry.data_source_id = UInt64(30)
     copyto!(entry.data_source_name, "CameraA")
-    entry.tags = [FixedString(DISCOVERY_TAG_MAX_BYTES), FixedString(DISCOVERY_TAG_MAX_BYTES)]
+    entry.tags = [
+        FixedString(AeronTensorPool.DISCOVERY_TAG_MAX_BYTES),
+        FixedString(AeronTensorPool.DISCOVERY_TAG_MAX_BYTES),
+    ]
     copyto!(entry.tags[1], "tag1")
     copyto!(entry.tags[2], "tag2")
 
@@ -52,13 +55,21 @@ using StringViews
         StringView("cameraa"),
         StringView[],
     )
+    tags_one = Vector{StringView}()
+    push!(tags_one, StringView("tag1"))
+    tags_miss = Vector{StringView}()
+    push!(tags_miss, StringView("tag3"))
+    tags_two = Vector{StringView}()
+    push!(tags_two, StringView("tag1"))
+    push!(tags_two, StringView("tag2"))
+
     @test AeronTensorPool.entry_matches!(
         entry,
         UInt32(10),
         UInt32(20),
         UInt64(30),
         StringView("CameraA"),
-        [StringView("tag1")],
+        tags_one,
     )
     @test !AeronTensorPool.entry_matches!(
         entry,
@@ -66,7 +77,7 @@ using StringViews
         UInt32(20),
         UInt64(30),
         StringView("CameraA"),
-        [StringView("tag3")],
+        tags_miss,
     )
     @test AeronTensorPool.entry_matches!(
         entry,
@@ -74,6 +85,6 @@ using StringViews
         UInt32(20),
         UInt64(30),
         StringView("CameraA"),
-        [StringView("tag1"), StringView("tag2")],
+        tags_two,
     )
 end
