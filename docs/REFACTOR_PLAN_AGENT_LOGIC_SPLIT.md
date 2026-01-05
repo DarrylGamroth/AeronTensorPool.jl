@@ -46,9 +46,6 @@ Status: completed; logic files have been decomposed into init/work/lifecycle (an
 - From `sender.jl` / `receiver.jl` → `init.jl` (if init routines are mixed)
 - Ensure `*_do_work!` lives in `work.jl` for both sender/receiver
 
-### Decimator (`src/agents/decimator`)
-- From `logic.jl` → `init.jl` + `work.jl` (if appropriate)
-
 ## Include Order Updates
 - Update `src/agents/*/agent.jl` and `src/agents/*/agent_name.jl` includes to match the new files.
 - Keep `state.jl` and `frames.jl` before `work.jl`.

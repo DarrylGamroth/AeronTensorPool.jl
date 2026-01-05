@@ -7,7 +7,7 @@ Target: `docs/SHM_Tensor_Pool_Wire_Spec_v1.1.md` (seq_commit + TensorSlotHeader 
 - `src/shm/superblock.jl`: `TensorSlotHeader256` wrappers and read/write helpers; uses `frame_id`, `commit_word`.
 - `src/shm/seqlock.jl`: seqlock helpers name/semantics reference `commit_word` and `frame_id`.
 - `src/shm/slots.jl`: `commit_word`/`frame_id` fields in slot view.
-- Producer/consumer/bridge/decimator code and tests reference `frame_id`.
+- Producer/consumer/bridge code and tests reference `frame_id`.
 - Benchmarks and tools use `TensorSlotHeader256`.
 
 ## Consumer validation and bounds checks (current)

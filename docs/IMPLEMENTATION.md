@@ -217,7 +217,7 @@ end
 - Pollers are advanced APIs; higher-level init functions (`init_driver_client`, `init_producer`, `init_consumer`, `init_supervisor`) are the recommended entry points.
 
 ### Config scope (public vs internal)
-- Public configs: `DriverConfig`, `ProducerConfig`, `ConsumerSettings`, `SupervisorConfig`, `BridgeConfig`, `DecimatorConfig`, `SystemConfig`.
+- Public configs: `DriverConfig`, `ProducerConfig`, `ConsumerSettings`, `SupervisorConfig`, `BridgeConfig`, `SystemConfig`.
 - Internal helper configs and runtime structs should not be required for typical usage; keep them in module scope but document if exposed.
 
 ## 14. Codegen and build tasks

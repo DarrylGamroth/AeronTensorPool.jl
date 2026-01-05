@@ -11,7 +11,6 @@ This is the Phase 0 export inventory for AeronTensorPool. Public exports are def
 - SupervisorConfig, SupervisorState, SupervisorAgent
 - DriverAgent, DriverState
 - BridgeAgent, BridgeConfig, BridgeMapping, BridgeSourceInfo, BridgeAssembledFrame, BridgeSenderState, BridgeReceiverState
-- DecimatorConfig, DecimatorState
 - ConsumerHello, FrameDescriptor, FrameProgress, MessageHeader, DriverMessageHeader, QosProducer, QosConsumer
 - ShmRegionSuperblock, ShmUri, SuperblockFields, TensorSlotHeader256, TensorSlotHeader, PayloadView, ConsumerFrameView, Mode
 - ShmAttachRequest, ShmAttachResponse, ShmDetachRequest, ShmDetachResponse, ShmLeaseKeepalive
@@ -25,7 +24,7 @@ This is the Phase 0 export inventory for AeronTensorPool. Public exports are def
 - add_counter, make_counter_type_id
 - due!, reset!, poll_timers!
 - init_consumer, init_producer, init_producer_from_attach, producer_config_from_attach, init_consumer_from_attach
-- init_supervisor, init_driver, init_bridge_sender, init_bridge_receiver, init_decimator
+- init_supervisor, init_driver, init_bridge_sender, init_bridge_receiver
 - bridge_forward_announce!, bridge_send_frame!, bridge_sender_do_work!, bridge_receiver_do_work!, bridge_rematerialize!
 - map_from_announce!, map_from_attach_response!
 - emit_consumer_config!, emit_announce!, emit_consumer_hello!, emit_progress_complete!, emit_qos!
@@ -44,7 +43,7 @@ This is the Phase 0 export inventory for AeronTensorPool. Public exports are def
 - view (FixedString)
 - supervisor_do_work!, producer_do_work!, consumer_do_work!, driver_do_work!
 - next_header_index, payload_pool_config
-- bridge_frame!, handle_decimated_frame!, republish_descriptor!
+- bridge_frame!, republish_descriptor!
 
 ## Exported Errors and Counters
 - TensorPoolError, ShmUriError, ShmValidationError, AeronInitError

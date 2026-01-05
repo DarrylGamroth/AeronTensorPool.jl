@@ -47,7 +47,6 @@ include("agents/producer/producer.jl")
 include("agents/consumer/consumer.jl")
 include("agents/supervisor/supervisor.jl")
 include("agents/bridge/bridge.jl")
-include("agents/decimator/decimator.jl")
 include("agents/discovery/discovery.jl")
 include("agents/producer_agent.jl")
 include("agents/consumer_agent.jl")
@@ -84,9 +83,6 @@ export AeronInitError,
     ConsumerSettings,
     ConsumerState,
     Counters,
-    DecimatorConfig,
-    DecimatorHooks,
-    DecimatorState,
     DetachRequestProxy,
     DetachResponse,
     DiscoveryConfigError,
@@ -201,7 +197,6 @@ export AeronInitError,
     emit_progress_complete!,
     emit_qos!,
     handle_consumer_hello!,
-    handle_decimated_frame!,
     handle_shm_pool_announce!,
     header_commit_ptr,
     header_commit_ptr_from_offset,
@@ -210,7 +205,6 @@ export AeronInitError,
     init_bridge_sender,
     init_consumer,
     init_consumer_from_attach,
-    init_decimator,
     init_discovery_provider,
     init_discovery_registry,
     init_discovery_client,
