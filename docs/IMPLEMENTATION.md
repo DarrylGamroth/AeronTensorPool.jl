@@ -94,6 +94,72 @@ For a combined wire + driver overview, see `docs/IMPLEMENTATION_GUIDE.md`.
 - drops_late: seqlock/identity failures (seq_commit instability or seq mismatch).
 - Supervisor aggregates QosProducer/QosConsumer for liveness and throttling decisions.
 
+## 9a. Discovery Service (v1.0)
+- Discovery responses are advisory; clients MUST attach via the driver and validate epochs/layout.
+- Embedded provider: `DiscoveryAgent` subscribes to `ShmPoolAnnounce` + metadata, serves requests on a discovery request channel.
+- Registry mode: `DiscoveryRegistryAgent` aggregates multiple driver endpoints and serves the same request API.
+
+### 9a.1 Embedded Provider Config (example)
+```toml
+[discovery]
+channel = "aeron:ipc"
+stream_id = 7000
+announce_channel = "aeron:ipc"
+announce_stream_id = 7001
+metadata_channel = "aeron:ipc"
+metadata_stream_id = 7002
+driver_instance_id = "driver-1"
+driver_control_channel = "aeron:ipc"
+driver_control_stream_id = 7003
+max_results = 1000
+expiry_ns = 3_000_000_000
+response_buf_bytes = 65536
+```
+
+### 9a.2 Registry Config (example)
+```toml
+[discovery_registry]
+channel = "aeron:udp?endpoint=localhost:9010"
+stream_id = 7100
+max_results = 1000
+expiry_ns = 3_000_000_000
+response_buf_bytes = 65536
+
+[[discovery_registry.endpoints]]
+driver_instance_id = "driver-1"
+announce_channel = "aeron:udp?endpoint=localhost:9020"
+announce_stream_id = 7101
+metadata_channel = "aeron:udp?endpoint=localhost:9021"
+metadata_stream_id = 7102
+driver_control_channel = "aeron:udp?endpoint=localhost:9022"
+driver_control_stream_id = 7103
+```
+
+### 9a.3 Client Usage (example)
+```julia
+client_state = init_discovery_client(
+    client,
+    "aeron:ipc", 7000,       # request channel/stream
+    "aeron:ipc", UInt32(7004), # response channel/stream
+    UInt32(42),              # client_id
+)
+
+results = Vector{DiscoveryEntry}()
+request_id = discover_streams!(client_state, results; data_source_name = "camera-1")
+
+slot = nothing
+while slot === nothing
+    slot = poll_discovery_response!(client_state, request_id)
+    yield()
+end
+
+if slot.status == DiscoveryStatus.OK
+    for entry in slot.out_entries
+        @info "discovered stream" stream_id = entry.stream_id driver = view(entry.driver_instance_id)
+    end
+end
+```
+
 ## 10. Operational Defaults
 - Announce cadence: 1 Hz; liveness timeout: 3–5× cadence.
 - nslots sizing: rate × worst-case consumer latency × safety factor (2–4).

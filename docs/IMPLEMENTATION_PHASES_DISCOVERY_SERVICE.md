@@ -78,4 +78,4 @@ in hot paths).
 - Phase 5: completed
 - Phase 6: completed
 - Phase 7: completed
-- Phase 8: pending
+- Phase 8: completed
