@@ -275,12 +275,9 @@ function run_system_bench(
                             producer_agent = ProducerAgent(producer_cfg; client = client)
                             consumer_agent = ConsumerAgent(consumer_cfg; client = client, hooks = consumer_hooks)
                             supervisor_agent = SupervisorAgent(supervisor_cfg; client = client)
-                            producer_invoker = AgentInvoker(producer_agent)
-                            consumer_invoker = AgentInvoker(consumer_agent)
-                            supervisor_invoker = AgentInvoker(supervisor_agent)
-                            Agent.start(producer_invoker)
-                            Agent.start(consumer_invoker)
-                            Agent.start(supervisor_invoker)
+                            system_agent = CompositeAgent(producer_agent, consumer_agent, supervisor_agent)
+                            system_invoker = AgentInvoker(system_agent)
+                            Agent.start(system_invoker)
 
                             producer = producer_agent.state
                             consumer = consumer_agent.state
@@ -293,9 +290,7 @@ function run_system_bench(
                         warmup_start = time_ns()
                         warmup_limit = warmup_start + Int64(round(warmup_s * 1e9))
                         while time_ns() < warmup_limit
-                            Agent.invoke(producer_invoker)
-                            Agent.invoke(consumer_invoker)
-                            Agent.invoke(supervisor_invoker)
+                            Agent.invoke(system_invoker)
                             if consumer.mappings.header_mmap !== nothing
                                 offer_frame!(producer, payload, shape, strides, Dtype.UINT8, UInt32(0))
                             end
@@ -309,24 +304,18 @@ function run_system_bench(
                         wait_start = time_ns()
                         wait_limit = wait_start + Int64(2e9)
                         while consumer.mappings.header_mmap === nothing && time_ns() < wait_limit
-                            Agent.invoke(producer_invoker)
-                            Agent.invoke(consumer_invoker)
-                            Agent.invoke(supervisor_invoker)
+                            Agent.invoke(system_invoker)
                             yield()
                         end
                         for _ in 1:32
-                            Agent.invoke(producer_invoker)
-                            Agent.invoke(consumer_invoker)
-                            Agent.invoke(supervisor_invoker)
+                            Agent.invoke(system_invoker)
                             if consumer.mappings.header_mmap !== nothing
                                 offer_frame!(producer, payload, shape, strides, Dtype.UINT8, UInt32(0))
                             end
                             yield()
                         end
                         sample_before = Base.gc_num().allocd
-                        Agent.invoke(producer_invoker)
-                        Agent.invoke(consumer_invoker)
-                        Agent.invoke(supervisor_invoker)
+                        Agent.invoke(system_invoker)
                         if consumer.mappings.header_mmap !== nothing
                             offer_frame!(producer, payload, shape, strides, Dtype.UINT8, UInt32(0))
                         end
@@ -338,15 +327,11 @@ function run_system_bench(
                         wait_start = time_ns()
                         wait_limit = wait_start + Int64(2e9)
                         while consumer.mappings.header_mmap === nothing && time_ns() < wait_limit
-                            Agent.invoke(producer_invoker)
-                            Agent.invoke(consumer_invoker)
-                            Agent.invoke(supervisor_invoker)
+                            Agent.invoke(system_invoker)
                             yield()
                         end
                         for _ in 1:32
-                            Agent.invoke(producer_invoker)
-                            Agent.invoke(consumer_invoker)
-                            Agent.invoke(supervisor_invoker)
+                            Agent.invoke(system_invoker)
                             if consumer.mappings.header_mmap !== nothing
                                 offer_frame!(producer, payload, shape, strides, Dtype.UINT8, UInt32(0))
                             end
@@ -362,19 +347,19 @@ function run_system_bench(
                             GC.gc()
                         end
                         measure_allocd("producer_do_work") do
-                            Agent.invoke(producer_invoker)
+                            Agent.invoke(system_invoker)
                         end
                         measure_allocd("consumer_do_work") do
-                            Agent.invoke(consumer_invoker)
+                            Agent.invoke(system_invoker)
                         end
                         if consumer.mappings.header_mmap !== nothing
                             offer_frame!(producer, payload, shape, strides, Dtype.UINT8, UInt32(0))
                             measure_allocd("consumer_do_work (with frame)") do
-                                Agent.invoke(consumer_invoker)
+                                Agent.invoke(system_invoker)
                             end
                         end
                         measure_allocd("supervisor_do_work") do
-                            Agent.invoke(supervisor_invoker)
+                            Agent.invoke(system_invoker)
                         end
                         measure_allocd("publish_frame") do
                             if consumer.mappings.header_mmap !== nothing
@@ -419,9 +404,7 @@ function run_system_bench(
                         GC.gc()
                         probe_start = Base.gc_num().allocd
                         for _ in 1:alloc_probe_iters
-                            Agent.invoke(producer_invoker)
-                            Agent.invoke(consumer_invoker)
-                            Agent.invoke(supervisor_invoker)
+                            Agent.invoke(system_invoker)
                             if consumer.mappings.header_mmap !== nothing
                                 offer_frame!(producer, payload, shape, strides, Dtype.UINT8, UInt32(0))
                             end
@@ -449,9 +432,7 @@ function run_system_bench(
                     if fixed_iters > 0
                         while iter_count < fixed_iters
                             if !noop_loop
-                                Agent.invoke(producer_invoker)
-                                Agent.invoke(consumer_invoker)
-                                Agent.invoke(supervisor_invoker)
+                                Agent.invoke(system_invoker)
 
                                 if do_publish && consumer.mappings.header_mmap !== nothing
                                     offer_frame!(producer, payload, shape, strides, Dtype.UINT8, UInt32(0))
@@ -465,9 +446,7 @@ function run_system_bench(
                         end_limit = start + Int64(round(duration_s * 1e9))
                         while time_ns() < end_limit
                             if !noop_loop
-                                Agent.invoke(producer_invoker)
-                                Agent.invoke(consumer_invoker)
-                                Agent.invoke(supervisor_invoker)
+                                Agent.invoke(system_invoker)
 
                                 if do_publish && consumer.mappings.header_mmap !== nothing
                                     offer_frame!(producer, payload, shape, strides, Dtype.UINT8, UInt32(0))
@@ -510,9 +489,7 @@ function run_system_bench(
                     println("GC live delta (total):  $(live_total) bytes")
                     println()
 
-                            close(supervisor_invoker)
-                            close(consumer_invoker)
-                            close(producer_invoker)
+                            close(system_invoker)
                         end
                     end
                 end
