@@ -37,11 +37,18 @@ const BridgeMessageHeader = ShmTensorpoolBridge.MessageHeader
 const BridgeBool = ShmTensorpoolBridge.Bool_
 const BridgeFrameChunk = ShmTensorpoolBridge.BridgeFrameChunk
 
+const DiscoveryMessageHeader = ShmTensorpoolDiscovery.MessageHeader
+const DiscoveryRequest = ShmTensorpoolDiscovery.DiscoveryRequest
+const DiscoveryResponse = ShmTensorpoolDiscovery.DiscoveryResponse
+const DiscoveryStatus = ShmTensorpoolDiscovery.DiscoveryStatus
+
 const MESSAGE_HEADER_LEN = Int(MessageHeader.sbe_encoded_length(MessageHeader.Decoder))
 const DRIVER_MESSAGE_HEADER_LEN =
     Int(DriverMessageHeader.sbe_encoded_length(DriverMessageHeader.Decoder))
 const BRIDGE_MESSAGE_HEADER_LEN =
     Int(BridgeMessageHeader.sbe_encoded_length(BridgeMessageHeader.Decoder))
+const DISCOVERY_MESSAGE_HEADER_LEN =
+    Int(DiscoveryMessageHeader.sbe_encoded_length(DiscoveryMessageHeader.Decoder))
 const FRAME_DESCRIPTOR_LEN = MESSAGE_HEADER_LEN + Int(FrameDescriptor.sbe_block_length(FrameDescriptor.Decoder))
 const FRAME_PROGRESS_LEN = MESSAGE_HEADER_LEN + Int(FrameProgress.sbe_block_length(FrameProgress.Decoder))
 const QOS_PRODUCER_LEN = MESSAGE_HEADER_LEN + Int(QosProducer.sbe_block_length(QosProducer.Decoder))
@@ -71,6 +78,8 @@ const TEMPLATE_SHM_LEASE_REVOKED = ShmLeaseRevoked.sbe_template_id(ShmLeaseRevok
 const TEMPLATE_SHM_DRIVER_SHUTDOWN_REQUEST =
     ShmDriverShutdownRequest.sbe_template_id(ShmDriverShutdownRequest.Decoder)
 const TEMPLATE_BRIDGE_FRAME_CHUNK = BridgeFrameChunk.sbe_template_id(BridgeFrameChunk.Decoder)
+const TEMPLATE_DISCOVERY_REQUEST = DiscoveryRequest.sbe_template_id(DiscoveryRequest.Decoder)
+const TEMPLATE_DISCOVERY_RESPONSE = DiscoveryResponse.sbe_template_id(DiscoveryResponse.Decoder)
 
 """
 Return full SBE message length (header + body) for an encoder/decoder.

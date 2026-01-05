@@ -129,7 +129,7 @@ When Discovery is embedded in the Driver, `discovery.*` MAY default to the drive
 - If no filters are supplied, all known streams MAY be returned (subject to limits).
 - If multiple filters are provided, they MUST be treated as AND.
 - Requests with empty `response_channel` or `response_stream_id=0` MUST be rejected. Providers MUST drop such requests silently and MUST NOT emit any response when `response_channel` is empty.
-- `response_stream_id` is required on the wire and MUST be non-zero; providers MUST reject (and not forward) any request whose encoded value is 0, and clients MUST NOT send zero.
+- `response_stream_id` is required on the wire and MUST be non-zero; providers MUST reject any request whose encoded value is 0. If `response_channel` is non-empty, providers SHOULD return `status=ERROR` to the response endpoint; if `response_channel` is empty, providers MUST drop the request without responding. Clients MUST NOT send zero.
 - `data_source_name` matching is case-sensitive.
 - Providers MUST return `data_source_name` exactly as announced (byte-for-byte); clients MUST compare names byte-for-byte.
 - `data_source_name` SHOULD be at most 256 bytes.
@@ -168,8 +168,8 @@ Each result describes one stream:
 #### SHM Layout (Informational)
 - `header_region_uri : string`
 - `header_nslots : u32`
-- `header_slot_bytes : u16`
-- `max_dims : u8`
+- `header_slot_bytes : u16` (must be `256` in v1.x)
+- `max_dims : u8` (must equal the schema constant; v1.x fixed at `8`)
 - repeating `payload_pools`:
   - `pool_id : u16`
   - `region_uri : string`
@@ -192,6 +192,7 @@ Each result describes one stream:
 - The authority fields identify the Driver responsible for attachment.
 - Clients MUST use these fields when initiating attach operations.
 - The authority fields refer to the Driver control endpoint used for `ShmAttach*` and lease messages. Per-consumer descriptor/control streams (if used) are separate and MUST NOT be inferred from discovery responses.
+- `driver_control_channel` MUST be non-empty; results with an empty channel MUST be treated as invalid by clients.
 - `driver_control_stream_id` is required on the wire and MUST be non-zero; providers MUST NOT emit results where the value is 0, and clients MUST treat zero as invalid and ignore any such result.
 - Providers SHOULD cap responses (RECOMMENDED: max 1,000 results) and MAY return `status=ERROR` with an `error_message` if limits are exceeded.
 - `error_message` SHOULD be limited to 1024 bytes for UDP MTU safety.

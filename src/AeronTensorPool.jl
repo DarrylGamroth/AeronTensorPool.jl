@@ -16,6 +16,8 @@ include("gen/ShmTensorpoolDriver.jl")
 using .ShmTensorpoolDriver
 include("gen/ShmTensorpoolBridge.jl")
 using .ShmTensorpoolBridge
+include("gen/ShmTensorpoolDiscovery.jl")
+using .ShmTensorpoolDiscovery
 
 include("core/constants.jl")
 include("core/logging.jl")
@@ -79,6 +81,10 @@ export AeronInitError,
     DecimatorState,
     DetachRequestProxy,
     DetachResponse,
+    DiscoveryMessageHeader,
+    DiscoveryRequest,
+    DiscoveryResponse,
+    DiscoveryStatus,
     DriverAgent,
     DriverClientState,
     DriverConfig,
