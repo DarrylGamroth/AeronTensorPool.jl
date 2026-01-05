@@ -336,31 +336,48 @@ If the SHM Driver terminates, all leases are implicitly invalidated. Clients MUS
 
 ---
 
-## 11. Rationale (Informative)
+## 11. Stream ID Allocation Ranges (Normative)
+
+To avoid manual Aeron stream ID assignment and prevent collisions across hosts, drivers MAY allocate stream IDs dynamically within configured ranges.
+
+Rules:
+
+- If `policies.allow_dynamic_streams=true`, the driver MUST allocate `stream_id` for new streams from `driver.stream_id_range`. If the range is empty or unset, the driver MUST reject dynamic stream creation with `code=INVALID_PARAMS` (or fail fast at startup).
+- For per-consumer descriptor/control streams, the driver SHOULD allocate IDs from `driver.descriptor_stream_id_range` and `driver.control_stream_id_range` when a consumer requests per-consumer streams with `descriptor_stream_id=0` or `control_stream_id=0`. If the relevant range is unset or empty, the driver MUST decline the per-consumer stream request and fall back to shared streams (i.e., return the shared descriptor/control channel and stream IDs).
+- If the relevant per-consumer range is exhausted, the driver MUST decline the per-consumer stream request by returning empty channel and null/zero stream ID in `ConsumerConfig` (see Wire Spec §10.1.3). The attach itself MAY still succeed.
+- Ranges MUST NOT overlap with the driver control/announce/QoS stream IDs, any statically configured `streams.*.stream_id`, or with each other.
+- The driver MUST validate ranges at startup (start ≤ end, non-overlapping). On invalid configuration, the driver MUST fail fast or reject attach requests with `code=INVALID_PARAMS`.
+- Deployments SHOULD assign non-overlapping ranges per host (or per driver instance) to prevent cross-host collisions.
+
+These rules are informational for static-only deployments; a driver MAY still operate with fully static IDs.
+
+---
+
+## 12. Rationale (Informative)
 
 The Driver Model mirrors the Aeron Media Driver and Archive architecture, eliminates multi-producer contention in v1.x, centralizes filesystem and security policy, enables safe multi-user deployment, and provides a stable foundation for future extensions.
 
 ---
 
-## 12. Relationship Between Specifications (Informative)
+## 13. Relationship Between Specifications (Informative)
 
 This Driver Model specification is normatively dependent on the Wire Specification. The Wire Specification defines encoding and layout semantics; the Driver Model defines ownership, lifecycle, and coordination semantics. Deployments that use an external SHM Driver MUST implement this document to ensure interoperability.
 
 ---
 
-## 13. Driver Startup Behavior (Informative)
+## 14. Driver Startup Behavior (Informative)
 
 Deployments MAY configure the driver to delete and recreate existing SHM backing files at startup (for example, in controlled or single-tenant environments). When this mode is enabled, the driver MUST still enforce the epoch rules in §6 and §10 before issuing new leases.
 
 ---
 
-## 14. Directory Layout and Namespacing (Informative)
+## 15. Directory Layout and Namespacing (Informative)
 
 Drivers SHOULD follow the directory layout guidance in the Wire Specification (§15.21a.3). When multiple drivers (embedded or external) can run on the same host, they SHOULD include a stable namespace and driver instance identifier in the path to avoid collisions. Embedded drivers SHOULD use the same `shm_base_dir` layout as external drivers for operational consistency.
 
 ---
 
-## 15. Aeron Media Driver Reference (Informative)
+## 16. Aeron Media Driver Reference (Informative)
 
 This driver model intentionally mirrors the Aeron Media Driver/Client split. The Aeron codebase provides concrete guidance on liveness, identity, and retry behaviors that can inform SHM Driver implementations:
 
@@ -373,7 +390,7 @@ These references are informative; this specification defines its own normative b
 
 ---
 
-## 16. Canonical Driver Configuration (Informative)
+## 17. Canonical Driver Configuration (Informative)
 
 The driver is typically configured via a TOML file. The following keys are the canonical configuration surface. Implementations MAY add additional keys, but SHOULD preserve these names and defaults for interoperability.
 
@@ -396,6 +413,9 @@ Optional keys and defaults:
 - `driver.announce_stream_id` (uint32): stream ID for `ShmPoolAnnounce`. Default: `driver.control_stream_id`.
 - `driver.qos_channel` (string): channel for QoS messages. Default: `"aeron:ipc"`.
 - `driver.qos_stream_id` (uint32): QoS stream ID. Default: `1200`.
+- `driver.stream_id_range` (string or array): inclusive range for dynamically created stream IDs (e.g., `"20000-29999"`). Default: empty (disabled).
+- `driver.descriptor_stream_id_range` (string or array): inclusive range for per-consumer descriptor stream IDs. Default: empty (disabled).
+- `driver.control_stream_id_range` (string or array): inclusive range for per-consumer control stream IDs. Default: empty (disabled).
 - `shm.require_hugepages` (bool): default policy for hugepage-backed SHM when `requireHugepages=UNSPECIFIED`. Default: `false`.
 - `shm.page_size_bytes` (uint32): backing page size for validation. Default: `4096`.
 - `shm.permissions_mode` (string): POSIX mode for created files. Default: `"660"`.

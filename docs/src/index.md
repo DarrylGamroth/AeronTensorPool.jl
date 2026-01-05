@@ -14,6 +14,7 @@ AeronTensorPool.jl implements the SHM Aeron Tensor Pool v1.1 spec in Julia.
 - Implementation phases: `docs/IMPLEMENTATION_PHASES.md`
 - Operational guidance: `docs/OPERATIONAL_PLAYBOOK.md`
 - Integration examples: `docs/INTEGRATION_EXAMPLES.md`
+- User guide: `docs/USER_GUIDE.md`
 
 ## API
 
