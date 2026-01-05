@@ -955,17 +955,34 @@ function run_bridge_bench(
                                     producer_dst_cfg;
                                     client = client,
                                 )
+                                producer_dst_work = let st = bridge_agent.receiver.producer_state
+                                    ProducerWork(st, make_control_assembler(st), make_qos_assembler(st))
+                                end
                                 producer_invoker = AgentInvoker(producer_src_agent)
                                 bridge_invoker = AgentInvoker(bridge_agent)
                                 consumer_invoker = AgentInvoker(consumer_dst_agent)
+                                producer_dst_invoker = AgentInvoker(producer_dst_work)
                                 Agent.start(producer_invoker)
                                 Agent.start(bridge_invoker)
                                 Agent.start(consumer_invoker)
+                                Agent.start(producer_dst_invoker)
 
                                 payload = fill(UInt8(1), bytes)
                                 shape = Int32[bytes]
                                 strides = Int32[1]
                                 published = 0
+
+                                wait_start = time_ns()
+                                wait_limit = wait_start + Int64(2e9)
+                                while (bridge_agent.sender.consumer_state.mappings.header_mmap === nothing ||
+                                       consumer_dst_agent.state.mappings.header_mmap === nothing) &&
+                                      time_ns() < wait_limit
+                                    Agent.invoke(producer_invoker)
+                                    Agent.invoke(bridge_invoker)
+                                    Agent.invoke(consumer_invoker)
+                                    Agent.invoke(producer_dst_invoker)
+                                    yield()
+                                end
 
                                 if warmup_s > 0
                                     warmup_start = time_ns()
@@ -974,6 +991,7 @@ function run_bridge_bench(
                                         Agent.invoke(producer_invoker)
                                         Agent.invoke(bridge_invoker)
                                         Agent.invoke(consumer_invoker)
+                                        Agent.invoke(producer_dst_invoker)
                                         if bridge_agent.sender.consumer_state.mappings.header_mmap !== nothing && do_publish
                                             offer_frame!(
                                                 producer_src_agent.state,
@@ -997,6 +1015,7 @@ function run_bridge_bench(
                                         Agent.invoke(producer_invoker)
                                         Agent.invoke(bridge_invoker)
                                         Agent.invoke(consumer_invoker)
+                                        Agent.invoke(producer_dst_invoker)
                                         if bridge_agent.sender.consumer_state.mappings.header_mmap !== nothing && do_publish
                                             offer_frame!(
                                                 producer_src_agent.state,
@@ -1031,6 +1050,7 @@ function run_bridge_bench(
                                             Agent.invoke(producer_invoker)
                                             Agent.invoke(bridge_invoker)
                                             Agent.invoke(consumer_invoker)
+                                            Agent.invoke(producer_dst_invoker)
                                             if do_publish && bridge_agent.sender.consumer_state.mappings.header_mmap !== nothing
                                                 offer_frame!(
                                                     producer_src_agent.state,
@@ -1053,6 +1073,7 @@ function run_bridge_bench(
                                             Agent.invoke(producer_invoker)
                                             Agent.invoke(bridge_invoker)
                                             Agent.invoke(consumer_invoker)
+                                            Agent.invoke(producer_dst_invoker)
                                             if do_publish && bridge_agent.sender.consumer_state.mappings.header_mmap !== nothing
                                                 offer_frame!(
                                                     producer_src_agent.state,
@@ -1104,6 +1125,7 @@ function run_bridge_bench(
                                 close(bridge_invoker)
                                 close(consumer_invoker)
                                 close(producer_invoker)
+                                close(producer_dst_invoker)
                             end
                         end
                     end
