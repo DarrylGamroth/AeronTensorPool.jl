@@ -64,11 +64,16 @@ Stream ID assignment is deployment-specific. A common pattern is to reserve a UD
 
 Bridge payload streams SHOULD use a reserved stream ID range (e.g., 50000-59999) to avoid collisions with local control/descriptor streams.
 
+**Alignment with driver allocation ranges (Normative)**
+- If the bridge publishes into driver-owned SHM on the destination host, it MUST attach as the exclusive producer for the destination stream and obey the driver’s stream ID allocation rules (see Driver Spec §11). If a producer is already attached for the destination stream, the bridge MUST fail or remap to a different destination.
+- If `dest_stream_id` is omitted or set to `0`, the bridge MUST allocate from a configured bridge range (e.g., `bridge.dest_stream_id_range`) and MUST ensure it does not overlap driver control/announce/QoS stream IDs, any statically configured stream IDs, or other bridge ranges on the destination host.
+- The bridge MUST NOT allocate per-consumer streams; it publishes only to the configured `dest_stream_id` (and optional metadata/control stream IDs per mapping).
+
 ---
 
 ## 5. Bridge Frame Chunk Message (Normative)
 
-The bridge transports frames as a sequence of chunks. Each chunk carries a small header plus a byte slice of the frame payload. The first chunk includes the serialized `TensorSlotHeader256` so the receiver can reconstruct metadata without access to remote SHM.
+The bridge transports frames as a sequence of chunks. Each chunk carries a small header plus a byte slice of the frame payload. The first chunk includes the serialized `TensorSlotHeader` so the receiver can reconstruct metadata without access to remote SHM.
 
 ### 5.1 Message Fields
 
@@ -76,7 +81,7 @@ The bridge transports frames as a sequence of chunks. Each chunk carries a small
 
 - `streamId : u32`
 - `epoch : u64` (source epoch)
-- `seq : u64` (frame identity; equals `frame_id`)
+- `seq : u64` (frame identity; equals `seq_commit >> 1` in the header)
 - `chunkIndex : u32` (0-based)
 - `chunkCount : u32`
 - `chunkOffset : u32` (offset into payload)
@@ -91,7 +96,7 @@ The bridge transports frames as a sequence of chunks. Each chunk carries a small
 - `chunkCount` MUST be >= 1.
 - `chunkCount` MUST NOT exceed 65535.
 - `chunkIndex` MUST be < `chunkCount`.
-- For `chunkIndex==0`, `headerIncluded` MUST be TRUE and `headerBytes` MUST contain the full 256-byte `TensorSlotHeader256`.
+- For `chunkIndex==0`, `headerIncluded` MUST be TRUE and `headerBytes` MUST contain the full 256-byte `TensorSlotHeader`.
 - For `chunkIndex==0`, `chunkOffset` MUST be 0.
 - For `chunkIndex>0`, `headerIncluded` MUST be FALSE.
 - `chunkOffset` and `chunkLength` MUST describe a non-overlapping slice of the payload.
@@ -133,16 +138,17 @@ Upon receiving all chunks for a frame:
 
 1. Validate `streamId`, `epoch`, `seq`, and chunk consistency.
 2. Drop frames until at least one `ShmPoolAnnounce` has been received for the mapping; receivers MUST NOT accept payloads without a source pool announce.
-3. Validate the header: `values_len_bytes` MUST equal `payloadLength`; `ndims`, `dtype`, and `dims` MUST be within local limits; malformed headers MUST be dropped. Header length requirements in §5.2 are mandatory.
-4. Validate `headerBytes.pool_id` against the source pool range from the most recent forwarded `ShmPoolAnnounce` for the mapping; invalid pool IDs MUST be dropped.
-5. Validate `payloadLength` against the source pool stride (from the forwarded announce); if `payloadLength` exceeds the source `stride_bytes`, the frame MUST be dropped.
-6. Select the local payload pool and slot using configured mapping rules (e.g., smallest stride >= `payloadLength`). If no local pool can fit the payload, or if `payloadLength` exceeds the largest local `stride_bytes`, the receiver MUST drop the frame.
-7. Write payload bytes into the selected local SHM payload pool.
-8. Write the `TensorSlotHeader256` into the local header ring (with `frame_id` and `seq` preserved), but override `pool_id` and `payload_slot` to match the local mapping. The receiver MUST ignore source `pool_id` and `payload_slot` values.
-9. Commit via the standard `commit_word` protocol.
-10. Publish a local `FrameDescriptor` on the receiver's descriptor stream.
+3. Drop frames if the chunk `epoch` does not match the most recent forwarded `ShmPoolAnnounce` epoch for the mapping; receivers MUST NOT write into a mapping with mismatched epoch/layout.
+4. Validate the header: `values_len_bytes` MUST equal `payloadLength`; `ndims`, `dtype`, and `dims` MUST be within local limits; malformed headers MUST be dropped. Header length requirements in §5.2 are mandatory.
+5. Validate `headerBytes.pool_id` against the source pool range from the most recent forwarded `ShmPoolAnnounce` for the mapping; invalid pool IDs MUST be dropped.
+6. Validate `payloadLength` against the source pool stride (from the forwarded announce); if `payloadLength` exceeds the source `stride_bytes`, the frame MUST be dropped.
+7. Select the local payload pool and slot using configured mapping rules (e.g., smallest stride >= `payloadLength`). If no local pool can fit the payload, or if `payloadLength` exceeds the largest local `stride_bytes`, the receiver MUST drop the frame.
+8. Write payload bytes into the selected local SHM payload pool.
+9. Write the `TensorSlotHeader` into the local header ring (with logical sequence preserved), but override `pool_id` and `payload_slot` to match the local mapping. The receiver MUST ignore source `pool_id` and `payload_slot` values.
+10. Commit via the standard `seq_commit` protocol.
+11. Publish a local `FrameDescriptor` on the receiver's descriptor stream.
 
-The receiver MUST treat `headerBytes.frame_id` as the canonical frame identity and MUST ensure it matches `seq`.
+The receiver MUST treat `seq` as the canonical frame identity and MUST ensure it matches `seq_commit >> 1`.
 
 ---
 
@@ -156,11 +162,11 @@ Bridge senders MUST NOT publish local `FrameDescriptor` messages over UDP; only 
 
 ## 7.1 Metadata Forwarding (Normative)
 
-Bridge instances MUST support forwarding `DataSourceAnnounce` and `DataSourceMeta` from the source stream to the receiver host. When `bridge.forward_metadata=true`, they MUST be forwarded on the destination host's standard local IPC metadata channel/stream. The forwarded `stream_id` MUST be rewritten to `metadata_stream_id` for the mapping (defaulting to `dest_stream_id` if unset) and MUST preserve `meta_version`. When `bridge.forward_metadata=false`, metadata MAY be omitted and bridged consumers will lack metadata.
+Bridge instances MUST support forwarding `DataSourceAnnounce` and `DataSourceMeta` from the source stream to the receiver host. When `bridge.forward_metadata=true`, the sender MUST forward metadata over `bridge.metadata_channel`/`bridge.metadata_stream_id`, and the receiver MUST publish the forwarded metadata on the destination host's standard local IPC metadata channel/stream. The forwarded `stream_id` MUST be rewritten to `metadata_stream_id` for the mapping (defaulting to `dest_stream_id` if unset) and MUST preserve `meta_version`. If the metadata channel/stream is not configured, the bridge MUST disable metadata forwarding for that mapping (and SHOULD fail fast if `bridge.forward_metadata=true`). When `bridge.forward_metadata=false`, metadata MAY be omitted and bridged consumers will lack metadata.
 
 ## 7.2 Source Pool Announce Forwarding (Normative)
 
-Bridge instances MUST forward `ShmPoolAnnounce` for each mapped source stream to the receiver host on the bridge control channel. The receiver MUST use the most recent forwarded announce to validate `headerBytes.pool_id` and MUST NOT republish the source `ShmPoolAnnounce` to local consumers. Metadata forwarding does not use the bridge control channel; implementations SHOULD use a dedicated bridge metadata channel for transport. When enabled, QoS and FrameProgress MUST be carried on the bridge control channel.
+Bridge instances MUST forward `ShmPoolAnnounce` for each mapped source stream to the receiver host on the bridge control channel. The receiver MUST use the most recent forwarded announce to validate pool IDs and epochs and MUST NOT republish the source `ShmPoolAnnounce` to local consumers. Metadata forwarding does not use the bridge control channel. When enabled, QoS and FrameProgress MUST be carried on the bridge control channel.
 
 ---
 
@@ -213,6 +219,7 @@ Optional keys and defaults:
 - `bridge.chunk_bytes` (uint32): payload bytes per chunk. Default: `min(bridge.chunk_bytes, bridge.mtu_bytes - 128)` when set; otherwise `bridge.mtu_bytes - 128`.
 - `bridge.max_chunk_bytes` (uint32): hard cap for chunk length. Default: `65535`.
 - `bridge.max_payload_bytes` (uint32): hard cap for total payload length. Default: `1073741824`.
+- `bridge.dest_stream_id_range` (string or array): inclusive range for dynamically allocated destination stream IDs when `dest_stream_id=0`. Ranges MUST NOT overlap metadata/control/QoS stream IDs or other bridge ranges. Default: empty (disabled).
 - `bridge.forward_metadata` (bool): forward `DataSourceAnnounce`/`DataSourceMeta`. Default: `true`.
 - `bridge.metadata_channel` (string): Aeron UDP channel used to forward metadata (distinct from `bridge.control_channel`). Default: empty (disabled unless set).
 - `bridge.metadata_stream_id` (uint32): stream ID for forwarded metadata over `bridge.metadata_channel`. Default: deployment-specific.
@@ -222,7 +229,7 @@ Optional keys and defaults:
 - QoS forwarding uses `source_control_stream_id` and `dest_control_stream_id` (per mapping); there is no global QoS stream.
 - `bridge.assembly_timeout_ms` (uint32): per-stream frame assembly timeout. Default: `250`.
 
-The bridge control channel is used for forwarding `ShmPoolAnnounce` and, when enabled, QoS and `FrameProgress` messages. Metadata forwarding uses the destination host's local IPC metadata stream.
+The bridge control channel is used for forwarding `ShmPoolAnnounce` and, when enabled, QoS and `FrameProgress` messages. Metadata forwarding uses `bridge.metadata_channel` for transport and the destination host's local IPC metadata stream for publication.
 
 Each `mappings` entry:
 
