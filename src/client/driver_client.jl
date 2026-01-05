@@ -16,6 +16,7 @@ mutable struct DriverClientState
     next_correlation_id::Int64
     revoked::Bool
     shutdown::Bool
+    keepalive_failed::Bool
 end
 
 """
@@ -59,6 +60,7 @@ function init_driver_client(
         UInt32(0),
         PolledTimer(keepalive_interval_ns),
         (Int64(client_id) << 32) + 1,
+        false,
         false,
         false,
     )
@@ -162,14 +164,21 @@ function driver_client_do_work!(state::DriverClientState, now_ns::UInt64)
     end
 
     if state.lease_id != 0 && due!(state.keepalive_timer, now_ns)
-        send_keepalive!(
+        sent = send_keepalive!(
             state.keepalive_proxy;
             lease_id = state.lease_id,
             stream_id = state.stream_id,
             client_id = state.client_id,
             role = state.role,
             client_timestamp_ns = now_ns,
-        ) && (work_count += 1)
+        )
+        if sent
+            work_count += 1
+        else
+            state.keepalive_failed = true
+            state.revoked = true
+            state.lease_id = UInt64(0)
+        end
     end
     return work_count
 end

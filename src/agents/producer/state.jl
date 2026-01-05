@@ -27,6 +27,7 @@ mutable struct ProducerRuntime
     config_claim::Aeron.BufferClaim
     hello_decoder::ConsumerHello.Decoder{UnsafeArrays.UnsafeArray{UInt8, 1}}
     qos_decoder::QosConsumer.Decoder{UnsafeArrays.UnsafeArray{UInt8, 1}}
+    config_decoder::ConsumerConfigMsg.Decoder{UnsafeArrays.UnsafeArray{UInt8, 1}}
 end
 
 """
@@ -66,7 +67,7 @@ end
 """
 Mutable producer runtime state including Aeron resources and SHM mappings.
 """
-mutable struct ProducerState{ClockT<:Clocks.AbstractClock}
+mutable struct ProducerState{ClockT}
     config::ProducerConfig
     clock::ClockT
     runtime::ProducerRuntime

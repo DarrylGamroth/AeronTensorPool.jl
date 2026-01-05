@@ -15,6 +15,9 @@ function make_control_assembler(state::ProducerState; hooks::ProducerHooks = NOO
             ConsumerHello.wrap!(st.runtime.hello_decoder, buffer, 0; header = header)
             handle_consumer_hello!(st, st.runtime.hello_decoder)
             hooks.on_consumer_hello!(st, st.runtime.hello_decoder)
+        elseif MessageHeader.templateId(header) == TEMPLATE_CONSUMER_CONFIG
+            ConsumerConfigMsg.wrap!(st.runtime.config_decoder, buffer, 0; header = header)
+            handle_consumer_config!(st, st.runtime.config_decoder)
         end
         nothing
     end
@@ -193,12 +196,18 @@ function update_consumer_streams!(state::ProducerState, msg::ConsumerHello.Decod
         control_stream_id != 0 && control_stream_id != control_null
     descriptor_channel_provided = !isempty(descriptor_channel)
     control_channel_provided = !isempty(control_channel)
+    descriptor_deferred = descriptor_channel_provided && descriptor_stream_id == 0
+    control_deferred = control_channel_provided && control_stream_id == 0
     descriptor_requested = descriptor_channel_provided && descriptor_stream_id_provided
     control_requested = control_channel_provided && control_stream_id_provided
-    invalid_descriptor_request = descriptor_channel_provided != descriptor_stream_id_provided
-    invalid_control_request = control_channel_provided != control_stream_id_provided
+    invalid_descriptor_request =
+        descriptor_channel_provided != descriptor_stream_id_provided && !descriptor_deferred
+    invalid_control_request =
+        control_channel_provided != control_stream_id_provided && !control_deferred
 
-    if !descriptor_requested && !control_requested && !invalid_descriptor_request && !invalid_control_request
+    if !descriptor_requested && !control_requested &&
+       !invalid_descriptor_request && !invalid_control_request &&
+       !descriptor_deferred && !control_deferred
         return false
     end
 
@@ -315,6 +324,100 @@ function update_consumer_streams!(state::ProducerState, msg::ConsumerHello.Decod
     return changed
 end
 
+function update_consumer_streams_from_config!(state::ProducerState, msg::ConsumerConfigMsg.Decoder)
+    ConsumerConfigMsg.streamId(msg) == state.config.stream_id || return false
+
+    consumer_id = ConsumerConfigMsg.consumerId(msg)
+    descriptor_channel = String(ConsumerConfigMsg.descriptorChannel(msg))
+    control_channel = String(ConsumerConfigMsg.controlChannel(msg))
+    descriptor_stream_id = ConsumerConfigMsg.descriptorStreamId(msg)
+    control_stream_id = ConsumerConfigMsg.controlStreamId(msg)
+    descriptor_null = ConsumerConfigMsg.descriptorStreamId_null_value(ConsumerConfigMsg.Decoder)
+    control_null = ConsumerConfigMsg.controlStreamId_null_value(ConsumerConfigMsg.Decoder)
+    descriptor_assigned =
+        !isempty(descriptor_channel) && descriptor_stream_id != 0 && descriptor_stream_id != descriptor_null
+    control_assigned =
+        !isempty(control_channel) && control_stream_id != 0 && control_stream_id != control_null
+
+    entry = get(state.consumer_streams, consumer_id, nothing)
+    if entry === nothing
+        entry = ProducerConsumerStream(
+            nothing,
+            nothing,
+            "",
+            "",
+            UInt32(0),
+            UInt32(0),
+            UInt16(0),
+            PolledTimer(UInt64(0)),
+            PolledTimer(consumer_stream_timeout_ns(state)),
+            UInt64(0),
+            UInt64(0),
+        )
+        state.consumer_streams[consumer_id] = entry
+    end
+
+    changed = false
+    if descriptor_assigned
+        if entry.descriptor_pub === nothing ||
+            entry.descriptor_stream_id != descriptor_stream_id ||
+            entry.descriptor_channel != descriptor_channel
+            entry.descriptor_pub === nothing || close(entry.descriptor_pub)
+            try
+                entry.descriptor_pub = Aeron.add_publication(
+                    state.runtime.control.client,
+                    descriptor_channel,
+                    Int32(descriptor_stream_id),
+                )
+                entry.descriptor_stream_id = descriptor_stream_id
+                entry.descriptor_channel = descriptor_channel
+                changed = true
+            catch
+                entry.descriptor_pub = nothing
+                entry.descriptor_stream_id = UInt32(0)
+                entry.descriptor_channel = ""
+                changed = true
+            end
+        end
+    elseif entry.descriptor_pub !== nothing
+        close(entry.descriptor_pub)
+        entry.descriptor_pub = nothing
+        entry.descriptor_channel = ""
+        entry.descriptor_stream_id = UInt32(0)
+        changed = true
+    end
+
+    if control_assigned
+        if entry.control_pub === nothing ||
+            entry.control_stream_id != control_stream_id ||
+            entry.control_channel != control_channel
+            entry.control_pub === nothing || close(entry.control_pub)
+            try
+                entry.control_pub = Aeron.add_publication(
+                    state.runtime.control.client,
+                    control_channel,
+                    Int32(control_stream_id),
+                )
+                entry.control_stream_id = control_stream_id
+                entry.control_channel = control_channel
+                changed = true
+            catch
+                entry.control_pub = nothing
+                entry.control_stream_id = UInt32(0)
+                entry.control_channel = ""
+                changed = true
+            end
+        end
+    elseif entry.control_pub !== nothing
+        close(entry.control_pub)
+        entry.control_pub = nothing
+        entry.control_channel = ""
+        entry.control_stream_id = UInt32(0)
+        changed = true
+    end
+    return changed
+end
+
 """
 Handle an incoming QosConsumer message.
 
@@ -385,5 +488,10 @@ function handle_consumer_hello!(state::ProducerState, msg::ConsumerHello.Decoder
         end
     end
     update_consumer_streams!(state, msg)
+    return nothing
+end
+
+function handle_consumer_config!(state::ProducerState, msg::ConsumerConfigMsg.Decoder)
+    update_consumer_streams_from_config!(state, msg)
     return nothing
 end

@@ -19,7 +19,7 @@ end
 """
 Discovery registry state.
 """
-mutable struct DiscoveryRegistryState{ClockT<:Clocks.AbstractClock} <: AbstractDiscoveryState
+mutable struct DiscoveryRegistryState{ClockT} <: AbstractDiscoveryState
     config::DiscoveryRegistryConfig
     clock::ClockT
     runtime::DiscoveryRegistryRuntime

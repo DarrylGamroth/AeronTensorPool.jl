@@ -70,7 +70,7 @@ end
 """
 Mutable consumer runtime state including SHM mappings and QoS counters.
 """
-mutable struct ConsumerState{ClockT<:Clocks.AbstractClock}
+mutable struct ConsumerState{ClockT}
     config::ConsumerSettings
     clock::ClockT
     announce_join_ns::UInt64

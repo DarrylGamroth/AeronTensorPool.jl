@@ -21,7 +21,7 @@ abstract type AbstractDiscoveryState end
 """
 Discovery provider state.
 """
-mutable struct DiscoveryProviderState{ClockT<:Clocks.AbstractClock} <: AbstractDiscoveryState
+mutable struct DiscoveryProviderState{ClockT} <: AbstractDiscoveryState
     config::DiscoveryConfig
     clock::ClockT
     runtime::DiscoveryRuntime

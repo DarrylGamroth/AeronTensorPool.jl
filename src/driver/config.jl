@@ -44,6 +44,14 @@ struct DriverPolicies
 end
 
 """
+Inclusive stream id allocation range.
+"""
+struct DriverStreamIdRange
+    start_id::UInt32
+    end_id::UInt32
+end
+
+"""
 Shared-memory backend configuration for the driver.
 """
 struct DriverShmConfig
@@ -75,9 +83,32 @@ struct DriverConfig
     endpoints::DriverEndpoints
     shm::DriverShmConfig
     policies::DriverPolicies
+    stream_id_range::Union{DriverStreamIdRange, Nothing}
+    descriptor_stream_id_range::Union{DriverStreamIdRange, Nothing}
+    control_stream_id_range::Union{DriverStreamIdRange, Nothing}
     profiles::Dict{String, DriverProfileConfig}
     streams::Dict{String, DriverStreamConfig}
 end
+
+DriverConfig(
+    endpoints::DriverEndpoints,
+    shm::DriverShmConfig,
+    policies::DriverPolicies,
+    profiles::Dict{String, DriverProfileConfig},
+    streams::Dict{String, DriverStreamConfig};
+    stream_id_range::Union{DriverStreamIdRange, Nothing} = nothing,
+    descriptor_stream_id_range::Union{DriverStreamIdRange, Nothing} = nothing,
+    control_stream_id_range::Union{DriverStreamIdRange, Nothing} = nothing,
+) = DriverConfig(
+    endpoints,
+    shm,
+    policies,
+    stream_id_range,
+    descriptor_stream_id_range,
+    control_stream_id_range,
+    profiles,
+    streams,
+)
 
 @inline function env_key(key::String)
     return uppercase(replace(key, "." => "_"))
@@ -202,6 +233,12 @@ function load_driver_config(path::AbstractString; env::AbstractDict = ENV)
         default_profile = first(keys(profiles))
     end
 
+    stream_id_range = parse_stream_id_range(driver_tbl, env, "driver.stream_id_range")
+    descriptor_stream_id_range =
+        parse_stream_id_range(driver_tbl, env, "driver.descriptor_stream_id_range")
+    control_stream_id_range =
+        parse_stream_id_range(driver_tbl, env, "driver.control_stream_id_range")
+
     if !allow_dynamic_streams && isempty(streams)
         throw(ArgumentError("streams must be defined when allow_dynamic_streams=false"))
     end
@@ -249,5 +286,97 @@ function load_driver_config(path::AbstractString; env::AbstractDict = ENV)
         shutdown_token,
     )
 
-    return DriverConfig(endpoints, shm, policies, profiles, streams)
+    validate_stream_id_ranges!(
+        stream_id_range,
+        descriptor_stream_id_range,
+        control_stream_id_range,
+        endpoints,
+        streams,
+    )
+
+    return DriverConfig(
+        endpoints,
+        shm,
+        policies,
+        stream_id_range,
+        descriptor_stream_id_range,
+        control_stream_id_range,
+        profiles,
+        streams,
+    )
+end
+
+function parse_stream_id_range(tbl::Dict{String, Any}, env::AbstractDict, key::String)
+    key_name = split(key, ".")[end]
+    env_val = get(env, env_key(key), nothing)
+    raw = env_val === nothing ? get(tbl, key_name, nothing) : String(env_val)
+    raw === nothing && return nothing
+    if raw isa AbstractString
+        raw_str = strip(String(raw))
+        isempty(raw_str) && return nothing
+        if occursin("-", raw_str)
+            parts = split(raw_str, "-")
+            length(parts) == 2 || throw(ArgumentError("invalid range format for $(key)"))
+            start_id = UInt32(parse(Int, strip(parts[1])))
+            end_id = UInt32(parse(Int, strip(parts[2])))
+            start_id <= end_id || throw(ArgumentError("invalid range bounds for $(key)"))
+            return DriverStreamIdRange(start_id, end_id)
+        end
+        if occursin(",", raw_str)
+            parts = split(raw_str, ",")
+            length(parts) == 2 || throw(ArgumentError("invalid range format for $(key)"))
+            start_id = UInt32(parse(Int, strip(parts[1])))
+            end_id = UInt32(parse(Int, strip(parts[2])))
+            start_id <= end_id || throw(ArgumentError("invalid range bounds for $(key)"))
+            return DriverStreamIdRange(start_id, end_id)
+        end
+        return nothing
+    end
+    if raw isa AbstractVector && length(raw) == 2
+        start_id = UInt32(raw[1])
+        end_id = UInt32(raw[2])
+        start_id <= end_id || throw(ArgumentError("invalid range bounds for $(key)"))
+        return DriverStreamIdRange(start_id, end_id)
+    end
+    throw(ArgumentError("invalid range format for $(key)"))
+end
+
+function validate_stream_id_ranges!(
+    stream_range::Union{DriverStreamIdRange, Nothing},
+    descriptor_range::Union{DriverStreamIdRange, Nothing},
+    control_range::Union{DriverStreamIdRange, Nothing},
+    endpoints::DriverEndpoints,
+    streams::Dict{String, DriverStreamConfig},
+)
+    ranges = [stream_range, descriptor_range, control_range]
+    for rng in ranges
+        rng === nothing && continue
+        rng.start_id <= rng.end_id || throw(ArgumentError("invalid stream id range"))
+    end
+    for rng in ranges
+        rng === nothing && continue
+        for other in ranges
+            other === nothing && continue
+            rng === other && continue
+            if !(rng.end_id < other.start_id || other.end_id < rng.start_id)
+                throw(ArgumentError("stream id ranges overlap"))
+            end
+        end
+    end
+    reserved = Set{UInt32}()
+    push!(reserved, UInt32(endpoints.control_stream_id))
+    push!(reserved, UInt32(endpoints.announce_stream_id))
+    push!(reserved, UInt32(endpoints.qos_stream_id))
+    for entry in values(streams)
+        push!(reserved, entry.stream_id)
+    end
+    for rng in ranges
+        rng === nothing && continue
+        for id in reserved
+            if id >= rng.start_id && id <= rng.end_id
+                throw(ArgumentError("stream id ranges overlap with configured ids"))
+            end
+        end
+    end
+    return nothing
 end

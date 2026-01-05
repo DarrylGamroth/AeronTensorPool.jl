@@ -79,14 +79,38 @@ function emit_attach_response!(
                 end
                 ShmAttachResponse.errorMessage!(st.runtime.attach_encoder, error_message)
             else
-                ShmAttachResponse.leaseId!(st.runtime.attach_encoder, typemax(UInt64))
-                ShmAttachResponse.leaseExpiryTimestampNs!(st.runtime.attach_encoder, typemax(UInt64))
-                ShmAttachResponse.streamId!(st.runtime.attach_encoder, typemax(UInt32))
-                ShmAttachResponse.epoch!(st.runtime.attach_encoder, typemax(UInt64))
-                ShmAttachResponse.layoutVersion!(st.runtime.attach_encoder, typemax(UInt32))
-                ShmAttachResponse.headerNslots!(st.runtime.attach_encoder, typemax(UInt32))
-                ShmAttachResponse.headerSlotBytes!(st.runtime.attach_encoder, typemax(UInt16))
-                ShmAttachResponse.maxDims!(st.runtime.attach_encoder, typemax(UInt8))
+                ShmAttachResponse.leaseId!(
+                    st.runtime.attach_encoder,
+                    ShmAttachResponse.leaseId_null_value(ShmAttachResponse.Decoder),
+                )
+                ShmAttachResponse.leaseExpiryTimestampNs!(
+                    st.runtime.attach_encoder,
+                    ShmAttachResponse.leaseExpiryTimestampNs_null_value(ShmAttachResponse.Decoder),
+                )
+                ShmAttachResponse.streamId!(
+                    st.runtime.attach_encoder,
+                    ShmAttachResponse.streamId_null_value(ShmAttachResponse.Decoder),
+                )
+                ShmAttachResponse.epoch!(
+                    st.runtime.attach_encoder,
+                    ShmAttachResponse.epoch_null_value(ShmAttachResponse.Decoder),
+                )
+                ShmAttachResponse.layoutVersion!(
+                    st.runtime.attach_encoder,
+                    ShmAttachResponse.layoutVersion_null_value(ShmAttachResponse.Decoder),
+                )
+                ShmAttachResponse.headerNslots!(
+                    st.runtime.attach_encoder,
+                    ShmAttachResponse.headerNslots_null_value(ShmAttachResponse.Decoder),
+                )
+                ShmAttachResponse.headerSlotBytes!(
+                    st.runtime.attach_encoder,
+                    ShmAttachResponse.headerSlotBytes_null_value(ShmAttachResponse.Decoder),
+                )
+                ShmAttachResponse.maxDims!(
+                    st.runtime.attach_encoder,
+                    ShmAttachResponse.maxDims_null_value(ShmAttachResponse.Decoder),
+                )
                 ShmAttachResponse.headerRegionUri!(st.runtime.attach_encoder, "")
                 ShmAttachResponse.payloadPools!(st.runtime.attach_encoder, 0)
                 ShmAttachResponse.errorMessage!(st.runtime.attach_encoder, error_message)
@@ -179,6 +203,77 @@ function emit_lease_revoked!(
 end
 
 """
+Emit a ConsumerConfig message from the driver.
+
+Arguments:
+- `state`: driver state.
+- `stream_id`: stream identifier.
+- `consumer_id`: consumer identifier.
+- `descriptor_channel`: optional per-consumer descriptor channel.
+- `descriptor_stream_id`: per-consumer descriptor stream id (0 for shared).
+- `control_channel`: optional per-consumer control channel.
+- `control_stream_id`: per-consumer control stream id (0 for shared).
+
+Returns:
+- `true` if the message was committed, `false` otherwise.
+"""
+function emit_driver_consumer_config!(
+    state::DriverState,
+    stream_id::UInt32,
+    consumer_id::UInt32;
+    descriptor_channel::AbstractString = "",
+    descriptor_stream_id::UInt32 = UInt32(0),
+    control_channel::AbstractString = "",
+    control_stream_id::UInt32 = UInt32(0),
+)
+    msg_len = MESSAGE_HEADER_LEN +
+        Int(ConsumerConfigMsg.sbe_block_length(ConsumerConfigMsg.Decoder)) +
+        Int(ConsumerConfigMsg.payloadFallbackUri_header_length) +
+        Int(ConsumerConfigMsg.descriptorChannel_header_length) +
+        Int(ConsumerConfigMsg.controlChannel_header_length) +
+        sizeof(descriptor_channel) +
+        sizeof(control_channel)
+    return let st = state,
+        stream_id = stream_id,
+        consumer_id = consumer_id,
+        descriptor_channel = descriptor_channel,
+        descriptor_stream_id = descriptor_stream_id,
+        control_channel = control_channel,
+        control_stream_id = control_stream_id
+        with_claimed_buffer!(st.runtime.control.pub_control, st.runtime.control_claim, msg_len) do buf
+            ConsumerConfigMsg.wrap_and_apply_header!(st.runtime.config_encoder, buf, 0)
+            ConsumerConfigMsg.streamId!(st.runtime.config_encoder, stream_id)
+            ConsumerConfigMsg.consumerId!(st.runtime.config_encoder, consumer_id)
+            ConsumerConfigMsg.useShm!(st.runtime.config_encoder, ShmTensorpoolControl.Bool_.TRUE)
+            ConsumerConfigMsg.mode!(st.runtime.config_encoder, Mode.STREAM)
+            ConsumerConfigMsg.descriptorStreamId!(
+                st.runtime.config_encoder,
+                descriptor_stream_id != 0 ?
+                descriptor_stream_id :
+                ConsumerConfigMsg.descriptorStreamId_null_value(ConsumerConfigMsg.Encoder),
+            )
+            ConsumerConfigMsg.controlStreamId!(
+                st.runtime.config_encoder,
+                control_stream_id != 0 ?
+                control_stream_id :
+                ConsumerConfigMsg.controlStreamId_null_value(ConsumerConfigMsg.Encoder),
+            )
+            ConsumerConfigMsg.payloadFallbackUri!(st.runtime.config_encoder, "")
+            if isempty(descriptor_channel)
+                ConsumerConfigMsg.descriptorChannel_length!(st.runtime.config_encoder, 0)
+            else
+                ConsumerConfigMsg.descriptorChannel!(st.runtime.config_encoder, descriptor_channel)
+            end
+            if isempty(control_channel)
+                ConsumerConfigMsg.controlChannel_length!(st.runtime.config_encoder, 0)
+            else
+                ConsumerConfigMsg.controlChannel!(st.runtime.config_encoder, control_channel)
+            end
+        end
+    end
+end
+
+"""
 Emit a ShmPoolAnnounce message for a stream.
 
 Arguments:
@@ -201,14 +296,20 @@ function emit_driver_announce!(state::DriverState, stream_state::DriverStreamSta
         ShmPoolAnnounce.headerRegionUri_header_length +
         sizeof(stream_state.header_uri)
 
+    producer_id = UInt32(0)
+    if stream_state.producer_lease_id != 0
+        lease = get(state.leases, stream_state.producer_lease_id, nothing)
+        lease === nothing || (producer_id = lease.client_id)
+    end
     return let st = state,
         stream_state = stream_state,
         payload_count = payload_count,
+        producer_id = producer_id,
         now_ns = UInt64(Clocks.time_nanos(st.clock))
         with_claimed_buffer!(st.runtime.pub_announce, st.runtime.control_claim, msg_len) do buf
             ShmPoolAnnounce.wrap_and_apply_header!(st.runtime.announce_encoder, buf, 0)
             ShmPoolAnnounce.streamId!(st.runtime.announce_encoder, stream_state.stream_id)
-            ShmPoolAnnounce.producerId!(st.runtime.announce_encoder, UInt32(0))
+            ShmPoolAnnounce.producerId!(st.runtime.announce_encoder, producer_id)
             ShmPoolAnnounce.epoch!(st.runtime.announce_encoder, stream_state.epoch)
             ShmPoolAnnounce.announceTimestampNs!(st.runtime.announce_encoder, now_ns)
             ShmPoolAnnounce.layoutVersion!(st.runtime.announce_encoder, UInt32(1))

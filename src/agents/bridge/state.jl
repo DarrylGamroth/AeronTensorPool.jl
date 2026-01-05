@@ -98,7 +98,7 @@ end
 """
 Bridge receiver runtime state for assembling BridgeFrameChunk payloads.
 """
-mutable struct BridgeReceiverState{ClockT <: Clocks.AbstractClock}
+mutable struct BridgeReceiverState{ClockT}
     config::BridgeConfig
     mapping::BridgeMapping
     client::Aeron.Client

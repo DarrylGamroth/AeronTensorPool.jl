@@ -55,6 +55,7 @@ function init_producer(config::ProducerConfig; client::Aeron.Client)
         Aeron.BufferClaim(),
         ConsumerHello.Decoder(UnsafeArrays.UnsafeArray{UInt8, 1}),
         QosConsumer.Decoder(UnsafeArrays.UnsafeArray{UInt8, 1}),
+        ConsumerConfigMsg.Decoder(UnsafeArrays.UnsafeArray{UInt8, 1}),
     )
     metrics = ProducerMetrics(UInt64(0), UInt64(0), UInt64(0))
     state = ProducerState(
@@ -149,6 +150,17 @@ function init_producer_from_attach(
     client::Aeron.Client,
 )
     attach.code == DriverResponseCode.OK || throw(ArgumentError("attach failed"))
+    if attach.lease_id == ShmAttachResponse.leaseId_null_value(ShmAttachResponse.Decoder) ||
+       attach.stream_id == ShmAttachResponse.streamId_null_value(ShmAttachResponse.Decoder) ||
+       attach.epoch == ShmAttachResponse.epoch_null_value(ShmAttachResponse.Decoder) ||
+       attach.layout_version == ShmAttachResponse.layoutVersion_null_value(ShmAttachResponse.Decoder) ||
+       attach.header_nslots == ShmAttachResponse.headerNslots_null_value(ShmAttachResponse.Decoder) ||
+       attach.header_slot_bytes == ShmAttachResponse.headerSlotBytes_null_value(ShmAttachResponse.Decoder) ||
+       attach.max_dims == ShmAttachResponse.maxDims_null_value(ShmAttachResponse.Decoder)
+        throw(ArgumentError("attach response missing required fields"))
+    end
+    isempty(view(attach.header_region_uri)) && throw(ArgumentError("header_region_uri missing"))
+    attach.pool_count > 0 || throw(ArgumentError("attach response missing payload pools"))
     attach.header_slot_bytes == UInt16(HEADER_SLOT_BYTES) || throw(ArgumentError("header_slot_bytes mismatch"))
     attach.max_dims == UInt8(MAX_DIMS) || throw(ArgumentError("max_dims mismatch"))
 
@@ -199,6 +211,7 @@ function init_producer_from_attach(
         Aeron.BufferClaim(),
         ConsumerHello.Decoder(UnsafeArrays.UnsafeArray{UInt8, 1}),
         QosConsumer.Decoder(UnsafeArrays.UnsafeArray{UInt8, 1}),
+        ConsumerConfigMsg.Decoder(UnsafeArrays.UnsafeArray{UInt8, 1}),
     )
     metrics = ProducerMetrics(UInt64(0), UInt64(0), UInt64(0))
     state = ProducerState(

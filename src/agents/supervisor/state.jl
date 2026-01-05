@@ -69,7 +69,7 @@ end
 """
 Mutable supervisor runtime state including liveness tracking.
 """
-mutable struct SupervisorState{ClockT<:Clocks.AbstractClock}
+mutable struct SupervisorState{ClockT}
     config::SupervisorConfig
     clock::ClockT
     runtime::SupervisorRuntime

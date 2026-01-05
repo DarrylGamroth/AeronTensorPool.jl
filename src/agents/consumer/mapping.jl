@@ -152,6 +152,17 @@ Returns:
 """
 function map_from_attach_response!(state::ConsumerState, attach::AttachResponse)
     attach.code == DriverResponseCode.OK || return false
+    if attach.lease_id == ShmAttachResponse.leaseId_null_value(ShmAttachResponse.Decoder) ||
+       attach.stream_id == ShmAttachResponse.streamId_null_value(ShmAttachResponse.Decoder) ||
+       attach.epoch == ShmAttachResponse.epoch_null_value(ShmAttachResponse.Decoder) ||
+       attach.layout_version == ShmAttachResponse.layoutVersion_null_value(ShmAttachResponse.Decoder) ||
+       attach.header_nslots == ShmAttachResponse.headerNslots_null_value(ShmAttachResponse.Decoder) ||
+       attach.header_slot_bytes == ShmAttachResponse.headerSlotBytes_null_value(ShmAttachResponse.Decoder) ||
+       attach.max_dims == ShmAttachResponse.maxDims_null_value(ShmAttachResponse.Decoder)
+        return false
+    end
+    isempty(view(attach.header_region_uri)) && return false
+    attach.pool_count > 0 || return false
     attach.header_slot_bytes == UInt16(HEADER_SLOT_BYTES) || return false
     header_nslots = attach.header_nslots
 

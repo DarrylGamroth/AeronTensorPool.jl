@@ -1,3 +1,52 @@
+@inline function range_contains(range::DriverStreamIdRange, value::UInt32)
+    return value >= range.start_id && value <= range.end_id
+end
+
+function allocate_stream_id!(state::DriverState, range::DriverStreamIdRange)
+    next_id = state.next_stream_id
+    if next_id < range.start_id || next_id > range.end_id
+        next_id = range.start_id
+    end
+    start_id = next_id
+    while true
+        if !haskey(state.streams, next_id)
+            state.next_stream_id = next_id == range.end_id ? range.start_id : next_id + 1
+            return next_id
+        end
+        next_id = next_id == range.end_id ? range.start_id : next_id + 1
+        next_id == start_id && break
+    end
+    return UInt32(0)
+end
+
+function allocate_consumer_stream_id!(
+    assigned::Dict{UInt32, UInt32},
+    range::DriverStreamIdRange,
+    next_id::UInt32,
+)
+    start_id = next_id
+    if start_id < range.start_id || start_id > range.end_id
+        start_id = range.start_id
+    end
+    candidate = start_id
+    while true
+        in_use = false
+        for entry in values(assigned)
+            if entry == candidate
+                in_use = true
+                break
+            end
+        end
+        if !in_use
+            next_id = candidate == range.end_id ? range.start_id : candidate + 1
+            return candidate, next_id
+        end
+        candidate = candidate == range.end_id ? range.start_id : candidate + 1
+        candidate == start_id && break
+    end
+    return UInt32(0), next_id
+end
+
 """
 Lookup or create stream state based on config and publishMode.
 """
@@ -8,7 +57,7 @@ function get_or_create_stream!(
 )
     stream_state = get(state.streams, stream_id, nothing)
     if !isnothing(stream_state)
-        return stream_state
+        return stream_state, :ok
     end
 
     stream_config = nothing
@@ -19,19 +68,24 @@ function get_or_create_stream!(
         end
     end
 
-    if isnothing(stream_config) && !state.config.policies.allow_dynamic_streams
-        return nothing
-    end
     if isnothing(stream_config)
-        if publish_mode != DriverPublishMode.EXISTING_OR_CREATE
-            return nothing
+        if !state.config.policies.allow_dynamic_streams
+            return nothing, :not_provisioned
         end
+        if publish_mode != DriverPublishMode.EXISTING_OR_CREATE
+            return nothing, :not_provisioned
+        end
+        range = state.config.stream_id_range
+        range === nothing && return nothing, :range_missing
+        allocated_id = allocate_stream_id!(state, range)
+        allocated_id == 0 && return nothing, :range_exhausted
+        stream_id = allocated_id
         profile_name = state.config.policies.default_profile
     else
         profile_name = stream_config.profile
     end
     profile = get(state.config.profiles, profile_name, nothing)
-    isnothing(profile) && return nothing
+    isnothing(profile) && return nothing, :profile_missing
 
     stream_state = DriverStreamState(
         stream_id,
@@ -43,11 +97,11 @@ function get_or_create_stream!(
         Set{UInt64}(),
     )
     state.streams[stream_id] = stream_state
-    return stream_state
+    return stream_state, :ok
 end
 
 function bump_epoch!(state::DriverState, stream_state::DriverStreamState)
-    now_ns = UInt64(time_ns())
+    now_ns = UInt64(Clocks.time_nanos(state.clock))
     if stream_state.epoch == 0
         stream_state.epoch = max(UInt64(1), now_ns)
     else

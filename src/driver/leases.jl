@@ -32,8 +32,18 @@ function handle_attach_request!(state::DriverState, msg::ShmAttachRequest.Decode
     _ = ShmAttachRequest.maxDims(msg)
 
     publish_mode = ShmAttachRequest.publishMode(msg)
-    if publish_mode == DriverPublishMode.NULL_VALUE || publish_mode == DriverPublishMode.UNKNOWN
+    if publish_mode == DriverPublishMode.NULL_VALUE
         publish_mode = DriverPublishMode.REQUIRE_EXISTING
+    end
+    if publish_mode != DriverPublishMode.REQUIRE_EXISTING &&
+       publish_mode != DriverPublishMode.EXISTING_OR_CREATE
+        return emit_attach_response!(
+            state,
+            correlation_id,
+            DriverResponseCode.UNSUPPORTED,
+            "unsupported publish_mode",
+            nothing,
+        )
     end
 
     hugepages_policy = ShmAttachRequest.requireHugepages(msg)
@@ -79,8 +89,33 @@ function handle_attach_request!(state::DriverState, msg::ShmAttachRequest.Decode
         end
     end
 
-    stream_state = get_or_create_stream!(state, stream_id, publish_mode)
+    stream_state, stream_status = get_or_create_stream!(state, stream_id, publish_mode)
     if isnothing(stream_state)
+        if stream_status == :range_missing
+            return emit_attach_response!(
+                state,
+                correlation_id,
+                DriverResponseCode.INVALID_PARAMS,
+                "stream_id_range not configured",
+                nothing,
+            )
+        elseif stream_status == :range_exhausted
+            return emit_attach_response!(
+                state,
+                correlation_id,
+                DriverResponseCode.INVALID_PARAMS,
+                "stream_id_range exhausted",
+                nothing,
+            )
+        elseif stream_status == :profile_missing
+            return emit_attach_response!(
+                state,
+                correlation_id,
+                DriverResponseCode.INVALID_PARAMS,
+                "profile not found",
+                nothing,
+            )
+        end
         return emit_attach_response!(
             state,
             correlation_id,
@@ -101,6 +136,14 @@ function handle_attach_request!(state::DriverState, msg::ShmAttachRequest.Decode
     end
 
     # max_dims is fixed by the schema; any nonzero request is ignored.
+    isempty(stream_state.profile.payload_pools) &&
+        return emit_attach_response!(
+            state,
+            correlation_id,
+            DriverResponseCode.INVALID_PARAMS,
+            "stream has no payload pools",
+            nothing,
+        )
 
     for lease in values(state.leases)
         if lease.stream_id == stream_id && lease.client_id == client_id && lease.role == role
@@ -281,6 +324,8 @@ function revoke_lease!(state::DriverState, lease_id::UInt64, reason::DriverLease
             emit_driver_announce!(state, stream_state)
         else
             delete!(stream_state.consumer_lease_ids, lease_id)
+            delete!(state.consumer_descriptor_streams, lease.client_id)
+            delete!(state.consumer_control_streams, lease.client_id)
         end
     end
 

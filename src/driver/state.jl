@@ -40,11 +40,13 @@ mutable struct DriverRuntime
     detach_decoder::ShmDetachRequest.Decoder{UnsafeArrays.UnsafeArray{UInt8, 1}}
     keepalive_decoder::ShmLeaseKeepalive.Decoder{UnsafeArrays.UnsafeArray{UInt8, 1}}
     shutdown_request_decoder::ShmDriverShutdownRequest.Decoder{UnsafeArrays.UnsafeArray{UInt8, 1}}
+    hello_decoder::ConsumerHello.Decoder{UnsafeArrays.UnsafeArray{UInt8, 1}}
     attach_encoder::ShmAttachResponse.Encoder{UnsafeArrays.UnsafeArray{UInt8, 1}}
     detach_encoder::ShmDetachResponse.Encoder{UnsafeArrays.UnsafeArray{UInt8, 1}}
     revoke_encoder::ShmLeaseRevoked.Encoder{UnsafeArrays.UnsafeArray{UInt8, 1}}
     shutdown_encoder::ShmDriverShutdown.Encoder{UnsafeArrays.UnsafeArray{UInt8, 1}}
     announce_encoder::ShmPoolAnnounce.Encoder{UnsafeArrays.UnsafeArray{UInt8, 1}}
+    config_encoder::ConsumerConfigMsg.Encoder{UnsafeArrays.UnsafeArray{UInt8, 1}}
     superblock_encoder::ShmRegionSuperblock.Encoder{Vector{UInt8}}
     control_claim::Aeron.BufferClaim
     control_assembler::Aeron.FragmentAssembler
@@ -53,13 +55,18 @@ end
 """
 Driver mutable state.
 """
-mutable struct DriverState{ClockT<:Clocks.AbstractClock}
+mutable struct DriverState{ClockT}
     config::DriverConfig
     clock::ClockT
     runtime::DriverRuntime
     streams::Dict{UInt32, DriverStreamState}
     leases::Dict{UInt64, DriverLease}
     next_lease_id::UInt64
+    next_stream_id::UInt32
+    next_descriptor_stream_id::UInt32
+    next_control_stream_id::UInt32
+    consumer_descriptor_streams::Dict{UInt32, UInt32}
+    consumer_control_streams::Dict{UInt32, UInt32}
     metrics::DriverMetrics
     timer_set::TimerSet{
         Tuple{PolledTimer, PolledTimer, PolledTimer},

@@ -22,9 +22,8 @@ function emit_consumer_hello!(state::ConsumerState)
     requested_control_channel = state.config.requested_control_channel
     requested_control_stream_id = state.config.requested_control_stream_id
 
-    descriptor_requested =
-        !isempty(requested_descriptor_channel) && requested_descriptor_stream_id != 0
-    control_requested = !isempty(requested_control_channel) && requested_control_stream_id != 0
+    descriptor_requested = !isempty(requested_descriptor_channel)
+    control_requested = !isempty(requested_control_channel)
 
     msg_len = MESSAGE_HEADER_LEN +
         Int(ConsumerHello.sbe_block_length(ConsumerHello.Decoder)) +
