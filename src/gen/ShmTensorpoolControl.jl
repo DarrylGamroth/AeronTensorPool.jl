@@ -2023,7 +2023,13 @@ end
 sbe_header_size(::AbstractAttributes) = begin
         4
     end
+sbe_header_size(::Type{<:AbstractAttributes}) = begin
+        4
+    end
 sbe_block_length(::AbstractAttributes) = begin
+        UInt16(0)
+    end
+sbe_block_length(::Type{<:AbstractAttributes}) = begin
         UInt16(0)
     end
 sbe_acting_block_length(g::Decoder) = begin
@@ -2036,6 +2042,9 @@ sbe_acting_version(g::Decoder) = begin
         g.acting_version
     end
 sbe_acting_version(::Encoder) = begin
+        UInt16(1)
+    end
+sbe_acting_version(::Type{<:AbstractAttributes}) = begin
         UInt16(1)
     end
 sbe_position(g::AbstractAttributes) = begin
@@ -3324,7 +3333,13 @@ end
 sbe_header_size(::AbstractPayloadPools) = begin
         4
     end
+sbe_header_size(::Type{<:AbstractPayloadPools}) = begin
+        4
+    end
 sbe_block_length(::AbstractPayloadPools) = begin
+        UInt16(10)
+    end
+sbe_block_length(::Type{<:AbstractPayloadPools}) = begin
         UInt16(10)
     end
 sbe_acting_block_length(g::Decoder) = begin
@@ -3337,6 +3352,9 @@ sbe_acting_version(g::Decoder) = begin
         g.acting_version
     end
 sbe_acting_version(::Encoder) = begin
+        UInt16(1)
+    end
+sbe_acting_version(::Type{<:AbstractPayloadPools}) = begin
         UInt16(1)
     end
 sbe_position(g::AbstractPayloadPools) = begin

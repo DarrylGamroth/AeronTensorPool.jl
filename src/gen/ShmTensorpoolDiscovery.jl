@@ -1084,7 +1084,13 @@ end
 sbe_header_size(::AbstractResults) = begin
         4
     end
+sbe_header_size(::Type{<:AbstractResults}) = begin
+        4
+    end
 sbe_block_length(::AbstractResults) = begin
+        UInt16(39)
+    end
+sbe_block_length(::Type{<:AbstractResults}) = begin
         UInt16(39)
     end
 sbe_acting_block_length(g::Decoder) = begin
@@ -1097,6 +1103,9 @@ sbe_acting_version(g::Decoder) = begin
         g.acting_version
     end
 sbe_acting_version(::Encoder) = begin
+        UInt16(1)
+    end
+sbe_acting_version(::Type{<:AbstractResults}) = begin
         UInt16(1)
     end
 sbe_position(g::AbstractResults) = begin
@@ -2392,7 +2401,13 @@ end
 sbe_header_size(::AbstractPayloadPools) = begin
         4
     end
+sbe_header_size(::Type{<:AbstractPayloadPools}) = begin
+        4
+    end
 sbe_block_length(::AbstractPayloadPools) = begin
+        UInt16(10)
+    end
+sbe_block_length(::Type{<:AbstractPayloadPools}) = begin
         UInt16(10)
     end
 sbe_acting_block_length(g::Decoder) = begin
@@ -2405,6 +2420,9 @@ sbe_acting_version(g::Decoder) = begin
         g.acting_version
     end
 sbe_acting_version(::Encoder) = begin
+        UInt16(1)
+    end
+sbe_acting_version(::Type{<:AbstractPayloadPools}) = begin
         UInt16(1)
     end
 sbe_position(g::AbstractPayloadPools) = begin
@@ -2929,7 +2947,13 @@ end
 sbe_header_size(::AbstractTags) = begin
         4
     end
+sbe_header_size(::Type{<:AbstractTags}) = begin
+        4
+    end
 sbe_block_length(::AbstractTags) = begin
+        UInt16(0)
+    end
+sbe_block_length(::Type{<:AbstractTags}) = begin
         UInt16(0)
     end
 sbe_acting_block_length(g::Decoder) = begin
@@ -2942,6 +2966,9 @@ sbe_acting_version(g::Decoder) = begin
         g.acting_version
     end
 sbe_acting_version(::Encoder) = begin
+        UInt16(1)
+    end
+sbe_acting_version(::Type{<:AbstractTags}) = begin
         UInt16(1)
     end
 sbe_position(g::AbstractTags) = begin
@@ -3931,7 +3958,13 @@ end
 sbe_header_size(::AbstractTags) = begin
         4
     end
+sbe_header_size(::Type{<:AbstractTags}) = begin
+        4
+    end
 sbe_block_length(::AbstractTags) = begin
+        UInt16(0)
+    end
+sbe_block_length(::Type{<:AbstractTags}) = begin
         UInt16(0)
     end
 sbe_acting_block_length(g::Decoder) = begin
@@ -3944,6 +3977,9 @@ sbe_acting_version(g::Decoder) = begin
         g.acting_version
     end
 sbe_acting_version(::Encoder) = begin
+        UInt16(1)
+    end
+sbe_acting_version(::Type{<:AbstractTags}) = begin
         UInt16(1)
     end
 sbe_position(g::AbstractTags) = begin
