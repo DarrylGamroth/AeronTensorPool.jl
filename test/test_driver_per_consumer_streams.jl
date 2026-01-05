@@ -61,7 +61,7 @@ using Test
         end
         @test ok == true
 
-        hello_len = MESSAGE_HEADER_LEN +
+        hello_len = AeronTensorPool.MESSAGE_HEADER_LEN +
             Int(ConsumerHello.sbe_block_length(ConsumerHello.Decoder)) +
             Int(ConsumerHello.descriptorChannel_header_length) +
             sizeof("aeron:ipc") +
@@ -111,7 +111,7 @@ using Test
 
         got_config = wait_for() do
             driver_do_work!(driver_state)
-            Aeron.poll(sub_configs, assembler, Int32(DEFAULT_FRAGMENT_LIMIT))
+            Aeron.poll(sub_configs, assembler, Int32(AeronTensorPool.DEFAULT_FRAGMENT_LIMIT))
             assigned[]
         end
         @test got_config == true
@@ -186,7 +186,7 @@ end
         end
         @test ok == true
 
-        hello_len = MESSAGE_HEADER_LEN +
+        hello_len = AeronTensorPool.MESSAGE_HEADER_LEN +
             Int(ConsumerHello.sbe_block_length(ConsumerHello.Decoder)) +
             Int(ConsumerHello.descriptorChannel_header_length) +
             sizeof("aeron:ipc") +
@@ -236,7 +236,7 @@ end
 
         got_config = wait_for() do
             driver_do_work!(driver_state)
-            Aeron.poll(sub_configs, assembler, Int32(DEFAULT_FRAGMENT_LIMIT))
+            Aeron.poll(sub_configs, assembler, Int32(AeronTensorPool.DEFAULT_FRAGMENT_LIMIT))
             assigned[]
         end
         @test got_config == true
