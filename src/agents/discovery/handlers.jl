@@ -41,14 +41,20 @@ end
     return now_ns - last_seen > expiry_ns
 end
 
-function entry_for_stream!(state::DiscoveryProviderState, stream_id::UInt32)
-    key = (state.config.driver_instance_id, stream_id)
+function entry_for_stream!(
+    state::AbstractDiscoveryState,
+    driver_instance_id::String,
+    driver_control_channel::String,
+    driver_control_stream_id::UInt32,
+    stream_id::UInt32,
+)
+    key = (driver_instance_id, stream_id)
     entry = get(state.entries, key, nothing)
     if entry === nothing
         entry = DiscoveryEntry(
             FixedString(DISCOVERY_INSTANCE_ID_MAX_BYTES),
             FixedString(DISCOVERY_CONTROL_CHANNEL_MAX_BYTES),
-            state.config.driver_control_stream_id,
+            driver_control_stream_id,
             stream_id,
             UInt32(0),
             UInt64(0),
@@ -63,16 +69,28 @@ function entry_for_stream!(state::DiscoveryProviderState, stream_id::UInt32)
             Vector{DiscoveryPoolEntry}(),
             UInt64(0),
         )
-        copyto!(entry.driver_instance_id, state.config.driver_instance_id)
-        copyto!(entry.driver_control_channel, state.config.driver_control_channel)
+        copyto!(entry.driver_instance_id, driver_instance_id)
+        copyto!(entry.driver_control_channel, driver_control_channel)
         state.entries[key] = entry
     end
     return entry
 end
 
-function update_entry_from_announce!(state::DiscoveryProviderState, msg::ShmPoolAnnounce.Decoder)
+function update_entry_from_announce!(
+    state::AbstractDiscoveryState,
+    msg::ShmPoolAnnounce.Decoder,
+    driver_instance_id::String,
+    driver_control_channel::String,
+    driver_control_stream_id::UInt32,
+)
     stream_id = ShmPoolAnnounce.streamId(msg)
-    entry = entry_for_stream!(state, stream_id)
+    entry = entry_for_stream!(
+        state,
+        driver_instance_id,
+        driver_control_channel,
+        driver_control_stream_id,
+        stream_id,
+    )
     epoch = ShmPoolAnnounce.epoch(msg)
     if entry.epoch != 0 && epoch < entry.epoch
         return false
@@ -104,11 +122,20 @@ function update_entry_from_announce!(state::DiscoveryProviderState, msg::ShmPool
 end
 
 function update_entry_from_metadata_announce!(
-    state::DiscoveryProviderState,
+    state::AbstractDiscoveryState,
     msg::DataSourceAnnounce.Decoder,
+    driver_instance_id::String,
+    driver_control_channel::String,
+    driver_control_stream_id::UInt32,
 )
     stream_id = DataSourceAnnounce.streamId(msg)
-    entry = entry_for_stream!(state, stream_id)
+    entry = entry_for_stream!(
+        state,
+        driver_instance_id,
+        driver_control_channel,
+        driver_control_stream_id,
+        stream_id,
+    )
     epoch = DataSourceAnnounce.epoch(msg)
     if entry.epoch != 0 && epoch < entry.epoch
         return false
@@ -123,11 +150,20 @@ function update_entry_from_metadata_announce!(
 end
 
 function touch_entry_from_metadata_meta!(
-    state::DiscoveryProviderState,
+    state::AbstractDiscoveryState,
     msg::DataSourceMeta.Decoder,
+    driver_instance_id::String,
+    driver_control_channel::String,
+    driver_control_stream_id::UInt32,
 )
     stream_id = DataSourceMeta.streamId(msg)
-    entry = entry_for_stream!(state, stream_id)
+    entry = entry_for_stream!(
+        state,
+        driver_instance_id,
+        driver_control_channel,
+        driver_control_stream_id,
+        stream_id,
+    )
     entry.last_announce_ns = UInt64(Clocks.time_nanos(state.clock))
     return true
 end
@@ -167,7 +203,7 @@ function entry_matches!(
     return true
 end
 
-function collect_request_tags!(state::DiscoveryProviderState, msg::DiscoveryRequest.Decoder)
+function collect_request_tags!(state::AbstractDiscoveryState, msg::DiscoveryRequest.Decoder)
     empty!(state.request_tags)
     tags = DiscoveryRequest.tags(msg)
     for tag_entry in tags
@@ -193,7 +229,7 @@ function collect_request_tags!(state::DiscoveryProviderState, msg::DiscoveryRequ
 end
 
 @inline function find_response_pub(
-    state::DiscoveryProviderState,
+    state::AbstractDiscoveryState,
     response_channel::AbstractString,
     response_stream_id::Int32,
 )
@@ -206,7 +242,7 @@ end
 end
 
 function response_pub_for!(
-    state::DiscoveryProviderState,
+    state::AbstractDiscoveryState,
     response_channel::AbstractString,
     response_stream_id::Int32,
 )
@@ -257,7 +293,7 @@ function discovery_response_length(
 end
 
 function emit_discovery_response!(
-    state::DiscoveryProviderState,
+    state::AbstractDiscoveryState,
     response_channel::AbstractString,
     response_stream_id::UInt32,
     request_id::UInt64,
@@ -325,18 +361,36 @@ function emit_discovery_response!(
 end
 
 function handle_shm_pool_announce!(state::DiscoveryProviderState, msg::ShmPoolAnnounce.Decoder)
-    return update_entry_from_announce!(state, msg)
+    return update_entry_from_announce!(
+        state,
+        msg,
+        state.config.driver_instance_id,
+        state.config.driver_control_channel,
+        state.config.driver_control_stream_id,
+    )
 end
 
 function handle_metadata_announce!(state::DiscoveryProviderState, msg::DataSourceAnnounce.Decoder)
-    return update_entry_from_metadata_announce!(state, msg)
+    return update_entry_from_metadata_announce!(
+        state,
+        msg,
+        state.config.driver_instance_id,
+        state.config.driver_control_channel,
+        state.config.driver_control_stream_id,
+    )
 end
 
 function handle_metadata_meta!(state::DiscoveryProviderState, msg::DataSourceMeta.Decoder)
-    return touch_entry_from_metadata_meta!(state, msg)
+    return touch_entry_from_metadata_meta!(
+        state,
+        msg,
+        state.config.driver_instance_id,
+        state.config.driver_control_channel,
+        state.config.driver_control_stream_id,
+    )
 end
 
-function handle_discovery_request!(state::DiscoveryProviderState, msg::DiscoveryRequest.Decoder)
+function handle_discovery_request!(state::AbstractDiscoveryState, msg::DiscoveryRequest.Decoder)
     collect_request_tags!(state, msg)
     response_channel = DiscoveryRequest.responseChannel(msg, StringView)
     response_stream_id = DiscoveryRequest.responseStreamId(msg)
@@ -406,7 +460,7 @@ Arguments:
 Returns:
 - `Aeron.FragmentAssembler` for discovery requests.
 """
-function make_request_assembler(state::DiscoveryProviderState)
+function make_request_assembler(state::AbstractDiscoveryState)
     handler = Aeron.FragmentHandler(state) do st, buffer, _
         header = DiscoveryMessageHeader.Decoder(buffer, 0)
         DiscoveryMessageHeader.schemaId(header) == DISCOVERY_SCHEMA_ID || return nothing
@@ -478,7 +532,7 @@ Returns:
 - Number of fragments processed.
 """
 @inline function poll_requests!(
-    state::DiscoveryProviderState,
+    state::AbstractDiscoveryState,
     assembler::Aeron.FragmentAssembler,
     fragment_limit::Int32 = DEFAULT_FRAGMENT_LIMIT,
 )
@@ -497,7 +551,7 @@ Returns:
 - Number of fragments processed.
 """
 @inline function poll_announce!(
-    state::DiscoveryProviderState,
+    state::AbstractDiscoveryState,
     assembler::Aeron.FragmentAssembler,
     fragment_limit::Int32 = DEFAULT_FRAGMENT_LIMIT,
 )
@@ -516,7 +570,7 @@ Returns:
 - Number of fragments processed.
 """
 @inline function poll_metadata!(
-    state::DiscoveryProviderState,
+    state::AbstractDiscoveryState,
     assembler::Aeron.FragmentAssembler,
     fragment_limit::Int32 = DEFAULT_FRAGMENT_LIMIT,
 )

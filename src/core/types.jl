@@ -111,6 +111,31 @@ struct DiscoveryConfig
 end
 
 """
+Discovery registry endpoint configuration.
+"""
+struct DiscoveryRegistryEndpoint
+    driver_instance_id::String
+    announce_channel::String
+    announce_stream_id::Int32
+    metadata_channel::String
+    metadata_stream_id::Int32
+    driver_control_channel::String
+    driver_control_stream_id::UInt32
+end
+
+"""
+Discovery registry configuration.
+"""
+struct DiscoveryRegistryConfig
+    channel::String
+    stream_id::Int32
+    endpoints::Vector{DiscoveryRegistryEndpoint}
+    max_results::UInt32
+    expiry_ns::UInt64
+    response_buf_bytes::UInt32
+end
+
+"""
 Discovery service payload pool entry.
 """
 struct DiscoveryPoolEntry

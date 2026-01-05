@@ -1,11 +1,11 @@
 """
-Runtime state for discovery providers and registries.
+Runtime state for the discovery registry.
 """
-mutable struct DiscoveryRuntime
+mutable struct DiscoveryRegistryRuntime
     client::Aeron.Client
     sub_requests::Aeron.Subscription
-    sub_announce::Aeron.Subscription
-    sub_metadata::Union{Aeron.Subscription, Nothing}
+    announce_subs::Vector{Aeron.Subscription}
+    metadata_subs::Vector{Union{Aeron.Subscription, Nothing}}
     request_decoder::DiscoveryRequest.Decoder{UnsafeArrays.UnsafeArray{UInt8, 1}}
     response_encoder::DiscoveryResponse.Encoder{UnsafeArrays.UnsafeArray{UInt8, 1}}
     announce_decoder::ShmPoolAnnounce.Decoder{UnsafeArrays.UnsafeArray{UInt8, 1}}
@@ -16,15 +16,13 @@ mutable struct DiscoveryRuntime
     pubs::Dict{Tuple{String, Int32}, Aeron.Publication}
 end
 
-abstract type AbstractDiscoveryState end
-
 """
-Discovery provider state.
+Discovery registry state.
 """
-mutable struct DiscoveryProviderState <: AbstractDiscoveryState
-    config::DiscoveryConfig
+mutable struct DiscoveryRegistryState <: AbstractDiscoveryState
+    config::DiscoveryRegistryConfig
     clock::Clocks.AbstractClock
-    runtime::DiscoveryRuntime
+    runtime::DiscoveryRegistryRuntime
     entries::Dict{Tuple{String, UInt32}, DiscoveryEntry}
     request_tags::Vector{StringView}
     matching_entries::Vector{DiscoveryEntry}
