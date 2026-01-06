@@ -296,6 +296,25 @@ Returns:
 - `TensorSlotHeader` with decoded values.
 """
 function read_tensor_slot_header(m::TensorSlotHeaderMsg.Decoder)
+    buf = TensorSlotHeaderMsg.sbe_buffer(m)
+    base = TensorSlotHeaderMsg.sbe_offset(m)
+    dims_offset = TensorSlotHeaderMsg.dims_encoding_offset(m)
+    strides_offset = TensorSlotHeaderMsg.strides_encoding_offset(m)
+    elem_bytes = Int(sizeof(Int32))
+    dims = ntuple(Val(MAX_DIMS)) do i
+        @inbounds TensorSlotHeaderMsg.decode_value(
+            Int32,
+            buf,
+            base + dims_offset + (i - 1) * elem_bytes,
+        )
+    end
+    strides = ntuple(Val(MAX_DIMS)) do i
+        @inbounds TensorSlotHeaderMsg.decode_value(
+            Int32,
+            buf,
+            base + strides_offset + (i - 1) * elem_bytes,
+        )
+    end
     return TensorSlotHeader(
         TensorSlotHeaderMsg.seqCommit(m),
         TensorSlotHeaderMsg.timestampNs(m),
@@ -308,7 +327,7 @@ function read_tensor_slot_header(m::TensorSlotHeaderMsg.Decoder)
         TensorSlotHeaderMsg.majorOrder(m),
         TensorSlotHeaderMsg.ndims(m),
         TensorSlotHeaderMsg.padAlign(m),
-        TensorSlotHeaderMsg.dims(m, NTuple{MAX_DIMS, Int32}),
-        TensorSlotHeaderMsg.strides(m, NTuple{MAX_DIMS, Int32}),
+        dims,
+        strides,
     )
 end

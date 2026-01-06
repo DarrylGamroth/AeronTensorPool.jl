@@ -90,6 +90,89 @@ function parse_bridge_mappings(cfg::Dict, env::AbstractDict)
     return mappings
 end
 
+function parse_bridge_stream_id_range(bridge::Dict, env::AbstractDict)
+    raw = get(bridge, "dest_stream_id_range", nothing)
+    raw === nothing && return nothing
+    if raw isa AbstractString
+        raw_str = strip(expand_vars(String(raw), env))
+        isempty(raw_str) && return nothing
+        if occursin("-", raw_str)
+            parts = split(raw_str, "-")
+            length(parts) == 2 || throw(ArgumentError("invalid dest_stream_id_range format"))
+            start_id = UInt32(parse(Int, strip(parts[1])))
+            end_id = UInt32(parse(Int, strip(parts[2])))
+            start_id <= end_id || throw(ArgumentError("invalid dest_stream_id_range bounds"))
+            return BridgeStreamIdRange(start_id, end_id)
+        end
+        if occursin(",", raw_str)
+            parts = split(raw_str, ",")
+            length(parts) == 2 || throw(ArgumentError("invalid dest_stream_id_range format"))
+            start_id = UInt32(parse(Int, strip(parts[1])))
+            end_id = UInt32(parse(Int, strip(parts[2])))
+            start_id <= end_id || throw(ArgumentError("invalid dest_stream_id_range bounds"))
+            return BridgeStreamIdRange(start_id, end_id)
+        end
+        return nothing
+    end
+    if raw isa AbstractVector && length(raw) == 2
+        start_id = UInt32(raw[1])
+        end_id = UInt32(raw[2])
+        start_id <= end_id || throw(ArgumentError("invalid dest_stream_id_range bounds"))
+        return BridgeStreamIdRange(start_id, end_id)
+    end
+    return nothing
+end
+
+function assign_bridge_dest_stream_ids(
+    mappings::Vector{BridgeMapping},
+    range::Union{BridgeStreamIdRange, Nothing},
+    reserved::Set{UInt32},
+)
+    range === nothing && return mappings
+    used = Set{UInt32}()
+    for mapping in mappings
+        if mapping.dest_stream_id != 0
+            push!(used, mapping.dest_stream_id)
+        end
+    end
+    assigned = BridgeMapping[]
+    next_id = range.start_id
+    for mapping in mappings
+        if mapping.dest_stream_id != 0
+            push!(assigned, mapping)
+            continue
+        end
+        start_id = next_id
+        candidate = start_id
+        found = false
+        while true
+            if candidate != mapping.source_stream_id &&
+               !(candidate in used) &&
+               !(candidate in reserved)
+                found = true
+                break
+            end
+            candidate = candidate == range.end_id ? range.start_id : candidate + 1
+            candidate == start_id && break
+        end
+        found || throw(BridgeConfigError("bridge dest_stream_id_range exhausted"))
+        next_id = candidate == range.end_id ? range.start_id : candidate + 1
+        push!(used, candidate)
+        push!(
+            assigned,
+            BridgeMapping(
+                mapping.source_stream_id,
+                candidate,
+                mapping.profile,
+                mapping.metadata_stream_id,
+                mapping.source_control_stream_id,
+                mapping.dest_control_stream_id,
+            ),
+        )
+    end
+    return assigned
+end
+
 function resolve_producer_paths(
     header_uri::String,
     payload_pools::Vector{PayloadPoolConfig},
@@ -370,6 +453,7 @@ function load_bridge_config(path::AbstractString; env::AbstractDict = ENV)
     forward_qos = Bool(get(bridge, "forward_qos", false))
     forward_progress = Bool(get(bridge, "forward_progress", false))
     assembly_timeout_ms = UInt64(get(bridge, "assembly_timeout_ms", 250))
+    dest_stream_id_range = parse_bridge_stream_id_range(bridge, env)
 
     bridge_config = BridgeConfig(
         instance_id,
@@ -389,9 +473,19 @@ function load_bridge_config(path::AbstractString; env::AbstractDict = ENV)
         forward_metadata,
         forward_qos,
         forward_progress,
+        dest_stream_id_range,
     )
 
     mappings = parse_bridge_mappings(cfg, env)
+    reserved = Set{UInt32}()
+    payload_stream_id != 0 && push!(reserved, UInt32(payload_stream_id))
+    control_stream_id != 0 && push!(reserved, UInt32(control_stream_id))
+    metadata_stream_id != 0 && push!(reserved, UInt32(metadata_stream_id))
+    for mapping in mappings
+        mapping.metadata_stream_id != 0 && push!(reserved, mapping.metadata_stream_id)
+        mapping.dest_control_stream_id != 0 && push!(reserved, UInt32(mapping.dest_control_stream_id))
+    end
+    mappings = assign_bridge_dest_stream_ids(mappings, dest_stream_id_range, reserved)
     validate_bridge_config(bridge_config, mappings)
     return BridgeSystemConfig(bridge_config, mappings)
 end

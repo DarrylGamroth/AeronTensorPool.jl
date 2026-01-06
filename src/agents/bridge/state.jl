@@ -76,7 +76,6 @@ mutable struct BridgeSenderState
     metadata_announce_encoder::DataSourceAnnounce.Encoder{UnsafeArrays.UnsafeArray{UInt8, 1}}
     metadata_meta_encoder::DataSourceMeta.Encoder{UnsafeArrays.UnsafeArray{UInt8, 1}}
     header_decoder::TensorSlotHeaderMsg.Decoder{Vector{UInt8}}
-    header_buf::FixedSizeVectorDefault{UInt8}
     scratch_dims::FixedSizeVectorDefault{Int32}
     scratch_strides::FixedSizeVectorDefault{Int32}
     last_announce_epoch::UInt64

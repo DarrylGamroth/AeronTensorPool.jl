@@ -73,13 +73,44 @@ function validate_bridge_config(config::BridgeConfig, mappings::Vector{BridgeMap
     if config.max_payload_bytes > 0 && config.chunk_bytes > 0 && config.max_payload_bytes < config.chunk_bytes
         throw(BridgeConfigError("bridge max_payload_bytes smaller than chunk_bytes"))
     end
+    if config.dest_stream_id_range !== nothing
+        range = config.dest_stream_id_range
+        range.start_id > range.end_id && throw(BridgeConfigError("bridge dest_stream_id_range invalid bounds"))
+        payload_id = UInt32(config.payload_stream_id)
+        control_id = UInt32(config.control_stream_id)
+        metadata_id = UInt32(config.metadata_stream_id)
+        if payload_id != 0 && payload_id >= range.start_id && payload_id <= range.end_id
+            throw(BridgeConfigError("bridge dest_stream_id_range overlaps payload_stream_id"))
+        end
+        if control_id != 0 && control_id >= range.start_id && control_id <= range.end_id
+            throw(BridgeConfigError("bridge dest_stream_id_range overlaps control_stream_id"))
+        end
+        if metadata_id != 0 && metadata_id >= range.start_id && metadata_id <= range.end_id
+            throw(BridgeConfigError("bridge dest_stream_id_range overlaps metadata_stream_id"))
+        end
+    end
 
     seen = Set{Tuple{UInt32, UInt32}}()
     for mapping in mappings
         mapping.source_stream_id == 0 && throw(BridgeConfigError("bridge mapping source_stream_id must be nonzero"))
-        mapping.dest_stream_id == 0 && throw(BridgeConfigError("bridge mapping dest_stream_id must be nonzero"))
+        if mapping.dest_stream_id == 0 && config.dest_stream_id_range === nothing
+            throw(BridgeConfigError("bridge mapping dest_stream_id must be nonzero without dest_stream_id_range"))
+        end
         if mapping.source_stream_id == mapping.dest_stream_id
             throw(BridgeConfigError("bridge mapping source_stream_id must differ from dest_stream_id"))
+        end
+        if config.dest_stream_id_range !== nothing
+            range = config.dest_stream_id_range
+            if mapping.dest_control_stream_id != 0 &&
+               UInt32(mapping.dest_control_stream_id) >= range.start_id &&
+               UInt32(mapping.dest_control_stream_id) <= range.end_id
+                throw(BridgeConfigError("bridge dest_stream_id_range overlaps dest_control_stream_id"))
+            end
+            if mapping.metadata_stream_id != 0 &&
+               mapping.metadata_stream_id >= range.start_id &&
+               mapping.metadata_stream_id <= range.end_id
+                throw(BridgeConfigError("bridge dest_stream_id_range overlaps metadata_stream_id"))
+            end
         end
         if (config.forward_qos || config.forward_progress) &&
            (mapping.source_control_stream_id == 0 || mapping.dest_control_stream_id == 0)

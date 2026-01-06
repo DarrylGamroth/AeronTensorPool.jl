@@ -8,6 +8,20 @@ The bridge specification is the authoritative source of truth; this plan only tr
 - Config loader validates `BridgeConfig` + mappings and enforces MTU/chunk sizing rules.
 - Integration tests cover progress remap, assembly timeout, backpressure, and discovery visibility.
 
+### Spec Update Mapping (Bridge v1.0 refresh)
+- §4 stream allocation alignment: **implemented**. Added `dest_stream_id_range`, allocation for `dest_stream_id=0`, and overlap checks.
+- §5.2 chunk validation: **implemented**. Sender populates `chunkOffset`/`chunkLength`; receiver validates offsets/lengths and per-chunk size limits.
+- §6 rematerialization: **implemented**. Receiver drops chunks whose epoch mismatches the latest forwarded announce before assembly.
+- §7.1 metadata forwarding: **implemented**. Stream id rewrite and `meta_version` preservation present in sender/receiver proxy.
+- §7.2 control channel: **implemented**. Control channel uses wire schema messages and gated by `forward_qos`/`forward_progress`.
+- §9 progress forwarding: **implemented**. Receiver remaps `headerIndex` to local before publish.
+- §10 defaults: **implemented**. Config loader defaults match spec; chunk sizing uses MTU minus 128 and caps with `max_chunk_bytes`.
+
+Status: pending audit.
+
+### Implementation Tasks (from audit)
+Status: completed.
+
 ### Phase 0: Spec Alignment Checklist
 - Map each normative requirement in `docs/SHM_Aeron_UDP_Bridge_Spec_v1.0.md` to a code path or TODO.
 - Identify gaps in:

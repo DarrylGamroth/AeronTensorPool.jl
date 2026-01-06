@@ -244,20 +244,36 @@ function bridge_receive_chunk!(
 )
     state.have_announce || return bridge_drop_chunk!(state)
     BridgeFrameChunk.streamId(decoder) == state.mapping.dest_stream_id || return bridge_drop_chunk!(state)
+    BridgeFrameChunk.epoch(decoder) == state.source_info.epoch || return bridge_drop_chunk!(state)
 
-    chunk_index = BridgeFrameChunk.chunkIndex(decoder)
-    chunk_count = BridgeFrameChunk.chunkCount(decoder)
+    chunk_index = Int(BridgeFrameChunk.chunkIndex(decoder))
+    chunk_count = Int(BridgeFrameChunk.chunkCount(decoder))
     chunk_count == 0 && return bridge_drop_chunk!(state)
     chunk_index < chunk_count || return bridge_drop_chunk!(state)
 
     header_included = BridgeFrameChunk.headerIncluded(decoder) == BridgeBool.TRUE
-    payload_length = BridgeFrameChunk.payloadLength(decoder)
+    chunk_offset = UInt32(BridgeFrameChunk.chunkOffset(decoder))
+    chunk_length = UInt32(BridgeFrameChunk.chunkLength(decoder))
+    payload_length = UInt32(BridgeFrameChunk.payloadLength(decoder))
     payload_length == 0 && return bridge_drop_chunk!(state)
     payload_length > state.config.max_payload_bytes && return bridge_drop_chunk!(state)
+    chunk_length == 0 && return bridge_drop_chunk!(state)
+    chunk_length > payload_length && return bridge_drop_chunk!(state)
+    chunk_offset > payload_length && return bridge_drop_chunk!(state)
+    chunk_offset + chunk_length > payload_length && return bridge_drop_chunk!(state)
+    chunk_limit = UInt32(bridge_effective_chunk_bytes(state.config))
+    chunk_limit == 0 && return bridge_drop_chunk!(state)
+    expected_offset = UInt32(chunk_index) * chunk_limit
+    expected_offset > payload_length && return bridge_drop_chunk!(state)
+    expected_len = min(chunk_limit, payload_length - expected_offset)
+    chunk_offset == expected_offset || return bridge_drop_chunk!(state)
+    chunk_length == expected_len || return bridge_drop_chunk!(state)
+
     header_bytes = BridgeFrameChunk.headerBytes(decoder)
     header_len = length(header_bytes)
     payload_bytes = BridgeFrameChunk.payloadBytes(decoder)
     payload_len = length(payload_bytes)
+    UInt32(payload_len) == chunk_length || return bridge_drop_chunk!(state)
 
     header_included && header_len != HEADER_SLOT_BYTES && return bridge_drop_chunk!(state)
     !header_included && header_len != 0 && return bridge_drop_chunk!(state)
@@ -271,18 +287,18 @@ function bridge_receive_chunk!(
             state.assembly,
             BridgeFrameChunk.seq(decoder),
             BridgeFrameChunk.epoch(decoder),
-            chunk_count,
+            UInt32(chunk_count),
             payload_length,
             now_ns,
         )
-    elseif state.assembly.chunk_count != chunk_count ||
+    elseif state.assembly.chunk_count != UInt32(chunk_count) ||
            state.assembly.payload_length != payload_length
         state.metrics.assemblies_reset += 1
         reset_bridge_assembly!(
             state.assembly,
             BridgeFrameChunk.seq(decoder),
             BridgeFrameChunk.epoch(decoder),
-            chunk_count,
+            UInt32(chunk_count),
             payload_length,
             now_ns,
         )
@@ -311,7 +327,7 @@ function bridge_receive_chunk!(
         state.assembly.header_present = true
     end
 
-    payload_start = chunk_index * bridge_effective_chunk_bytes(state.config)
+    payload_start = Int(chunk_offset)
     if payload_start + payload_len > length(state.assembly.payload)
         return bridge_drop_chunk!(state)
     end

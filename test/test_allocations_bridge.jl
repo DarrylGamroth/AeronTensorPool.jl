@@ -155,6 +155,7 @@
             desc_dec = FrameDescriptor.Decoder(Vector{UInt8})
             FrameDescriptor.wrap!(desc_dec, desc_buf, 0; header = MessageHeader.Decoder(desc_buf, 0))
 
+            bridge_send_frame!(sender, desc_dec)
             GC.gc()
             @test @allocated(bridge_send_frame!(sender, desc_dec)) == 0
 

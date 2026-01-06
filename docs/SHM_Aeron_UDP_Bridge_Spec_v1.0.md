@@ -216,7 +216,7 @@ Required keys:
 Optional keys and defaults:
 
 - `bridge.mtu_bytes` (uint32): MTU used to size chunks. Default: Aeron channel MTU.
-- `bridge.chunk_bytes` (uint32): payload bytes per chunk. Default: `min(bridge.chunk_bytes, bridge.mtu_bytes - 128)` when set; otherwise `bridge.mtu_bytes - 128`.
+- `bridge.chunk_bytes` (uint32): payload bytes per chunk. If set, the effective chunk size is `min(bridge.chunk_bytes, bridge.mtu_bytes - 128)`; if unset, the default is `bridge.mtu_bytes - 128`.
 - `bridge.max_chunk_bytes` (uint32): hard cap for chunk length. Default: `65535`.
 - `bridge.max_payload_bytes` (uint32): hard cap for total payload length. Default: `1073741824`.
 - `bridge.dest_stream_id_range` (string or array): inclusive range for dynamically allocated destination stream IDs when `dest_stream_id=0`. Ranges MUST NOT overlap metadata/control/QoS stream IDs or other bridge ranges. Default: empty (disabled).

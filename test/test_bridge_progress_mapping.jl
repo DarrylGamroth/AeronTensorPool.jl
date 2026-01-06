@@ -75,7 +75,7 @@
             FrameProgress.headerIndex!(enc, local_index + UInt32(1))
             dec = FrameProgress.Decoder(Vector{UInt8})
             FrameProgress.wrap!(dec, buffer, 0; header = MessageHeader.Decoder(buffer, 0))
-            @test AeronTensorPool.bridge_publish_progress!(receiver, dec) == false
+            @test AeronTensorPool.bridge_publish_progress!(receiver, dec) == true
 
             FrameProgress.headerIndex!(enc, local_index)
             FrameProgress.wrap!(dec, buffer, 0; header = MessageHeader.Decoder(buffer, 0))

@@ -324,7 +324,6 @@ function bridge_publish_progress!(state::BridgeReceiverState, msg::FrameProgress
     producer_state = state.producer_state
     producer_state === nothing && return false
     local_header_index = UInt32(FrameProgress.frameId(msg) & (UInt64(producer_state.config.nslots) - 1))
-    FrameProgress.headerIndex(msg) == local_header_index || return false
     msg_len = MESSAGE_HEADER_LEN + Int(FrameProgress.sbe_decoded_length(msg))
     pub = state.pub_control_local
     pub === nothing && return false
