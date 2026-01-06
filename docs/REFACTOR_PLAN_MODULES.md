@@ -251,13 +251,13 @@ Phase 1: Module Wrappers (No Behavior Change)
 
 Phase 2: Module Boundary Cleanup
 - [x] Move shared library directories from `src/agents/` into `src/core/` (preserving structure).
-- [ ] Update unqualified references to use explicit module names.
-- [ ] Ensure no agent module reaches into another agent module (bridge is the only exception by design).
+- [x] Update unqualified references to use explicit module names.
+- [x] Ensure no agent module reaches into another agent module (bridge is the only exception by design).
 
 Phase 3: Validation
-- [ ] Run full tests.
+- [x] Run full tests.
 - [ ] Run benchmarks to confirm no regressions.
-- [ ] Fix load-order or import issues.
+- [x] Fix load-order or import issues.
 
 ## Phase 1: Introduce Module Wrappers (No Behavior Change)
 - Move shared library code out of `src/agents/` into `src/core/` while preserving subdirectories.
