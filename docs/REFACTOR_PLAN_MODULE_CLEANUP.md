@@ -44,7 +44,7 @@ Goal: resolve naming/ownership ambiguity introduced by module refactor and align
 
 ## Phase 6: Validation
 - [x] Run full tests.
-- [ ] Run benchmarks.
+- [x] Run benchmarks.
 - [x] Fix any export/load-order regressions.
 
 ## Notes
