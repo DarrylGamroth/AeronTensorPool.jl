@@ -3,6 +3,7 @@ module Discovery
 using ..Core
 using ..Aeron
 using ..AeronUtils
+using ..Timers
 using ..UnsafeArrays
 using ..StringViews
 import ..Core: DiscoveryEntry

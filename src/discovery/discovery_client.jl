@@ -12,6 +12,13 @@ end
 
 const EMPTY_STRING_VECTOR = String[]
 
+function ensure_pool_capacity!(pools::Vector{DiscoveryPoolEntry}, count::Int)
+    while length(pools) < count
+        push!(pools, DiscoveryPoolEntry(UInt16(0), UInt32(0), UInt32(0), FixedString(DRIVER_URI_MAX_BYTES)))
+    end
+    return nothing
+end
+
 @inline function DiscoveryResponseSlot(out_entries::Vector{DiscoveryEntry})
     return DiscoveryResponseSlot(
         UInt64(0),

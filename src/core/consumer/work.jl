@@ -1,5 +1,5 @@
 function poll_timers!(state::ConsumerState, now_ns::UInt64)
-    return poll_timers!(state.timer_set, state, now_ns)
+    return Timers.poll_timers!(state.timer_set, state, now_ns)
 end
 
 """

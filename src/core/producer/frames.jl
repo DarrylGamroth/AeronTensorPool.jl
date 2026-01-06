@@ -178,7 +178,7 @@ function payload_slot_ptr(state::ProducerState, pool_id::UInt16, slot::UInt32)
     pool === nothing && error("Unknown pool_id: $pool_id")
     slot < pool.nslots || error("Slot out of range: $slot")
     payload_mmap = state.mappings.payload_mmaps[pool.pool_id]
-    return payload_slot_ptr(payload_mmap, pool.stride_bytes, slot)
+    return Shm.payload_slot_ptr(payload_mmap, pool.stride_bytes, slot)
 end
 
 """
@@ -204,7 +204,7 @@ function payload_slot_view(
     slot < pool.nslots || error("Slot out of range: $slot")
     payload_mmap = state.mappings.payload_mmaps[pool.pool_id]
     view_len = len < 0 ? Int(pool.stride_bytes) : Int(len)
-    return payload_slot_view(payload_mmap, pool.stride_bytes, slot, view_len)
+    return Shm.payload_slot_view(payload_mmap, pool.stride_bytes, slot, view_len)
 end
 
 """

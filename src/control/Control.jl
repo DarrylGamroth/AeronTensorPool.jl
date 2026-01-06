@@ -4,6 +4,7 @@ using ..Core
 using ..Core.TPLog
 using ..Timers
 using ..Aeron
+using ..AeronUtils
 using ..UnsafeArrays
 using ..SBE
 using ..StringViews
@@ -37,6 +38,11 @@ export ControlPlaneRuntime,
     poll_driver_responses!,
     poll_attach!,
     poll_attach,
-    poll_driver_control!
+    poll_driver_control!,
+    handle_driver_response!,
+    snapshot_attach_response!,
+    snapshot_detach_response!,
+    snapshot_lease_revoked!,
+    snapshot_shutdown!
 
 end

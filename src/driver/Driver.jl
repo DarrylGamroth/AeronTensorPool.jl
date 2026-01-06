@@ -12,6 +12,7 @@ using ..UnsafeArrays
 using ..SBE
 using ..FixedSizeArrays
 using ..Hsm
+using ..ShmTensorpoolControl
 
 include("config.jl")
 include("metrics.jl")
@@ -32,14 +33,18 @@ export DriverConfig,
     DriverEndpoints,
     DriverPoolConfig,
     DriverProfileConfig,
+    DriverStreamIdRange,
     DriverStreamConfig,
     DriverShmConfig,
     DriverState,
+    DriverMetrics,
     DriverStatusSnapshot,
     DriverLeaseSnapshot,
+    LeaseLifecycle,
     DriverStreamSnapshot,
     DriverAssignedStreamSnapshot,
     init_driver,
+    load_driver_config,
     driver_do_work!,
     register_driver!,
     unregister_driver!,
@@ -48,6 +53,9 @@ export DriverConfig,
     driver_status_snapshot,
     driver_leases_snapshot,
     driver_streams_snapshot,
-    driver_assigned_streams_snapshot
+    driver_assigned_streams_snapshot,
+    emit_driver_shutdown!,
+    driver_lifecycle_dispatch!,
+    revoke_lease!
 
 end

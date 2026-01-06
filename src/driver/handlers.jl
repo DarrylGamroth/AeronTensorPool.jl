@@ -85,7 +85,7 @@ function make_driver_control_assembler(state::DriverState)
 end
 
 @inline function poll_timers!(state::DriverState, now_ns::UInt64)
-    return poll_timers!(state.timer_set, state, now_ns)
+    return Timers.poll_timers!(state.timer_set, state, now_ns)
 end
 
 function find_consumer_lease(

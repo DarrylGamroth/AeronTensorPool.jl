@@ -14,6 +14,9 @@ using ..FixedSizeArrays
 using ..SBE
 using ..StringViews
 using ..UnsafeArrays
+using ..ShmTensorpoolControl
+using ..ShmTensorpoolDriver
+using ..ShmTensorpoolBridge
 using ..ShmTensorpoolDiscovery
 
 include("producer/producer.jl")
@@ -25,6 +28,7 @@ include("discovery/discovery.jl")
 export ProducerState,
     ProducerHooks,
     ProducerInfo,
+    ProducerConsumerStream,
     ConsumerState,
     ConsumerHooks,
     ConsumerInfo,
@@ -44,6 +48,7 @@ export ProducerState,
     init_consumer,
     init_consumer_from_attach,
     init_supervisor,
+    remap_consumer_from_attach!,
     init_bridge_sender,
     init_bridge_receiver,
     init_discovery_provider,
@@ -79,8 +84,21 @@ export ProducerState,
     payload_pool_config,
     republish_descriptor!,
     bridge_forward_announce!,
+    bridge_apply_source_announce!,
     bridge_rematerialize!,
     bridge_send_frame!,
+    bridge_chunk_message_length,
+    bridge_publish_progress!,
+    bridge_receive_chunk!,
+    validate_mapped_superblocks!,
+    maybe_track_gap!,
+    consumer_stream_last_seen_ns,
+    entry_expired,
+    entry_matches!,
+    make_announce_assembler,
+    make_metadata_assembler,
+    make_request_assembler,
+    validate_strides!,
     try_read_frame!,
     validate_stride,
     validate_bridge_config,

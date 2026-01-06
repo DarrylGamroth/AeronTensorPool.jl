@@ -1,31 +1,4 @@
 """
-Validate stride_bytes against alignment and hugepage requirements.
-
-Arguments:
-- `stride_bytes`: pool stride size in bytes.
-- `require_hugepages`: whether hugepages are required.
-- `page_size_bytes`: OS page size in bytes (default: backend value).
-- `hugepage_size`: hugepage size in bytes (default: 0 means unknown).
-
-Returns:
-- `true` if valid, `false` otherwise.
-"""
-function validate_stride(
-    stride_bytes::UInt32;
-    require_hugepages::Bool,
-    page_size_bytes::Int = page_size_bytes(),
-    hugepage_size::Int = 0,
-)
-    ispow2(stride_bytes) || return false
-    (stride_bytes % UInt32(page_size_bytes)) == 0 || return false
-    if require_hugepages
-        hugepage_size > 0 || return false
-        (stride_bytes % UInt32(hugepage_size)) == 0 || return false
-    end
-    return true
-end
-
-"""
 Map SHM regions from a ShmPoolAnnounce message.
 
 Arguments:
