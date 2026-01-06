@@ -46,6 +46,71 @@ mutable struct BridgeReceiverMetrics
 end
 
 """
+Reusable fill handler for BridgeFrameChunk encoding.
+"""
+mutable struct BridgeChunkFill
+    encoder::BridgeFrameChunk.Encoder{UnsafeArrays.UnsafeArray{UInt8, 1}}
+    dest_stream_id::UInt32
+    epoch::UInt64
+    seq::UInt64
+    chunk_index::UInt32
+    chunk_count::UInt32
+    chunk_offset::UInt32
+    chunk_length::UInt32
+    payload_length::UInt32
+    header_included::Bool
+    header_mmap_vec::Vector{UInt8}
+    header_offset::Int
+    payload_mmap_vec::Vector{UInt8}
+    payload_pos::Int
+    payload_chunk_len::Int
+end
+
+"""
+Call overload for `BridgeChunkFill`.
+"""
+@inline function (fill::BridgeChunkFill)(buf::AbstractArray{UInt8})
+    BridgeFrameChunk.wrap_and_apply_header!(fill.encoder, buf, 0)
+    BridgeFrameChunk.streamId!(fill.encoder, fill.dest_stream_id)
+    BridgeFrameChunk.epoch!(fill.encoder, fill.epoch)
+    BridgeFrameChunk.seq!(fill.encoder, fill.seq)
+    BridgeFrameChunk.chunkIndex!(fill.encoder, fill.chunk_index)
+    BridgeFrameChunk.chunkCount!(fill.encoder, fill.chunk_count)
+    BridgeFrameChunk.chunkOffset!(fill.encoder, fill.chunk_offset)
+    BridgeFrameChunk.chunkLength!(fill.encoder, fill.chunk_length)
+    BridgeFrameChunk.payloadLength!(fill.encoder, fill.payload_length)
+    BridgeFrameChunk.headerIncluded!(
+        fill.encoder,
+        fill.header_included ? BridgeBool.TRUE : BridgeBool.FALSE,
+    )
+    if fill.header_included
+        BridgeFrameChunk.headerBytes_length!(fill.encoder, HEADER_SLOT_BYTES)
+        header_pos = BridgeFrameChunk.sbe_position(fill.encoder) + 4
+        BridgeFrameChunk.sbe_position!(fill.encoder, header_pos + HEADER_SLOT_BYTES)
+        dest_ptr = pointer(BridgeFrameChunk.sbe_buffer(fill.encoder), header_pos + 1)
+        unsafe_copyto!(
+            dest_ptr,
+            pointer(fill.header_mmap_vec, fill.header_offset + 1),
+            HEADER_SLOT_BYTES,
+        )
+    else
+        BridgeFrameChunk.headerBytes_length!(fill.encoder, 0)
+        header_pos = BridgeFrameChunk.sbe_position(fill.encoder) + 4
+        BridgeFrameChunk.sbe_position!(fill.encoder, header_pos)
+    end
+    BridgeFrameChunk.payloadBytes_length!(fill.encoder, fill.payload_chunk_len)
+    payload_pos_enc = BridgeFrameChunk.sbe_position(fill.encoder) + 4
+    BridgeFrameChunk.sbe_position!(fill.encoder, payload_pos_enc + fill.payload_chunk_len)
+    dest_ptr = pointer(BridgeFrameChunk.sbe_buffer(fill.encoder), payload_pos_enc + 1)
+    unsafe_copyto!(
+        dest_ptr,
+        pointer(fill.payload_mmap_vec, fill.payload_pos + 1),
+        fill.payload_chunk_len,
+    )
+    return nothing
+end
+
+"""
 Assembled bridge frame data.
 """
 struct BridgeAssembledFrame
@@ -70,6 +135,7 @@ mutable struct BridgeSenderState
     pub_metadata::Union{Nothing, Aeron.Publication}
     chunk_encoder::BridgeFrameChunk.Encoder{UnsafeArrays.UnsafeArray{UInt8, 1}}
     chunk_claim::Aeron.BufferClaim
+    chunk_fill::BridgeChunkFill
     announce_encoder::ShmPoolAnnounce.Encoder{UnsafeArrays.UnsafeArray{UInt8, 1}}
     control_claim::Aeron.BufferClaim
     metadata_claim::Aeron.BufferClaim

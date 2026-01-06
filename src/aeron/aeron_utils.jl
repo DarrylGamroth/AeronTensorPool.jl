@@ -10,7 +10,12 @@ Arguments:
 Returns:
 - `true` if the claim was committed, `false` otherwise.
 """
-@inline function with_claimed_buffer!(fill_fn, pub::Aeron.Publication, claim::Aeron.BufferClaim, length::Int)
+@inline function with_claimed_buffer!(
+    fill_fn::F,
+    pub::Aeron.Publication,
+    claim::Aeron.BufferClaim,
+    length::Int,
+) where {F}
     position = Aeron.try_claim(pub, length, claim)
     if position > 0
         buf = Aeron.buffer(claim)

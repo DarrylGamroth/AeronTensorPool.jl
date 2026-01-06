@@ -32,6 +32,24 @@ function init_bridge_sender(
         pub_metadata = Aeron.add_publication(client, config.metadata_channel, config.metadata_stream_id)
         sub_metadata = Aeron.add_subscription(client, consumer_state.config.aeron_uri, config.source_metadata_stream_id)
     end
+    chunk_encoder = BridgeFrameChunk.Encoder(UnsafeArrays.UnsafeArray{UInt8, 1})
+    chunk_fill = BridgeChunkFill(
+        chunk_encoder,
+        mapping.dest_stream_id,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        false,
+        Vector{UInt8}(undef, 0),
+        0,
+        Vector{UInt8}(undef, 0),
+        0,
+        0,
+    )
     state = BridgeSenderState(
         consumer_state,
         config,
@@ -41,8 +59,9 @@ function init_bridge_sender(
         pub_payload,
         pub_control,
         pub_metadata,
-        BridgeFrameChunk.Encoder(UnsafeArrays.UnsafeArray{UInt8, 1}),
+        chunk_encoder,
         Aeron.BufferClaim(),
+        chunk_fill,
         ShmPoolAnnounce.Encoder(UnsafeArrays.UnsafeArray{UInt8, 1}),
         Aeron.BufferClaim(),
         Aeron.BufferClaim(),
@@ -132,6 +151,14 @@ function bridge_send_frame!(state::BridgeSenderState, desc::FrameDescriptor.Deco
     chunk_bytes = min(chunk_bytes, total_payload_bytes)
     chunk_count = cld(total_payload_bytes, chunk_bytes)
     chunk_count_u32 = UInt32(chunk_count)
+    fill = state.chunk_fill
+    fill.dest_stream_id = state.mapping.dest_stream_id
+    fill.epoch = FrameDescriptor.epoch(desc)
+    fill.seq = FrameDescriptor.seq(desc)
+    fill.payload_length = UInt32(total_payload_bytes)
+    fill.header_mmap_vec = header_mmap_vec
+    fill.header_offset = header_offset
+    fill.payload_mmap_vec = payload_mmap_vec
 
     for chunk_index in 0:(chunk_count - 1)
         payload_pos = payload_offset + chunk_index * chunk_bytes
@@ -140,42 +167,14 @@ function bridge_send_frame!(state::BridgeSenderState, desc::FrameDescriptor.Deco
         header_included = chunk_index == 0
         header_len = header_included ? HEADER_SLOT_BYTES : 0
         msg_len = bridge_chunk_message_length(header_len, payload_chunk_len)
-        sent = false
-        position = Aeron.try_claim(state.pub_payload, msg_len, state.chunk_claim)
-        if position > 0
-            buf = Aeron.buffer(state.chunk_claim)
-            BridgeFrameChunk.wrap_and_apply_header!(state.chunk_encoder, buf, 0)
-            BridgeFrameChunk.streamId!(state.chunk_encoder, state.mapping.dest_stream_id)
-            BridgeFrameChunk.epoch!(state.chunk_encoder, FrameDescriptor.epoch(desc))
-            BridgeFrameChunk.seq!(state.chunk_encoder, FrameDescriptor.seq(desc))
-            BridgeFrameChunk.chunkIndex!(state.chunk_encoder, UInt32(chunk_index))
-            BridgeFrameChunk.chunkCount!(state.chunk_encoder, chunk_count_u32)
-            BridgeFrameChunk.chunkOffset!(state.chunk_encoder, UInt32(chunk_index * chunk_bytes))
-            BridgeFrameChunk.chunkLength!(state.chunk_encoder, UInt32(payload_chunk_len))
-            BridgeFrameChunk.payloadLength!(state.chunk_encoder, UInt32(total_payload_bytes))
-            BridgeFrameChunk.headerIncluded!(
-                state.chunk_encoder,
-                header_included ? BridgeBool.TRUE : BridgeBool.FALSE,
-            )
-            if header_included
-                BridgeFrameChunk.headerBytes_length!(state.chunk_encoder, HEADER_SLOT_BYTES)
-                header_pos = BridgeFrameChunk.sbe_position(state.chunk_encoder) + 4
-                BridgeFrameChunk.sbe_position!(state.chunk_encoder, header_pos + HEADER_SLOT_BYTES)
-                dest_ptr = pointer(BridgeFrameChunk.sbe_buffer(state.chunk_encoder), header_pos + 1)
-                unsafe_copyto!(dest_ptr, pointer(header_mmap_vec, header_offset + 1), HEADER_SLOT_BYTES)
-            else
-                BridgeFrameChunk.headerBytes_length!(state.chunk_encoder, 0)
-                header_pos = BridgeFrameChunk.sbe_position(state.chunk_encoder) + 4
-                BridgeFrameChunk.sbe_position!(state.chunk_encoder, header_pos)
-            end
-            BridgeFrameChunk.payloadBytes_length!(state.chunk_encoder, payload_chunk_len)
-            payload_pos_enc = BridgeFrameChunk.sbe_position(state.chunk_encoder) + 4
-            BridgeFrameChunk.sbe_position!(state.chunk_encoder, payload_pos_enc + payload_chunk_len)
-            dest_ptr = pointer(BridgeFrameChunk.sbe_buffer(state.chunk_encoder), payload_pos_enc + 1)
-            unsafe_copyto!(dest_ptr, pointer(payload_mmap_vec, payload_pos + 1), payload_chunk_len)
-            Aeron.commit(state.chunk_claim)
-            sent = true
-        end
+        fill.chunk_index = UInt32(chunk_index)
+        fill.chunk_count = chunk_count_u32
+        fill.chunk_offset = UInt32(chunk_index * chunk_bytes)
+        fill.chunk_length = UInt32(payload_chunk_len)
+        fill.header_included = header_included
+        fill.payload_pos = payload_pos
+        fill.payload_chunk_len = payload_chunk_len
+        sent = with_claimed_buffer!(fill, state.pub_payload, state.chunk_claim, msg_len)
         if sent
             state.metrics.chunks_sent += 1
         else
