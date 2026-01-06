@@ -9,6 +9,7 @@ using ..UnsafeArrays
 using ..SBE
 using ..StringViews
 
+include("errors.jl")
 include("constants.jl")
 include("runtime.jl")
 include("proxies.jl")
@@ -21,6 +22,8 @@ export ControlPlaneRuntime,
     DetachRequestProxy,
     ShutdownRequestProxy,
     DriverPool,
+    AttachRejectedError,
+    AttachTimeoutError,
     AttachResponse,
     DetachResponse,
     LeaseRevoked,
@@ -42,7 +45,6 @@ export ControlPlaneRuntime,
     send_attach_request!,
     apply_attach!,
     poll_driver_responses!,
-    poll_attach!,
     poll_driver_control!,
     handle_driver_response!,
     snapshot_attach_response!,

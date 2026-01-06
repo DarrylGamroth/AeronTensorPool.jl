@@ -1,5 +1,6 @@
 include("state.jl")
 include("hooks.jl")
+include("counters.jl")
 include("frames.jl")
 include("mapping.jl")
 include("proxy.jl")

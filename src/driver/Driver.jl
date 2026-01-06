@@ -15,6 +15,7 @@ using ..Hsm
 using ..ShmTensorpoolControl
 
 include("config.jl")
+include("counters.jl")
 include("metrics.jl")
 include("lease_lifecycle.jl")
 include("lifecycle.jl")
@@ -38,6 +39,7 @@ export DriverConfig,
     DriverShmConfig,
     DriverState,
     DriverMetrics,
+    DriverCounters,
     DriverStatusSnapshot,
     DriverLeaseSnapshot,
     LeaseLifecycle,

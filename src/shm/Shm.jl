@@ -4,6 +4,7 @@ using ..Core
 using ..Core.TPLog
 using ..Mmap
 
+include("errors.jl")
 include("uri.jl")
 include("constants.jl")
 include("linux.jl")
@@ -20,6 +21,8 @@ export ShmUri,
     canonical_header_uri,
     canonical_pool_uri,
     canonical_shm_paths,
+    ShmUriError,
+    ShmValidationError,
     SUPERBLOCK_SIZE,
     HEADER_SLOT_BYTES,
     MAGIC_TPOLSHM1,

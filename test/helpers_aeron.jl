@@ -139,7 +139,7 @@ function await_attach!(
     now_ns = time_ns()
     deadline = now_ns + timeout_ns
     while now_ns < deadline
-        attach = poll_attach!(state, correlation_id, now_ns)
+        attach = AeronTensorPool.Control.poll_attach!(state, correlation_id, now_ns)
         attach !== nothing && return attach
         yield()
         now_ns = time_ns()

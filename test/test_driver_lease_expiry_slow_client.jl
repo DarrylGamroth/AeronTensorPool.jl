@@ -44,7 +44,7 @@ using Test
             haskey(producer_client.poller.attach_by_correlation, cid)
         end
         @test ok
-        prod_attach = poll_attach!(producer_client, cid, UInt64(time_ns()))
+        prod_attach = AeronTensorPool.Control.poll_attach!(producer_client, cid, UInt64(time_ns()))
         @test prod_attach !== nothing
 
         producer_cfg = ProducerConfig(

@@ -25,11 +25,11 @@ producer = attach_producer(client, producer_config; discover = false)
 ## Attach (Async)
 
 - Old: manual correlation handling
-- New: `request_attach_consumer` / `request_attach_producer` + `poll_attach`
+- New: `request_attach_consumer` / `request_attach_producer` + `poll_attach!`
 
 ```julia
 req = request_attach_consumer(client, settings)
-resp = poll_attach(req)
+resp = poll_attach!(req)
 ```
 
 ## Work Loop

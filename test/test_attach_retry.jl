@@ -54,7 +54,7 @@ using Test
         end
         @test ok
 
-        attach2 = poll_attach!(driver_client, cid2, UInt64(time_ns()))
+        attach2 = AeronTensorPool.Control.poll_attach!(driver_client, cid2, UInt64(time_ns()))
         @test attach2 !== nothing
         @test attach2.correlation_id == cid2
         @test haskey(driver_client.poller.attach_by_correlation, cid1)

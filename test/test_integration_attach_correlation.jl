@@ -56,7 +56,7 @@ using Test
                 driver_client_do_work!(state, now_ns)
 
                 @test length(state.poller.attach_by_correlation) == 2
-                attach = poll_attach!(state, Int64(202), now_ns)
+                attach = AeronTensorPool.Control.poll_attach!(state, Int64(202), now_ns)
                 @test attach !== nothing
                 @test attach.correlation_id == Int64(202)
                 @test length(state.poller.attach_by_correlation) == 1

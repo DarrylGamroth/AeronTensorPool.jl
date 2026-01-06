@@ -19,7 +19,7 @@ function wait_for_attach_app!(
     cid != 0 || return nothing
     ok = wait_for(; timeout = timeout) do
         driver_do_work!(driver_state)
-        poll_attach!(client, cid, UInt64(time_ns())) !== nothing
+        AeronTensorPool.Control.poll_attach!(client, cid, UInt64(time_ns())) !== nothing
     end
     ok || return nothing
     return client.poller.last_attach

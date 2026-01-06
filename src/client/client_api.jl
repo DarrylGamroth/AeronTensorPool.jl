@@ -397,7 +397,7 @@ function await_attach_response(
         if now_ns - last_retry_ns > retry_interval_ns
             last_retry_ns = now_ns
         end
-        attach = poll_attach!(driver_client, correlation_id, now_ns)
+        attach = Control.poll_attach!(driver_client, correlation_id, now_ns)
         attach === nothing && (yield(); continue)
         attach.code == DriverResponseCode.OK || throw(AttachRejectedError(String(attach.error_message)))
         return attach
@@ -463,7 +463,7 @@ end
 """
 Poll an attach request handle for completion.
 """
-function poll_attach(
+function poll_attach!(
     request::AttachRequestHandle,
     now_ns::UInt64 = UInt64(time_ns()),
 )

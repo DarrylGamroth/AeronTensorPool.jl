@@ -64,13 +64,13 @@ using Test
 
             for cid in prod_ids
                 get!(prod_seen, cid, false) || begin
-                    attach = poll_attach!(producer_client, cid, UInt64(time_ns()))
+                    attach = AeronTensorPool.Control.poll_attach!(producer_client, cid, UInt64(time_ns()))
                     attach !== nothing && (prod_seen[cid] = true)
                 end
             end
             for cid in cons_ids
                 get!(cons_seen, cid, false) || begin
-                    attach = poll_attach!(consumer_client, cid, UInt64(time_ns()))
+                    attach = AeronTensorPool.Control.poll_attach!(consumer_client, cid, UInt64(time_ns()))
                     attach !== nothing && (cons_seen[cid] = true)
                 end
             end

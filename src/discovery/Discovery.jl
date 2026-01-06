@@ -9,6 +9,7 @@ using ..Timers
 using ..UnsafeArrays
 using ..StringViews
 
+include("errors.jl")
 include("constants.jl")
 include("types.jl")
 include("validation.jl")
@@ -17,6 +18,8 @@ include("discovery_client.jl")
 export DiscoveryClientState,
     DiscoveryResponseSlot,
     DiscoveryResponsePoller,
+    DiscoveryConfigError,
+    DiscoveryTimeoutError,
     DiscoveryConfig,
     DiscoveryRegistryEndpoint,
     DiscoveryRegistryConfig,

@@ -58,7 +58,7 @@ Internals:
 Provide a minimal async API for integration:
 
 - `request_attach_consumer(...) -> correlation_id`
-- `poll_attach(client, correlation_id) -> AttachResponse?`
+- `poll_attach!(client, correlation_id) -> AttachResponse?`
 
 Keep these in a “low-level” namespace, but prefer sync wrappers for the default path.
 
@@ -174,7 +174,7 @@ For TensorPool, the equivalent should be `do_work(client)` on a `TensorPoolClien
 
 ### Phase 2: Attach/Discovery API (Completed)
 - Implement `attach_consumer`/`attach_producer` sync APIs.
-- Add async `request_attach_*` + `poll_attach` variants.
+- Add async `request_attach_*` + `poll_attach!` variants.
 - Integrate discovery internally with optional opt-out.
 
 ### Phase 3: Handles and Convenience Methods (Completed)

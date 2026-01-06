@@ -11,15 +11,7 @@ include("fixed_string.jl")
 include("messages.jl")
 include("errors.jl")
 
-export AeronInitError,
-    AttachRejectedError,
-    AttachTimeoutError,
-    BridgeConfigError,
-    DiscoveryConfigError,
-    DiscoveryTimeoutError,
-    ShmUriError,
-    ShmValidationError,
-    TensorPoolError,
+export TensorPoolError,
     FixedString,
     MAX_DIMS,
     RegionType,
