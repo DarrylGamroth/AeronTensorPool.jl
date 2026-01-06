@@ -10,6 +10,7 @@ Clocks = "6b5ade5d-6e95-4584-b343-73eec2e8782b"
 EnumX = "4e289a0a-7415-4d19-859d-a7e5c4648b56"
 FixedSizeArrays = "3821ddf9-e5b5-40d5-8e25-6813ab96b5e2"
 Hsm = "ae4ab49b-60bf-4949-b8fd-fb49b1a0d067"
+Logging = "56ddb016-857b-54e1-b83d-db4d58db5568"
 MappedArrays = "dbb5928d-eab1-5f90-85c2-b9b0edb7c900"
 Mmap = "a63ad114-7e13-5084-954f-fe012c677804"
 SBE = "b5db94cf-04c1-4db7-9b05-47f582871ea8"
@@ -44,5 +45,5 @@ bench = ["BenchmarkTools"]
 test = ["Test", "Aqua"]
 
 [apps]
-tp_tool = { submodule = "TpToolApp", julia_flags = ["--threads=auto", "--optimize=2"] }
-tp_driver = { submodule = "TpDriverApp", julia_flags = ["--threads=auto", "--optimize=2"] }
+tp_tool = { submodule = "Apps.TpToolApp", julia_flags = ["--threads=auto", "--optimize=2"] }
+tp_driver = { submodule = "Apps.TpDriverApp", julia_flags = ["--threads=auto", "--optimize=2"] }

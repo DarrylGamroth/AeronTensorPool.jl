@@ -1,9 +1,3 @@
-const DISCOVERY_GROUP_HEADER_LEN = 4
-const DISCOVERY_VAR_ASCII_HEADER_LEN =
-    Int(ShmTensorpoolDiscovery.VarAsciiEncoding.length_encoding_length(
-        ShmTensorpoolDiscovery.VarAsciiEncoding.Decoder,
-    ))
-
 @inline function var_ascii_view(m::ShmTensorpoolDiscovery.VarAsciiEncoding.Decoder)
     len = ShmTensorpoolDiscovery.VarAsciiEncoding.length(m)
     offset = m.offset + ShmTensorpoolDiscovery.VarAsciiEncoding.varData_encoding_offset(m)

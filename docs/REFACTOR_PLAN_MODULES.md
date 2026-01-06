@@ -28,6 +28,12 @@ src/
     messages.jl
     types.jl
     validation.jl
+    AgentLib.jl
+    bridge/
+    consumer/
+    discovery/
+    producer/
+    supervisor/
   aeron/
     aeron_utils.jl
     counters.jl
@@ -82,15 +88,16 @@ src/
 
 ## Proposed Module Map (name → files)
 - `AeronTensorPool`: top-level re-exports, includes submodules in a fixed order.
-- `AeronTensorPool.Core`: `src/core/*.jl`
-- `AeronTensorPool.Aeron`: `src/aeron/*.jl`
+- `AeronTensorPool.Core`: `src/core/*.jl` (foundational types/constants)
+- `AeronTensorPool.AgentLib`: `src/core/AgentLib.jl` + `src/core/{producer,consumer,bridge,discovery,supervisor}/*`
+- `AeronTensorPool.AeronUtils`: `src/aeron/*.jl` (avoid name clash with Aeron.jl)
 - `AeronTensorPool.Shm`: `src/shm/*.jl`
 - `AeronTensorPool.Timers`: `src/timers/*.jl`
 - `AeronTensorPool.Control`: `src/control/*.jl`
 - `AeronTensorPool.Driver`: `src/driver/*.jl`
 - `AeronTensorPool.Client`: `src/client/*.jl`
 - `AeronTensorPool.Discovery`: `src/discovery/*.jl`
-- `AeronTensorPool.Agents.Producer`: `src/agents/producer_agent.jl`
+- `AeronTensorPool.Agents.Producer`: `src/agents/producer_agent.jl` (uses `AgentLib`)
 - `AeronTensorPool.Agents.Consumer`: `src/agents/consumer_agent.jl`
 - `AeronTensorPool.Agents.Supervisor`: `src/agents/supervisor_agent.jl`
 - `AeronTensorPool.Agents.Driver`: `src/agents/driver_agent.jl`
@@ -106,16 +113,18 @@ src/
   aeron/
     aeron_utils.jl
     counters.jl
+    AeronUtils.jl
   client/
     client_api.jl
-    discovery_client.jl
     driver_client.jl
+    Client.jl
   config/
     config_loader.jl
   control/
     pollers.jl
     proxies.jl
     runtime.jl
+    Control.jl
   core/
     constants.jl
     errors.jl
@@ -124,6 +133,8 @@ src/
     messages.jl
     types.jl
     validation.jl
+    Core.jl
+    AgentLib.jl
     bridge/
       adapters.jl
       assembly.jl
@@ -171,6 +182,9 @@ src/
       state.jl
       supervisor.jl
       work.jl
+  discovery/
+    discovery_client.jl
+    Discovery.jl
   driver/
     config.jl
     driver.jl
@@ -186,6 +200,7 @@ src/
     runtime.jl
     state.jl
     streams.jl
+    Driver.jl
   gen/
     ShmTensorpoolBridge.jl
     ShmTensorpoolControl.jl
@@ -199,11 +214,14 @@ src/
     slots.jl
     superblock.jl
     uri.jl
+    Shm.jl
   timers/
     polled_timer.jl
+    Timers.jl
   apps/
     TpDriverApp.jl
     TpToolApp.jl
+    Apps.jl
   agents/
     producer_agent.jl
     consumer_agent.jl
@@ -211,6 +229,9 @@ src/
     driver_agent.jl
     discovery_agent.jl
     bridge_agent.jl
+    discovery_registry_agent.jl
+    bridge_system_agent.jl
+    Agents.jl
 ```
 
 Each agent module lives in a single file under `src/agents/` (e.g., `producer_agent.jl`, `consumer_agent.jl`, etc.). Shared library code is moved out of `src/agents/` into `src/core/` and is included or imported by the agent modules as needed.
@@ -219,17 +240,18 @@ Each agent module lives in a single file under `src/agents/` (e.g., `producer_ag
 Phase 0: Inventory and API Freeze
 - [x] Record current public API exports in `src/AeronTensorPool.jl`.
 - [ ] Identify agent-owned types/functions for each agent and mark “public” vs “internal.”
-- [ ] Confirm which directories map to modules (`core`, `aeron`, `shm`, `timers`, `control`, `driver`, `client`, `discovery`, `agents`, `apps`).
+- [x] Confirm which directories map to modules (`core`, `aeron`, `shm`, `timers`, `control`, `driver`, `client`, `discovery`, `agents`, `apps`).
 
 Phase 1: Module Wrappers (No Behavior Change)
-- [ ] Wrap each directory as a module (`Core`, `Aeron`, `Shm`, `Timers`, `Control`, `Driver`, `Client`).
-- [ ] Wrap each `src/agents/*_agent.jl` file in its own agent module.
-- [ ] Add explicit `export` lists in each agent module.
-- [ ] Update `src/AeronTensorPool.jl` to `include` the agent modules and re-export symbols.
-- [ ] Keep all logic and file paths unchanged (no moves yet).
+- [x] Wrap each directory as a module (`Core`, `AgentLib`, `AeronUtils`, `Shm`, `Timers`, `Control`, `Driver`, `Client`, `Discovery`, `Agents`, `Apps`).
+- [x] Wrap each `src/agents/*_agent.jl` file in its own agent module.
+- [x] Add explicit `export` lists in each agent module.
+- [x] Update `src/AeronTensorPool.jl` to `include` the agent modules and re-export symbols.
+- [x] Keep logic unchanged (file moves allowed for module boundaries).
 
 Phase 2: Module Boundary Cleanup
-- [ ] Update any unqualified references to use explicit module names.
+- [x] Move shared library directories from `src/agents/` into `src/core/` (preserving structure).
+- [ ] Update unqualified references to use explicit module names.
 - [ ] Ensure no agent module reaches into another agent module (bridge is the only exception by design).
 
 Phase 3: Validation

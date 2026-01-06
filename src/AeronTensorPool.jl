@@ -19,44 +19,30 @@ using .ShmTensorpoolBridge
 include("gen/ShmTensorpoolDiscovery.jl")
 using .ShmTensorpoolDiscovery
 
-include("core/constants.jl")
-include("core/logging.jl")
-using .TPLog
-include("core/fixed_string.jl")
-include("core/messages.jl")
-include("timers/polled_timer.jl")
-include("core/types.jl")
-include("core/errors.jl")
-include("core/validation.jl")
-include("shm/uri.jl")
-include("shm/linux.jl")
-include("shm/backend.jl")
-include("shm/paths.jl")
-include("shm/slots.jl")
-include("shm/seqlock.jl")
-include("shm/superblock.jl")
-include("aeron/aeron_utils.jl")
-include("aeron/counters.jl")
-include("control/runtime.jl")
-include("control/proxies.jl")
-include("control/pollers.jl")
-include("driver/driver.jl")
-include("client/driver_client.jl")
-include("client/discovery_client.jl")
-include("agents/producer/producer.jl")
-include("agents/consumer/consumer.jl")
-include("agents/supervisor/supervisor.jl")
-include("agents/bridge/bridge.jl")
-include("agents/discovery/discovery.jl")
-include("agents/producer_agent.jl")
-include("agents/consumer_agent.jl")
-include("agents/supervisor_agent.jl")
-include("agents/driver_agent.jl")
-include("agents/bridge_agent.jl")
-include("agents/bridge_system_agent.jl")
-include("agents/discovery_agent.jl")
-include("agents/discovery_registry_agent.jl")
-include("client/client_api.jl")
+include("timers/Timers.jl")
+include("core/Core.jl")
+include("aeron/AeronUtils.jl")
+include("shm/Shm.jl")
+include("control/Control.jl")
+include("driver/Driver.jl")
+include("discovery/Discovery.jl")
+include("core/AgentLib.jl")
+include("agents/Agents.jl")
+include("client/Client.jl")
+include("apps/Apps.jl")
+
+using .Core
+using .Core.TPLog
+using .AgentLib
+using .Timers
+using .Shm
+using .AeronUtils
+using .Control
+using .Driver
+using .Discovery
+using .Agents
+using .Client
+
 include("config/config_loader.jl")
 
 export AeronInitError,

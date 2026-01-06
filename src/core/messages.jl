@@ -49,6 +49,11 @@ const BRIDGE_MESSAGE_HEADER_LEN =
     Int(BridgeMessageHeader.sbe_encoded_length(BridgeMessageHeader.Decoder))
 const DISCOVERY_MESSAGE_HEADER_LEN =
     Int(DiscoveryMessageHeader.sbe_encoded_length(DiscoveryMessageHeader.Decoder))
+const DISCOVERY_GROUP_HEADER_LEN = 4
+const DISCOVERY_VAR_ASCII_HEADER_LEN =
+    Int(ShmTensorpoolDiscovery.VarAsciiEncoding.length_encoding_length(
+        ShmTensorpoolDiscovery.VarAsciiEncoding.Decoder,
+    ))
 const FRAME_DESCRIPTOR_LEN = MESSAGE_HEADER_LEN + Int(FrameDescriptor.sbe_block_length(FrameDescriptor.Decoder))
 const FRAME_PROGRESS_LEN = MESSAGE_HEADER_LEN + Int(FrameProgress.sbe_block_length(FrameProgress.Decoder))
 const QOS_PRODUCER_LEN = MESSAGE_HEADER_LEN + Int(QosProducer.sbe_block_length(QosProducer.Decoder))
