@@ -4,6 +4,7 @@ using ...Aeron
 using ...Agent
 using ...Core
 using ...Agents
+using ...Discovery
 using ...AeronUtils
 
 """

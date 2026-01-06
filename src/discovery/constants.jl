@@ -1,12 +1,3 @@
-const SUPERBLOCK_SIZE = 64
-const HEADER_SLOT_BYTES = 256
-const MAGIC_TPOLSHM1 = 0x544F504C53484D31
-const DEFAULT_FRAGMENT_LIMIT = Int32(10)
-
-const CONTROL_BUF_BYTES = 512
-const ANNOUNCE_BUF_BYTES = 1024
-const DRIVER_URI_MAX_BYTES = 4096
-const DRIVER_ERROR_MAX_BYTES = 1024
 const DISCOVERY_SCHEMA_ID = UInt16(
     ShmTensorpoolDiscovery.DiscoveryRequest.sbe_schema_id(
         ShmTensorpoolDiscovery.DiscoveryRequest.Decoder,

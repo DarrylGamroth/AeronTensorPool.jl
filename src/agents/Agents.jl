@@ -19,6 +19,7 @@ using ..ShmTensorpoolDriver
 using ..ShmTensorpoolBridge
 using ..ShmTensorpoolDiscovery
 
+include("types.jl")
 include("producer/producer.jl")
 include("consumer/consumer.jl")
 include("supervisor/supervisor.jl")
@@ -29,6 +30,15 @@ export ProducerState,
     ProducerHooks,
     ProducerInfo,
     ProducerConsumerStream,
+    PayloadPoolConfig,
+    ProducerConfig,
+    ConsumerSettings,
+    BridgeMapping,
+    BridgeStreamIdRange,
+    BridgeConfig,
+    PayloadView,
+    SlotClaim,
+    select_pool,
     ConsumerState,
     ConsumerHooks,
     ConsumerInfo,
@@ -90,6 +100,7 @@ export ProducerState,
     bridge_chunk_message_length,
     bridge_publish_progress!,
     bridge_receive_chunk!,
+    validate_bridge_config,
     validate_mapped_superblocks!,
     maybe_track_gap!,
     consumer_stream_last_seen_ns,
@@ -101,7 +112,6 @@ export ProducerState,
     validate_strides!,
     try_read_frame!,
     validate_stride,
-    validate_bridge_config,
-    validate_discovery_endpoints
+    payload_view
 
 end

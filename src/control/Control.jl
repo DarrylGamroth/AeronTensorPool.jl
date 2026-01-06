@@ -9,6 +9,7 @@ using ..UnsafeArrays
 using ..SBE
 using ..StringViews
 
+include("constants.jl")
 include("runtime.jl")
 include("proxies.jl")
 include("pollers.jl")
@@ -24,6 +25,11 @@ export ControlPlaneRuntime,
     DetachResponse,
     LeaseRevoked,
     DriverShutdown,
+    DEFAULT_FRAGMENT_LIMIT,
+    CONTROL_BUF_BYTES,
+    ANNOUNCE_BUF_BYTES,
+    DRIVER_URI_MAX_BYTES,
+    DRIVER_ERROR_MAX_BYTES,
     DriverResponsePoller,
     DriverClientState,
     send_attach!,
@@ -37,7 +43,6 @@ export ControlPlaneRuntime,
     apply_attach!,
     poll_driver_responses!,
     poll_attach!,
-    poll_attach,
     poll_driver_control!,
     handle_driver_response!,
     snapshot_attach_response!,

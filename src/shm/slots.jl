@@ -84,29 +84,6 @@ Returns:
 end
 
 """
-Pick the smallest payload pool that can fit `values_len`.
-
-Arguments:
-- `pools`: payload pool configurations.
-- `values_len`: required payload length in bytes.
-
-Returns:
-- 1-based index of the best-fit pool, or 0 if no pool fits.
-"""
-@inline function select_pool(pools::AbstractVector{PayloadPoolConfig}, values_len::Integer)::Int
-    best_idx = 0
-    best_stride = typemax(UInt32)
-    for (i, pool) in pairs(pools)
-        stride = pool.stride_bytes
-        if stride >= values_len && stride < best_stride
-            best_idx = i
-            best_stride = stride
-        end
-    end
-    return best_idx
-end
-
-"""
 Validate stride_bytes against alignment and hugepage requirements.
 
 Arguments:

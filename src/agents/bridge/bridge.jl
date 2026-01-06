@@ -1,6 +1,7 @@
 include("state.jl")
 include("hooks.jl")
 include("assembly.jl")
+include("validation.jl")
 include("proxy.jl")
 include("sender.jl")
 include("receiver.jl")

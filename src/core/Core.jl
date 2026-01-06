@@ -5,16 +5,11 @@ using ..ShmTensorpoolDriver
 using ..ShmTensorpoolBridge
 using ..ShmTensorpoolDiscovery
 using ..SBE
-using ..Timers
-
-include("constants.jl")
 include("logging.jl")
 using .TPLog
 include("fixed_string.jl")
 include("messages.jl")
-include("types.jl")
 include("errors.jl")
-include("validation.jl")
 
 export AeronInitError,
     AttachRejectedError,
@@ -26,40 +21,6 @@ export AeronInitError,
     ShmValidationError,
     TensorPoolError,
     FixedString,
-    PayloadPoolConfig,
-    ProducerConfig,
-    ConsumerSettings,
-    BridgeMapping,
-    BridgeStreamIdRange,
-    BridgeConfig,
-    PayloadView,
-    SlotClaim,
-    DiscoveryConfig,
-    DiscoveryRegistryEndpoint,
-    DiscoveryRegistryConfig,
-    DiscoveryPoolEntry,
-    DiscoveryEntry,
-    DiscoveryResultView,
-    discovery_result_view,
-    payload_view,
-    MAGIC_TPOLSHM1,
-    SUPERBLOCK_SIZE,
-    HEADER_SLOT_BYTES,
-    DEFAULT_FRAGMENT_LIMIT,
-    CONTROL_BUF_BYTES,
-    ANNOUNCE_BUF_BYTES,
-    DRIVER_URI_MAX_BYTES,
-    DRIVER_ERROR_MAX_BYTES,
-    DISCOVERY_SCHEMA_ID,
-    DISCOVERY_MAX_RESULTS_DEFAULT,
-    DISCOVERY_MAX_DATASOURCE_NAME_BYTES,
-    DISCOVERY_RESPONSE_BUF_BYTES,
-    DISCOVERY_INSTANCE_ID_MAX_BYTES,
-    DISCOVERY_CONTROL_CHANNEL_MAX_BYTES,
-    DISCOVERY_TAG_MAX_BYTES,
-    DISCOVERY_MAX_TAGS_PER_ENTRY_DEFAULT,
-    DISCOVERY_MAX_POOLS_PER_ENTRY_DEFAULT,
-    DISCOVERY_RESULT_BLOCK_LEN,
     MAX_DIMS,
     RegionType,
     Dtype,
@@ -130,8 +91,6 @@ export AeronInitError,
     TEMPLATE_BRIDGE_FRAME_CHUNK,
     TEMPLATE_DISCOVERY_REQUEST,
     TEMPLATE_DISCOVERY_RESPONSE,
-    sbe_message_length,
-    validate_discovery_endpoints,
-    validate_bridge_config
+    sbe_message_length
 
 end

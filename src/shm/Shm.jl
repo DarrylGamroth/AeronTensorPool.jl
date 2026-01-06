@@ -5,6 +5,7 @@ using ..Core.TPLog
 using ..Mmap
 
 include("uri.jl")
+include("constants.jl")
 include("linux.jl")
 include("backend.jl")
 include("paths.jl")
@@ -19,6 +20,9 @@ export ShmUri,
     canonical_header_uri,
     canonical_pool_uri,
     canonical_shm_paths,
+    SUPERBLOCK_SIZE,
+    HEADER_SLOT_BYTES,
+    MAGIC_TPOLSHM1,
     mmap_shm,
     mmap_shm_existing,
     header_slot_offset,
@@ -27,7 +31,6 @@ export ShmUri,
     payload_slot_offset,
     payload_slot_ptr,
     payload_slot_view,
-    select_pool,
     TensorSlotHeader,
     SuperblockFields,
     page_size_bytes,

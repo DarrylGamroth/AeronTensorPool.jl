@@ -176,105 +176,6 @@ struct SlotClaim
 end
 
 """
-Discovery service configuration.
-"""
-struct DiscoveryConfig
-    channel::String
-    stream_id::Int32
-    announce_channel::String
-    announce_stream_id::Int32
-    metadata_channel::String
-    metadata_stream_id::Int32
-    driver_instance_id::String
-    driver_control_channel::String
-    driver_control_stream_id::UInt32
-    max_results::UInt32
-    expiry_ns::UInt64
-    response_buf_bytes::UInt32
-    max_tags_per_entry::UInt16
-    max_pools_per_entry::UInt16
-end
-
-"""
-Discovery registry endpoint configuration.
-"""
-struct DiscoveryRegistryEndpoint
-    driver_instance_id::String
-    announce_channel::String
-    announce_stream_id::Int32
-    metadata_channel::String
-    metadata_stream_id::Int32
-    driver_control_channel::String
-    driver_control_stream_id::UInt32
-end
-
-"""
-Discovery registry configuration.
-"""
-struct DiscoveryRegistryConfig
-    channel::String
-    stream_id::Int32
-    endpoints::Vector{DiscoveryRegistryEndpoint}
-    max_results::UInt32
-    expiry_ns::UInt64
-    response_buf_bytes::UInt32
-    max_tags_per_entry::UInt16
-    max_pools_per_entry::UInt16
-end
-
-"""
-Discovery service payload pool entry.
-"""
-mutable struct DiscoveryPoolEntry
-    pool_id::UInt16
-    pool_nslots::UInt32
-    stride_bytes::UInt32
-    region_uri::FixedString
-end
-
-"""
-Discovery service stream entry.
-"""
-mutable struct DiscoveryEntry
-    driver_instance_id::FixedString
-    driver_control_channel::FixedString
-    driver_control_stream_id::UInt32
-    stream_id::UInt32
-    producer_id::UInt32
-    epoch::UInt64
-    layout_version::UInt32
-    header_region_uri::FixedString
-    header_nslots::UInt32
-    header_slot_bytes::UInt16
-    max_dims::UInt8
-    data_source_id::UInt64
-    data_source_name::FixedString
-    tags::Vector{FixedString}
-    pools::Vector{DiscoveryPoolEntry}
-    expiry_timer::PolledTimer
-    last_announce_ns::UInt64
-end
-
-"""
-View of a discovery entry with StringView fields.
-"""
-struct DiscoveryResultView
-    driver_instance_id::StringView
-    driver_control_channel::StringView
-    header_region_uri::StringView
-    data_source_name::StringView
-end
-
-@inline function discovery_result_view(entry::DiscoveryEntry)
-    return DiscoveryResultView(
-        view(entry.driver_instance_id),
-        view(entry.driver_control_channel),
-        view(entry.header_region_uri),
-        view(entry.data_source_name),
-    )
-end
-
-"""
 Return a view over the payload bytes for a PayloadView.
 
 Arguments:
@@ -285,4 +186,27 @@ Returns:
 """
 @inline function payload_view(payload::PayloadView)
     return view(payload.mmap, payload.offset + 1: payload.offset + payload.len)
+end
+
+"""
+Select the smallest payload pool that can accommodate values_len.
+
+Arguments:
+- `pools`: payload pool configurations.
+- `values_len`: required payload length in bytes.
+
+Returns:
+- 1-based index of the best-fit pool, or 0 if no pool fits.
+"""
+@inline function select_pool(pools::AbstractVector{PayloadPoolConfig}, values_len::Integer)::Int
+    best_idx = 0
+    best_stride = typemax(UInt32)
+    for (i, pool) in pairs(pools)
+        stride = pool.stride_bytes
+        if stride >= values_len && stride < best_stride
+            best_idx = i
+            best_stride = stride
+        end
+    end
+    return best_idx
 end
