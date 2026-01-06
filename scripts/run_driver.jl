@@ -50,8 +50,8 @@ function run_agent(config_path::String)
     return nothing
 end
 
-function main()
-    config_path = length(ARGS) >= 1 ? ARGS[1] : "config/defaults.toml"
+function run_driver_main(args::Vector{String})
+    config_path = length(args) >= 1 ? args[1] : "config/defaults.toml"
     launch_driver = parse(Bool, get(ENV, "LAUNCH_MEDIA_DRIVER", "false"))
 
     if launch_driver
@@ -71,4 +71,6 @@ function main()
     return 0
 end
 
-main()
+if abspath(PROGRAM_FILE) == @__FILE__
+    run_driver_main(ARGS)
+end

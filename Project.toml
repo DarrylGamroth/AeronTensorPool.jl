@@ -44,5 +44,5 @@ bench = ["BenchmarkTools"]
 test = ["Test", "Aqua"]
 
 [apps]
-tp_tool = "apps/tp_tool.jl"
-tp_driver = "apps/tp_driver.jl"
+tp_tool = { submodule = "TpToolApp", julia_flags = ["--threads=auto", "--optimize=2"] }
+tp_driver = { submodule = "TpDriverApp", julia_flags = ["--threads=auto", "--optimize=2"] }
