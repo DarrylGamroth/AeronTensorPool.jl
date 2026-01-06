@@ -20,7 +20,6 @@ using ..ShmTensorpoolDriver
 using ..ShmTensorpoolBridge
 using ..ShmTensorpoolDiscovery
 
-include("types.jl")
 include("producer/producer.jl")
 include("producer/agent.jl")
 include("consumer/consumer.jl")
