@@ -42,3 +42,7 @@ Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 [targets]
 bench = ["BenchmarkTools"]
 test = ["Test", "Aqua"]
+
+[apps]
+tp_tool = "apps/tp_tool.jl"
+tp_driver = "apps/tp_driver.jl"

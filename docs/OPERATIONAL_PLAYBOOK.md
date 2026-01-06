@@ -72,3 +72,11 @@ Keepalive:
 
 Detach:
 - `julia --project scripts/tp_tool.jl driver-detach /dev/shm/aeron aeron:ipc 1000 7 producer 42 123`
+
+## Julia Apps (1.12+)
+- Build app executables:
+  - `julia --project -e 'using Pkg; Pkg.build()'`
+- Run tp_tool app:
+  - `./bin/tp_tool <command> ...`
+- Run driver app:
+  - `./bin/tp_driver [driver_config]`
