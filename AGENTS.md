@@ -26,7 +26,7 @@ match the current code layout in `src/` and the wire/driver specs in `docs/`.
 ## Repository layout (current)
 - `src/control/`: control-plane primitives (proxies, pollers, shared runtime)
 - `src/client/`: driver client API (attach/keepalive/detach polling)
-- `src/driver/`: driver implementation (streams/leases/encoders/handlers)
+- `src/agents/driver/`: driver implementation (streams/leases/encoders/handlers)
 - `src/agents/producer/`: producer agent
 - `src/agents/consumer/`: consumer agent
 - `src/agents/supervisor/`: supervisor agent

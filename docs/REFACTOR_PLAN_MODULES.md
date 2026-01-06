@@ -101,7 +101,7 @@ src/
 - `AeronTensorPool.Shm`: `src/shm/*.jl`
 - `AeronTensorPool.Timers`: `src/timers/*.jl`
 - `AeronTensorPool.Control`: `src/control/*.jl`
-- `AeronTensorPool.Driver`: `src/driver/*.jl`
+- `AeronTensorPool.Driver`: `src/agents/driver/*.jl`
 - `AeronTensorPool.Client`: `src/client/*.jl`
 - `AeronTensorPool.Discovery`: `src/discovery/*.jl`
 - `AeronTensorPool.AgentWrappers.Producer`: `src/agents/producer_agent.jl` (uses `Agents` runtime)
