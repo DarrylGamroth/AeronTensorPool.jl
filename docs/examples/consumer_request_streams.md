@@ -8,7 +8,7 @@ option only.
 ```julia
 consumer_cfg = ConsumerSettings(
     aeron_dir,
-    "aeron:ipc?term-length=16m",
+    "aeron:ipc?term-length=4m",
     Int32(1100),  # shared descriptor stream
     Int32(1000),  # shared control stream
     Int32(1200),  # qos stream
@@ -33,9 +33,9 @@ consumer_cfg = ConsumerSettings(
     UInt64(1_000_000_000),
     UInt64(1_000_000_000),
     UInt64(3_000_000_000),
-    "aeron:ipc?term-length=16m",
+    "aeron:ipc?term-length=4m",
     UInt32(2300), # requested per-consumer descriptor stream
-    "aeron:ipc?term-length=16m",
+    "aeron:ipc?term-length=4m",
     UInt32(2301), # requested per-consumer control (progress) stream
     false,
 )

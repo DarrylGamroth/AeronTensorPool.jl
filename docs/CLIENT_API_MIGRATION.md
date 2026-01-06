@@ -8,7 +8,7 @@ This guide maps prior low-level usage to the new Aeron-aligned client API.
 - New: `TensorPoolContext` + `connect(ctx)`
 
 ```julia
-ctx = TensorPoolContext(endpoints; discovery_channel = "aeron:ipc?term-length=16m", discovery_stream_id = 16000)
+ctx = TensorPoolContext(endpoints; discovery_channel = "aeron:ipc?term-length=1m", discovery_stream_id = 16000)
 client = connect(ctx)
 ```
 

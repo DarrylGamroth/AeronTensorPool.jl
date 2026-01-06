@@ -20,11 +20,11 @@ Use `docs/examples/driver_integration_example.toml`:
 [driver]
 instance_id = "driver-example"
 aeron_dir = ""
-control_channel = "aeron:ipc?term-length=16m"
+control_channel = "aeron:ipc?term-length=4m"
 control_stream_id = 15000
-announce_channel = "aeron:ipc?term-length=16m"
+announce_channel = "aeron:ipc?term-length=4m"
 announce_stream_id = 15001
-qos_channel = "aeron:ipc?term-length=16m"
+qos_channel = "aeron:ipc?term-length=4m"
 qos_stream_id = 15002
 
 [shm]
