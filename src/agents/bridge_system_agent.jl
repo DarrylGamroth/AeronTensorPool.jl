@@ -1,3 +1,11 @@
+module BridgeSystem
+
+using ...Aeron
+using ...Agent
+using ...Core
+using ...Agents
+using ...AeronUtils
+
 """
 Agent wrapper for running multiple bridge mappings with Agent.jl.
 """
@@ -127,4 +135,8 @@ function Agent.on_close(agent::BridgeSystemAgent)
     catch
     end
     return nothing
+end
+
+export BridgeSystemAgent
+
 end

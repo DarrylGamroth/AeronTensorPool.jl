@@ -1,3 +1,11 @@
+module Driver
+
+using ...Aeron
+using ...Agent
+using ...Core
+using ...Driver
+using ...AeronUtils
+
 """
 Agent wrapper for running a DriverState with Agent.jl.
 """
@@ -63,4 +71,8 @@ function Agent.on_close(agent::DriverAgent)
     catch
     end
     return nothing
+end
+
+export DriverAgent
+
 end

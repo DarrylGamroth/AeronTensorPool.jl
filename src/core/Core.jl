@@ -131,7 +131,6 @@ export AeronInitError,
     TEMPLATE_DISCOVERY_REQUEST,
     TEMPLATE_DISCOVERY_RESPONSE,
     sbe_message_length,
-    validate_stride,
     validate_discovery_endpoints,
     validate_bridge_config
 

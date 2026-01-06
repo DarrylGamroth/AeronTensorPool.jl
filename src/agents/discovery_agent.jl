@@ -1,3 +1,11 @@
+module Discovery
+
+using ...Aeron
+using ...Agent
+using ...Core
+using ...Agents
+using ...AeronUtils
+
 """
 Agent wrapper for running a DiscoveryProviderState with Agent.jl.
 """
@@ -48,4 +56,8 @@ function Agent.on_close(agent::DiscoveryAgent)
     catch
     end
     return nothing
+end
+
+export DiscoveryAgent
+
 end

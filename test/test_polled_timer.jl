@@ -40,12 +40,12 @@ end
     )
     state = Ref(0)
 
-    @test poll_timers!(timer_set, state, UInt64(4)) == 0
+    @test poll!(timer_set, state, UInt64(4)) == 0
     @test state[] == 0
 
-    @test poll_timers!(timer_set, state, UInt64(5)) == 1
+    @test poll!(timer_set, state, UInt64(5)) == 1
     @test state[] == 1
 
-    @test poll_timers!(timer_set, state, UInt64(10)) == 1
+    @test poll!(timer_set, state, UInt64(10)) == 1
     @test state[] == 12
 end

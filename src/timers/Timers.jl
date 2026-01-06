@@ -9,6 +9,6 @@ export PolledTimer,
     due!,
     set_interval!,
     disable!,
-    poll_timers!
+    poll!
 
 end

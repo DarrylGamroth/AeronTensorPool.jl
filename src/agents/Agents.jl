@@ -1,93 +1,107 @@
 module Agents
 
-module Producer
-using ...Aeron
-using ...Agent
-using ...Core
-using ...AgentLib
-using ...AeronUtils
-include("producer_agent.jl")
-end
+using ..Core
+using ..Core.TPLog
+using ..Aeron
+using ..Shm
+using ..Control
+using ..Driver
+using ..Discovery
+using ..Timers
+using ..AeronUtils
+using ..Clocks
+using ..FixedSizeArrays
+using ..SBE
+using ..StringViews
+using ..UnsafeArrays
+using ..ShmTensorpoolControl
+using ..ShmTensorpoolDriver
+using ..ShmTensorpoolBridge
+using ..ShmTensorpoolDiscovery
 
-module Consumer
-using ...Aeron
-using ...Agent
-using ...Core
-using ...AgentLib
-using ...AeronUtils
-include("consumer_agent.jl")
-end
+include("producer/producer.jl")
+include("consumer/consumer.jl")
+include("supervisor/supervisor.jl")
+include("bridge/bridge.jl")
+include("discovery/discovery.jl")
 
-module Supervisor
-using ...Aeron
-using ...Agent
-using ...Core
-using ...AgentLib
-using ...AeronUtils
-include("supervisor_agent.jl")
-end
-
-module Driver
-using ...Aeron
-using ...Agent
-using ...Core
-using ...Driver
-using ...AeronUtils
-include("driver_agent.jl")
-end
-
-module Discovery
-using ...Aeron
-using ...Agent
-using ...Core
-using ...AgentLib
-using ...AeronUtils
-include("discovery_agent.jl")
-end
-
-module DiscoveryRegistry
-using ...Aeron
-using ...Agent
-using ...Core
-using ...AgentLib
-using ...AeronUtils
-include("discovery_registry_agent.jl")
-end
-
-module Bridge
-using ...Aeron
-using ...Agent
-using ...Core
-using ...AgentLib
-using ...AeronUtils
-include("bridge_agent.jl")
-end
-
-module BridgeSystem
-using ...Aeron
-using ...Agent
-using ...Core
-using ...AgentLib
-using ...AeronUtils
-include("bridge_system_agent.jl")
-end
-
-const ProducerAgent = Producer.ProducerAgent
-const ConsumerAgent = Consumer.ConsumerAgent
-const SupervisorAgent = Supervisor.SupervisorAgent
-const DriverAgent = Driver.DriverAgent
-const DiscoveryAgent = Discovery.DiscoveryAgent
-const DiscoveryRegistryAgent = DiscoveryRegistry.DiscoveryRegistryAgent
-const BridgeAgent = Bridge.BridgeAgent
-const BridgeSystemAgent = BridgeSystem.BridgeSystemAgent
-
-export ProducerAgent,
-    ConsumerAgent,
-    SupervisorAgent,
-    DriverAgent,
-    DiscoveryAgent,
-    DiscoveryRegistryAgent,
-    BridgeAgent,
-    BridgeSystemAgent
+export ProducerState,
+    ProducerHooks,
+    ProducerInfo,
+    ProducerConsumerStream,
+    ConsumerState,
+    ConsumerHooks,
+    ConsumerInfo,
+    ConsumerFrameView,
+    SupervisorState,
+    SupervisorConfig,
+    SupervisorHooks,
+    BridgeSourceInfo,
+    BridgeAssembledFrame,
+    BridgeSenderState,
+    BridgeReceiverState,
+    BridgeHooks,
+    DiscoveryProviderState,
+    DiscoveryRegistryState,
+    init_producer,
+    init_producer_from_attach,
+    init_consumer,
+    init_consumer_from_attach,
+    init_supervisor,
+    remap_consumer_from_attach!,
+    init_bridge_sender,
+    init_bridge_receiver,
+    init_discovery_provider,
+    init_discovery_registry,
+    producer_config_from_attach,
+    map_from_announce!,
+    map_from_attach_response!,
+    reset_mappings!,
+    producer_do_work!,
+    consumer_do_work!,
+    supervisor_do_work!,
+    bridge_sender_do_work!,
+    bridge_receiver_do_work!,
+    discovery_do_work!,
+    discovery_registry_do_work!,
+    make_control_assembler,
+    make_descriptor_assembler,
+    make_qos_assembler,
+    emit_announce!,
+    emit_consumer_config!,
+    emit_consumer_hello!,
+    emit_progress_complete!,
+    emit_qos!,
+    handle_consumer_hello!,
+    handle_shm_pool_announce!,
+    poll_control!,
+    poll_descriptor!,
+    poll_qos!,
+    offer_frame!,
+    commit_slot!,
+    try_claim_slot!,
+    with_claimed_slot!,
+    payload_pool_config,
+    republish_descriptor!,
+    bridge_forward_announce!,
+    bridge_apply_source_announce!,
+    bridge_rematerialize!,
+    bridge_send_frame!,
+    bridge_chunk_message_length,
+    bridge_publish_progress!,
+    bridge_receive_chunk!,
+    validate_mapped_superblocks!,
+    maybe_track_gap!,
+    consumer_stream_last_seen_ns,
+    entry_expired,
+    entry_matches!,
+    make_announce_assembler,
+    make_metadata_assembler,
+    make_request_assembler,
+    validate_strides!,
+    try_read_frame!,
+    validate_stride,
+    validate_bridge_config,
+    validate_discovery_endpoints
 
 end

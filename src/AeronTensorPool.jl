@@ -26,23 +26,23 @@ include("shm/Shm.jl")
 include("control/Control.jl")
 include("driver/Driver.jl")
 include("discovery/Discovery.jl")
-include("core/AgentLib.jl")
 include("agents/Agents.jl")
+include("agents/AgentWrappers.jl")
 include("client/Client.jl")
 include("apps/Apps.jl")
 
 using .Core
 using .Core.TPLog
-using .AgentLib
+using .Agents
+using .AgentWrappers
 using .Timers
 using .Shm
 using .AeronUtils
 using .Control
 using .Driver
 using .Discovery
-using .Agents
 using .Client
-import .AgentLib: offer_frame!, commit_slot!, try_claim_slot!, with_claimed_slot!
+import .Agents: offer_frame!, commit_slot!, try_claim_slot!, with_claimed_slot!
 
 include("config/config_loader.jl")
 
@@ -261,7 +261,7 @@ export AeronInitError,
     poll_driver_responses!,
     poll_discovery_response!,
     poll_qos!,
-    poll_timers!,
+    poll!,
     producer_config_from_attach,
     producer_do_work!,
     offer_frame!,

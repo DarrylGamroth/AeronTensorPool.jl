@@ -114,7 +114,7 @@ Arguments:
 Returns:
 - Total work count from invoked handlers.
 """
-@generated function poll_timers!(set::TimerSet{TTimers, THandlers}, state, now_ns::UInt64) where {TTimers <: Tuple, THandlers <: Tuple}
+@generated function poll!(set::TimerSet{TTimers, THandlers}, state, now_ns::UInt64) where {TTimers <: Tuple, THandlers <: Tuple}
     n = length(TTimers.parameters)
     exprs = Vector{Any}(undef, n)
     for i in 1:n

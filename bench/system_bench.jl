@@ -369,12 +369,12 @@ function run_system_bench(
                         measure_allocd("producer_poll_timers") do
                             Clocks.fetch!(producer.clock)
                             now_ns = UInt64(Clocks.time_nanos(producer.clock)) + producer.config.announce_interval_ns
-                            poll_timers!(producer, now_ns)
+                            poll!(producer, now_ns)
                         end
                         measure_allocd("consumer_poll_timers") do
                             Clocks.fetch!(consumer.clock)
                             now_ns = UInt64(Clocks.time_nanos(consumer.clock)) + consumer.config.hello_interval_ns
-                            poll_timers!(consumer, now_ns)
+                            poll!(consumer, now_ns)
                         end
                         measure_allocd("emit_consumer_hello") do
                             emit_consumer_hello!(consumer)
@@ -385,7 +385,7 @@ function run_system_bench(
                         measure_allocd("supervisor_poll_timers") do
                             Clocks.fetch!(supervisor.clock)
                             now_ns = UInt64(Clocks.time_nanos(supervisor.clock)) + supervisor.config.liveness_check_interval_ns
-                            poll_timers!(supervisor, now_ns)
+                            poll!(supervisor, now_ns)
                         end
                         measure_allocd("yield") do
                             yield()
