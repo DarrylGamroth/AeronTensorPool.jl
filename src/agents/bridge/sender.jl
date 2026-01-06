@@ -22,8 +22,11 @@ function init_bridge_sender(
     end
     pub_payload = Aeron.add_publication(client, config.payload_channel, config.payload_stream_id)
     pub_control = Aeron.add_publication(client, config.control_channel, config.control_stream_id)
-    source_control = mapping.source_control_stream_id == 0 ? consumer_state.config.control_stream_id :
-        mapping.source_control_stream_id
+    source_control = ifelse(
+        mapping.source_control_stream_id == 0,
+        consumer_state.config.control_stream_id,
+        mapping.source_control_stream_id,
+    )
     sub_control = Aeron.add_subscription(client, consumer_state.config.aeron_uri, source_control)
     pub_metadata = nothing
     sub_metadata = nothing
@@ -165,7 +168,7 @@ function bridge_send_frame!(state::BridgeSenderState, desc::FrameDescriptor.Deco
         remaining = total_payload_bytes - chunk_index * chunk_bytes
         payload_chunk_len = min(chunk_bytes, remaining)
         header_included = chunk_index == 0
-        header_len = header_included ? HEADER_SLOT_BYTES : 0
+        header_len = ifelse(header_included, HEADER_SLOT_BYTES, 0)
         msg_len = bridge_chunk_message_length(header_len, payload_chunk_len)
         fill.chunk_index = UInt32(chunk_index)
         fill.chunk_count = chunk_count_u32

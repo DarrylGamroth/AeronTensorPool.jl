@@ -83,6 +83,8 @@ Returns:
     return Ptr{UInt8}(pointer(buffer, offset + 1)), Int(stride_bytes)
 end
 
+@inline ispow2_u32(x::UInt32) = (x != 0x00000000) & ((x & (x - 0x00000001)) == 0x00000000)
+
 """
 Validate stride_bytes against alignment and hugepage requirements.
 
@@ -95,17 +97,19 @@ Arguments:
 Returns:
 - `true` if valid, `false` otherwise.
 """
-function validate_stride(
+@inline function validate_stride(
     stride_bytes::UInt32;
     require_hugepages::Bool,
     page_size_bytes::Int = page_size_bytes(),
     hugepage_size::Int = 0,
 )
-    ispow2(stride_bytes) || return false
-    (stride_bytes % UInt32(page_size_bytes)) == 0 || return false
-    if require_hugepages
-        hugepage_size > 0 || return false
-        (stride_bytes % UInt32(hugepage_size)) == 0 || return false
-    end
-    return true
+    # You guarantee ispow2(page_size_bytes) and ispow2(hugepage_size) when used.
+    page_mask = UInt32(page_size_bytes) - UInt32(1)
+    enable = ifelse(require_hugepages, typemax(UInt32), UInt32(0))
+    huge_mask = (UInt32(hugepage_size) - UInt32(1)) & enable
+    page_ok = (stride_bytes & page_mask) == 0x00000000
+    huge_ok = (stride_bytes & huge_mask) == 0x00000000
+    size_ok = (!require_hugepages) | (hugepage_size > 0)
+
+    return ispow2_u32(stride_bytes) & page_ok & huge_ok & size_ok
 end

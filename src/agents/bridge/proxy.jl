@@ -57,8 +57,11 @@ Returns:
 """
 function bridge_forward_metadata_announce!(state::BridgeSenderState, msg::DataSourceAnnounce.Decoder)
     msg_len = MESSAGE_HEADER_LEN + Int(DataSourceAnnounce.sbe_decoded_length(msg))
-    stream_id = state.mapping.metadata_stream_id == 0 ? state.mapping.dest_stream_id :
-        state.mapping.metadata_stream_id
+    stream_id = ifelse(
+        state.mapping.metadata_stream_id == 0,
+        state.mapping.dest_stream_id,
+        state.mapping.metadata_stream_id,
+    )
 
     return with_claimed_buffer!(state.pub_metadata, state.metadata_claim, msg_len) do buf
         DataSourceAnnounce.wrap_and_apply_header!(state.metadata_announce_encoder, buf, 0)
@@ -83,8 +86,11 @@ Returns:
 """
 function bridge_forward_metadata_meta!(state::BridgeSenderState, msg::DataSourceMeta.Decoder)
     msg_len = MESSAGE_HEADER_LEN + Int(DataSourceMeta.sbe_decoded_length(msg))
-    stream_id = state.mapping.metadata_stream_id == 0 ? state.mapping.dest_stream_id :
-        state.mapping.metadata_stream_id
+    stream_id = ifelse(
+        state.mapping.metadata_stream_id == 0,
+        state.mapping.dest_stream_id,
+        state.mapping.metadata_stream_id,
+    )
 
     return with_claimed_buffer!(state.pub_metadata, state.metadata_claim, msg_len) do buf
         DataSourceMeta.wrap_and_apply_header!(state.metadata_meta_encoder, buf, 0)
@@ -116,8 +122,11 @@ function bridge_publish_metadata_announce!(state::BridgeReceiverState, msg::Data
     msg_len = MESSAGE_HEADER_LEN + Int(DataSourceAnnounce.sbe_decoded_length(msg))
     pub = state.pub_metadata_local
     pub === nothing && return false
-    stream_id = state.mapping.metadata_stream_id == 0 ? state.mapping.dest_stream_id :
-        state.mapping.metadata_stream_id
+    stream_id = ifelse(
+        state.mapping.metadata_stream_id == 0,
+        state.mapping.dest_stream_id,
+        state.mapping.metadata_stream_id,
+    )
 
     return with_claimed_buffer!(pub, state.metadata_claim, msg_len) do buf
         DataSourceAnnounce.wrap_and_apply_header!(state.metadata_announce_encoder, buf, 0)
@@ -144,8 +153,11 @@ function bridge_publish_metadata_meta!(state::BridgeReceiverState, msg::DataSour
     msg_len = MESSAGE_HEADER_LEN + Int(DataSourceMeta.sbe_decoded_length(msg))
     pub = state.pub_metadata_local
     pub === nothing && return false
-    stream_id = state.mapping.metadata_stream_id == 0 ? state.mapping.dest_stream_id :
-        state.mapping.metadata_stream_id
+    stream_id = ifelse(
+        state.mapping.metadata_stream_id == 0,
+        state.mapping.dest_stream_id,
+        state.mapping.metadata_stream_id,
+    )
 
     return with_claimed_buffer!(pub, state.metadata_claim, msg_len) do buf
         DataSourceMeta.wrap_and_apply_header!(state.metadata_meta_encoder, buf, 0)

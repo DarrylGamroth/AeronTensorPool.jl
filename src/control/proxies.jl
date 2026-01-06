@@ -57,7 +57,7 @@ end
 @inline hugepages_policy_value(value::DriverHugepagesPolicy.SbeEnum) = value
 
 @inline hugepages_policy_value(value::Bool) =
-    value ? DriverHugepagesPolicy.HUGEPAGES : DriverHugepagesPolicy.STANDARD
+    ifelse(value, DriverHugepagesPolicy.HUGEPAGES, DriverHugepagesPolicy.STANDARD)
 
 @inline hugepages_policy_value(::Nothing) = DriverHugepagesPolicy.UNSPECIFIED
 

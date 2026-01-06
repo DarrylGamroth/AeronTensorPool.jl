@@ -49,8 +49,11 @@ function init_bridge_receiver(
 
     source_info = BridgeSourceInfo(UInt32(0), UInt64(0), UInt32(0), UInt8(0), Dict{UInt16, UInt32}())
 
-    dest_metadata_stream_id =
-        mapping.metadata_stream_id == 0 ? Int32(mapping.dest_stream_id) : Int32(mapping.metadata_stream_id)
+    dest_metadata_stream_id = ifelse(
+        mapping.metadata_stream_id == 0,
+        Int32(mapping.dest_stream_id),
+        Int32(mapping.metadata_stream_id),
+    )
     pub_metadata_local = nothing
     sub_metadata = nothing
     metadata_assembler = nothing

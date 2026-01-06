@@ -331,3 +331,23 @@ function read_tensor_slot_header(m::TensorSlotHeaderMsg.Decoder)
         strides,
     )
 end
+
+"""
+Try to decode a tensor slot header without throwing.
+
+Arguments:
+- `m`: tensor slot header decoder.
+
+Returns:
+- `TensorSlotHeader` on success, `nothing` if the buffer is too short.
+"""
+@inline function try_read_tensor_slot_header(m::TensorSlotHeaderMsg.Decoder)
+    buf = TensorSlotHeaderMsg.sbe_buffer(m)
+    base = TensorSlotHeaderMsg.sbe_offset(m)
+    dims_offset = TensorSlotHeaderMsg.dims_encoding_offset(m)
+    strides_offset = TensorSlotHeaderMsg.strides_encoding_offset(m)
+    elem_bytes = Int(sizeof(Int32))
+    last = max(dims_offset, strides_offset) + MAX_DIMS * elem_bytes
+    base >= 0 && base + last <= length(buf) || return nothing
+    return read_tensor_slot_header(m)
+end

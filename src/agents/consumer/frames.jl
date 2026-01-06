@@ -152,10 +152,9 @@ function try_read_frame!(
         return false
     end
 
-    header = try
-        wrap_tensor_header!(state.runtime.header_decoder, header_mmap, header_offset)
-        read_tensor_slot_header(state.runtime.header_decoder)
-    catch
+    wrap_tensor_header!(state.runtime.header_decoder, header_mmap, header_offset)
+    header = try_read_tensor_slot_header(state.runtime.header_decoder)
+    if header === nothing
         state.metrics.drops_late += 1
         state.metrics.drops_header_invalid += 1
         @tp_debug "try_read_frame drop" reason = :header_decode_error
