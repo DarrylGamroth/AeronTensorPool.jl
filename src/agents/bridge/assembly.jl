@@ -67,6 +67,8 @@ Returns:
     assembly.payload_length = payload_length
     assembly.received_chunks = 0
     assembly.header_present = false
+    assembly.claim_ready = false
+    assembly.slot_claim = SlotClaim(0, Ptr{UInt8}(0), 0, 0, 0, 0)
     reset!(assembly.assembly_timer, now_ns)
     fill!(assembly.received, false)
     return nothing
@@ -89,6 +91,8 @@ Returns:
     assembly.payload_length = 0
     assembly.received_chunks = 0
     assembly.header_present = false
+    assembly.claim_ready = false
+    assembly.slot_claim = SlotClaim(0, Ptr{UInt8}(0), 0, 0, 0, 0)
     reset!(assembly.assembly_timer, now_ns)
     fill!(assembly.received, false)
     return nothing

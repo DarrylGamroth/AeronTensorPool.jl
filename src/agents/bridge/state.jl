@@ -19,10 +19,11 @@ mutable struct BridgeAssembly
     payload_length::UInt32
     received_chunks::UInt32
     header_bytes::FixedSizeVectorDefault{UInt8}
-    payload::FixedSizeVectorDefault{UInt8}
     received::FixedSizeVectorDefault{Bool}
     assembly_timer::PolledTimer
     header_present::Bool
+    slot_claim::SlotClaim
+    claim_ready::Bool
 end
 
 """

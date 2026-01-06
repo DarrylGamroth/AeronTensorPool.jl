@@ -40,9 +40,10 @@ function init_bridge_receiver(
         UInt32(0),
         UInt32(0),
         FixedSizeVectorDefault{UInt8}(undef, HEADER_SLOT_BYTES),
-        FixedSizeVectorDefault{UInt8}(undef, max_payload),
         received,
         PolledTimer(config.assembly_timeout_ns),
+        false,
+        SlotClaim(0, Ptr{UInt8}(0), 0, 0, 0, 0),
         false,
     )
 
@@ -200,6 +201,80 @@ function bridge_rematerialize!(
 end
 
 """
+Commit a claimed destination slot and publish a descriptor.
+
+Arguments:
+- `state`: bridge receiver state.
+- `header`: decoded tensor slot header.
+- `claim`: slot claim for destination payload.
+
+Returns:
+- `true` if the descriptor was published, `false` otherwise.
+"""
+function bridge_commit_claim!(
+    state::BridgeReceiverState,
+    header::TensorSlotHeader,
+    claim::SlotClaim,
+)
+    producer_state = state.producer_state
+    producer_state === nothing && return false
+    producer_driver_active(producer_state) || return false
+
+    payload_len = Int(header.values_len_bytes)
+    payload_len <= claim.stride_bytes || return false
+    claim.header_index == UInt32(claim.seq & (UInt64(producer_state.config.nslots) - 1)) || return false
+
+    header_offset = header_slot_offset(claim.header_index)
+    commit_ptr = header_commit_ptr_from_offset(producer_state.mappings.header_mmap, header_offset)
+
+    wrap_tensor_header!(producer_state.runtime.header_encoder, producer_state.mappings.header_mmap, header_offset)
+    dims = state.scratch_dims
+    strides = state.scratch_strides
+    fill!(dims, Int32(0))
+    fill!(strides, Int32(0))
+    ndims = Int(header.ndims)
+    for i in 1:ndims
+        dims[i] = header.dims[i]
+        strides[i] = header.strides[i]
+    end
+    write_tensor_slot_header!(
+        producer_state.runtime.header_encoder,
+        header.timestamp_ns,
+        header.meta_version,
+        UInt32(payload_len),
+        claim.payload_slot,
+        UInt32(0),
+        claim.pool_id,
+        header.dtype,
+        header.major_order,
+        header.ndims,
+        dims,
+        strides,
+    )
+
+    seqlock_commit_write!(commit_ptr, claim.seq)
+
+    now_ns = UInt64(Clocks.time_nanos(state.clock))
+    shared_sent = let st = producer_state,
+        seq = claim.seq,
+        header_index = claim.header_index,
+        meta_version = header.meta_version,
+        now_ns = now_ns
+        with_claimed_buffer!(st.runtime.pub_descriptor, st.runtime.descriptor_claim, FRAME_DESCRIPTOR_LEN) do buf
+            FrameDescriptor.wrap_and_apply_header!(st.runtime.descriptor_encoder, buf, 0)
+            encode_frame_descriptor!(st.runtime.descriptor_encoder, st, seq, header_index, meta_version, now_ns)
+        end
+    end
+    per_consumer_sent = publish_descriptor_to_consumers!(producer_state, claim.seq, claim.header_index, header.meta_version, now_ns)
+    (shared_sent || per_consumer_sent) || return false
+    if producer_state.seq <= claim.seq
+        producer_state.seq = claim.seq + 1
+    end
+    state.metrics.frames_rematerialized += 1
+    return true
+end
+
+"""
 Apply a forwarded ShmPoolAnnounce to update source info.
 
 Arguments:
@@ -304,10 +379,6 @@ function bridge_receive_chunk!(
         )
     end
 
-    if payload_length > length(state.assembly.payload)
-        return bridge_drop_chunk!(state)
-    end
-
     if chunk_index >= length(state.assembly.received)
         return bridge_drop_chunk!(state)
     end
@@ -327,18 +398,40 @@ function bridge_receive_chunk!(
         state.assembly.header_present = true
     end
 
-    payload_start = Int(chunk_offset)
-    if payload_start + payload_len > length(state.assembly.payload)
-        return bridge_drop_chunk!(state)
+    if !state.assembly.claim_ready
+        state.assembly.header_present || return bridge_drop_chunk!(state)
+        producer_state = state.producer_state
+        producer_state === nothing && return bridge_drop_chunk!(state)
+        producer_driver_active(producer_state) || return bridge_drop_chunk!(state)
+
+        wrap_tensor_header!(state.header_decoder, state.assembly.header_bytes, 0)
+        header = read_tensor_slot_header(state.header_decoder)
+        seqlock_is_committed(header.seq_commit) || return bridge_drop_chunk!(state)
+        seqlock_sequence(header.seq_commit) == state.assembly.seq || return bridge_drop_chunk!(state)
+        header.ndims <= state.source_info.max_dims || return bridge_drop_chunk!(state)
+        UInt32(header.values_len_bytes) == payload_length || return bridge_drop_chunk!(state)
+        source_stride = get(state.source_info.pool_stride_bytes, header.pool_id, UInt32(0))
+        source_stride == 0 && return bridge_drop_chunk!(state)
+        payload_length <= source_stride || return bridge_drop_chunk!(state)
+
+        pool_idx = select_pool(producer_state.config.payload_pools, Int(payload_length))
+        pool_idx == 0 && return bridge_drop_chunk!(state)
+        pool = producer_state.config.payload_pools[pool_idx]
+        payload_length <= pool.stride_bytes || return bridge_drop_chunk!(state)
+        producer_state.seq > state.assembly.seq && return bridge_drop_chunk!(state)
+        producer_state.seq = state.assembly.seq
+
+        claim = try_claim_slot!(producer_state, pool.pool_id)
+        payload_length <= claim.stride_bytes || return bridge_drop_chunk!(state)
+        state.assembly.slot_claim = claim
+        state.assembly.claim_ready = true
     end
 
-    copyto!(
-        state.assembly.payload,
-        payload_start + 1,
-        payload_bytes,
-        1,
-        payload_len,
-    )
+    claim = state.assembly.slot_claim
+    payload_start = Int(chunk_offset)
+    payload_start + payload_len > claim.stride_bytes && return bridge_drop_chunk!(state)
+    dest_ptr = claim.ptr + payload_start
+    unsafe_copyto!(dest_ptr, pointer(payload_bytes), payload_len)
     state.assembly.received[chunk_index + 1] = true
     state.assembly.received_chunks += 1
     reset!(state.assembly.assembly_timer, now_ns)
@@ -359,10 +452,5 @@ function bridge_receive_chunk!(
     source_stride == 0 && return bridge_drop_chunk!(state)
     payload_length <= source_stride || return bridge_drop_chunk!(state)
 
-    state.assembly.payload_length <= length(state.assembly.payload) || return bridge_drop_chunk!(state)
-    return bridge_rematerialize!(
-        state,
-        header,
-        view(state.assembly.payload, 1:Int(state.assembly.payload_length)),
-    )
+    return bridge_commit_claim!(state, header, state.assembly.slot_claim)
 end
