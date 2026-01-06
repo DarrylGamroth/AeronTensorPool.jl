@@ -114,8 +114,9 @@ Status: completed.
 - Add allocation-free checks for bridge sender/receiver hot paths.
 - Add a multi-mapping example config and runner script.
 - Extend bridge benchmarks (optional) for chunking and rematerialization throughput.
+  - Implemented: `scripts/run_benchmarks.jl --bridge` or `scripts/run_benchmarks.jl --bridge-runners`.
 
-Status: completed (benchmarks optional, not added).
+Status: completed (benchmarks added).
 
 ### Phase 6: Docs + Ops
 - Update `docs/IMPLEMENTATION.md` Bridge section with:
