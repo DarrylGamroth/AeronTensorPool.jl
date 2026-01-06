@@ -217,7 +217,7 @@ Each agent module lives in a single file under `src/agents/` (e.g., `producer_ag
 
 ## Actionable Checklist (Minimal-Risk Order)
 Phase 0: Inventory and API Freeze
-- [ ] Record current public API exports in `src/AeronTensorPool.jl`.
+- [x] Record current public API exports in `src/AeronTensorPool.jl`.
 - [ ] Identify agent-owned types/functions for each agent and mark “public” vs “internal.”
 - [ ] Confirm which directories map to modules (`core`, `aeron`, `shm`, `timers`, `control`, `driver`, `client`, `discovery`, `agents`, `apps`).
 
