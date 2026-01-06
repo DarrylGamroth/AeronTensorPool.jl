@@ -8,7 +8,6 @@ using ..Discovery
 using ..Driver
 using ..AeronUtils
 using ..Agents
-using ..AgentWrappers
 
 include("client_api.jl")
 

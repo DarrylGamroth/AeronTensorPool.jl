@@ -1,12 +1,3 @@
-module DiscoveryRegistry
-
-using ...Aeron
-using ...Agent
-using ...Core
-using ...Agents
-using ...Discovery
-using ...AeronUtils
-
 """
 Agent wrapper for running a DiscoveryRegistryState with Agent.jl.
 """
@@ -66,5 +57,3 @@ function Agent.on_close(agent::DiscoveryRegistryAgent)
 end
 
 export DiscoveryRegistryAgent
-
-end

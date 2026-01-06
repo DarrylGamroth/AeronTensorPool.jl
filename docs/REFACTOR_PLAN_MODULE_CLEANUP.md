@@ -36,8 +36,11 @@ Goal: resolve naming/ownership ambiguity introduced by module refactor and align
 - [x] Review “init_*” functions that are public and decide whether they should be external constructors (kept as-is for now).
 
 ## Phase 5: Agents Layout
-- [x] Ensure each `src/agents/*_agent.jl` defines its module locally.
-- [x] Add or update `src/agents/AgentWrappers.jl` to only include the agent modules.
+- [x] Move each `src/agents/*_agent.jl` wrapper into its agent directory as `agent.jl`.
+- [x] Remove `src/agents/AgentWrappers.jl`.
+- [x] Update `src/agents/Agents.jl` to include per-agent `agent.jl` files.
+- [x] Update `src/AeronTensorPool.jl` to stop including/using `AgentWrappers.jl`.
+- [x] Ensure exports are unchanged and all call sites still resolve.
 
 ## Phase 6: Validation
 - [x] Run full tests.

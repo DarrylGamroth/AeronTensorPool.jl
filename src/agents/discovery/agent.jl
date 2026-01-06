@@ -1,12 +1,3 @@
-module Discovery
-
-using ...Aeron
-using ...Agent
-using ...Core
-using ...Agents
-using ...Discovery
-using ...AeronUtils
-
 """
 Agent wrapper for running a DiscoveryProviderState with Agent.jl.
 """
@@ -60,5 +51,3 @@ function Agent.on_close(agent::DiscoveryAgent)
 end
 
 export DiscoveryAgent
-
-end

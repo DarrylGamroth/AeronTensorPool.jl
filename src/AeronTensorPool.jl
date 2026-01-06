@@ -27,14 +27,12 @@ include("control/Control.jl")
 include("driver/Driver.jl")
 include("discovery/Discovery.jl")
 include("agents/Agents.jl")
-include("agents/AgentWrappers.jl")
 include("client/Client.jl")
 include("apps/Apps.jl")
 
 using .Core
 using .Core.TPLog
 using .Agents
-using .AgentWrappers
 using .Timers
 using .Shm
 using .AeronUtils

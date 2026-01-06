@@ -3,6 +3,7 @@ module Agents
 using ..Core
 using ..Core.TPLog
 using ..Aeron
+using ..Agent
 using ..Shm
 using ..Control
 using ..Driver
@@ -21,10 +22,18 @@ using ..ShmTensorpoolDiscovery
 
 include("types.jl")
 include("producer/producer.jl")
+include("producer/agent.jl")
 include("consumer/consumer.jl")
+include("consumer/agent.jl")
 include("supervisor/supervisor.jl")
+include("supervisor/agent.jl")
 include("bridge/bridge.jl")
+include("bridge/agent.jl")
+include("bridge/system_agent.jl")
 include("discovery/discovery.jl")
+include("discovery/agent.jl")
+include("discovery/registry_agent.jl")
+include("driver/agent.jl")
 
 export ProducerState,
     ProducerHooks,
@@ -32,7 +41,9 @@ export ProducerState,
     ProducerConsumerStream,
     PayloadPoolConfig,
     ProducerConfig,
+    ProducerAgent,
     ConsumerSettings,
+    ConsumerAgent,
     BridgeMapping,
     BridgeStreamIdRange,
     BridgeConfig,
@@ -47,6 +58,7 @@ export ProducerState,
     ConsumerHooks,
     ConsumerInfo,
     ConsumerFrameView,
+    SupervisorAgent,
     SupervisorState,
     SupervisorConfig,
     SupervisorHooks,
@@ -56,8 +68,13 @@ export ProducerState,
     BridgeReceiverState,
     BridgeHooks,
     BridgeConfigError,
+    BridgeAgent,
+    BridgeSystemAgent,
     DiscoveryProviderState,
     DiscoveryRegistryState,
+    DiscoveryAgent,
+    DiscoveryRegistryAgent,
+    DriverAgent,
     init_producer,
     init_producer_from_attach,
     init_consumer,

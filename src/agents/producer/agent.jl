@@ -1,11 +1,3 @@
-module Producer
-
-using ...Aeron
-using ...Agent
-using ...Core
-using ...Agents
-using ...AeronUtils
-
 """
 Agent wrapper for running a ProducerState with Agent.jl.
 """
@@ -73,5 +65,3 @@ function Agent.on_close(agent::ProducerAgent)
 end
 
 export ProducerAgent
-
-end
