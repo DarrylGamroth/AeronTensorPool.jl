@@ -508,8 +508,8 @@ function attach_consumer(
         driver_client = request.driver_client,
         client = client.aeron_client,
     )
-    descriptor_asm = make_descriptor_assembler(consumer_state; hooks = hooks)
-    control_asm = make_control_assembler(consumer_state)
+    descriptor_asm = Consumer.make_descriptor_assembler(consumer_state; hooks = hooks)
+    control_asm = Consumer.make_control_assembler(consumer_state)
     counters = ConsumerCounters(consumer_state.runtime.control.client, Int(settings.consumer_id), "Consumer")
     consumer_agent = ConsumerAgent(consumer_state, descriptor_asm, control_asm, counters)
     return ConsumerHandle(client, request.driver_client, consumer_agent)
@@ -552,7 +552,7 @@ function attach_producer(
         driver_client = request.driver_client,
         client = client.aeron_client,
     )
-    control_asm = make_control_assembler(producer_state; hooks = hooks)
+    control_asm = Producer.make_control_assembler(producer_state; hooks = hooks)
     qos_asm = make_qos_assembler(producer_state; hooks = hooks)
     counters = ProducerCounters(producer_state.runtime.control.client, Int(config.producer_id), "Producer")
     producer_agent = ProducerAgent(producer_state, control_asm, qos_asm, counters)

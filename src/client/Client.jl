@@ -8,6 +8,7 @@ using ..Discovery
 using ..Driver
 using ..AeronUtils
 using ..Agents
+import ..Agents.Producer: offer_frame!, try_claim_slot!, commit_slot!, with_claimed_slot!
 
 include("client_api.jl")
 

@@ -30,7 +30,7 @@ function Agent.do_work(agent::AppProducerAgent)
     end
     if agent.max_count == 0 || agent.sent < agent.max_count
         fill!(agent.payload, UInt8(agent.sent % 256))
-        sent = offer_frame!(
+        sent = Producer.offer_frame!(
             agent.handle,
             agent.payload,
             agent.shape,

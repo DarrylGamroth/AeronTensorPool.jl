@@ -68,8 +68,8 @@
                 UInt32(0),
                 false,
             )
-            producer = init_producer(producer_cfg; client = client)
-            consumer = init_consumer(consumer_cfg; client = client)
+            producer = Producer.init_producer(producer_cfg; client = client)
+            consumer = Consumer.init_consumer(consumer_cfg; client = client)
 
             mapping = BridgeMapping(UInt32(1), UInt32(2), "profile", UInt32(0), Int32(0), Int32(0))
             bridge_cfg = BridgeConfig(
@@ -92,12 +92,12 @@
                 false,
             )
 
-            bridge_sender = init_bridge_sender(consumer, bridge_cfg, mapping; client = client)
-            desc_asm = make_descriptor_assembler(consumer)
-            ctrl_asm = make_control_assembler(consumer)
+            bridge_sender = Bridge.init_bridge_sender(consumer, bridge_cfg, mapping; client = client)
+            desc_asm = Consumer.make_descriptor_assembler(consumer)
+            ctrl_asm = Consumer.make_control_assembler(consumer)
 
             ready = wait_for() do
-                emit_announce!(producer)
+                Producer.emit_announce!(producer)
                 Aeron.poll(consumer.runtime.control.sub_control, ctrl_asm, AeronTensorPool.DEFAULT_FRAGMENT_LIMIT)
                 consumer.mappings.header_mmap !== nothing
             end
@@ -106,7 +106,7 @@
             payload = UInt8[1, 2, 3, 4]
             shape = Int32[4]
             strides = Int32[1]
-            offer_frame!(producer, payload, shape, strides, Dtype.UINT8, UInt32(0))
+            Producer.offer_frame!(producer, payload, shape, strides, Dtype.UINT8, UInt32(0))
 
             desc_buf = Vector{UInt8}(undef, AeronTensorPool.FRAME_DESCRIPTOR_LEN)
             desc_enc = FrameDescriptor.Encoder(Vector{UInt8})
@@ -120,7 +120,7 @@
             desc_dec = FrameDescriptor.Decoder(Vector{UInt8})
             FrameDescriptor.wrap!(desc_dec, desc_buf, 0; header = MessageHeader.Decoder(desc_buf, 0))
 
-            sent = bridge_send_frame!(bridge_sender, desc_dec)
+            sent = Bridge.bridge_send_frame!(bridge_sender, desc_dec)
             if !sent
                 @test bridge_sender.metrics.chunks_dropped == UInt64(1)
             end

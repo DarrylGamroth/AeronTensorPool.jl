@@ -32,7 +32,7 @@
             UInt32(0),
             false,
         )
-        state = init_consumer(consumer_cfg; client = client)
+        state = Consumer.init_consumer(consumer_cfg; client = client)
         try
             dims = (Int32(2), Int32(2), Int32(0), Int32(0), Int32(0), Int32(0), Int32(0), Int32(0))
             ok_strides = (Int32(0), Int32(0), Int32(0), Int32(0), Int32(0), Int32(0), Int32(0), Int32(0))
@@ -69,8 +69,8 @@
                 bad_strides,
             )
 
-            @test AeronTensorPool.validate_strides!(state, header_ok, Int64(4))
-            @test !AeronTensorPool.validate_strides!(state, header_bad, Int64(4))
+            @test Consumer.validate_strides!(state, header_ok, Int64(4))
+            @test !Consumer.validate_strides!(state, header_bad, Int64(4))
         finally
             close_consumer_state!(state)
         end

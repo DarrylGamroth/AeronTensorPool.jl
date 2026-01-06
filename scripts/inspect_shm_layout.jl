@@ -70,7 +70,7 @@ Aeron.MediaDriver.launch_embedded() do driver
         false,
     )
 
-    state = init_producer(producer_cfg)
+    state = Producer.init_producer(producer_cfg)
 
     println("SHM layout created:")
     println("  base_dir = $(base_dir)")

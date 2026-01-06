@@ -19,7 +19,7 @@
         true,
     )
     mapping = BridgeMapping(UInt32(1), UInt32(2), "profile", UInt32(0), Int32(6001), Int32(6002))
-    @test validate_bridge_config(base, [mapping])
+    @test Bridge.validate_bridge_config(base, [mapping])
 
     bad_control = BridgeConfig(
         base.instance_id,
@@ -40,7 +40,7 @@
         base.forward_qos,
         base.forward_progress,
     )
-    @test_throws BridgeConfigError validate_bridge_config(bad_control, [mapping])
+    @test_throws BridgeConfigError Bridge.validate_bridge_config(bad_control, [mapping])
 
     too_large_chunk = BridgeConfig(
         base.instance_id,
@@ -61,9 +61,9 @@
         base.forward_qos,
         base.forward_progress,
     )
-    @test_throws BridgeConfigError validate_bridge_config(too_large_chunk, [mapping])
+    @test_throws BridgeConfigError Bridge.validate_bridge_config(too_large_chunk, [mapping])
 
     loop_a = BridgeMapping(UInt32(1), UInt32(2), "profile", UInt32(0), Int32(6001), Int32(6002))
     loop_b = BridgeMapping(UInt32(2), UInt32(1), "profile", UInt32(0), Int32(6003), Int32(6004))
-    @test validate_bridge_config(base, [loop_a, loop_b])
+    @test Bridge.validate_bridge_config(base, [loop_a, loop_b])
 end

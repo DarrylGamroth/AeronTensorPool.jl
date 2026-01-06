@@ -95,9 +95,9 @@ end
                 discovery_cfg.channel,
                 response_stream,
             )
-            discovery_state = init_discovery_provider(discovery_cfg; client = client)
-            req_asm = AeronTensorPool.make_request_assembler(discovery_state)
-            ann_asm = AeronTensorPool.make_announce_assembler(discovery_state)
+            discovery_state = AeronTensorPool.Agents.Discovery.init_discovery_provider(discovery_cfg; client = client)
+            req_asm = AeronTensorPool.Agents.Discovery.make_request_assembler(discovery_state)
+            ann_asm = AeronTensorPool.Agents.Discovery.make_announce_assembler(discovery_state)
 
             discovery_client = init_discovery_client(
                 client,
@@ -142,19 +142,19 @@ end
                 UInt64(65536),
                 false,
             )
-            producer_state = init_producer_from_attach(
+            producer_state = Producer.init_producer_from_attach(
                 producer_cfg,
                 prod_attach;
                 driver_client = producer_client,
                 client = client,
             )
-            prod_ctrl = make_control_assembler(producer_state)
-            prod_qos = make_qos_assembler(producer_state)
+            prod_ctrl = Producer.make_control_assembler(producer_state)
+            prod_qos = Producer.make_qos_assembler(producer_state)
 
             ok = wait_for() do
                 driver_do_work!(driver_state)
-                producer_do_work!(producer_state, prod_ctrl; qos_assembler = prod_qos)
-                discovery_do_work!(discovery_state, req_asm, ann_asm)
+                Producer.producer_do_work!(producer_state, prod_ctrl; qos_assembler = prod_qos)
+                AeronTensorPool.Agents.Discovery.discovery_do_work!(discovery_state, req_asm, ann_asm)
                 !isempty(discovery_state.entries)
             end
             @test ok
@@ -164,8 +164,8 @@ end
             slot = nothing
             ok = wait_for() do
                 driver_do_work!(driver_state)
-                producer_do_work!(producer_state, prod_ctrl; qos_assembler = prod_qos)
-                discovery_do_work!(discovery_state, req_asm, ann_asm)
+                Producer.producer_do_work!(producer_state, prod_ctrl; qos_assembler = prod_qos)
+                AeronTensorPool.Agents.Discovery.discovery_do_work!(discovery_state, req_asm, ann_asm)
                 slot = poll_discovery_response!(discovery_client, request_id)
                 slot !== nothing
             end

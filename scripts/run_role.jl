@@ -16,11 +16,11 @@ config_path = length(ARGS) >= 2 ? ARGS[2] : "config/defaults.toml"
 
 if role == "producer"
     config = load_producer_config(config_path)
-    state = init_producer(config)
-    assembler = make_control_assembler(state)
+    state = Producer.init_producer(config)
+    assembler = Producer.make_control_assembler(state)
     try
         while true
-            work = producer_do_work!(state, assembler)
+            work = Producer.producer_do_work!(state, assembler)
             work == 0 && yield()
         end
     catch err
@@ -28,12 +28,12 @@ if role == "producer"
     end
 elseif role == "consumer"
     config = load_consumer_config(config_path)
-    state = init_consumer(config)
-    desc_asm = make_descriptor_assembler(state)
-    ctrl_asm = make_control_assembler(state)
+    state = Consumer.init_consumer(config)
+    desc_asm = Consumer.make_descriptor_assembler(state)
+    ctrl_asm = Consumer.make_control_assembler(state)
     try
         while true
-            work = consumer_do_work!(state, desc_asm, ctrl_asm)
+            work = Consumer.consumer_do_work!(state, desc_asm, ctrl_asm)
             work == 0 && yield()
         end
     catch err
@@ -41,12 +41,12 @@ elseif role == "consumer"
     end
 elseif role == "supervisor"
     config = load_supervisor_config(config_path)
-    state = init_supervisor(config)
-    ctrl_asm = make_control_assembler(state)
-    qos_asm = make_qos_assembler(state)
+    state = Supervisor.init_supervisor(config)
+    ctrl_asm = Supervisor.make_control_assembler(state)
+    qos_asm = Supervisor.make_qos_assembler(state)
     try
         while true
-            work = supervisor_do_work!(state, ctrl_asm, qos_asm)
+            work = Supervisor.supervisor_do_work!(state, ctrl_asm, qos_asm)
             work == 0 && yield()
         end
     catch err

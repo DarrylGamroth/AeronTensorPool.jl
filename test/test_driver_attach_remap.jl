@@ -106,7 +106,7 @@
             UInt32(0),
             false,
         )
-        consumer_state = init_consumer(consumer_cfg; client = client)
+        consumer_state = Consumer.init_consumer(consumer_cfg; client = client)
 
         buf = Vector{UInt8}(undef, 4096)
         enc = ShmAttachResponse.Encoder(Vector{UInt8})
@@ -140,7 +140,7 @@
         header = DriverMessageHeader.Decoder(buf, 0)
         ShmAttachResponse.wrap!(dec, buf, 0; header = header)
         AeronTensorPool.snapshot_attach_response!(resp, dec)
-        @test map_from_attach_response!(consumer_state, resp)
+        @test Consumer.map_from_attach_response!(consumer_state, resp)
         wrap_superblock!(consumer_state.runtime.superblock_decoder, consumer_state.mappings.header_mmap, 0)
         fields = read_superblock(consumer_state.runtime.superblock_decoder)
         @test fields.epoch == UInt64(1)
@@ -149,7 +149,7 @@
         header = DriverMessageHeader.Decoder(buf, 0)
         ShmAttachResponse.wrap!(dec, buf, 0; header = header)
         AeronTensorPool.snapshot_attach_response!(resp, dec)
-        @test AeronTensorPool.remap_consumer_from_attach!(consumer_state, resp)
+        @test Consumer.remap_consumer_from_attach!(consumer_state, resp)
         wrap_superblock!(consumer_state.runtime.superblock_decoder, consumer_state.mappings.header_mmap, 0)
         fields = read_superblock(consumer_state.runtime.superblock_decoder)
         @test fields.epoch == UInt64(2)

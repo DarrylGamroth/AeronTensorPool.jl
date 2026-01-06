@@ -34,12 +34,12 @@ using Test
             UInt32(0),
             false,
         )
-        state = init_consumer(consumer_cfg; client = client)
+        state = Consumer.init_consumer(consumer_cfg; client = client)
 
         attach = AttachResponse()
         attach.code = DriverResponseCode.OK
         attach.lease_id = ShmAttachResponse.leaseId_null_value(ShmAttachResponse.Decoder)
-        @test !map_from_attach_response!(state, attach)
+        @test !Consumer.map_from_attach_response!(state, attach)
 
         attach.lease_id = UInt64(1)
         attach.stream_id = UInt32(7)
@@ -50,6 +50,6 @@ using Test
         attach.max_dims = UInt8(MAX_DIMS)
         attach.pool_count = 1
         empty!(attach.header_region_uri)
-        @test !map_from_attach_response!(state, attach)
+        @test !Consumer.map_from_attach_response!(state, attach)
     end
 end

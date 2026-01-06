@@ -134,13 +134,13 @@ end
                 false,
             )
 
-            producer_state = init_producer_from_attach(
+            producer_state = Producer.init_producer_from_attach(
                 producer_cfg,
                 prod_attach;
                 driver_client = producer_client,
                 client = client,
             )
-            consumer_state = init_consumer_from_attach(
+            consumer_state = Consumer.init_consumer_from_attach(
                 consumer_cfg,
                 cons_attach;
                 driver_client = consumer_client,
@@ -154,7 +154,7 @@ end
             shape = Int32[16]
             strides = Int32[0]
 
-            sent = offer_frame!(
+            sent = Producer.offer_frame!(
                 producer_state,
                 payload,
                 shape,
@@ -169,7 +169,7 @@ end
                 header = MessageHeader.Decoder(buffer, 0)
                 if MessageHeader.templateId(header) == AeronTensorPool.TEMPLATE_FRAME_DESCRIPTOR
                     FrameDescriptor.wrap!(st.runtime.desc_decoder, buffer, 0; header = header)
-                    received[] = try_read_frame!(st, st.runtime.desc_decoder)
+                    received[] = Consumer.try_read_frame!(st, st.runtime.desc_decoder)
                 end
                 nothing
             end
@@ -185,7 +185,7 @@ end
             end
             @test ok
             header = consumer_state.runtime.frame_view.header
-            payload_view_buf = payload_view(consumer_state.runtime.frame_view.payload)
+            payload_view_buf = Consumer.payload_view(consumer_state.runtime.frame_view.payload)
             @test seqlock_sequence(header.seq_commit) == UInt64(0)
             @test collect(payload_view_buf) == payload
 

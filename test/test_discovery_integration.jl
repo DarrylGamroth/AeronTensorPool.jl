@@ -112,10 +112,10 @@ end
                 AeronTensorPool.DISCOVERY_MAX_TAGS_PER_ENTRY_DEFAULT,
                 AeronTensorPool.DISCOVERY_MAX_POOLS_PER_ENTRY_DEFAULT,
             )
-            state = init_discovery_provider(config; client = client)
-            request_asm = AeronTensorPool.make_request_assembler(state)
-            announce_asm = AeronTensorPool.make_announce_assembler(state)
-            metadata_asm = AeronTensorPool.make_metadata_assembler(state)
+            state = AeronTensorPool.Agents.Discovery.init_discovery_provider(config; client = client)
+            request_asm = AeronTensorPool.Agents.Discovery.make_request_assembler(state)
+            announce_asm = AeronTensorPool.Agents.Discovery.make_announce_assembler(state)
+            metadata_asm = AeronTensorPool.Agents.Discovery.make_metadata_assembler(state)
 
             pub_announce = Aeron.add_publication(client, announce_channel, announce_stream_id)
             pub_metadata = Aeron.add_publication(client, metadata_channel, metadata_stream_id)
@@ -129,7 +129,7 @@ end
             offer_data_source_announce!(pub_metadata, UInt32(42), UInt32(7), "camera-1")
 
             ok = wait_for() do
-                discovery_do_work!(
+                AeronTensorPool.Agents.Discovery.discovery_do_work!(
                     state,
                     request_asm,
                     announce_asm;
@@ -152,7 +152,7 @@ end
             @test request_id != 0
             slot = nothing
             ok = wait_for() do
-                discovery_do_work!(
+                AeronTensorPool.Agents.Discovery.discovery_do_work!(
                     state,
                     request_asm,
                     announce_asm;
@@ -199,10 +199,10 @@ end
                 AeronTensorPool.DISCOVERY_MAX_TAGS_PER_ENTRY_DEFAULT,
                 AeronTensorPool.DISCOVERY_MAX_POOLS_PER_ENTRY_DEFAULT,
             )
-            state = init_discovery_provider(config; client = client)
-            request_asm = AeronTensorPool.make_request_assembler(state)
-            announce_asm = AeronTensorPool.make_announce_assembler(state)
-            metadata_asm = AeronTensorPool.make_metadata_assembler(state)
+            state = AeronTensorPool.Agents.Discovery.init_discovery_provider(config; client = client)
+            request_asm = AeronTensorPool.Agents.Discovery.make_request_assembler(state)
+            announce_asm = AeronTensorPool.Agents.Discovery.make_announce_assembler(state)
+            metadata_asm = AeronTensorPool.Agents.Discovery.make_metadata_assembler(state)
 
             pub_req = Aeron.add_publication(client, request_channel, request_stream_id)
             offer_discovery_request!(
@@ -211,7 +211,7 @@ end
                 response_channel = "",
                 response_stream_id = UInt32(5101),
             )
-            discovery_do_work!(
+            AeronTensorPool.Agents.Discovery.discovery_do_work!(
                 state,
                 request_asm,
                 announce_asm;
@@ -242,7 +242,7 @@ end
                 response_stream_id = UInt32(0),
             )
             ok = wait_for() do
-                discovery_do_work!(
+                AeronTensorPool.Agents.Discovery.discovery_do_work!(
                     state,
                     request_asm,
                     announce_asm;

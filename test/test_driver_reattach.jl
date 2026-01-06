@@ -133,23 +133,23 @@ end
                 false,
             )
 
-            producer_state = init_producer_from_attach(
+            producer_state = Producer.init_producer_from_attach(
                 producer_cfg,
                 prod_attach;
                 driver_client = producer_client,
                 client = client,
             )
-            consumer_state = init_consumer_from_attach(
+            consumer_state = Consumer.init_consumer_from_attach(
                 consumer_cfg,
                 cons_attach;
                 driver_client = consumer_client,
                 client = client,
             )
 
-            prod_control_asm = make_control_assembler(producer_state)
-            prod_qos_asm = make_qos_assembler(producer_state)
-            cons_desc_asm = make_descriptor_assembler(consumer_state)
-            cons_ctrl_asm = make_control_assembler(consumer_state)
+            prod_control_asm = Producer.make_control_assembler(producer_state)
+            prod_qos_asm = Producer.make_qos_assembler(producer_state)
+            cons_desc_asm = Consumer.make_descriptor_assembler(consumer_state)
+            cons_ctrl_asm = Consumer.make_control_assembler(consumer_state)
 
             old_epoch = producer_state.epoch
             AeronTensorPool.revoke_lease!(
@@ -161,7 +161,7 @@ end
 
             ok = wait_for() do
                 driver_do_work!(driver_state)
-                producer_do_work!(producer_state, prod_control_asm; qos_assembler = prod_qos_asm)
+                Producer.producer_do_work!(producer_state, prod_control_asm; qos_assembler = prod_qos_asm)
                 producer_state.driver_active && producer_state.epoch != old_epoch
             end
             @test ok
@@ -175,7 +175,7 @@ end
             )
             ok = wait_for() do
                 driver_do_work!(driver_state)
-                consumer_do_work!(consumer_state, cons_desc_asm, cons_ctrl_asm)
+                Consumer.consumer_do_work!(consumer_state, cons_desc_asm, cons_ctrl_asm)
                 consumer_state.driver_active && consumer_client.lease_id != 0
             end
             @test ok

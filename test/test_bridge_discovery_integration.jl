@@ -109,9 +109,9 @@
                 false,
             )
 
-            producer_src = init_producer(src_config; client = client)
-            producer_dst = init_producer(dst_config; client = client)
-            consumer_src = init_consumer(src_consumer; client = client)
+            producer_src = Producer.init_producer(src_config; client = client)
+            producer_dst = Producer.init_producer(dst_config; client = client)
+            consumer_src = Consumer.init_consumer(src_consumer; client = client)
 
             mapping = BridgeMapping(UInt32(1), UInt32(2), "profile", UInt32(0), Int32(0), Int32(0))
             bridge_cfg = BridgeConfig(
@@ -134,9 +134,9 @@
                 false,
             )
 
-            bridge_sender = init_bridge_sender(consumer_src, bridge_cfg, mapping; client = client)
-            bridge_receiver = init_bridge_receiver(bridge_cfg, mapping; producer_state = producer_dst, client = client)
-            src_ctrl = make_control_assembler(consumer_src)
+            bridge_sender = Bridge.init_bridge_sender(consumer_src, bridge_cfg, mapping; client = client)
+            bridge_receiver = Bridge.init_bridge_receiver(bridge_cfg, mapping; producer_state = producer_dst, client = client)
+            src_ctrl = Consumer.make_control_assembler(consumer_src)
 
             discovery_cfg = DiscoveryConfig(
                 bridge_cfg.control_channel,
@@ -154,14 +154,14 @@
                 AeronTensorPool.DISCOVERY_MAX_TAGS_PER_ENTRY_DEFAULT,
                 AeronTensorPool.DISCOVERY_MAX_POOLS_PER_ENTRY_DEFAULT,
             )
-            discovery = init_discovery_provider(discovery_cfg; client = client)
-            announce_asm = AeronTensorPool.make_announce_assembler(discovery)
+            discovery = AeronTensorPool.Agents.Discovery.init_discovery_provider(discovery_cfg; client = client)
+            announce_asm = AeronTensorPool.Agents.Discovery.make_announce_assembler(discovery)
 
             ready = wait_for() do
-                emit_announce!(producer_src)
+                Producer.emit_announce!(producer_src)
                 Aeron.poll(consumer_src.runtime.control.sub_control, src_ctrl, AeronTensorPool.DEFAULT_FRAGMENT_LIMIT)
-                AeronTensorPool.bridge_sender_do_work!(bridge_sender)
-                AeronTensorPool.bridge_receiver_do_work!(bridge_receiver)
+                AeronTensorPool.Bridge.bridge_sender_do_work!(bridge_sender)
+                AeronTensorPool.Bridge.bridge_receiver_do_work!(bridge_receiver)
                 Aeron.poll(discovery.runtime.sub_announce, announce_asm, AeronTensorPool.DEFAULT_FRAGMENT_LIMIT)
                 !isempty(discovery.entries)
             end

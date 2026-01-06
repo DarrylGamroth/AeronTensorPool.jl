@@ -137,24 +137,24 @@ end
             false,
         )
 
-        producer_state = init_producer_from_attach(
+        producer_state = Producer.init_producer_from_attach(
             producer_cfg,
             prod_attach;
             driver_client = producer_client,
             client = client,
         )
-        consumer_state = init_consumer_from_attach(
+        consumer_state = Consumer.init_consumer_from_attach(
             consumer_cfg,
             cons_attach;
             driver_client = consumer_client,
             client = client,
         )
-        prod_ctrl = make_control_assembler(producer_state)
-        prod_qos = make_qos_assembler(producer_state)
+        prod_ctrl = Producer.make_control_assembler(producer_state)
+        prod_qos = Producer.make_qos_assembler(producer_state)
         count_ref = Ref(0)
         hooks = ConsumerHooks(FrameCountHook(count_ref))
-        cons_desc = make_descriptor_assembler(consumer_state; hooks = hooks)
-        cons_ctrl = make_control_assembler(consumer_state)
+        cons_desc = Consumer.make_descriptor_assembler(consumer_state; hooks = hooks)
+        cons_ctrl = Consumer.make_control_assembler(consumer_state)
 
         payload = Vector{UInt8}(undef, 256)
         shape = Int32[256]
@@ -162,11 +162,11 @@ end
 
         ok = wait_for(; timeout = 5.0) do
             driver_do_work!(driver_state)
-            producer_do_work!(producer_state, prod_ctrl; qos_assembler = prod_qos)
-            consumer_do_work!(consumer_state, cons_desc, cons_ctrl)
+            Producer.producer_do_work!(producer_state, prod_ctrl; qos_assembler = prod_qos)
+            Consumer.consumer_do_work!(consumer_state, cons_desc, cons_ctrl)
             if count_ref[] < 5
                 fill!(payload, UInt8(count_ref[] % 255))
-                offer_frame!(producer_state, payload, shape, strides, Dtype.UINT8, UInt32(0))
+                Producer.offer_frame!(producer_state, payload, shape, strides, Dtype.UINT8, UInt32(0))
             end
             count_ref[] >= 5
         end

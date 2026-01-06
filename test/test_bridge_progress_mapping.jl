@@ -36,7 +36,7 @@
                 UInt64(65536),
                 false,
             )
-            producer = init_producer(producer_cfg; client = client)
+            producer = Producer.init_producer(producer_cfg; client = client)
 
             mapping = BridgeMapping(UInt32(1), UInt32(2), "profile", UInt32(0), Int32(6001), Int32(7001))
             bridge_cfg = BridgeConfig(
@@ -58,7 +58,7 @@
                 false,
                 true,
             )
-            receiver = init_bridge_receiver(bridge_cfg, mapping; producer_state = producer, client = client)
+            receiver = Bridge.init_bridge_receiver(bridge_cfg, mapping; producer_state = producer, client = client)
             sub = Aeron.add_subscription(client, "aeron:ipc", mapping.dest_control_stream_id)
 
             buffer = Vector{UInt8}(undef, AeronTensorPool.FRAME_PROGRESS_LEN)
@@ -75,12 +75,12 @@
             FrameProgress.headerIndex!(enc, local_index + UInt32(1))
             dec = FrameProgress.Decoder(Vector{UInt8})
             FrameProgress.wrap!(dec, buffer, 0; header = MessageHeader.Decoder(buffer, 0))
-            @test AeronTensorPool.bridge_publish_progress!(receiver, dec) == true
+            @test Bridge.bridge_publish_progress!(receiver, dec) == true
 
             FrameProgress.headerIndex!(enc, local_index)
             FrameProgress.wrap!(dec, buffer, 0; header = MessageHeader.Decoder(buffer, 0))
             ok = wait_for() do
-                AeronTensorPool.bridge_publish_progress!(receiver, dec)
+                Bridge.bridge_publish_progress!(receiver, dec)
             end
             @test ok
 

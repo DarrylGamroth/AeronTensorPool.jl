@@ -66,7 +66,7 @@
             UInt32(0),
                 false,
         )
-            state = init_consumer(consumer_cfg; client = client)
+            state = Consumer.init_consumer(consumer_cfg; client = client)
             fallback_state = nothing
             maxdims_state = nothing
             try
@@ -134,7 +134,7 @@
                     )
 
                     (_, announce_dec1) = build_announce(epoch1, header_uri1, pool_uri1)
-                    @test handle_shm_pool_announce!(state, announce_dec1)
+                    @test Consumer.handle_shm_pool_announce!(state, announce_dec1)
                     @test state.mappings.mapped_epoch == epoch1
 
                     wrap_superblock!(sb_enc, header_mmap2, 0)
@@ -175,7 +175,7 @@
                     )
 
                     (_, announce_dec2) = build_announce(epoch2, header_uri2, pool_uri2)
-                    @test handle_shm_pool_announce!(state, announce_dec2)
+                    @test Consumer.handle_shm_pool_announce!(state, announce_dec2)
                     @test state.mappings.mapped_epoch == epoch2
 
                     bad_pool_uri = "shm:file?path=$(pool_path2)|require_hugepages=true"
@@ -212,9 +212,9 @@
                     UInt32(0),
                         false,
                 )
-                    fallback_state = init_consumer(fallback_cfg; client = client)
+                    fallback_state = Consumer.init_consumer(fallback_cfg; client = client)
                     (_, announce_dec_bad) = build_announce(epoch2, header_uri2, bad_pool_uri)
-                    @test handle_shm_pool_announce!(fallback_state, announce_dec_bad)
+                    @test Consumer.handle_shm_pool_announce!(fallback_state, announce_dec_bad)
                     @test fallback_state.config.use_shm == false
                     @test fallback_state.mappings.header_mmap === nothing
 
@@ -250,9 +250,9 @@
                     UInt32(0),
                         false,
                 )
-                    maxdims_state = init_consumer(maxdims_cfg; client = client)
+                    maxdims_state = Consumer.init_consumer(maxdims_cfg; client = client)
                     (_, announce_dec_good) = build_announce(epoch2, header_uri2, pool_uri2)
-                    @test handle_shm_pool_announce!(maxdims_state, announce_dec_good)
+                    @test Consumer.handle_shm_pool_announce!(maxdims_state, announce_dec_good)
                     @test maxdims_state.config.use_shm == false
                     @test maxdims_state.mappings.header_mmap === nothing
             finally

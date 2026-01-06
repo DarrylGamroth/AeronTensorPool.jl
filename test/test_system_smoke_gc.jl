@@ -72,17 +72,17 @@ liveness_check_interval_ns = 1000000000
             env["AERON_DIR"] = Aeron.MediaDriver.aeron_dir(driver)
             system = load_system_config(config_path; env = env)
 
-            producer = init_producer(system.producer; client = client)
-            consumer = init_consumer(system.consumer; client = client)
-            supervisor = init_supervisor(system.supervisor; client = client)
+            producer = Producer.init_producer(system.producer; client = client)
+            consumer = Consumer.init_consumer(system.consumer; client = client)
+            supervisor = Supervisor.init_supervisor(system.supervisor; client = client)
                 try
 
-            prod_ctrl = make_control_assembler(producer)
-            prod_qos = make_qos_assembler(producer)
-            cons_ctrl = make_control_assembler(consumer)
-            cons_desc = make_descriptor_assembler(consumer)
-            sup_ctrl = make_control_assembler(supervisor)
-            sup_qos = make_qos_assembler(supervisor)
+            prod_ctrl = Producer.make_control_assembler(producer)
+            prod_qos = Producer.make_qos_assembler(producer)
+            cons_ctrl = Consumer.make_control_assembler(consumer)
+            cons_desc = Consumer.make_descriptor_assembler(consumer)
+            sup_ctrl = Supervisor.make_control_assembler(supervisor)
+            sup_qos = Supervisor.make_qos_assembler(supervisor)
 
             payload = UInt8[1, 2, 3, 4]
             shape = Int32[4]
@@ -94,11 +94,11 @@ liveness_check_interval_ns = 1000000000
 
             iterations = get(ENV, "TP_GC_MONITOR_ITERS", "2000") |> x -> parse(Int, x)
             for i in 1:iterations
-                producer_do_work!(producer, prod_ctrl; qos_assembler = prod_qos)
-                consumer_do_work!(consumer, cons_desc, cons_ctrl)
-                supervisor_do_work!(supervisor, sup_ctrl, sup_qos)
+                Producer.producer_do_work!(producer, prod_ctrl; qos_assembler = prod_qos)
+                Consumer.consumer_do_work!(consumer, cons_desc, cons_ctrl)
+                Supervisor.supervisor_do_work!(supervisor, sup_ctrl, sup_qos)
                 if consumer.mappings.header_mmap !== nothing
-                    offer_frame!(producer, payload, shape, strides, Dtype.UINT8, UInt32(0))
+                    Producer.offer_frame!(producer, payload, shape, strides, Dtype.UINT8, UInt32(0))
                 end
                 yield()
             end

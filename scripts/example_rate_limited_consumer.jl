@@ -28,7 +28,7 @@ function (hook::AppConsumerOnFrame)(state::ConsumerState, frame::ConsumerFrameVi
     app = hook.app_ref[]
     seq = seqlock_sequence(frame.header.seq_commit)
     expected = UInt8(seq % UInt64(256))
-    payload = payload_view(frame.payload)
+    payload = Consumer.payload_view(frame.payload)
     if app.validated < app.validate_limit
         app.validated += 1
         if !check_pattern(payload, expected)

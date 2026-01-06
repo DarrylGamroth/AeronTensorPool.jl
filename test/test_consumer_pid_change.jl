@@ -91,7 +91,7 @@
                 UInt32(0),
                 false,
             )
-            state = init_consumer(consumer_cfg; client = client)
+            state = Consumer.init_consumer(consumer_cfg; client = client)
             try
 
             announce_buf = Vector{UInt8}(undef, 512)
@@ -117,14 +117,14 @@
             announce_dec = AeronTensorPool.ShmPoolAnnounce.Decoder(Vector{UInt8})
             AeronTensorPool.ShmPoolAnnounce.wrap!(announce_dec, announce_buf, 0; header = header)
 
-            @test map_from_announce!(state, announce_dec)
+            @test Consumer.map_from_announce!(state, announce_dec)
             @test state.mappings.mapped_pid == UInt64(1234)
 
             wrap_superblock!(sb_enc, header_mmap, 0)
             ShmRegionSuperblock.pid!(sb_enc, UInt64(5678))
 
-            @test AeronTensorPool.validate_mapped_superblocks!(state, announce_dec) == :pid_changed
-            @test !handle_shm_pool_announce!(state, announce_dec)
+            @test Consumer.validate_mapped_superblocks!(state, announce_dec) == :pid_changed
+            @test !Consumer.handle_shm_pool_announce!(state, announce_dec)
             @test state.mappings.header_mmap === nothing
             finally
                 close_consumer_state!(state)

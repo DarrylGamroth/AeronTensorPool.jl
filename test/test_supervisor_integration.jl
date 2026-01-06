@@ -14,9 +14,9 @@
             UInt64(2_000_000_000),
             UInt64(200_000_000),
         )
-        supervisor_state = init_supervisor(supervisor_cfg; client = client)
-        ctrl_asm = make_control_assembler(supervisor_state)
-        qos_asm = AeronTensorPool.make_qos_assembler(supervisor_state)
+        supervisor_state = Supervisor.init_supervisor(supervisor_cfg; client = client)
+        ctrl_asm = Supervisor.make_control_assembler(supervisor_state)
+        qos_asm = Supervisor.make_qos_assembler(supervisor_state)
 
         pub_control = Aeron.add_publication(client, uri, control_stream)
         pub_qos = Aeron.add_publication(client, uri, qos_stream)
@@ -112,7 +112,7 @@
         @test supervisor_state.tracking.consumers[UInt32(21)].drops_late == UInt64(1)
 
         ok_step = wait_for() do
-            supervisor_do_work!(supervisor_state, ctrl_asm, qos_asm) > 0
+            Supervisor.supervisor_do_work!(supervisor_state, ctrl_asm, qos_asm) > 0
         end
         @test ok_step
 
@@ -134,7 +134,7 @@
         cfg_asm = Aeron.FragmentAssembler(cfg_handler)
         sub_cfg = Aeron.add_subscription(client, uri, control_stream)
 
-        emit_consumer_config!(supervisor_state, UInt32(21); use_shm = false, mode = Mode.STREAM)
+        Supervisor.emit_consumer_config!(supervisor_state, UInt32(21); use_shm = false, mode = Mode.STREAM)
 
         ok_cfg = wait_for() do
             Aeron.poll(sub_cfg, cfg_asm, AeronTensorPool.DEFAULT_FRAGMENT_LIMIT) > 0

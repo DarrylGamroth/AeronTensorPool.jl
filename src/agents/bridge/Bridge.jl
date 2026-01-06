@@ -19,6 +19,8 @@ using ...ShmTensorpoolControl
 using ...ShmTensorpoolDriver
 using ...ShmTensorpoolBridge
 using ...ShmTensorpoolDiscovery
+import ..Producer
+import ..Consumer
 using ..Producer: PayloadPoolConfig,
     ProducerConfig,
     ProducerState,

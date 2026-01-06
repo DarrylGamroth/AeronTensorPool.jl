@@ -114,8 +114,14 @@ function BridgeAgent(
     hooks::BridgeHooks = NOOP_BRIDGE_HOOKS,
 )
     validate_bridge_config(bridge_config, [mapping])
-    consumer_state = init_consumer(bridge_consumer_settings(consumer_config, mapping); client = client)
-    producer_state = init_producer(bridge_producer_config(producer_config, mapping); client = client)
+    consumer_state = Consumer.init_consumer(
+        bridge_consumer_settings(consumer_config, mapping);
+        client = client,
+    )
+    producer_state = Producer.init_producer(
+        bridge_producer_config(producer_config, mapping);
+        client = client,
+    )
     sender = init_bridge_sender(
         consumer_state,
         bridge_config,

@@ -15,7 +15,7 @@ using StringViews
     copyto!(entry.tags[1], "tag1")
     copyto!(entry.tags[2], "tag2")
 
-    @test AeronTensorPool.entry_matches!(
+    @test AeronTensorPool.Agents.Discovery.entry_matches!(
         entry,
         UInt32(10),
         UInt32(20),
@@ -23,7 +23,7 @@ using StringViews
         StringView("CameraA"),
         StringView[],
     )
-    @test !AeronTensorPool.entry_matches!(
+    @test !AeronTensorPool.Agents.Discovery.entry_matches!(
         entry,
         UInt32(11),
         UInt32(20),
@@ -31,7 +31,7 @@ using StringViews
         StringView("CameraA"),
         StringView[],
     )
-    @test !AeronTensorPool.entry_matches!(
+    @test !AeronTensorPool.Agents.Discovery.entry_matches!(
         entry,
         UInt32(10),
         UInt32(21),
@@ -39,7 +39,7 @@ using StringViews
         StringView("CameraA"),
         StringView[],
     )
-    @test !AeronTensorPool.entry_matches!(
+    @test !AeronTensorPool.Agents.Discovery.entry_matches!(
         entry,
         UInt32(10),
         UInt32(20),
@@ -47,7 +47,7 @@ using StringViews
         StringView("CameraA"),
         StringView[],
     )
-    @test !AeronTensorPool.entry_matches!(
+    @test !AeronTensorPool.Agents.Discovery.entry_matches!(
         entry,
         UInt32(10),
         UInt32(20),
@@ -63,7 +63,7 @@ using StringViews
     push!(tags_two, StringView("tag1"))
     push!(tags_two, StringView("tag2"))
 
-    @test AeronTensorPool.entry_matches!(
+    @test AeronTensorPool.Agents.Discovery.entry_matches!(
         entry,
         UInt32(10),
         UInt32(20),
@@ -71,7 +71,7 @@ using StringViews
         StringView("CameraA"),
         tags_one,
     )
-    @test !AeronTensorPool.entry_matches!(
+    @test !AeronTensorPool.Agents.Discovery.entry_matches!(
         entry,
         UInt32(10),
         UInt32(20),
@@ -79,7 +79,7 @@ using StringViews
         StringView("CameraA"),
         tags_miss,
     )
-    @test AeronTensorPool.entry_matches!(
+    @test AeronTensorPool.Agents.Discovery.entry_matches!(
         entry,
         UInt32(10),
         UInt32(20),

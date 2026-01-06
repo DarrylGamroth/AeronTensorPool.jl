@@ -33,9 +33,9 @@
                 false,
             )
 
-            state = init_producer(cfg; client = client)
+            state = Producer.init_producer(cfg; client = client)
             try
-                res = try_claim_slot!(state, UInt16(1))
+                res = Producer.try_claim_slot!(state, UInt16(1))
                 @test res.seq == UInt64(0)
                 @test res.header_index == UInt32(0)
                 @test res.payload_slot == UInt32(0)

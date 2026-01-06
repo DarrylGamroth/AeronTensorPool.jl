@@ -111,13 +111,13 @@ end
             false,
         )
 
-        producer_state = init_producer_from_attach(
+        producer_state = Producer.init_producer_from_attach(
             producer_cfg,
             prod_attach;
             driver_client = producer_client,
             client = client,
         )
-        consumer_state = init_consumer_from_attach(
+        consumer_state = Consumer.init_consumer_from_attach(
             consumer_cfg,
             cons_attach;
             driver_client = consumer_client,
@@ -126,8 +126,8 @@ end
 
         count = Ref(0)
         hooks = ConsumerHooks(TestFrameHook(count))
-        desc_asm = make_descriptor_assembler(consumer_state; hooks = hooks)
-        ctrl_asm = make_control_assembler(consumer_state)
+        desc_asm = Consumer.make_descriptor_assembler(consumer_state; hooks = hooks)
+        ctrl_asm = Consumer.make_control_assembler(consumer_state)
 
         payload = Vector{UInt8}(undef, 64)
         shape = Int32[64]
@@ -140,7 +140,7 @@ end
             driver_do_work!(driver_state)
             driver_client_do_work!(producer_client, now_ns)
             driver_client_do_work!(consumer_client, now_ns)
-            offer_frame!(
+            Producer.offer_frame!(
                 producer_state,
                 payload,
                 shape,
@@ -148,7 +148,7 @@ end
                 Dtype.UINT8,
                 UInt32(0),
             )
-            consumer_do_work!(consumer_state, desc_asm, ctrl_asm)
+            Consumer.consumer_do_work!(consumer_state, desc_asm, ctrl_asm)
             count[] >= target
         end
         @test ok

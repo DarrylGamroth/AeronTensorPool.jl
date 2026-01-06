@@ -38,8 +38,14 @@ function BridgeSystemAgent(
     descriptor_assemblers = Aeron.FragmentAssembler[]
     counters = BridgeCounters[]
     for mapping in mappings
-        consumer_state = init_consumer(bridge_consumer_settings(consumer_config, mapping); client = client)
-        producer_state = init_producer(bridge_producer_config(producer_config, mapping); client = client)
+        consumer_state = Consumer.init_consumer(
+            bridge_consumer_settings(consumer_config, mapping);
+            client = client,
+        )
+        producer_state = Producer.init_producer(
+            bridge_producer_config(producer_config, mapping);
+            client = client,
+        )
         sender = init_bridge_sender(consumer_state, bridge_config, mapping; client = client)
         receiver = init_bridge_receiver(bridge_config, mapping; producer_state = producer_state, client = client, hooks = hooks)
         push!(senders, sender)

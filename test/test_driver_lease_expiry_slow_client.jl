@@ -70,14 +70,14 @@ using Test
             UInt64(65536),
             false,
         )
-        producer_state = init_producer_from_attach(
+        producer_state = Producer.init_producer_from_attach(
             producer_cfg,
             prod_attach;
             driver_client = producer_client,
             client = client,
         )
-        prod_ctrl = make_control_assembler(producer_state)
-        prod_qos = make_qos_assembler(producer_state)
+        prod_ctrl = Producer.make_control_assembler(producer_state)
+        prod_qos = Producer.make_qos_assembler(producer_state)
 
         old_lease = producer_client.lease_id
         expiry_deadline = time_ns() + 150_000_000
@@ -88,7 +88,7 @@ using Test
 
         ok = wait_for(; timeout = 5.0) do
             driver_do_work!(driver_state)
-            producer_do_work!(producer_state, prod_ctrl; qos_assembler = prod_qos)
+            Producer.producer_do_work!(producer_state, prod_ctrl; qos_assembler = prod_qos)
             producer_state.driver_active && producer_client.lease_id != 0 && producer_client.lease_id != old_lease
         end
         @test ok

@@ -39,9 +39,9 @@ using UnsafeArrays
             UInt32(0),
             false,
         )
-        consumer_state = init_consumer(consumer_cfg; client = client)
-        ctrl_asm = make_control_assembler(consumer_state)
-        desc_asm = make_descriptor_assembler(consumer_state)
+        consumer_state = Consumer.init_consumer(consumer_cfg; client = client)
+        ctrl_asm = Consumer.make_control_assembler(consumer_state)
+        desc_asm = Consumer.make_descriptor_assembler(consumer_state)
 
         pub_control = Aeron.add_publication(client, uri, control_stream)
         pub_descriptor = Aeron.add_publication(client, uri, descriptor_stream)

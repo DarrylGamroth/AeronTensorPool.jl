@@ -99,24 +99,24 @@ Aeron.MediaDriver.launch_embedded() do driver
             mkpath(dirname(parse_shm_uri(pool.uri).path))
         end
 
-        producer = init_producer(producer_cfg)
-        consumer = init_consumer(consumer_cfg)
-        supervisor = init_supervisor(supervisor_cfg)
+        producer = Producer.init_producer(producer_cfg)
+        consumer = Consumer.init_consumer(consumer_cfg)
+        supervisor = Supervisor.init_supervisor(supervisor_cfg)
 
-        prod_ctrl = make_control_assembler(producer)
-        cons_ctrl = make_control_assembler(consumer)
+        prod_ctrl = Producer.make_control_assembler(producer)
+        cons_ctrl = Consumer.make_control_assembler(consumer)
         got_frame = Ref(false)
         cons_desc = Aeron.FragmentAssembler(Aeron.FragmentHandler(consumer) do st, buffer, _
             header = MessageHeader.Decoder(buffer, 0)
             if MessageHeader.templateId(header) == AeronTensorPool.TEMPLATE_FRAME_DESCRIPTOR
                 FrameDescriptor.wrap!(st.runtime.desc_decoder, buffer, 0; header = header)
-                result = try_read_frame!(st, st.runtime.desc_decoder)
+                result = Consumer.try_read_frame!(st, st.runtime.desc_decoder)
                 result === nothing || (got_frame[] = true)
             end
             nothing
         end)
-        sup_ctrl = make_control_assembler(supervisor)
-        sup_qos = make_qos_assembler(supervisor)
+        sup_ctrl = Supervisor.make_control_assembler(supervisor)
+        sup_qos = Supervisor.make_qos_assembler(supervisor)
 
         payload = UInt8[1, 2, 3, 4]
         shape = Int32[4]
@@ -125,12 +125,12 @@ Aeron.MediaDriver.launch_embedded() do driver
         start = time()
 
         while time() - start < timeout_s
-            producer_do_work!(producer, prod_ctrl)
-            consumer_do_work!(consumer, cons_desc, cons_ctrl)
-            supervisor_do_work!(supervisor, sup_ctrl, sup_qos)
+            Producer.producer_do_work!(producer, prod_ctrl)
+            Consumer.consumer_do_work!(consumer, cons_desc, cons_ctrl)
+            Supervisor.supervisor_do_work!(supervisor, sup_ctrl, sup_qos)
 
             if !published && consumer.mappings.header_mmap !== nothing
-                offer_frame!(producer, payload, shape, strides, Dtype.UINT8, UInt32(0))
+                Producer.offer_frame!(producer, payload, shape, strides, Dtype.UINT8, UInt32(0))
                 published = true
             end
 

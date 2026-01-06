@@ -36,7 +36,7 @@
                 UInt64(65536),
                 false,
             )
-            producer = init_producer(producer_cfg; client = client)
+            producer = Producer.init_producer(producer_cfg; client = client)
 
             mapping = BridgeMapping(UInt32(1), UInt32(2), "profile", UInt32(0), Int32(0), Int32(0))
             bridge_cfg = BridgeConfig(
@@ -58,7 +58,7 @@
                 false,
                 false,
             )
-            receiver = init_bridge_receiver(bridge_cfg, mapping; producer_state = producer, client = client)
+            receiver = Bridge.init_bridge_receiver(bridge_cfg, mapping; producer_state = producer, client = client)
 
             receiver.assembly.chunk_count = UInt32(1)
             AeronTensorPool.Clocks.fetch!(receiver.clock)
@@ -66,7 +66,7 @@
             AeronTensorPool.set_interval!(receiver.assembly.assembly_timer, UInt64(1))
             AeronTensorPool.reset!(receiver.assembly.assembly_timer, now_ns - UInt64(2))
 
-            bridge_receiver_do_work!(receiver; fragment_limit = Int32(0))
+            Bridge.bridge_receiver_do_work!(receiver; fragment_limit = Int32(0))
             @test receiver.assembly.chunk_count == UInt32(0)
             @test receiver.metrics.assemblies_reset == UInt64(1)
         end

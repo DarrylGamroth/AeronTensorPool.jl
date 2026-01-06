@@ -63,15 +63,15 @@
                         false,
                     )
 
-                    producer_state = init_producer(producer_cfg; client = producer_client)
-                    consumer_state = init_consumer(consumer_cfg; client = consumer_client)
-                    prod_ctrl = make_control_assembler(producer_state)
-                    cons_ctrl = make_control_assembler(consumer_state)
-                    cons_desc = make_descriptor_assembler(consumer_state)
+                    producer_state = Producer.init_producer(producer_cfg; client = producer_client)
+                    consumer_state = Consumer.init_consumer(consumer_cfg; client = consumer_client)
+                    prod_ctrl = Producer.make_control_assembler(producer_state)
+                    cons_ctrl = Consumer.make_control_assembler(consumer_state)
+                    cons_desc = Consumer.make_descriptor_assembler(consumer_state)
                     fragment_limit = AeronTensorPool.DEFAULT_FRAGMENT_LIMIT
 
                     assigned = wait_for() do
-                        emit_consumer_hello!(consumer_state)
+                        Consumer.emit_consumer_hello!(consumer_state)
                         Aeron.do_work(producer_client)
                         Aeron.do_work(consumer_client)
                         Aeron.poll(producer_state.runtime.control.sub_control, prod_ctrl, fragment_limit)
@@ -83,7 +83,7 @@
                     @test assigned
 
                     mapped = wait_for() do
-                        emit_announce!(producer_state)
+                        Producer.emit_announce!(producer_state)
                         Aeron.poll(consumer_state.runtime.control.sub_control, cons_ctrl, fragment_limit)
                         consumer_state.mappings.header_mmap !== nothing
                     end
@@ -93,7 +93,7 @@
                     shape = Int32[4]
                     strides = Int32[1]
                     published = wait_for() do
-                        emit_consumer_hello!(consumer_state)
+                        Consumer.emit_consumer_hello!(consumer_state)
                         Aeron.do_work(producer_client)
                         Aeron.do_work(consumer_client)
                         Aeron.poll(producer_state.runtime.control.sub_control, prod_ctrl, fragment_limit)
@@ -104,7 +104,7 @@
                         entry.descriptor_pub === nothing && return false
                         Aeron.is_connected(entry.descriptor_pub) || return false
                         Aeron.is_connected(consumer_state.runtime.sub_descriptor) || return false
-                        offer_frame!(producer_state, payload, shape, strides, Dtype.UINT8, UInt32(1))
+                        Producer.offer_frame!(producer_state, payload, shape, strides, Dtype.UINT8, UInt32(1))
                     end
                     @test published
 
@@ -136,7 +136,7 @@ end
         UInt64(0),
         UInt64(10),
     )
-    @test AeronTensorPool.consumer_stream_last_seen_ns(entry) == UInt64(10)
+    @test Producer.consumer_stream_last_seen_ns(entry) == UInt64(10)
 
     with_driver_and_client() do driver, client
         mktempdir("/dev/shm") do dir
@@ -203,10 +203,10 @@ end
                 false,
             )
 
-            producer_state = init_producer(producer_cfg; client = client)
-            consumer_state = init_consumer(consumer_cfg; client = client)
-            prod_ctrl = make_control_assembler(producer_state)
-            cons_ctrl = make_control_assembler(consumer_state)
+            producer_state = Producer.init_producer(producer_cfg; client = client)
+            consumer_state = Consumer.init_consumer(consumer_cfg; client = client)
+            prod_ctrl = Producer.make_control_assembler(producer_state)
+            cons_ctrl = Consumer.make_control_assembler(consumer_state)
             fragment_limit = AeronTensorPool.DEFAULT_FRAGMENT_LIMIT
 
             invalid_len = message_header_len +

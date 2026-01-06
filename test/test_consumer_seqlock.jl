@@ -90,7 +90,7 @@
             UInt32(0),
                 false,
         )
-            state = init_consumer(consumer_cfg; client = client)
+            state = Consumer.init_consumer(consumer_cfg; client = client)
             try
 
             announce_buf = Vector{UInt8}(undef, 1024)
@@ -114,7 +114,7 @@
             header = MessageHeader.Decoder(announce_buf, 0)
             announce_dec = AeronTensorPool.ShmPoolAnnounce.Decoder(Vector{UInt8})
             AeronTensorPool.ShmPoolAnnounce.wrap!(announce_dec, announce_buf, 0; header = header)
-            @test map_from_announce!(state, announce_dec)
+            @test Consumer.map_from_announce!(state, announce_dec)
 
             desc_buf = Vector{UInt8}(undef, 256)
             desc_enc = FrameDescriptor.Encoder(Vector{UInt8})
@@ -150,11 +150,11 @@
             commit_ptr = header_commit_ptr_from_offset(header_mmap, header_offset)
 
             seqlock_begin_write!(commit_ptr, UInt64(1))
-            @test try_read_frame!(state, desc_dec) == false
+            @test Consumer.try_read_frame!(state, desc_dec) == false
 
             seqlock_commit_write!(commit_ptr, UInt64(1))
             state.mappings.last_commit_words[1] = UInt64(4) << 1
-            @test try_read_frame!(state, desc_dec) == false
+            @test Consumer.try_read_frame!(state, desc_dec) == false
             state.mappings.last_commit_words[1] = UInt64(0)
 
             write_tensor_slot_header!(
@@ -172,7 +172,7 @@
                 vcat(Int32(0), zeros(Int32, MAX_DIMS - 1)),
             )
             seqlock_commit_write!(commit_ptr, UInt64(1))
-            @test try_read_frame!(state, desc_dec) == false
+            @test Consumer.try_read_frame!(state, desc_dec) == false
 
             write_tensor_slot_header!(
                 hdr_enc,
@@ -189,7 +189,7 @@
                 vcat(Int32(0), zeros(Int32, MAX_DIMS - 1)),
             )
             seqlock_commit_write!(commit_ptr, UInt64(1))
-            @test try_read_frame!(state, desc_dec) == false
+            @test Consumer.try_read_frame!(state, desc_dec) == false
             finally
                 close_consumer_state!(state)
             end

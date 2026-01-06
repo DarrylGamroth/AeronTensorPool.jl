@@ -152,32 +152,32 @@ end
                 UInt64(10_000_000_000),
             )
 
-            producer_state = init_producer_from_attach(
+            producer_state = Producer.init_producer_from_attach(
                 producer_cfg,
                 prod_attach;
                 driver_client = producer_client,
                 client = client,
             )
-            consumer_state = init_consumer_from_attach(
+            consumer_state = Consumer.init_consumer_from_attach(
                 consumer_cfg,
                 cons_attach;
                 driver_client = consumer_client,
                 client = client,
             )
-            supervisor_state = init_supervisor(supervisor_cfg; client = client)
+            supervisor_state = Supervisor.init_supervisor(supervisor_cfg; client = client)
 
-            prod_ctrl = make_control_assembler(producer_state)
-            prod_qos = make_qos_assembler(producer_state)
-            cons_ctrl = make_control_assembler(consumer_state)
-            sup_ctrl = make_control_assembler(supervisor_state)
-            sup_qos = make_qos_assembler(supervisor_state)
+            prod_ctrl = Producer.make_control_assembler(producer_state)
+            prod_qos = Producer.make_qos_assembler(producer_state)
+            cons_ctrl = Consumer.make_control_assembler(consumer_state)
+            sup_ctrl = Supervisor.make_control_assembler(supervisor_state)
+            sup_qos = Supervisor.make_qos_assembler(supervisor_state)
 
             got_frame = Ref(false)
             handler = Aeron.FragmentHandler(consumer_state) do st, buffer, _
                 header = MessageHeader.Decoder(buffer, 0)
                 if MessageHeader.templateId(header) == AeronTensorPool.TEMPLATE_FRAME_DESCRIPTOR
                     FrameDescriptor.wrap!(st.runtime.desc_decoder, buffer, 0; header = header)
-                    result = try_read_frame!(st, st.runtime.desc_decoder)
+                    result = Consumer.try_read_frame!(st, st.runtime.desc_decoder)
                     result && (got_frame[] = true)
                 end
                 nothing
@@ -189,12 +189,12 @@ end
             strides = Int32[0]
             ok = wait_for() do
                 driver_do_work!(driver_state)
-                producer_do_work!(producer_state, prod_ctrl; qos_assembler = prod_qos)
-                consumer_do_work!(consumer_state, cons_desc, cons_ctrl)
-                supervisor_do_work!(supervisor_state, sup_ctrl, sup_qos)
+                Producer.producer_do_work!(producer_state, prod_ctrl; qos_assembler = prod_qos)
+                Consumer.consumer_do_work!(consumer_state, cons_desc, cons_ctrl)
+                Supervisor.supervisor_do_work!(supervisor_state, sup_ctrl, sup_qos)
 
                 if consumer_state.mappings.header_mmap !== nothing && !got_frame[]
-                    offer_frame!(producer_state, payload, shape, strides, Dtype.UINT8, UInt32(0))
+                    Producer.offer_frame!(producer_state, payload, shape, strides, Dtype.UINT8, UInt32(0))
                 end
 
                 got_frame[] &&

@@ -150,10 +150,10 @@
                 false,
             )
 
-            producer_src = init_producer(src_config; client = client)
-            producer_dst = init_producer(dst_config; client = client)
-            consumer_src = init_consumer(src_consumer; client = client)
-            consumer_dst = init_consumer(dst_consumer; client = client)
+            producer_src = Producer.init_producer(src_config; client = client)
+            producer_dst = Producer.init_producer(dst_config; client = client)
+            consumer_src = Consumer.init_consumer(src_consumer; client = client)
+            consumer_dst = Consumer.init_consumer(dst_consumer; client = client)
 
             mapping = BridgeMapping(UInt32(1), UInt32(2), "default", UInt32(2300), Int32(0), Int32(0))
             bridge_config = BridgeConfig(
@@ -176,18 +176,18 @@
                 false,
             )
 
-                bridge_sender = init_bridge_sender(consumer_src, bridge_config, mapping; client = client)
+                bridge_sender = Bridge.init_bridge_sender(consumer_src, bridge_config, mapping; client = client)
                 bridge_receiver =
-                    init_bridge_receiver(bridge_config, mapping; producer_state = producer_dst, client = client)
+                    Bridge.init_bridge_receiver(bridge_config, mapping; producer_state = producer_dst, client = client)
 
-            src_control = make_control_assembler(consumer_src)
-            dst_control = make_control_assembler(consumer_dst)
+            src_control = Consumer.make_control_assembler(consumer_src)
+            dst_control = Consumer.make_control_assembler(consumer_dst)
 
             bridge_desc = Aeron.FragmentAssembler(Aeron.FragmentHandler(bridge_sender) do st, buffer, _
                 header = MessageHeader.Decoder(buffer, 0)
                 if MessageHeader.templateId(header) == template_frame_descriptor
                     FrameDescriptor.wrap!(st.consumer_state.runtime.desc_decoder, buffer, 0; header = header)
-                    bridge_send_frame!(st, st.consumer_state.runtime.desc_decoder)
+                    Bridge.bridge_send_frame!(st, st.consumer_state.runtime.desc_decoder)
                 end
                 nothing
             end)
@@ -200,9 +200,9 @@
                 header = MessageHeader.Decoder(buffer, 0)
                 if MessageHeader.templateId(header) == template_frame_descriptor
                     FrameDescriptor.wrap!(st.runtime.desc_decoder, buffer, 0; header = header)
-                    result = try_read_frame!(st, st.runtime.desc_decoder)
+                    result = Consumer.try_read_frame!(st, st.runtime.desc_decoder)
                     if result
-                        got_payload[] = collect(payload_view(st.runtime.frame_view.payload))
+                        got_payload[] = collect(Consumer.payload_view(st.runtime.frame_view.payload))
                     end
                 end
                 nothing
@@ -228,13 +228,13 @@
             end)
 
             announce_ready = wait_for() do
-                emit_announce!(producer_src)
-                emit_announce!(producer_dst)
+                Producer.emit_announce!(producer_src)
+                Producer.emit_announce!(producer_dst)
 
                 Aeron.poll(consumer_src.runtime.control.sub_control, src_control, fragment_limit)
                 Aeron.poll(consumer_dst.runtime.control.sub_control, dst_control, fragment_limit)
-                bridge_sender_do_work!(bridge_sender)
-                bridge_receiver_do_work!(bridge_receiver)
+                Bridge.bridge_sender_do_work!(bridge_sender)
+                Bridge.bridge_receiver_do_work!(bridge_receiver)
 
                 consumer_src.mappings.header_mmap !== nothing &&
                     consumer_dst.mappings.header_mmap !== nothing &&
@@ -278,8 +278,8 @@
             @test sent_meta
 
             meta_ready = wait_for() do
-                bridge_sender_do_work!(bridge_sender)
-                bridge_receiver_do_work!(bridge_receiver)
+                Bridge.bridge_sender_do_work!(bridge_sender)
+                Bridge.bridge_receiver_do_work!(bridge_receiver)
                 Aeron.poll(meta_sub, meta_asm, fragment_limit)
                 got_meta_announce[] && got_meta[]
             end
@@ -288,12 +288,12 @@
             payload = UInt8[1, 2, 3, 4, 5]
             shape = Int32[5]
             strides = Int32[1]
-            published = offer_frame!(producer_src, payload, shape, strides, Dtype.UINT8, UInt32(7))
+            published = Producer.offer_frame!(producer_src, payload, shape, strides, Dtype.UINT8, UInt32(7))
             @test published
 
             bridged = wait_for() do
                 Aeron.poll(consumer_src.runtime.sub_descriptor, bridge_desc, fragment_limit)
-                bridge_receiver_do_work!(bridge_receiver)
+                Bridge.bridge_receiver_do_work!(bridge_receiver)
                 Aeron.poll(consumer_dst.runtime.sub_descriptor, dst_desc, fragment_limit)
                 !isempty(got_payload[])
             end
