@@ -1,8 +1,0 @@
-include("state.jl")
-include("handlers.jl")
-include("init.jl")
-include("work.jl")
-include("registry_state.jl")
-include("registry_handlers.jl")
-include("registry_init.jl")
-include("registry_work.jl")

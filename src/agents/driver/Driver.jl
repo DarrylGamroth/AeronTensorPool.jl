@@ -3,6 +3,7 @@ module Driver
 using ..Core
 using ..Core.TPLog
 using ..Aeron
+using ..Agent
 using ..Shm
 using ..Control
 using ..Timers
@@ -28,6 +29,7 @@ include("inspect.jl")
 include("encoders.jl")
 include("handlers.jl")
 include("lifecycle_handlers.jl")
+include("agent.jl")
 
 export DriverConfig,
     DriverPolicies,
@@ -58,6 +60,7 @@ export DriverConfig,
     driver_assigned_streams_snapshot,
     emit_driver_shutdown!,
     driver_lifecycle_dispatch!,
-    revoke_lease!
+    revoke_lease!,
+    DriverAgent
 
 end

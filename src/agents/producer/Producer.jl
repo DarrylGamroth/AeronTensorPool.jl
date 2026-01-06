@@ -1,0 +1,64 @@
+module Producer
+
+using ...Core
+using ...Core.TPLog
+using ...Aeron
+using ...Agent
+using ...Shm
+using ...Control
+using ...Driver
+using ...Discovery
+using ...Timers
+using ...AeronUtils
+using ...Clocks
+using ...FixedSizeArrays
+using ...SBE
+using ...StringViews
+using ...UnsafeArrays
+using ...ShmTensorpoolControl
+using ...ShmTensorpoolDriver
+using ...ShmTensorpoolBridge
+using ...ShmTensorpoolDiscovery
+
+include("types.jl")
+include("state.jl")
+include("hooks.jl")
+include("counters.jl")
+include("shm.jl")
+include("frames.jl")
+include("proxy.jl")
+include("handlers.jl")
+include("init.jl")
+include("lifecycle.jl")
+include("work.jl")
+include("agent.jl")
+
+export PayloadPoolConfig,
+    ProducerConfig,
+    SlotClaim,
+    select_pool,
+    ProducerState,
+    ProducerHooks,
+    ProducerConsumerStream,
+    ProducerCounters,
+    init_producer,
+    init_producer_from_attach,
+    producer_config_from_attach,
+    producer_do_work!,
+    make_control_assembler,
+    make_qos_assembler,
+    emit_announce!,
+    emit_consumer_config!,
+    emit_progress_complete!,
+    emit_qos!,
+    handle_consumer_hello!,
+    poll_control!,
+    poll_qos!,
+    offer_frame!,
+    commit_slot!,
+    try_claim_slot!,
+    with_claimed_slot!,
+    payload_pool_config,
+    ProducerAgent
+
+end
