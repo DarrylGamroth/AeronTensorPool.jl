@@ -28,6 +28,11 @@ end
 
 Agent.name(agent::DriverAgent) = "driver"
 
+function Agent.on_start(agent::DriverAgent)
+    register_driver!(agent.state)
+    return nothing
+end
+
 function Agent.do_work(agent::DriverAgent)
     Aeron.increment!(agent.counters.base.total_duty_cycles)
     work_done = driver_do_work!(agent.state)
@@ -49,6 +54,7 @@ function Agent.on_close(agent::DriverAgent)
         fetch!(agent.state.clock)
         driver_lifecycle_dispatch!(agent.state, :ShutdownRequested)
         driver_lifecycle_dispatch!(agent.state, :ShutdownTimeout)
+        unregister_driver!(agent.state)
         close(agent.counters)
         close(agent.state.runtime.control.pub_control)
         close(agent.state.runtime.pub_announce)

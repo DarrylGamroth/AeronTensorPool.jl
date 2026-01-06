@@ -10,6 +10,17 @@ function usage()
     println("  julia --project scripts/tp_tool.jl driver-attach <aeron_dir> <control_channel> <control_stream_id> <client_id> <role> <stream_id> [publish_mode] [expected_layout_version] [require_hugepages_policy] [timeout_ms]")
     println("  julia --project scripts/tp_tool.jl driver-detach <aeron_dir> <control_channel> <control_stream_id> <client_id> <role> <stream_id> <lease_id> [timeout_ms]")
     println("  julia --project scripts/tp_tool.jl driver-keepalive <aeron_dir> <control_channel> <control_stream_id> <client_id> <role> <stream_id> <lease_id>")
+    println("  julia --project scripts/tp_tool.jl driver-status <driver_instance_id>")
+    println("  julia --project scripts/tp_tool.jl driver-list-leases <driver_instance_id>")
+    println("  julia --project scripts/tp_tool.jl driver-list-streams <driver_instance_id>")
+    println("  julia --project scripts/tp_tool.jl driver-counters <aeron_dir> [filter]")
+    println("  julia --project scripts/tp_tool.jl driver-config-validate <config_path>")
+    println("  julia --project scripts/tp_tool.jl driver-config-dump <config_path>")
+    println("  julia --project scripts/tp_tool.jl shm-validate <uri> <layout_version> <epoch> <stream_id> <nslots> <slot_bytes> <region_type> <pool_id>")
+    println("  julia --project scripts/tp_tool.jl shm-summary <uri>")
+    println("  julia --project scripts/tp_tool.jl announce-listen <aeron_dir> <channel> <stream_id> [duration_s]")
+    println("  julia --project scripts/tp_tool.jl discovery-query <aeron_dir> <request_channel> <request_stream_id> <response_channel> <response_stream_id> [stream_id] [producer_id] [data_source_id] [data_source_name] [tags_csv] [timeout_ms]")
+    println("  julia --project scripts/tp_tool.jl bridge-status <aeron_dir> [filter]")
     println("  julia --project scripts/tp_tool.jl discover <aeron_dir> <request_channel> <request_stream_id> <response_channel> <response_stream_id> [stream_id] [producer_id] [data_source_id] [data_source_name] [tags_csv] [timeout_ms]")
     exit(1)
 end
@@ -55,6 +66,13 @@ function parse_hugepages_policy(val::String)
     error("invalid hugepages policy: $val (use hugepages|standard|unspecified|true|false|unset)")
 end
 
+function parse_region_type(val::String)
+    v = lowercase(val)
+    v == "header" && return RegionType.HEADER_RING
+    v == "payload" && return RegionType.PAYLOAD_POOL
+    error("invalid region_type: $val (use header|payload)")
+end
+
 function with_driver_client(
     f::Function,
     aeron_dir::String,
@@ -76,6 +94,34 @@ function with_driver_client(
             close(client)
             close(ctx)
         catch
+        end
+    end
+end
+
+function with_aeron_client(f::Function, aeron_dir::String)
+    ctx = Aeron.Context()
+    Aeron.aeron_dir!(ctx, aeron_dir)
+    client = Aeron.Client(ctx)
+    try
+        return f(client)
+    finally
+        try
+            close(client)
+            close(ctx)
+        catch
+        end
+    end
+end
+
+function print_counters(aeron_dir::String; filter::String = "")
+    with_aeron_client(aeron_dir) do client
+        reader = Aeron.CountersReader(client)
+        Aeron.counter_foreach(reader) do value, counter_id, type_id, _, label, _
+            label_str = String(label)
+            if isempty(filter) || occursin(filter, label_str)
+                println("id=$(counter_id) type=$(type_id) value=$(value) label=$(label_str)")
+            end
+            nothing
         end
     end
 end
@@ -127,6 +173,70 @@ function wait_for_discovery_response(
         yield()
     end
     return nothing
+end
+
+function print_driver_status(state::DriverState)
+    status = driver_status_snapshot(state)
+    println("instance_id=$(status.instance_id)")
+    println("lifecycle=$(status.lifecycle)")
+    println("shutdown_reason=$(status.shutdown_reason)")
+    println("shutdown_message=$(status.shutdown_message)")
+    println("stream_count=$(status.stream_count)")
+    println("lease_count=$(status.lease_count)")
+    println("next_stream_id=$(status.next_stream_id)")
+    println("next_lease_id=$(status.next_lease_id)")
+    if status.stream_id_range !== nothing
+        println("stream_id_range=$(status.stream_id_range)")
+    end
+    if status.descriptor_stream_id_range !== nothing
+        println("descriptor_stream_id_range=$(status.descriptor_stream_id_range)")
+    end
+    if status.control_stream_id_range !== nothing
+        println("control_stream_id_range=$(status.control_stream_id_range)")
+    end
+end
+
+function print_driver_leases(state::DriverState)
+    leases = driver_leases_snapshot(state)
+    println("leases=$(length(leases))")
+    for lease in leases
+        println(
+            "lease_id=$(lease.lease_id) stream_id=$(lease.stream_id) client_id=$(lease.client_id) role=$(lease.role) expiry_ns=$(lease.expiry_ns) state=$(lease.lifecycle)",
+        )
+    end
+end
+
+function print_driver_streams(state::DriverState)
+    streams = driver_streams_snapshot(state)
+    println("streams=$(length(streams))")
+    for stream in streams
+        println("stream_id=$(stream.stream_id) profile=$(stream.profile) epoch=$(stream.epoch)")
+        println("header_uri=$(stream.header_uri)")
+        println("producer_lease_id=$(stream.producer_lease_id)")
+        if !isempty(stream.consumer_lease_ids)
+            println("consumer_lease_ids=$(join(stream.consumer_lease_ids, ','))")
+        end
+        if !isempty(stream.pool_uris)
+            for (pool_id, uri) in stream.pool_uris
+                println("pool_id=$(pool_id) uri=$(uri)")
+            end
+        end
+    end
+    assigned = driver_assigned_streams_snapshot(state)
+    if !isempty(assigned)
+        println("assigned_streams=$(length(assigned))")
+        for entry in assigned
+            println(
+                "consumer_id=$(entry.consumer_id) descriptor_stream_id=$(entry.descriptor_stream_id) control_stream_id=$(entry.control_stream_id)",
+            )
+        end
+    end
+end
+
+function find_driver_or_error(instance_id::String)
+    state = find_driver_state(instance_id)
+    state === nothing && error("driver instance not found in local registry: $instance_id")
+    return state
 end
 
 function wait_for_response(
@@ -193,6 +303,53 @@ elseif cmd == "read-header"
     println("dtype=$(header.dtype)")
     println("major_order=$(header.major_order)")
     println("ndims=$(header.ndims)")
+elseif cmd == "shm-validate"
+    length(ARGS) >= 9 || usage()
+    uri = ARGS[2]
+    expected_layout_version = parse(UInt32, ARGS[3])
+    expected_epoch = parse(UInt64, ARGS[4])
+    expected_stream_id = parse(UInt32, ARGS[5])
+    expected_nslots = parse(UInt32, ARGS[6])
+    expected_slot_bytes = parse(UInt32, ARGS[7])
+    expected_region_type = parse_region_type(ARGS[8])
+    expected_pool_id = parse(UInt16, ARGS[9])
+    buf = mmap_shm(uri, SUPERBLOCK_SIZE)
+    decoder = ShmRegionSuperblock.Decoder(Vector{UInt8})
+    wrap_superblock!(decoder, buf)
+    fields = read_superblock(decoder)
+    ok = validate_superblock_fields(
+        fields;
+        expected_layout_version = expected_layout_version,
+        expected_epoch = expected_epoch,
+        expected_stream_id = expected_stream_id,
+        expected_nslots = expected_nslots,
+        expected_slot_bytes = expected_slot_bytes,
+        expected_region_type = expected_region_type,
+        expected_pool_id = expected_pool_id,
+    )
+    println(ok)
+elseif cmd == "shm-summary"
+    uri = ARGS[2]
+    buf = mmap_shm(uri, SUPERBLOCK_SIZE)
+    decoder = ShmRegionSuperblock.Decoder(Vector{UInt8})
+    wrap_superblock!(decoder, buf)
+    fields = read_superblock(decoder)
+    println("magic=$(fields.magic)")
+    println("layout_version=$(fields.layout_version)")
+    println("epoch=$(fields.epoch)")
+    println("stream_id=$(fields.stream_id)")
+    println("region_type=$(fields.region_type)")
+    println("pool_id=$(fields.pool_id)")
+    println("nslots=$(fields.nslots)")
+    println("slot_bytes=$(fields.slot_bytes)")
+    println("stride_bytes=$(fields.stride_bytes)")
+    println("pid=$(fields.pid)")
+    println("start_timestamp_ns=$(fields.start_timestamp_ns)")
+    println("activity_timestamp_ns=$(fields.activity_timestamp_ns)")
+    path = parse_shm_uri(uri)
+    if isfile(path)
+        println("file_size=$(stat(path).size)")
+    end
 elseif cmd == "send-consumer-config"
     length(ARGS) >= 8 || usage()
     aeron_dir = ARGS[2]
@@ -311,7 +468,111 @@ elseif cmd == "driver-keepalive"
         )
         println(sent)
     end
-elseif cmd == "discover"
+elseif cmd == "driver-status"
+    length(ARGS) >= 2 || usage()
+    instance_id = ARGS[2]
+    state = find_driver_or_error(instance_id)
+    print_driver_status(state)
+elseif cmd == "driver-list-leases"
+    length(ARGS) >= 2 || usage()
+    instance_id = ARGS[2]
+    state = find_driver_or_error(instance_id)
+    print_driver_leases(state)
+elseif cmd == "driver-list-streams"
+    length(ARGS) >= 2 || usage()
+    instance_id = ARGS[2]
+    state = find_driver_or_error(instance_id)
+    print_driver_streams(state)
+elseif cmd == "driver-counters"
+    length(ARGS) >= 2 || usage()
+    aeron_dir = ARGS[2]
+    filter = length(ARGS) >= 3 ? ARGS[3] : "Name=Driver"
+    print_counters(aeron_dir; filter = filter)
+elseif cmd == "driver-config-validate"
+    length(ARGS) >= 2 || usage()
+    config_path = ARGS[2]
+    _ = load_driver_config(config_path; env = ENV)
+    println("ok")
+elseif cmd == "driver-config-dump"
+    length(ARGS) >= 2 || usage()
+    config_path = ARGS[2]
+    cfg = load_driver_config(config_path; env = ENV)
+    println("instance_id=$(cfg.endpoints.instance_id)")
+    println("aeron_dir=$(cfg.endpoints.aeron_dir)")
+    println("control_channel=$(cfg.endpoints.control_channel)")
+    println("control_stream_id=$(cfg.endpoints.control_stream_id)")
+    println("announce_channel=$(cfg.endpoints.announce_channel)")
+    println("announce_stream_id=$(cfg.endpoints.announce_stream_id)")
+    println("qos_channel=$(cfg.endpoints.qos_channel)")
+    println("qos_stream_id=$(cfg.endpoints.qos_stream_id)")
+    println("prefault_shm=$(cfg.policies.prefault_shm)")
+    println("default_profile=$(cfg.policies.default_profile)")
+    println("allow_dynamic_streams=$(cfg.policies.allow_dynamic_streams)")
+    println("announce_period_ms=$(cfg.policies.announce_period_ms)")
+    println("lease_keepalive_interval_ms=$(cfg.policies.lease_keepalive_interval_ms)")
+    println("lease_expiry_grace_intervals=$(cfg.policies.lease_expiry_grace_intervals)")
+    if cfg.stream_id_range !== nothing
+        println("stream_id_range=$(cfg.stream_id_range)")
+    end
+    if cfg.descriptor_stream_id_range !== nothing
+        println("descriptor_stream_id_range=$(cfg.descriptor_stream_id_range)")
+    end
+    if cfg.control_stream_id_range !== nothing
+        println("control_stream_id_range=$(cfg.control_stream_id_range)")
+    end
+    println("profiles=$(length(cfg.profiles))")
+    for (name, profile) in cfg.profiles
+        println("profile=$(name) header_nslots=$(profile.header_nslots) header_slot_bytes=$(profile.header_slot_bytes) max_dims=$(profile.max_dims)")
+        for pool in profile.payload_pools
+            println("pool_id=$(pool.pool_id) stride_bytes=$(pool.stride_bytes)")
+        end
+    end
+    println("streams=$(length(cfg.streams))")
+    for (name, stream) in cfg.streams
+        println("stream=$(name) stream_id=$(stream.stream_id) profile=$(stream.profile)")
+    end
+elseif cmd == "announce-listen"
+    length(ARGS) >= 4 || usage()
+    aeron_dir = ARGS[2]
+    channel = ARGS[3]
+    stream_id = parse(Int32, ARGS[4])
+    duration_s = length(ARGS) >= 5 ? parse(Float64, ARGS[5]) : 5.0
+    ctx = Aeron.Context()
+    Aeron.aeron_dir!(ctx, aeron_dir)
+    client = Aeron.Client(ctx)
+    sub = Aeron.add_subscription(client, channel, stream_id)
+    handler = Aeron.FragmentHandler((_, buffer, _) -> begin
+        header = MessageHeader.Decoder(buffer, 0)
+        template_id = MessageHeader.templateId(header)
+        if template_id == ShmPoolAnnounce.sbe_template_id(ShmPoolAnnounce.Decoder)
+            dec = ShmPoolAnnounce.Decoder(buffer)
+            ShmPoolAnnounce.wrap!(dec, buffer, 0; header = header)
+            println("ShmPoolAnnounce stream_id=$(ShmPoolAnnounce.streamId(dec)) epoch=$(ShmPoolAnnounce.epoch(dec)) layout=$(ShmPoolAnnounce.layoutVersion(dec))")
+        elseif template_id == QosProducer.sbe_template_id(QosProducer.Decoder)
+            dec = QosProducer.Decoder(buffer)
+            QosProducer.wrap!(dec, buffer, 0; header = header)
+            println("QosProducer stream_id=$(QosProducer.streamId(dec)) producer_id=$(QosProducer.producerId(dec)) seq=$(QosProducer.currentSeq(dec))")
+        elseif template_id == QosConsumer.sbe_template_id(QosConsumer.Decoder)
+            dec = QosConsumer.Decoder(buffer)
+            QosConsumer.wrap!(dec, buffer, 0; header = header)
+            println("QosConsumer stream_id=$(QosConsumer.streamId(dec)) consumer_id=$(QosConsumer.consumerId(dec)) seq=$(QosConsumer.lastSeqSeen(dec))")
+        elseif template_id == FrameProgress.sbe_template_id(FrameProgress.Decoder)
+            dec = FrameProgress.Decoder(buffer)
+            FrameProgress.wrap!(dec, buffer, 0; header = header)
+            println("FrameProgress stream_id=$(FrameProgress.streamId(dec)) frame_id=$(FrameProgress.frameId(dec)) state=$(FrameProgress.state(dec)) bytes=$(FrameProgress.payloadBytesFilled(dec))")
+        end
+        nothing
+    end)
+    assembler = Aeron.FragmentAssembler(handler)
+    deadline = time_ns() + Int64(round(duration_s * 1e9))
+    while time_ns() < deadline
+        Aeron.poll(sub, assembler, AeronTensorPool.DEFAULT_FRAGMENT_LIMIT)
+        yield()
+    end
+    close(sub)
+    close(client)
+    close(ctx)
+elseif cmd == "discover" || cmd == "discovery-query"
     length(ARGS) >= 6 || usage()
     aeron_dir = ARGS[2]
     request_channel = ARGS[3]
@@ -370,6 +631,11 @@ elseif cmd == "discover"
             end
         end
     end
+elseif cmd == "bridge-status"
+    length(ARGS) >= 2 || usage()
+    aeron_dir = ARGS[2]
+    filter = length(ARGS) >= 3 ? ARGS[3] : "Name=Bridge"
+    print_counters(aeron_dir; filter = filter)
 else
     usage()
 end
