@@ -22,7 +22,7 @@ This is the Phase 0 export inventory for AeronTensorPool. Public exports are def
 - seqlock_begin_write!, seqlock_commit_write!, seqlock_read_begin, seqlock_read_end, seqlock_is_write_in_progress, seqlock_frame_id
 - header_commit_ptr, header_commit_ptr_from_offset
 - add_counter, make_counter_type_id
-- due!, reset!, poll_timers!
+- due!, reset!, poll!
 - init_consumer, init_producer, init_producer_from_attach, producer_config_from_attach, init_consumer_from_attach
 - init_supervisor, init_driver, init_bridge_sender, init_bridge_receiver
 - bridge_forward_announce!, bridge_send_frame!, bridge_sender_do_work!, bridge_receiver_do_work!, bridge_rematerialize!
