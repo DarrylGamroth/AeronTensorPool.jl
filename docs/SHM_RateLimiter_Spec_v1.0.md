@@ -111,10 +111,10 @@ Optional keys and defaults:
 - `rate_limiter.forward_progress` (bool): forward `FrameProgress`. Default: `false`.
 - `rate_limiter.forward_qos` (bool): forward QoS messages. Default: `false`.
 - `rate_limiter.max_rate_hz` (uint32): fallback publish rate when `ConsumerHello.max_rate_hz` is absent. Default: `0` (unlimited).
-- `rate_limiter.control_channel` (string): local IPC control channel for forwarded progress. Default: `"aeron:ipc"`.
+- `rate_limiter.control_channel` (string): local IPC control channel for forwarded progress. Default: `"aeron:ipc?term-length=16m"`.
 - `rate_limiter.source_control_stream_id` (uint32): source control stream ID to subscribe for `FrameProgress`. Default: `0` (disabled).
 - `rate_limiter.dest_control_stream_id` (uint32): destination control stream ID for forwarded `FrameProgress`. Default: `0` (disabled).
-- `rate_limiter.qos_channel` (string): local IPC QoS channel. Default: `"aeron:ipc"`.
+- `rate_limiter.qos_channel` (string): local IPC QoS channel. Default: `"aeron:ipc?term-length=16m"`.
 - `rate_limiter.source_qos_stream_id` (uint32): source QoS stream ID to subscribe. Default: `0` (disabled).
 - `rate_limiter.dest_qos_stream_id` (uint32): destination QoS stream ID for forwarded QoS. Default: `0` (disabled).
 

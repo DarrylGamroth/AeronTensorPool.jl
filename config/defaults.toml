@@ -1,6 +1,6 @@
 [producer]
 aeron_dir = ""
-aeron_uri = "aeron:ipc"
+aeron_uri = "aeron:ipc?term-length=16m"
 descriptor_stream_id = 1100
 control_stream_id = 1000
 qos_stream_id = 1200
@@ -27,7 +27,7 @@ nslots = 1024
 
 [consumer]
 aeron_dir = ""
-aeron_uri = "aeron:ipc"
+aeron_uri = "aeron:ipc?term-length=16m"
 descriptor_stream_id = 1100
 control_stream_id = 1000
 qos_stream_id = 1200
@@ -54,7 +54,7 @@ qos_interval_ns = 1000000000
 
 [supervisor]
 aeron_dir = ""
-aeron_uri = "aeron:ipc"
+aeron_uri = "aeron:ipc?term-length=16m"
 control_stream_id = 1000
 qos_stream_id = 1200
 stream_id = 1

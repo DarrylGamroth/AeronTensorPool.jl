@@ -80,7 +80,7 @@ Deployments define:
 
 ```toml
 # Single-host default
-discovery.channel   = "aeron:ipc"
+discovery.channel   = "aeron:ipc?term-length=16m"
 discovery.stream_id = 1000
 
 # Multi-host / fleet

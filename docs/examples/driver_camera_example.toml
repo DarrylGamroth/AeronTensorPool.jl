@@ -3,11 +3,11 @@
 [driver]
 instance_id = "driver-01"
 aeron_dir = ""
-control_channel = "aeron:ipc"
+control_channel = "aeron:ipc?term-length=16m"
 control_stream_id = 1000
-announce_channel = "aeron:ipc"
+announce_channel = "aeron:ipc?term-length=16m"
 announce_stream_id = 1001
-qos_channel = "aeron:ipc"
+qos_channel = "aeron:ipc?term-length=16m"
 qos_stream_id = 1200
 
 [shm]

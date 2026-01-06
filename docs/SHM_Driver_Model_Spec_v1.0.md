@@ -399,7 +399,7 @@ Drivers SHOULD also accept equivalent environment variables, following Aeron’s
 Required keys (unless stated otherwise):
 
 - `driver.instance_id` (string): identifier for logging/diagnostics. Default: `"driver-01"`.
-- `driver.control_channel` (string): Aeron channel for control-plane messages. Default: `"aeron:ipc"`.
+- `driver.control_channel` (string): Aeron channel for control-plane messages. Default: `"aeron:ipc?term-length=16m"`.
 - `driver.control_stream_id` (uint32): control-plane stream ID. Default: `1000`.
 - `shm.base_dir` (string): root directory for SHM backing files. Default: `"/dev/shm/tensorpool"`.
 - `profiles.*` (table): at least one profile must be defined.
@@ -411,7 +411,7 @@ Optional keys and defaults:
 - `driver.aeron_dir` (string): Aeron media driver directory. Default: Aeron library default.
 - `driver.announce_channel` (string): channel for `ShmPoolAnnounce`. Default: `driver.control_channel`.
 - `driver.announce_stream_id` (uint32): stream ID for `ShmPoolAnnounce`. Default: `driver.control_stream_id`.
-- `driver.qos_channel` (string): channel for QoS messages. Default: `"aeron:ipc"`.
+- `driver.qos_channel` (string): channel for QoS messages. Default: `"aeron:ipc?term-length=16m"`.
 - `driver.qos_stream_id` (uint32): QoS stream ID. Default: `1200`.
 - `driver.stream_id_range` (string or array): inclusive range for dynamically created stream IDs (e.g., `"20000-29999"`). Default: empty (disabled).
 - `driver.descriptor_stream_id_range` (string or array): inclusive range for per-consumer descriptor stream IDs. Default: empty (disabled).

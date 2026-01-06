@@ -102,14 +102,14 @@ For a combined wire + driver overview, see `docs/IMPLEMENTATION_GUIDE.md`.
 ### 9a.1 Embedded Provider Config (example)
 ```toml
 [discovery]
-channel = "aeron:ipc"
+channel = "aeron:ipc?term-length=16m"
 stream_id = 7000
-announce_channel = "aeron:ipc"
+announce_channel = "aeron:ipc?term-length=16m"
 announce_stream_id = 7001
-metadata_channel = "aeron:ipc"
+metadata_channel = "aeron:ipc?term-length=16m"
 metadata_stream_id = 7002
 driver_instance_id = "driver-1"
-driver_control_channel = "aeron:ipc"
+driver_control_channel = "aeron:ipc?term-length=16m"
 driver_control_stream_id = 7003
 max_results = 1000
 expiry_ns = 3_000_000_000
@@ -139,8 +139,8 @@ driver_control_stream_id = 7103
 ```julia
 client_state = init_discovery_client(
     client,
-    "aeron:ipc", 7000,       # request channel/stream
-    "aeron:ipc", UInt32(7004), # response channel/stream
+    "aeron:ipc?term-length=16m", 7000,       # request channel/stream
+    "aeron:ipc?term-length=16m", UInt32(7004), # response channel/stream
     UInt32(42),              # client_id
 )
 
@@ -248,11 +248,11 @@ end
 ```toml
 [driver]
 instance_id = "driver-01"
-control_channel = "aeron:ipc"
+control_channel = "aeron:ipc?term-length=16m"
 control_stream_id = 1000
-announce_channel = "aeron:ipc"
+announce_channel = "aeron:ipc?term-length=16m"
 announce_stream_id = 1001
-qos_channel = "aeron:ipc"
+qos_channel = "aeron:ipc?term-length=16m"
 qos_stream_id = 1200
 
 [shm]
