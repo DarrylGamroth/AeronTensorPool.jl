@@ -8,7 +8,7 @@ Arguments:
 Returns:
 - `nothing`.
 """
-@inline function seqlock_begin_write!(commit_ptr::Ptr{UInt64}, seq::UInt64)
+function seqlock_begin_write!(commit_ptr::Ptr{UInt64}, seq::UInt64)
     unsafe_store!(commit_ptr, seq << 1, :release)
     return nothing
 end
@@ -23,7 +23,7 @@ Arguments:
 Returns:
 - `nothing`.
 """
-@inline function seqlock_commit_write!(commit_ptr::Ptr{UInt64}, seq::UInt64)
+function seqlock_commit_write!(commit_ptr::Ptr{UInt64}, seq::UInt64)
     unsafe_store!(commit_ptr, (seq << 1) | 1, :release)
     return nothing
 end
@@ -37,7 +37,7 @@ Arguments:
 Returns:
 - The raw seq_commit value (UInt64).
 """
-@inline function seqlock_read_begin(commit_ptr::Ptr{UInt64})
+function seqlock_read_begin(commit_ptr::Ptr{UInt64})
     return unsafe_load(commit_ptr, :acquire)
 end
 
@@ -50,7 +50,7 @@ Arguments:
 Returns:
 - The raw seq_commit value (UInt64).
 """
-@inline function seqlock_read_end(commit_ptr::Ptr{UInt64})
+function seqlock_read_end(commit_ptr::Ptr{UInt64})
     return unsafe_load(commit_ptr, :acquire)
 end
 
@@ -63,7 +63,7 @@ Arguments:
 Returns:
 - `true` if the slot is committed, `false` otherwise.
 """
-@inline function seqlock_is_committed(word::UInt64)
+function seqlock_is_committed(word::UInt64)
     return isodd(word)
 end
 
@@ -76,7 +76,7 @@ Arguments:
 Returns:
 - Logical sequence (UInt64).
 """
-@inline function seqlock_sequence(word::UInt64)
+function seqlock_sequence(word::UInt64)
     return word >> 1
 end
 
@@ -90,7 +90,7 @@ Arguments:
 Returns:
 - `Ptr{UInt64}` pointing to the seq_commit.
 """
-@inline function header_commit_ptr(header_mmap::AbstractVector{UInt8}, header_index::UInt32)
+function header_commit_ptr(header_mmap::AbstractVector{UInt8}, header_index::UInt32)
     header_offset = header_slot_offset(header_index)
     return Ptr{UInt64}(pointer(header_mmap, header_offset + 1))
 end
@@ -105,6 +105,6 @@ Arguments:
 Returns:
 - `Ptr{UInt64}` pointing to the seq_commit.
 """
-@inline function header_commit_ptr_from_offset(header_mmap::AbstractVector{UInt8}, header_offset::Integer)
+function header_commit_ptr_from_offset(header_mmap::AbstractVector{UInt8}, header_offset::Integer)
     return Ptr{UInt64}(pointer(header_mmap, header_offset + 1))
 end

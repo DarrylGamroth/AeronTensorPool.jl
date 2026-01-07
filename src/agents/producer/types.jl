@@ -57,7 +57,7 @@ Arguments:
 Returns:
 - 1-based index of the best-fit pool, or 0 if no pool fits.
 """
-@inline function select_pool(pools::AbstractVector{PayloadPoolConfig}, values_len::Integer)::Int
+function select_pool(pools::AbstractVector{PayloadPoolConfig}, values_len::Integer)::Int
     best_idx = 0
     best_stride = typemax(UInt32)
     for (i, pool) in pairs(pools)

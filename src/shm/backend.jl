@@ -4,7 +4,7 @@ Backend dispatch for SHM operations.
 Returns:
 - Page size in bytes for the active backend.
 """
-@inline function page_size_bytes()
+function page_size_bytes()
     return page_size_bytes_linux()
 end
 
@@ -14,7 +14,7 @@ Return the hugepage size in bytes for the active backend.
 Returns:
 - Hugepage size in bytes.
 """
-@inline function hugepage_size_bytes()
+function hugepage_size_bytes()
     return hugepage_size_bytes_linux()
 end
 
@@ -27,7 +27,7 @@ Arguments:
 Returns:
 - `true` if the path resides on hugetlbfs, `false` otherwise.
 """
-@inline function is_hugetlbfs_path(path::AbstractString)
+function is_hugetlbfs_path(path::AbstractString)
     return is_hugetlbfs_path_linux(path)
 end
 

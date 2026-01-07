@@ -88,7 +88,7 @@ struct DiscoveryResultView
     data_source_name::StringView
 end
 
-@inline function discovery_result_view(entry::DiscoveryEntry)
+function discovery_result_view(entry::DiscoveryEntry)
     return DiscoveryResultView(
         view(entry.driver_instance_id),
         view(entry.driver_control_channel),

@@ -9,7 +9,7 @@ end
 """
 Construct a PolledTimer with the given interval.
 """
-@inline function PolledTimer(interval_ns::UInt64)
+function PolledTimer(interval_ns::UInt64)
     return PolledTimer(interval_ns, UInt64(0))
 end
 
@@ -23,7 +23,7 @@ Arguments:
 Returns:
 - `nothing`.
 """
-@inline function reset!(timer::PolledTimer, now_ns::UInt64)
+function reset!(timer::PolledTimer, now_ns::UInt64)
     timer.last_ns = now_ns
     return nothing
 end
@@ -38,7 +38,7 @@ Arguments:
 Returns:
 - `true` if expired, `false` otherwise.
 """
-@inline function expired(timer::PolledTimer, now_ns::UInt64)
+function expired(timer::PolledTimer, now_ns::UInt64)
     timer.interval_ns == 0 && return false
     return now_ns - timer.last_ns >= timer.interval_ns
 end
@@ -53,7 +53,7 @@ Arguments:
 Returns:
 - `true` if due and advanced, `false` otherwise.
 """
-@inline function due!(timer::PolledTimer, now_ns::UInt64)
+function due!(timer::PolledTimer, now_ns::UInt64)
     timer.interval_ns == 0 && return false
     if now_ns - timer.last_ns >= timer.interval_ns
         timer.last_ns = now_ns
@@ -72,7 +72,7 @@ Arguments:
 Returns:
 - `nothing`.
 """
-@inline function set_interval!(timer::PolledTimer, interval_ns::UInt64)
+function set_interval!(timer::PolledTimer, interval_ns::UInt64)
     timer.interval_ns = interval_ns
     return nothing
 end
@@ -86,7 +86,7 @@ Arguments:
 Returns:
 - `nothing`.
 """
-@inline function disable!(timer::PolledTimer)
+function disable!(timer::PolledTimer)
     timer.interval_ns = UInt64(0)
     return nothing
 end

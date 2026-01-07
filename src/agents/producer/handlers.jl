@@ -58,7 +58,7 @@ Arguments:
 Returns:
 - Number of fragments processed.
 """
-@inline function poll_control!(
+function poll_control!(
     state::ProducerState,
     assembler::Aeron.FragmentAssembler,
     fragment_limit::Int32 = DEFAULT_FRAGMENT_LIMIT,
@@ -77,7 +77,7 @@ Arguments:
 Returns:
 - Number of fragments processed.
 """
-@inline function poll_qos!(
+function poll_qos!(
     state::ProducerState,
     assembler::Aeron.FragmentAssembler,
     fragment_limit::Int32 = DEFAULT_FRAGMENT_LIMIT,
@@ -108,7 +108,7 @@ function refresh_activity_timestamps!(
     return nothing
 end
 
-@inline function (handler::ProducerAnnounceHandler)(state::ProducerState, now_ns::UInt64)
+function (handler::ProducerAnnounceHandler)(state::ProducerState, now_ns::UInt64)
     if state.emit_announce
         emit_announce!(state)
     end
@@ -116,27 +116,27 @@ end
     return 1
 end
 
-@inline function (handler::ProducerQosHandler)(state::ProducerState, now_ns::UInt64)
+function (handler::ProducerQosHandler)(state::ProducerState, now_ns::UInt64)
     emit_qos!(state)
     return 1
 end
 
-@inline function consumer_stream_timeout_ns(state::ProducerState)
+function consumer_stream_timeout_ns(state::ProducerState)
     base = max(state.config.announce_interval_ns, state.config.qos_interval_ns)
     return base * 5
 end
 
-@inline function consumer_stream_last_seen_ns(entry::ProducerConsumerStream)
+function consumer_stream_last_seen_ns(entry::ProducerConsumerStream)
     return max(entry.last_hello_ns, entry.last_qos_ns)
 end
 
-@inline function reset_consumer_timeout!(state::ProducerState, entry::ProducerConsumerStream, now_ns::UInt64)
+function reset_consumer_timeout!(state::ProducerState, entry::ProducerConsumerStream, now_ns::UInt64)
     set_interval!(entry.timeout_timer, consumer_stream_timeout_ns(state))
     reset!(entry.timeout_timer, now_ns)
     return nothing
 end
 
-@inline function update_descriptor_timer!(entry::ProducerConsumerStream, now_ns::UInt64)
+function update_descriptor_timer!(entry::ProducerConsumerStream, now_ns::UInt64)
     if entry.max_rate_hz == 0
         disable!(entry.descriptor_timer)
         return nothing

@@ -139,7 +139,7 @@ Arguments:
 Returns:
 - Next header index (UInt32).
 """
-@inline function next_header_index(state::ProducerState)
+function next_header_index(state::ProducerState)
     return UInt32(state.seq & (UInt64(state.config.nslots) - 1))
 end
 
@@ -256,7 +256,7 @@ Arguments:
 Returns:
 - `true` if the descriptor was published (shared or per-consumer), `false` otherwise.
 """
-@inline function with_claimed_slot!(
+function with_claimed_slot!(
     fill_fn,
     state::ProducerState,
     pool_id::UInt16,
@@ -287,7 +287,7 @@ Arguments:
 Returns:
 - `true` if the descriptor was published (shared or per-consumer), `false` otherwise.
 """
-@inline function with_claimed_slot!(
+function with_claimed_slot!(
     fill_fn,
     state::ProducerState,
     pool_id::UInt16;
@@ -392,7 +392,7 @@ Arguments:
 Returns:
 - `true` if the descriptor was published (shared or per-consumer), `false` otherwise.
 """
-@inline function commit_slot!(
+function commit_slot!(
     state::ProducerState,
     claim::SlotClaim;
     values_len::Int,

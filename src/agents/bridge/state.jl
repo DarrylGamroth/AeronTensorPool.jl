@@ -70,7 +70,7 @@ end
 """
 Call overload for `BridgeChunkFill`.
 """
-@inline function (fill::BridgeChunkFill)(buf::AbstractArray{UInt8})
+function (fill::BridgeChunkFill)(buf::AbstractArray{UInt8})
     BridgeFrameChunk.wrap_and_apply_header!(fill.encoder, buf, 0)
     BridgeFrameChunk.streamId!(fill.encoder, fill.dest_stream_id)
     BridgeFrameChunk.epoch!(fill.encoder, fill.epoch)

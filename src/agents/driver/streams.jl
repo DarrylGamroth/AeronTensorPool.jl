@@ -1,4 +1,4 @@
-@inline function range_contains(range::DriverStreamIdRange, value::UInt32)
+function range_contains(range::DriverStreamIdRange, value::UInt32)
     return value >= range.start_id && value <= range.end_id
 end
 
@@ -193,7 +193,7 @@ function provision_stream_epoch!(state::DriverState, stream_state::DriverStreamS
     return nothing
 end
 
-@inline function parse_mode(mode_str::AbstractString)
+function parse_mode(mode_str::AbstractString)
     return parse(UInt32, mode_str; base = 8)
 end
 
@@ -216,7 +216,7 @@ function ensure_shm_file!(state::DriverState, path::AbstractString, size::Int, m
     return nothing
 end
 
-@inline function add_hugepage_flag(uri::AbstractString)
+function add_hugepage_flag(uri::AbstractString)
     return "$(uri)|require_hugepages=true"
 end
 

@@ -83,7 +83,7 @@ Arguments:
 Returns:
 - Number of fragments processed.
 """
-@inline function poll_descriptor!(
+function poll_descriptor!(
     state::ConsumerState,
     assembler::Aeron.FragmentAssembler,
     fragment_limit::Int32 = DEFAULT_FRAGMENT_LIMIT,
@@ -102,7 +102,7 @@ Arguments:
 Returns:
 - Number of fragments processed.
 """
-@inline function poll_control!(
+function poll_control!(
     state::ConsumerState,
     assembler::Aeron.FragmentAssembler,
     fragment_limit::Int32 = DEFAULT_FRAGMENT_LIMIT,
@@ -121,7 +121,7 @@ Arguments:
 Returns:
 - Number of fragments processed.
 """
-@inline function poll_progress!(
+function poll_progress!(
     state::ConsumerState,
     assembler::Aeron.FragmentAssembler,
     fragment_limit::Int32 = DEFAULT_FRAGMENT_LIMIT,
@@ -131,12 +131,12 @@ Returns:
     return Aeron.poll(sub, assembler, fragment_limit)
 end
 
-@inline function (handler::ConsumerHelloHandler)(state::ConsumerState, now_ns::UInt64)
+function (handler::ConsumerHelloHandler)(state::ConsumerState, now_ns::UInt64)
     emit_consumer_hello!(state)
     return 1
 end
 
-@inline function (handler::ConsumerQosHandler)(state::ConsumerState, now_ns::UInt64)
+function (handler::ConsumerQosHandler)(state::ConsumerState, now_ns::UInt64)
     emit_qos!(state)
     return 1
 end

@@ -1,4 +1,4 @@
-@inline function should_process(state::ConsumerState, seq::UInt64)
+function should_process(state::ConsumerState, seq::UInt64)
     state.config.mode == Mode.RATE_LIMITED || return true
     return true
 end
@@ -22,15 +22,15 @@ function maybe_track_gap!(state::ConsumerState, seq::UInt64)
     return nothing
 end
 
-@inline function valid_dtype(dtype::Dtype.SbeEnum)
+function valid_dtype(dtype::Dtype.SbeEnum)
     return dtype != Dtype.UNKNOWN && dtype != Dtype.NULL_VALUE
 end
 
-@inline function valid_major_order(order::MajorOrder.SbeEnum)
+function valid_major_order(order::MajorOrder.SbeEnum)
     return order == MajorOrder.ROW || order == MajorOrder.COLUMN
 end
 
-@inline function dtype_size_bytes(dtype::Dtype.SbeEnum)
+function dtype_size_bytes(dtype::Dtype.SbeEnum)
     if dtype == Dtype.UINT8 || dtype == Dtype.INT8 || dtype == Dtype.BOOLEAN ||
        dtype == Dtype.BYTES || dtype == Dtype.BIT
         return Int64(1)

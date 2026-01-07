@@ -27,7 +27,7 @@ Arguments:
 Returns:
 - The wrapped encoder `m`.
 """
-@inline function wrap_superblock!(m::ShmRegionSuperblock.Encoder, buffer::AbstractVector{UInt8}, offset::Integer = 0)
+function wrap_superblock!(m::ShmRegionSuperblock.Encoder, buffer::AbstractVector{UInt8}, offset::Integer = 0)
     @boundscheck length(buffer) >= offset + SUPERBLOCK_SIZE || throw(ArgumentError("buffer too small for superblock"))
     ShmRegionSuperblock.wrap!(m, buffer, offset)
     return m
@@ -44,7 +44,7 @@ Arguments:
 Returns:
 - The wrapped decoder `m`.
 """
-@inline function wrap_superblock!(m::ShmRegionSuperblock.Decoder, buffer::AbstractVector{UInt8}, offset::Integer = 0)
+function wrap_superblock!(m::ShmRegionSuperblock.Decoder, buffer::AbstractVector{UInt8}, offset::Integer = 0)
     @boundscheck length(buffer) >= offset + SUPERBLOCK_SIZE || throw(ArgumentError("buffer too small for superblock"))
     ShmRegionSuperblock.wrap!(
         m,
@@ -67,7 +67,7 @@ Arguments:
 Returns:
 - The wrapped encoder `m`.
 """
-@inline function wrap_tensor_header!(m::TensorSlotHeaderMsg.Encoder, buffer::AbstractVector{UInt8}, offset::Integer)
+function wrap_tensor_header!(m::TensorSlotHeaderMsg.Encoder, buffer::AbstractVector{UInt8}, offset::Integer)
     @boundscheck length(buffer) >= offset + HEADER_SLOT_BYTES || throw(ArgumentError("buffer too small for header slot"))
     TensorSlotHeaderMsg.wrap!(m, buffer, offset)
     return m
@@ -84,7 +84,7 @@ Arguments:
 Returns:
 - The wrapped decoder `m`.
 """
-@inline function wrap_tensor_header!(m::TensorSlotHeaderMsg.Decoder, buffer::AbstractVector{UInt8}, offset::Integer)
+function wrap_tensor_header!(m::TensorSlotHeaderMsg.Decoder, buffer::AbstractVector{UInt8}, offset::Integer)
     @boundscheck length(buffer) >= offset + HEADER_SLOT_BYTES || throw(ArgumentError("buffer too small for header slot"))
     TensorSlotHeaderMsg.wrap!(
         m,
@@ -206,7 +206,7 @@ Arguments:
 Returns:
 - `nothing`.
 """
-@inline function write_tensor_slot_header!(
+function write_tensor_slot_header!(
     m::TensorSlotHeaderMsg.Encoder,
     timestamp_ns::UInt64,
     meta_version::UInt32,
@@ -256,7 +256,7 @@ Arguments:
 Returns:
 - `nothing`.
 """
-@inline function write_tensor_slot_header!(
+function write_tensor_slot_header!(
     m::TensorSlotHeaderMsg.Encoder;
     timestamp_ns::UInt64,
     meta_version::UInt32,
@@ -341,7 +341,7 @@ Arguments:
 Returns:
 - `TensorSlotHeader` on success, `nothing` if the buffer is too short.
 """
-@inline function try_read_tensor_slot_header(m::TensorSlotHeaderMsg.Decoder)
+function try_read_tensor_slot_header(m::TensorSlotHeaderMsg.Decoder)
     buf = TensorSlotHeaderMsg.sbe_buffer(m)
     base = TensorSlotHeaderMsg.sbe_offset(m)
     dims_offset = TensorSlotHeaderMsg.dims_encoding_offset(m)

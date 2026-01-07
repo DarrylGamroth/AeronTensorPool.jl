@@ -1,4 +1,4 @@
-@inline function consumer_driver_active(state::ConsumerState)
+function consumer_driver_active(state::ConsumerState)
     dc = state.driver_client
     dc === nothing && return true
     return state.driver_active && dc.lease_id != 0 && !dc.revoked && !dc.shutdown

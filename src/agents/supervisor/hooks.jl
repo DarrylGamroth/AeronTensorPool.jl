@@ -8,19 +8,19 @@ struct SupervisorHooks{FAnnounce, FHello, FQosP, FQosC}
     on_qos_consumer!::FQosC
 end
 
-@inline function noop_supervisor_announce!(::SupervisorState, ::ShmPoolAnnounce.Decoder)
+function noop_supervisor_announce!(::SupervisorState, ::ShmPoolAnnounce.Decoder)
     return nothing
 end
 
-@inline function noop_supervisor_hello!(::SupervisorState, ::ConsumerHello.Decoder)
+function noop_supervisor_hello!(::SupervisorState, ::ConsumerHello.Decoder)
     return nothing
 end
 
-@inline function noop_supervisor_qos_producer!(::SupervisorState, ::QosProducer.Decoder)
+function noop_supervisor_qos_producer!(::SupervisorState, ::QosProducer.Decoder)
     return nothing
 end
 
-@inline function noop_supervisor_qos_consumer!(::SupervisorState, ::QosConsumer.Decoder)
+function noop_supervisor_qos_consumer!(::SupervisorState, ::QosConsumer.Decoder)
     return nothing
 end
 

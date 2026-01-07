@@ -21,7 +21,7 @@ function remap_producer_from_attach!(state::ProducerState, attach::AttachRespons
     return true
 end
 
-@inline function producer_driver_active(state::ProducerState)
+function producer_driver_active(state::ProducerState)
     dc = state.driver_client
     dc === nothing && return true
     return state.driver_active && dc.lease_id != 0 && !dc.revoked && !dc.shutdown

@@ -1,7 +1,7 @@
 """
 Return true if a progress update should be emitted.
 """
-@inline function should_emit_progress!(state::ProducerState, bytes_filled::UInt64, final::Bool)
+function should_emit_progress!(state::ProducerState, bytes_filled::UInt64, final::Bool)
     if final
         return true
     end

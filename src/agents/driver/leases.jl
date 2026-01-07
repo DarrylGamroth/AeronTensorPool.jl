@@ -1,10 +1,10 @@
-@inline function next_lease_id!(state::DriverState)
+function next_lease_id!(state::DriverState)
     lease_id = state.next_lease_id
     state.next_lease_id += 1
     return lease_id
 end
 
-@inline function lease_expiry_ns(state::DriverState, now_ns::UInt64)
+function lease_expiry_ns(state::DriverState, now_ns::UInt64)
     grace_ns = UInt64(state.config.policies.lease_keepalive_interval_ms) * 1_000_000 *
         UInt64(state.config.policies.lease_expiry_grace_intervals)
     return now_ns + grace_ns

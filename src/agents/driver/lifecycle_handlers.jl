@@ -1,4 +1,4 @@
-@inline function reject_attach!(state::DriverState, msg::ShmAttachRequest.Decoder)
+function reject_attach!(state::DriverState, msg::ShmAttachRequest.Decoder)
     correlation_id = ShmAttachRequest.correlationId(msg)
     emit_attach_response!(
         state,
@@ -19,7 +19,7 @@ end
     return reject_attach!(state, state.runtime.attach_decoder)
 end
 
-@inline function begin_draining!(state::DriverState, sm::DriverLifecycle)
+function begin_draining!(state::DriverState, sm::DriverLifecycle)
     timeout_ns = UInt64(state.config.policies.shutdown_timeout_ms) * 1_000_000
     timer = driver_shutdown_timer(state)
     set_interval!(timer, timeout_ns)

@@ -7,7 +7,7 @@ Arguments:
 Returns:
 - Byte offset from the start of the header mmap.
 """
-@inline function header_slot_offset(index::Integer)
+function header_slot_offset(index::Integer)
     return SUPERBLOCK_SIZE + Int(index) * HEADER_SLOT_BYTES
 end
 
@@ -40,7 +40,7 @@ Arguments:
 Returns:
 - Byte offset from the start of the payload mmap.
 """
-@inline function payload_slot_offset(stride_bytes::Integer, slot::Integer)
+function payload_slot_offset(stride_bytes::Integer, slot::Integer)
     return SUPERBLOCK_SIZE + Int(slot) * Int(stride_bytes)
 end
 
@@ -56,7 +56,7 @@ Arguments:
 Returns:
 - `SubArray` view into the payload buffer.
 """
-@inline function payload_slot_view(
+function payload_slot_view(
     buffer::AbstractVector{UInt8},
     stride_bytes::Integer,
     slot::Integer,
@@ -78,12 +78,12 @@ Arguments:
 Returns:
 - Tuple `(Ptr{UInt8}, Int)` where the pointer is the start of the slot.
 """
-@inline function payload_slot_ptr(buffer::AbstractVector{UInt8}, stride_bytes::Integer, slot::Integer)
+function payload_slot_ptr(buffer::AbstractVector{UInt8}, stride_bytes::Integer, slot::Integer)
     offset = payload_slot_offset(stride_bytes, slot)
     return Ptr{UInt8}(pointer(buffer, offset + 1)), Int(stride_bytes)
 end
 
-@inline ispow2_u32(x::UInt32) = (x != 0x00000000) & ((x & (x - 0x00000001)) == 0x00000000)
+ispow2_u32(x::UInt32) = (x != 0x00000000) & ((x & (x - 0x00000001)) == 0x00000000)
 
 """
 Validate stride_bytes against alignment and hugepage requirements.
@@ -97,7 +97,7 @@ Arguments:
 Returns:
 - `true` if valid, `false` otherwise.
 """
-@inline function validate_stride(
+function validate_stride(
     stride_bytes::UInt32;
     require_hugepages::Bool,
     page_size_bytes::Int = page_size_bytes(),

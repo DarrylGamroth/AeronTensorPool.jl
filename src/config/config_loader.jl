@@ -18,34 +18,34 @@ struct BridgeSystemConfig
     mappings::Vector{BridgeMapping}
 end
 
-@inline function expand_vars(value::AbstractString, env::AbstractDict)
+function expand_vars(value::AbstractString, env::AbstractDict)
     user = get(env, "USER", "")
     out = replace(value, "\${USER}" => user)
     out = replace(out, "\$USER" => user)
     return out
 end
 
-@inline function env_default(env::AbstractDict, key::AbstractString, fallback::AbstractString)
+function env_default(env::AbstractDict, key::AbstractString, fallback::AbstractString)
     return expand_vars(get(env, key, fallback), env)
 end
 
-@inline function env_default(env::AbstractDict, key::AbstractString, fallback::UInt32)
+function env_default(env::AbstractDict, key::AbstractString, fallback::UInt32)
     return parse(UInt32, get(env, key, string(fallback)))
 end
 
-@inline function env_default(env::AbstractDict, key::AbstractString, fallback::UInt16)
+function env_default(env::AbstractDict, key::AbstractString, fallback::UInt16)
     return parse(UInt16, get(env, key, string(fallback)))
 end
 
-@inline function env_default(env::AbstractDict, key::AbstractString, fallback::UInt64)
+function env_default(env::AbstractDict, key::AbstractString, fallback::UInt64)
     return parse(UInt64, get(env, key, string(fallback)))
 end
 
-@inline function env_default(env::AbstractDict, key::AbstractString, fallback::Int32)
+function env_default(env::AbstractDict, key::AbstractString, fallback::Int32)
     return parse(Int32, get(env, key, string(fallback)))
 end
 
-@inline function env_default(env::AbstractDict, key::AbstractString, fallback::Bool)
+function env_default(env::AbstractDict, key::AbstractString, fallback::Bool)
     return lowercase(get(env, key, string(fallback))) == "true"
 end
 

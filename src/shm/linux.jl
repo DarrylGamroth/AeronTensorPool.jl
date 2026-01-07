@@ -1,4 +1,4 @@
-@inline function page_size_bytes_linux()
+function page_size_bytes_linux()
     return Int(ccall(:getpagesize, Cint, ()))
 end
 

@@ -75,7 +75,7 @@ Arguments:
 Returns:
 - Correlation id (Int64).
 """
-@inline function next_correlation_id!(state::DriverClientState)
+function next_correlation_id!(state::DriverClientState)
     cid = state.next_correlation_id
     state.next_correlation_id += 1
     return cid
@@ -121,7 +121,7 @@ end
 """
 Apply a successful attach response to the client state.
 """
-@inline function apply_attach!(state::DriverClientState, attach::AttachResponse)
+function apply_attach!(state::DriverClientState, attach::AttachResponse)
     if attach.code == DriverResponseCode.OK
         state.lease_id = attach.lease_id
         state.stream_id = attach.stream_id

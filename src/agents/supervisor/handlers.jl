@@ -1,4 +1,4 @@
-@inline function (handler::SupervisorLivenessHandler)(state::SupervisorState, now_ns::UInt64)
+function (handler::SupervisorLivenessHandler)(state::SupervisorState, now_ns::UInt64)
     return check_liveness!(state, now_ns) ? 1 : 0
 end
 
@@ -69,7 +69,7 @@ Arguments:
 Returns:
 - Number of fragments processed.
 """
-@inline function poll_control!(
+function poll_control!(
     state::SupervisorState,
     assembler::Aeron.FragmentAssembler,
     fragment_limit::Int32 = DEFAULT_FRAGMENT_LIMIT,
@@ -88,7 +88,7 @@ Arguments:
 Returns:
 - Number of fragments processed.
 """
-@inline function poll_qos!(
+function poll_qos!(
     state::SupervisorState,
     assembler::Aeron.FragmentAssembler,
     fragment_limit::Int32 = DEFAULT_FRAGMENT_LIMIT,

@@ -84,7 +84,7 @@ function make_driver_control_assembler(state::DriverState)
     return Aeron.FragmentAssembler(handler)
 end
 
-@inline function poll_timers!(state::DriverState, now_ns::UInt64)
+function poll_timers!(state::DriverState, now_ns::UInt64)
     return Timers.poll!(state.timer_set, state, now_ns)
 end
 
@@ -201,17 +201,17 @@ function handle_consumer_hello!(state::DriverState, msg::ConsumerHello.Decoder)
     return true
 end
 
-@inline function (handler::DriverAnnounceHandler)(state::DriverState, now_ns::UInt64)
+function (handler::DriverAnnounceHandler)(state::DriverState, now_ns::UInt64)
     announce_all_streams!(state)
     return 1
 end
 
-@inline function (handler::DriverLeaseCheckHandler)(state::DriverState, now_ns::UInt64)
+function (handler::DriverLeaseCheckHandler)(state::DriverState, now_ns::UInt64)
     check_leases!(state, now_ns)
     return 1
 end
 
-@inline function (handler::DriverShutdownHandler)(state::DriverState, now_ns::UInt64)
+function (handler::DriverShutdownHandler)(state::DriverState, now_ns::UInt64)
     driver_lifecycle_dispatch!(state, :ShutdownTimeout)
     return 1
 end

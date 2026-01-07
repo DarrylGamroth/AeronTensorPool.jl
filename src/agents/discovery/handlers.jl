@@ -1,10 +1,10 @@
-@inline function var_ascii_view(m::ShmTensorpoolDiscovery.VarAsciiEncoding.Decoder)
+function var_ascii_view(m::ShmTensorpoolDiscovery.VarAsciiEncoding.Decoder)
     len = ShmTensorpoolDiscovery.VarAsciiEncoding.length(m)
     offset = m.offset + ShmTensorpoolDiscovery.VarAsciiEncoding.varData_encoding_offset(m)
     return StringView(view(m.buffer, offset + 1:offset + len))
 end
 
-@inline function var_ascii_set!(
+function var_ascii_set!(
     m::ShmTensorpoolDiscovery.VarAsciiEncoding.Encoder,
     value::AbstractString,
 )
@@ -17,7 +17,7 @@ end
     return nothing
 end
 
-@inline function discovery_data_source_id_null()
+function discovery_data_source_id_null()
     return DiscoveryResponse.Results.dataSourceId_null_value(DiscoveryResponse.Results.Decoder)
 end
 
@@ -28,11 +28,11 @@ function ensure_pool_capacity!(pools::Vector{DiscoveryPoolEntry}, count::Int)
     return nothing
 end
 
-@inline function entry_expired(entry::DiscoveryEntry, now_ns::UInt64)
+function entry_expired(entry::DiscoveryEntry, now_ns::UInt64)
     return expired(entry.expiry_timer, now_ns)
 end
 
-@inline function reset_entry_expiry!(state::AbstractDiscoveryState, entry::DiscoveryEntry, now_ns::UInt64)
+function reset_entry_expiry!(state::AbstractDiscoveryState, entry::DiscoveryEntry, now_ns::UInt64)
     set_interval!(entry.expiry_timer, state.config.expiry_ns)
     reset!(entry.expiry_timer, now_ns)
     return nothing
@@ -176,7 +176,7 @@ function touch_entry_from_metadata_meta!(
     return true
 end
 
-@inline function entry_has_tag(entry::DiscoveryEntry, tag::StringView)
+function entry_has_tag(entry::DiscoveryEntry, tag::StringView)
     for entry_tag in entry.tags
         if view(entry_tag) == tag
             return true
@@ -236,7 +236,7 @@ function collect_request_tags!(state::AbstractDiscoveryState, msg::DiscoveryRequ
     return nothing
 end
 
-@inline function find_response_pub(
+function find_response_pub(
     state::AbstractDiscoveryState,
     response_channel::AbstractString,
     response_stream_id::Int32,
@@ -539,7 +539,7 @@ Arguments:
 Returns:
 - Number of fragments processed.
 """
-@inline function poll_requests!(
+function poll_requests!(
     state::AbstractDiscoveryState,
     assembler::Aeron.FragmentAssembler,
     fragment_limit::Int32 = DEFAULT_FRAGMENT_LIMIT,
@@ -558,7 +558,7 @@ Arguments:
 Returns:
 - Number of fragments processed.
 """
-@inline function poll_announce!(
+function poll_announce!(
     state::AbstractDiscoveryState,
     assembler::Aeron.FragmentAssembler,
     fragment_limit::Int32 = DEFAULT_FRAGMENT_LIMIT,
@@ -577,7 +577,7 @@ Arguments:
 Returns:
 - Number of fragments processed.
 """
-@inline function poll_metadata!(
+function poll_metadata!(
     state::AbstractDiscoveryState,
     assembler::Aeron.FragmentAssembler,
     fragment_limit::Int32 = DEFAULT_FRAGMENT_LIMIT,

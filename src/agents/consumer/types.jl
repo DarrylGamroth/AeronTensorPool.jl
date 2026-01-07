@@ -52,6 +52,6 @@ Arguments:
 Returns:
 - `SubArray` view into the payload bytes.
 """
-@inline function payload_view(payload::PayloadView)
+function payload_view(payload::PayloadView)
     return view(payload.mmap, payload.offset + 1: payload.offset + payload.len)
 end

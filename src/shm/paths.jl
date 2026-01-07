@@ -10,7 +10,7 @@ Arguments:
 Returns:
 - Filesystem path to the epoch directory.
 """
-@inline function canonical_epoch_dir(
+function canonical_epoch_dir(
     shm_base_dir::AbstractString,
     shm_namespace::AbstractString,
     producer_instance_id::AbstractString,
@@ -31,7 +31,7 @@ Arguments:
 Returns:
 - `shm:file` URI for the header ring.
 """
-@inline function canonical_header_uri(
+function canonical_header_uri(
     shm_base_dir::AbstractString,
     shm_namespace::AbstractString,
     producer_instance_id::AbstractString,
@@ -54,7 +54,7 @@ Arguments:
 Returns:
 - `shm:file` URI for the payload pool.
 """
-@inline function canonical_pool_uri(
+function canonical_pool_uri(
     shm_base_dir::AbstractString,
     shm_namespace::AbstractString,
     producer_instance_id::AbstractString,

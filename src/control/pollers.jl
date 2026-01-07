@@ -167,11 +167,11 @@ function handle_driver_response!(poller::DriverResponsePoller, buffer::AbstractV
     return true
 end
 
-@inline function DriverPool()
+function DriverPool()
     return DriverPool(UInt16(0), UInt32(0), UInt32(0), FixedString(DRIVER_URI_MAX_BYTES))
 end
 
-@inline function AttachResponse()
+function AttachResponse()
     return AttachResponse(
         Int64(0),
         DriverResponseCode.NULL_VALUE,
@@ -190,7 +190,7 @@ end
     )
 end
 
-@inline function DetachResponse()
+function DetachResponse()
     return DetachResponse(
         Int64(0),
         DriverResponseCode.NULL_VALUE,
@@ -198,7 +198,7 @@ end
     )
 end
 
-@inline function LeaseRevoked()
+function LeaseRevoked()
     return LeaseRevoked(
         UInt64(0),
         UInt64(0),
@@ -210,7 +210,7 @@ end
     )
 end
 
-@inline function DriverShutdown()
+function DriverShutdown()
     return DriverShutdown(
         UInt64(0),
         DriverShutdownReason.NULL_VALUE,

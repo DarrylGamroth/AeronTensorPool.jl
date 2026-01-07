@@ -8,11 +8,11 @@ struct FixedString <: AbstractString
     buf::FixedSizeVectorDefault{UInt8}
 end
 
-@inline function FixedString(capacity::Integer)
+function FixedString(capacity::Integer)
     return FixedString(FixedSizeVectorDefault{UInt8}(undef, Int(capacity)))
 end
 
-@inline function Base.view(fs::FixedString)
+function Base.view(fs::FixedString)
     len = length(fs)
     len == 0 && return StringView("")
     return StringView(view(fs.buf, 1:len))

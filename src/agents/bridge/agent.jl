@@ -9,7 +9,7 @@ struct BridgeAgent
     counters::BridgeCounters
 end
 
-@inline function bridge_consumer_settings(config::ConsumerConfig, mapping::BridgeMapping)
+function bridge_consumer_settings(config::ConsumerConfig, mapping::BridgeMapping)
     return ConsumerConfig(
         config.aeron_dir,
         config.aeron_uri,
@@ -44,7 +44,7 @@ end
     )
 end
 
-@inline function bridge_producer_config(config::ProducerConfig, mapping::BridgeMapping)
+function bridge_producer_config(config::ProducerConfig, mapping::BridgeMapping)
     return ProducerConfig(
         config.aeron_dir,
         config.aeron_uri,

@@ -7,7 +7,7 @@ Arguments:
 Returns:
 - Effective chunk size in bytes (0 if disabled).
 """
-@inline function bridge_effective_chunk_bytes(config::BridgeConfig)
+function bridge_effective_chunk_bytes(config::BridgeConfig)
     mtu = Int(config.mtu_bytes)
     max_chunk = Int(config.max_chunk_bytes)
     chunk = Int(config.chunk_bytes)
@@ -34,7 +34,7 @@ Arguments:
 Returns:
 - Total message length in bytes.
 """
-@inline function bridge_chunk_message_length(header_len::Int, payload_len::Int)
+function bridge_chunk_message_length(header_len::Int, payload_len::Int)
     block_len = Int(BridgeFrameChunk.sbe_block_length(BridgeFrameChunk.Encoder))
     return BRIDGE_MESSAGE_HEADER_LEN + block_len + 4 + header_len + 4 + payload_len
 end
@@ -53,7 +53,7 @@ Arguments:
 Returns:
 - `nothing`.
 """
-@inline function reset_bridge_assembly!(
+function reset_bridge_assembly!(
     assembly::BridgeAssembly,
     seq::UInt64,
     epoch::UInt64,
@@ -84,7 +84,7 @@ Arguments:
 Returns:
 - `nothing`.
 """
-@inline function clear_bridge_assembly!(assembly::BridgeAssembly, now_ns::UInt64)
+function clear_bridge_assembly!(assembly::BridgeAssembly, now_ns::UInt64)
     assembly.seq = 0
     assembly.epoch = 0
     assembly.chunk_count = 0

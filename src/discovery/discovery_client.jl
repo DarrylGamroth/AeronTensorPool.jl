@@ -19,7 +19,7 @@ function ensure_pool_capacity!(pools::Vector{DiscoveryPoolEntry}, count::Int)
     return nothing
 end
 
-@inline function DiscoveryResponseSlot(out_entries::Vector{DiscoveryEntry})
+function DiscoveryResponseSlot(out_entries::Vector{DiscoveryEntry})
     return DiscoveryResponseSlot(
         UInt64(0),
         out_entries,
@@ -119,13 +119,13 @@ Arguments:
 Returns:
 - Request id (UInt64).
 """
-@inline function next_request_id!(state::DiscoveryClientState)
+function next_request_id!(state::DiscoveryClientState)
     req_id = state.next_request_id
     state.next_request_id += 1
     return req_id
 end
 
-@inline function DiscoveryEntry()
+function DiscoveryEntry()
     tags = Vector{FixedString}()
     sizehint!(tags, Int(DISCOVERY_MAX_TAGS_PER_ENTRY_DEFAULT))
     pools = Vector{DiscoveryPoolEntry}()
@@ -165,7 +165,7 @@ function ensure_tag_capacity!(tags::Vector{FixedString}, count::Int)
     return nothing
 end
 
-@inline function discovery_request_length(
+function discovery_request_length(
     tags::AbstractVector{<:AbstractString},
     response_channel::AbstractString,
     data_source_name::AbstractString,
@@ -297,7 +297,7 @@ function register_discovery_request!(
     return nothing
 end
 
-@inline function snapshot_discovery_response!(
+function snapshot_discovery_response!(
     out_entries::Vector{DiscoveryEntry},
     msg::DiscoveryResponse.Decoder,
 )

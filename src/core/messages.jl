@@ -95,6 +95,6 @@ Arguments:
 Returns:
 - Total encoded length in bytes (including message header).
 """
-@inline function sbe_message_length(msg::SBE.AbstractSbeMessage)
+function sbe_message_length(msg::SBE.AbstractSbeMessage)
     return MESSAGE_HEADER_LEN + sbe_encoded_length(msg)
 end

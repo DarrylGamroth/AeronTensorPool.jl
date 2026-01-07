@@ -4,7 +4,7 @@ struct FrameCountHook
     count::Base.RefValue{Int}
 end
 
-@inline function (hook::FrameCountHook)(::ConsumerState, ::ConsumerFrameView)
+function (hook::FrameCountHook)(::ConsumerState, ::ConsumerFrameView)
     hook.count[] += 1
     return nothing
 end

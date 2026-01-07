@@ -7,15 +7,15 @@ struct ProducerHooks{FHello, FQos, FFrame}
     on_frame_published!::FFrame
 end
 
-@inline function noop_producer_hello!(::ProducerState, ::ConsumerHello.Decoder)
+function noop_producer_hello!(::ProducerState, ::ConsumerHello.Decoder)
     return nothing
 end
 
-@inline function noop_producer_qos!(::ProducerState, ::QosConsumer.Decoder)
+function noop_producer_qos!(::ProducerState, ::QosConsumer.Decoder)
     return nothing
 end
 
-@inline function noop_producer_frame!(::ProducerState, ::UInt64, ::UInt32)
+function noop_producer_frame!(::ProducerState, ::UInt64, ::UInt32)
     return nothing
 end
 

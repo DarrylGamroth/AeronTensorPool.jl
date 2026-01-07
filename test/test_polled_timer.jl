@@ -23,12 +23,12 @@ end
 struct TestHandler1 end
 struct TestHandler2 end
 
-@inline function (handler::TestHandler1)(state::Base.RefValue{Int}, now_ns::UInt64)
+function (handler::TestHandler1)(state::Base.RefValue{Int}, now_ns::UInt64)
     state[] += 1
     return 1
 end
 
-@inline function (handler::TestHandler2)(state::Base.RefValue{Int}, now_ns::UInt64)
+function (handler::TestHandler2)(state::Base.RefValue{Int}, now_ns::UInt64)
     state[] += 10
     return 0
 end

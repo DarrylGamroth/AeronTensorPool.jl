@@ -54,12 +54,12 @@ function ShutdownRequestProxy(pub::Aeron.Publication)
     )
 end
 
-@inline hugepages_policy_value(value::DriverHugepagesPolicy.SbeEnum) = value
+hugepages_policy_value(value::DriverHugepagesPolicy.SbeEnum) = value
 
-@inline hugepages_policy_value(value::Bool) =
+hugepages_policy_value(value::Bool) =
     ifelse(value, DriverHugepagesPolicy.HUGEPAGES, DriverHugepagesPolicy.STANDARD)
 
-@inline hugepages_policy_value(::Nothing) = DriverHugepagesPolicy.UNSPECIFIED
+hugepages_policy_value(::Nothing) = DriverHugepagesPolicy.UNSPECIFIED
 
 """
 Send an attach request.

@@ -111,7 +111,7 @@ function init_bridge_receiver(
     return state
 end
 
-@inline function bridge_drop_chunk!(state::BridgeReceiverState)
+function bridge_drop_chunk!(state::BridgeReceiverState)
     state.metrics.chunks_dropped += 1
     return false
 end

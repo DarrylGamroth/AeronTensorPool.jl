@@ -82,6 +82,6 @@ const DRIVER_TIMER_ANNOUNCE = 1
 const DRIVER_TIMER_LEASE_CHECK = 2
 const DRIVER_TIMER_SHUTDOWN = 3
 
-@inline driver_announce_timer(state::DriverState) = state.timer_set.timers[DRIVER_TIMER_ANNOUNCE]
-@inline driver_lease_check_timer(state::DriverState) = state.timer_set.timers[DRIVER_TIMER_LEASE_CHECK]
-@inline driver_shutdown_timer(state::DriverState) = state.timer_set.timers[DRIVER_TIMER_SHUTDOWN]
+driver_announce_timer(state::DriverState) = state.timer_set.timers[DRIVER_TIMER_ANNOUNCE]
+driver_lease_check_timer(state::DriverState) = state.timer_set.timers[DRIVER_TIMER_LEASE_CHECK]
+driver_shutdown_timer(state::DriverState) = state.timer_set.timers[DRIVER_TIMER_SHUTDOWN]

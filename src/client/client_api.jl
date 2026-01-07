@@ -152,10 +152,10 @@ mutable struct ProducerHandle
     producer_agent::ProducerAgent
 end
 
-@inline consumer_agent(handle::ConsumerHandle) = handle.consumer_agent
-@inline consumer_state(handle::ConsumerHandle) = handle.consumer_agent.state
-@inline producer_agent(handle::ProducerHandle) = handle.producer_agent
-@inline producer_state(handle::ProducerHandle) = handle.producer_agent.state
+consumer_agent(handle::ConsumerHandle) = handle.consumer_agent
+consumer_state(handle::ConsumerHandle) = handle.consumer_agent.state
+producer_agent(handle::ProducerHandle) = handle.producer_agent
+producer_state(handle::ProducerHandle) = handle.producer_agent.state
 
 """
 Close a ConsumerHandle and its resources.
@@ -186,21 +186,21 @@ end
 """
 Do work for a ConsumerHandle.
 """
-@inline function do_work(handle::ConsumerHandle)
+function do_work(handle::ConsumerHandle)
     return Agent.do_work(handle.consumer_agent)
 end
 
 """
 Do work for a ProducerHandle.
 """
-@inline function do_work(handle::ProducerHandle)
+function do_work(handle::ProducerHandle)
     return Agent.do_work(handle.producer_agent)
 end
 
 """
 Convenience wrapper for publishing a frame via a ProducerHandle.
 """
-@inline function offer_frame!(
+function offer_frame!(
     handle::ProducerHandle,
     payload::AbstractVector{UInt8},
     shape::AbstractVector{Int32},
@@ -214,7 +214,7 @@ end
 """
 Convenience wrapper for claiming a slot via a ProducerHandle.
 """
-@inline function try_claim_slot!(
+function try_claim_slot!(
     handle::ProducerHandle,
     values_len::Int,
     shape::AbstractVector{Int32},
@@ -228,7 +228,7 @@ end
 """
 Convenience wrapper for committing a claimed slot via a ProducerHandle.
 """
-@inline function commit_slot!(
+function commit_slot!(
     handle::ProducerHandle,
     claim::SlotClaim,
     values_len::Int,
@@ -251,7 +251,7 @@ end
 """
 Convenience wrapper for with_claimed_slot! via a ProducerHandle.
 """
-@inline function with_claimed_slot!(
+function with_claimed_slot!(
     fill_fn::Function,
     handle::ProducerHandle,
     values_len::Int,
@@ -279,7 +279,7 @@ struct AttachRequestHandle
     correlation_id::Int64
 end
 
-@inline function discovery_enabled(context::TensorPoolContext)
+function discovery_enabled(context::TensorPoolContext)
     return !isempty(context.discovery_channel) && context.discovery_stream_id != 0
 end
 
