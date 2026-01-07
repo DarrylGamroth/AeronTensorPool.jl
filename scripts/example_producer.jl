@@ -41,9 +41,9 @@ function Agent.do_work(agent::AppProducerAgent)
         if sent
             agent.sent += 1
             agent.last_send_ns = now_ns
-            @info "Producer published frame" seq = agent.handle.producer_agent.state.seq - 1
+            @info "Producer published frame" seq = producer_state(agent.handle).seq - 1
         else
-            connected = Aeron.is_connected(agent.handle.producer_agent.state.runtime.pub_descriptor)
+            connected = Aeron.is_connected(producer_state(agent.handle).runtime.pub_descriptor)
             @info "Producer publish skipped" descriptor_connected = connected
         end
     end
@@ -98,7 +98,7 @@ function run_producer(driver_cfg_path::String, producer_cfg_path::String, count:
             UInt64(10_000_000),
             false,
         )
-        composite = CompositeAgent(handle.producer_agent, agent)
+        composite = CompositeAgent(producer_agent(handle), agent)
         runner = AgentRunner(BackoffIdleStrategy(), composite)
         if isnothing(core_id)
             Agent.start_on_thread(runner)

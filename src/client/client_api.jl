@@ -152,6 +152,11 @@ mutable struct ProducerHandle
     producer_agent::ProducerAgent
 end
 
+@inline consumer_agent(handle::ConsumerHandle) = handle.consumer_agent
+@inline consumer_state(handle::ConsumerHandle) = handle.consumer_agent.state
+@inline producer_agent(handle::ProducerHandle) = handle.producer_agent
+@inline producer_state(handle::ProducerHandle) = handle.producer_agent.state
+
 """
 Close a ConsumerHandle and its resources.
 """

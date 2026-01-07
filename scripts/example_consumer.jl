@@ -50,16 +50,16 @@ function Agent.on_start(agent::AppConsumerAgent)
 end
 
 function Agent.do_work(agent::AppConsumerAgent)
-    metrics = agent.handle.consumer_agent.state.metrics
+    metrics = consumer_state(agent.handle).metrics
     if metrics.frames_ok != agent.last_frames_ok
-        header = agent.handle.consumer_agent.state.runtime.frame_view.header
+        header = consumer_state(agent.handle).runtime.frame_view.header
         @info "Consumer frames_ok updated" frames_ok = metrics.frames_ok header_seq_commit = header.seq_commit
         agent.last_frames_ok = metrics.frames_ok
     end
     now_ns = UInt64(time_ns())
     if now_ns - agent.last_log_ns > 1_000_000_000
         @info "Consumer frame state" last_frame = agent.last_frame seen = agent.seen
-        desc_connected = Aeron.is_connected(agent.handle.consumer_agent.state.runtime.sub_descriptor)
+        desc_connected = Aeron.is_connected(consumer_state(agent.handle).runtime.sub_descriptor)
         @info "Consumer descriptor connected" connected = desc_connected
         if metrics.drops_late != agent.last_drops_late ||
            metrics.drops_header_invalid != agent.last_drops_header_invalid
@@ -132,7 +132,7 @@ function run_consumer(driver_cfg_path::String, consumer_cfg_path::String, count:
             false,
         )
         app_ref[] = agent
-        composite = CompositeAgent(handle.consumer_agent, agent)
+        composite = CompositeAgent(consumer_agent(handle), agent)
         runner = AgentRunner(BackoffIdleStrategy(), composite)
         if isnothing(core_id)
             Agent.start_on_thread(runner)
