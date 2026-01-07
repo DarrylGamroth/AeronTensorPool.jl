@@ -22,13 +22,9 @@ function maybe_track_gap!(state::ConsumerState, seq::UInt64)
     return nothing
 end
 
-function valid_dtype(dtype::Dtype.SbeEnum)
-    return dtype != Dtype.UNKNOWN && dtype != Dtype.NULL_VALUE
-end
+valid_dtype(dtype::Dtype.SbeEnum) = dtype != Dtype.UNKNOWN && dtype != Dtype.NULL_VALUE
 
-function valid_major_order(order::MajorOrder.SbeEnum)
-    return order == MajorOrder.ROW || order == MajorOrder.COLUMN
-end
+valid_major_order(order::MajorOrder.SbeEnum) = order == MajorOrder.ROW || order == MajorOrder.COLUMN
 
 function dtype_size_bytes(dtype::Dtype.SbeEnum)
     if dtype == Dtype.UINT8 || dtype == Dtype.INT8 || dtype == Dtype.BOOLEAN ||

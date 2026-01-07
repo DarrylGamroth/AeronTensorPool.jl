@@ -4,9 +4,7 @@ Backend dispatch for SHM operations.
 Returns:
 - Page size in bytes for the active backend.
 """
-function page_size_bytes()
-    return page_size_bytes_linux()
-end
+page_size_bytes() = page_size_bytes_linux()
 
 """
 Return the hugepage size in bytes for the active backend.
@@ -14,9 +12,7 @@ Return the hugepage size in bytes for the active backend.
 Returns:
 - Hugepage size in bytes.
 """
-function hugepage_size_bytes()
-    return hugepage_size_bytes_linux()
-end
+hugepage_size_bytes() = hugepage_size_bytes_linux()
 
 """
 Return true if a path is on hugetlbfs.
@@ -27,9 +23,7 @@ Arguments:
 Returns:
 - `true` if the path resides on hugetlbfs, `false` otherwise.
 """
-function is_hugetlbfs_path(path::AbstractString)
-    return is_hugetlbfs_path_linux(path)
-end
+is_hugetlbfs_path(path::AbstractString) = is_hugetlbfs_path_linux(path)
 
 """
 Memory-map a `shm:file` URI with optional write access.

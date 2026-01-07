@@ -126,9 +126,7 @@ function consumer_stream_timeout_ns(state::ProducerState)
     return base * 5
 end
 
-function consumer_stream_last_seen_ns(entry::ProducerConsumerStream)
-    return max(entry.last_hello_ns, entry.last_qos_ns)
-end
+consumer_stream_last_seen_ns(entry::ProducerConsumerStream) = max(entry.last_hello_ns, entry.last_qos_ns)
 
 function reset_consumer_timeout!(state::ProducerState, entry::ProducerConsumerStream, now_ns::UInt64)
     set_interval!(entry.timeout_timer, consumer_stream_timeout_ns(state))

@@ -6,12 +6,8 @@ struct BridgeHooks{FSender, FReceiver}
     on_receive_chunk!::FReceiver
 end
 
-function noop_bridge_send!(::BridgeSenderState, ::FrameDescriptor.Decoder)
-    return nothing
-end
+noop_bridge_send!(::BridgeSenderState, ::FrameDescriptor.Decoder) = nothing
 
-function noop_bridge_receive!(::BridgeReceiverState, ::BridgeFrameChunk.Decoder)
-    return nothing
-end
+noop_bridge_receive!(::BridgeReceiverState, ::BridgeFrameChunk.Decoder) = nothing
 
 const NOOP_BRIDGE_HOOKS = BridgeHooks(noop_bridge_send!, noop_bridge_receive!)

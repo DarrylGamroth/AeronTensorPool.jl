@@ -1,6 +1,4 @@
-function page_size_bytes_linux()
-    return Int(ccall(:getpagesize, Cint, ()))
-end
+page_size_bytes_linux() = Int(ccall(:getpagesize, Cint, ()))
 
 function hugepage_size_bytes_linux()
     Sys.islinux() || return 0

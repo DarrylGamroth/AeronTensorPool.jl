@@ -37,9 +37,7 @@ Arguments:
 Returns:
 - The raw seq_commit value (UInt64).
 """
-function seqlock_read_begin(commit_ptr::Ptr{UInt64})
-    return unsafe_load(commit_ptr, :acquire)
-end
+seqlock_read_begin(commit_ptr::Ptr{UInt64}) = unsafe_load(commit_ptr, :acquire)
 
 """
 Acquire-load the seqlock seq_commit at the end of a read.
@@ -50,9 +48,7 @@ Arguments:
 Returns:
 - The raw seq_commit value (UInt64).
 """
-function seqlock_read_end(commit_ptr::Ptr{UInt64})
-    return unsafe_load(commit_ptr, :acquire)
-end
+seqlock_read_end(commit_ptr::Ptr{UInt64}) = unsafe_load(commit_ptr, :acquire)
 
 """
 Return true if the seqlock indicates a committed slot (LSB=1).
@@ -63,9 +59,7 @@ Arguments:
 Returns:
 - `true` if the slot is committed, `false` otherwise.
 """
-function seqlock_is_committed(word::UInt64)
-    return isodd(word)
-end
+seqlock_is_committed(word::UInt64) = isodd(word)
 
 """
 Return the logical sequence encoded in a seqlock seq_commit.
@@ -76,9 +70,7 @@ Arguments:
 Returns:
 - Logical sequence (UInt64).
 """
-function seqlock_sequence(word::UInt64)
-    return word >> 1
-end
+seqlock_sequence(word::UInt64) = word >> 1
 
 """
 Return a pointer to the seq_commit for a header slot index.

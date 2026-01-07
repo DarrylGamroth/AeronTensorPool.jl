@@ -7,17 +7,11 @@ struct ProducerHooks{FHello, FQos, FFrame}
     on_frame_published!::FFrame
 end
 
-function noop_producer_hello!(::ProducerState, ::ConsumerHello.Decoder)
-    return nothing
-end
+noop_producer_hello!(::ProducerState, ::ConsumerHello.Decoder) = nothing
 
-function noop_producer_qos!(::ProducerState, ::QosConsumer.Decoder)
-    return nothing
-end
+noop_producer_qos!(::ProducerState, ::QosConsumer.Decoder) = nothing
 
-function noop_producer_frame!(::ProducerState, ::UInt64, ::UInt32)
-    return nothing
-end
+noop_producer_frame!(::ProducerState, ::UInt64, ::UInt32) = nothing
 
 const NOOP_PRODUCER_HOOKS =
     ProducerHooks(noop_producer_hello!, noop_producer_qos!, noop_producer_frame!)

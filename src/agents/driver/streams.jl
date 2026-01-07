@@ -193,9 +193,7 @@ function provision_stream_epoch!(state::DriverState, stream_state::DriverStreamS
     return nothing
 end
 
-function parse_mode(mode_str::AbstractString)
-    return parse(UInt32, mode_str; base = 8)
-end
+parse_mode(mode_str::AbstractString) = parse(UInt32, mode_str; base = 8)
 
 function ensure_shm_file!(state::DriverState, path::AbstractString, size::Int, mode_str::AbstractString)
     isabspath(path) || throw(ArgumentError("SHM path must be absolute"))
@@ -216,9 +214,7 @@ function ensure_shm_file!(state::DriverState, path::AbstractString, size::Int, m
     return nothing
 end
 
-function add_hugepage_flag(uri::AbstractString)
-    return "$(uri)|require_hugepages=true"
-end
+add_hugepage_flag(uri::AbstractString) = "$(uri)|require_hugepages=true"
 
 function path_allowed(path::AbstractString, allowed_dirs::AbstractVector{<:AbstractString})
     abs_path = abspath(path)

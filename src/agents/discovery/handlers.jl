@@ -28,9 +28,7 @@ function ensure_pool_capacity!(pools::Vector{DiscoveryPoolEntry}, count::Int)
     return nothing
 end
 
-function entry_expired(entry::DiscoveryEntry, now_ns::UInt64)
-    return expired(entry.expiry_timer, now_ns)
-end
+entry_expired(entry::DiscoveryEntry, now_ns::UInt64) = expired(entry.expiry_timer, now_ns)
 
 function reset_entry_expiry!(state::AbstractDiscoveryState, entry::DiscoveryEntry, now_ns::UInt64)
     set_interval!(entry.expiry_timer, state.config.expiry_ns)

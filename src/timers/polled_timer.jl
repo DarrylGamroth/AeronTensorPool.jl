@@ -9,9 +9,7 @@ end
 """
 Construct a PolledTimer with the given interval.
 """
-function PolledTimer(interval_ns::UInt64)
-    return PolledTimer(interval_ns, UInt64(0))
-end
+PolledTimer(interval_ns::UInt64) = PolledTimer(interval_ns, UInt64(0))
 
 """
 Reset a timer's last fire time to `now_ns`.

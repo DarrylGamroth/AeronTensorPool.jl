@@ -110,9 +110,7 @@ DriverConfig(
     streams,
 )
 
-function env_key(key::AbstractString)
-    return uppercase(replace(key, "." => "_"))
-end
+env_key(key::AbstractString) = uppercase(replace(key, "." => "_"))
 
 function env_override(env::AbstractDict, key::AbstractString, fallback::AbstractString)
     return get(env, env_key(key), fallback)

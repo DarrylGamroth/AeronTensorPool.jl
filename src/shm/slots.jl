@@ -7,9 +7,7 @@ Arguments:
 Returns:
 - Byte offset from the start of the header mmap.
 """
-function header_slot_offset(index::Integer)
-    return SUPERBLOCK_SIZE + Int(index) * HEADER_SLOT_BYTES
-end
+header_slot_offset(index::Integer) = SUPERBLOCK_SIZE + Int(index) * HEADER_SLOT_BYTES
 
 """
 Decoded slot header fields for consumer-side validation.
@@ -40,9 +38,8 @@ Arguments:
 Returns:
 - Byte offset from the start of the payload mmap.
 """
-function payload_slot_offset(stride_bytes::Integer, slot::Integer)
-    return SUPERBLOCK_SIZE + Int(slot) * Int(stride_bytes)
-end
+payload_slot_offset(stride_bytes::Integer, slot::Integer) =
+    SUPERBLOCK_SIZE + Int(slot) * Int(stride_bytes)
 
 """
 Return a view into a payload slot region.
