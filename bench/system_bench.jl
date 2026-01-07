@@ -292,7 +292,7 @@ function run_system_bench(
                         while time_ns() < warmup_limit
                             Agent.invoke(system_invoker)
                             if consumer.mappings.header_mmap !== nothing
-                                offer_frame!(producer, payload, shape, strides, Dtype.UINT8, UInt32(0))
+                                Producer.offer_frame!(producer, payload, shape, strides, Dtype.UINT8, UInt32(0))
                             end
                             yield()
                         end
@@ -310,14 +310,14 @@ function run_system_bench(
                         for _ in 1:32
                             Agent.invoke(system_invoker)
                             if consumer.mappings.header_mmap !== nothing
-                                offer_frame!(producer, payload, shape, strides, Dtype.UINT8, UInt32(0))
+                                Producer.offer_frame!(producer, payload, shape, strides, Dtype.UINT8, UInt32(0))
                             end
                             yield()
                         end
                         sample_before = Base.gc_num().allocd
                         Agent.invoke(system_invoker)
                         if consumer.mappings.header_mmap !== nothing
-                            offer_frame!(producer, payload, shape, strides, Dtype.UINT8, UInt32(0))
+                            Producer.offer_frame!(producer, payload, shape, strides, Dtype.UINT8, UInt32(0))
                         end
                         sample_after = Base.gc_num().allocd
                         println("Sample alloc per-iteration: $(sample_after - sample_before) bytes")
@@ -333,7 +333,7 @@ function run_system_bench(
                         for _ in 1:32
                             Agent.invoke(system_invoker)
                             if consumer.mappings.header_mmap !== nothing
-                                offer_frame!(producer, payload, shape, strides, Dtype.UINT8, UInt32(0))
+                                Producer.offer_frame!(producer, payload, shape, strides, Dtype.UINT8, UInt32(0))
                             end
                             yield()
                         end
@@ -353,7 +353,7 @@ function run_system_bench(
                             Agent.invoke(system_invoker)
                         end
                         if consumer.mappings.header_mmap !== nothing
-                            offer_frame!(producer, payload, shape, strides, Dtype.UINT8, UInt32(0))
+                            Producer.offer_frame!(producer, payload, shape, strides, Dtype.UINT8, UInt32(0))
                             measure_allocd("consumer_do_work (with frame)") do
                                 Agent.invoke(system_invoker)
                             end
@@ -363,7 +363,7 @@ function run_system_bench(
                         end
                         measure_allocd("publish_frame") do
                             if consumer.mappings.header_mmap !== nothing
-                                offer_frame!(producer, payload, shape, strides, Dtype.UINT8, UInt32(0))
+                                Producer.offer_frame!(producer, payload, shape, strides, Dtype.UINT8, UInt32(0))
                             end
                         end
                         measure_allocd("producer_poll_timers") do
@@ -406,7 +406,7 @@ function run_system_bench(
                         for _ in 1:alloc_probe_iters
                             Agent.invoke(system_invoker)
                             if consumer.mappings.header_mmap !== nothing
-                                offer_frame!(producer, payload, shape, strides, Dtype.UINT8, UInt32(0))
+                                Producer.offer_frame!(producer, payload, shape, strides, Dtype.UINT8, UInt32(0))
                             end
                             yield()
                         end
@@ -435,7 +435,7 @@ function run_system_bench(
                                 Agent.invoke(system_invoker)
 
                                 if do_publish && consumer.mappings.header_mmap !== nothing
-                                    offer_frame!(producer, payload, shape, strides, Dtype.UINT8, UInt32(0))
+                                    Producer.offer_frame!(producer, payload, shape, strides, Dtype.UINT8, UInt32(0))
                                     published += 1
                                 end
                             end
@@ -449,7 +449,7 @@ function run_system_bench(
                                 Agent.invoke(system_invoker)
 
                                 if do_publish && consumer.mappings.header_mmap !== nothing
-                                    offer_frame!(producer, payload, shape, strides, Dtype.UINT8, UInt32(0))
+                                    Producer.offer_frame!(producer, payload, shape, strides, Dtype.UINT8, UInt32(0))
                                     published += 1
                                 end
                             end
@@ -675,7 +675,7 @@ function run_bridge_bench_runners(
                                         warmup_limit = warmup_start + Int64(round(warmup_s * 1e9))
                                         while time_ns() < warmup_limit
                                             if bridge_agent.sender.consumer_state.mappings.header_mmap !== nothing && do_publish
-                                                offer_frame!(
+                                                Producer.offer_frame!(
                                                     producer_src_agent.state,
                                                     payload,
                                                     shape,
@@ -695,7 +695,7 @@ function run_bridge_bench_runners(
                                         probe_start = Base.gc_num().allocd
                                         for _ in 1:alloc_probe_iters
                                             if bridge_agent.sender.consumer_state.mappings.header_mmap !== nothing && do_publish
-                                                offer_frame!(
+                                                Producer.offer_frame!(
                                                     producer_src_agent.state,
                                                     payload,
                                                     shape,
@@ -726,7 +726,7 @@ function run_bridge_bench_runners(
                                         while iter_count < fixed_iters
                                             if !noop_loop
                                                 if do_publish && bridge_agent.sender.consumer_state.mappings.header_mmap !== nothing
-                                                    offer_frame!(
+                                                    Producer.offer_frame!(
                                                         producer_src_agent.state,
                                                         payload,
                                                         shape,
@@ -745,7 +745,7 @@ function run_bridge_bench_runners(
                                         while time_ns() < end_limit
                                             if !noop_loop
                                                 if do_publish && bridge_agent.sender.consumer_state.mappings.header_mmap !== nothing
-                                                    offer_frame!(
+                                                    Producer.offer_frame!(
                                                         producer_src_agent.state,
                                                         payload,
                                                         shape,
@@ -970,7 +970,7 @@ function run_bridge_bench(
                                         Agent.invoke(consumer_invoker)
                                         Agent.invoke(producer_dst_invoker)
                                         if bridge_agent.sender.consumer_state.mappings.header_mmap !== nothing && do_publish
-                                            offer_frame!(
+                                            Producer.offer_frame!(
                                                 producer_src_agent.state,
                                                 payload,
                                                 shape,
@@ -994,7 +994,7 @@ function run_bridge_bench(
                                         Agent.invoke(consumer_invoker)
                                         Agent.invoke(producer_dst_invoker)
                                         if bridge_agent.sender.consumer_state.mappings.header_mmap !== nothing && do_publish
-                                            offer_frame!(
+                                            Producer.offer_frame!(
                                                 producer_src_agent.state,
                                                 payload,
                                                 shape,
@@ -1029,7 +1029,7 @@ function run_bridge_bench(
                                             Agent.invoke(consumer_invoker)
                                             Agent.invoke(producer_dst_invoker)
                                             if do_publish && bridge_agent.sender.consumer_state.mappings.header_mmap !== nothing
-                                                offer_frame!(
+                                                Producer.offer_frame!(
                                                     producer_src_agent.state,
                                                     payload,
                                                     shape,
@@ -1052,7 +1052,7 @@ function run_bridge_bench(
                                             Agent.invoke(consumer_invoker)
                                             Agent.invoke(producer_dst_invoker)
                                             if do_publish && bridge_agent.sender.consumer_state.mappings.header_mmap !== nothing
-                                                offer_frame!(
+                                                Producer.offer_frame!(
                                                     producer_src_agent.state,
                                                     payload,
                                                     shape,
