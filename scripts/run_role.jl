@@ -54,10 +54,10 @@ elseif role == "supervisor"
     end
 elseif role == "driver"
     config = load_driver_config(config_path)
-    state = init_driver(config)
+    state = Driver.init_driver(config)
     try
         while true
-            work = driver_do_work!(state)
+            work = Driver.driver_do_work!(state)
             work == 0 && yield()
         end
     catch err
