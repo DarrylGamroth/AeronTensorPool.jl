@@ -429,6 +429,20 @@ commit_slot!(
 )
 ```
 
+Example (claim + fill helper):
+
+```julia
+with_claimed_slot!(
+    buffer -> fill_payload!(buffer),
+    state,
+    values_len,
+    shape,
+    strides,
+    Dtype.UINT8,
+    meta_version,
+)
+```
+
 ## 24. Project Review
 - Review answers and follow-on phases are tracked in `docs/PROJECT_REVIEW.md`.
 

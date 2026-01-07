@@ -247,13 +247,13 @@ end
 Convenience wrapper for with_claimed_slot! via a ProducerHandle.
 """
 @inline function with_claimed_slot!(
+    fill_fn::Function,
     handle::ProducerHandle,
     values_len::Int,
     shape::AbstractVector{Int32},
     strides::AbstractVector{Int32},
     dtype::Dtype.SbeEnum,
     meta_version::UInt32,
-    fill_fn::Function,
 )
     return with_claimed_slot!(
         fill_fn,
