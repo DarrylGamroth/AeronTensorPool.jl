@@ -510,7 +510,7 @@ function attach_consumer(
         control_stream_id = control_stream_id,
     )
     attach = await_attach_response(client, request.driver_client, request.correlation_id)
-    consumer_state = init_consumer_from_attach(
+    consumer_state = Consumer.init_consumer_from_attach(
         settings,
         attach;
         driver_client = request.driver_client,
@@ -554,7 +554,7 @@ function attach_producer(
         control_stream_id = control_stream_id,
     )
     attach = await_attach_response(client, request.driver_client, request.correlation_id)
-    producer_state = init_producer_from_attach(
+    producer_state = Producer.init_producer_from_attach(
         config,
         attach;
         driver_client = request.driver_client,
