@@ -40,6 +40,7 @@ using .Control
 using .Driver
 using .Discovery
 using .Client
+import .Client: agent, state
 
 include("config/config_loader.jl")
 
