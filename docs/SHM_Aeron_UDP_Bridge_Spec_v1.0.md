@@ -73,7 +73,7 @@ Bridge payload streams SHOULD use a reserved stream ID range (e.g., 50000-59999)
 
 ## 5. Bridge Frame Chunk Message (Normative)
 
-The bridge transports frames as a sequence of chunks. Each chunk carries a small header plus a byte slice of the frame payload. The first chunk includes the serialized `TensorSlotHeader` so the receiver can reconstruct metadata without access to remote SHM.
+The bridge transports frames as a sequence of chunks. Each chunk carries a small header plus a byte slice of the frame payload. The first chunk includes the serialized `SlotHeader` + embedded TensorHeader so the receiver can reconstruct metadata without access to remote SHM.
 
 ### 5.1 Message Fields
 
@@ -96,7 +96,7 @@ The bridge transports frames as a sequence of chunks. Each chunk carries a small
 - `chunkCount` MUST be >= 1.
 - `chunkCount` MUST NOT exceed 65535.
 - `chunkIndex` MUST be < `chunkCount`.
-- For `chunkIndex==0`, `headerIncluded` MUST be TRUE and `headerBytes` MUST contain the full 256-byte `TensorSlotHeader`.
+- For `chunkIndex==0`, `headerIncluded` MUST be TRUE and `headerBytes` MUST contain the full 256-byte SlotHeader block (60-byte fixed prefix + 4-byte varData length + 192-byte TensorHeader).
 - For `chunkIndex==0`, `chunkOffset` MUST be 0.
 - For `chunkIndex>0`, `headerIncluded` MUST be FALSE.
 - `chunkOffset` and `chunkLength` MUST describe a non-overlapping slice of the payload.
@@ -144,7 +144,7 @@ Upon receiving all chunks for a frame:
 6. Validate `payloadLength` against the source pool stride (from the forwarded announce); if `payloadLength` exceeds the source `stride_bytes`, the frame MUST be dropped.
 7. Select the local payload pool and slot using configured mapping rules (e.g., smallest stride >= `payloadLength`). If no local pool can fit the payload, or if `payloadLength` exceeds the largest local `stride_bytes`, the receiver MUST drop the frame.
 8. Write payload bytes into the selected local SHM payload pool.
-9. Write the `TensorSlotHeader` into the local header ring (with logical sequence preserved), but override `pool_id` and `payload_slot` to match the local mapping. The receiver MUST ignore source `pool_id` and `payload_slot` values.
+9. Write the `SlotHeader` (with embedded TensorHeader) into the local header ring (with logical sequence preserved), but override `pool_id` and `payload_slot` to match the local mapping. The receiver MUST ignore source `pool_id` and `payload_slot` values.
 10. Commit via the standard `seq_commit` protocol.
 11. Publish a local `FrameDescriptor` on the receiver's descriptor stream.
 
@@ -187,7 +187,7 @@ Bridge instances MAY forward `FrameProgress`; when `bridge.forward_progress=true
 1. Subscribe to the source host's local control stream at `source_control_stream_id` (per mapping).
 2. Forward `FrameProgress` messages over `bridge.control_channel` with the following rewrites:
    - `FrameProgress.streamId` MUST be set to `source_stream_id` (sender) and rewritten to `dest_stream_id` (receiver).
-   - `FrameProgress.epoch`, `frameId`, `payloadBytesFilled`, `state`, and `rowsFilled` MUST be preserved as received from the source.
+  - `FrameProgress.epoch`, `frameId`, `payloadBytesFilled`, and `state` MUST be preserved as received from the source.
 3. Receiver MUST republish forwarded `FrameProgress` on the destination host's local IPC control stream at `dest_control_stream_id` (per mapping).
 
 `FrameProgress.headerIndex` is source-side; receivers MUST remap it to the local header index before republishing. If the mapping cannot be determined, the receiver MUST drop the forwarded progress for that frame.
