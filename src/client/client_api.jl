@@ -486,7 +486,7 @@ function attach_consumer(
     settings::ConsumerConfig;
     discover::Bool = true,
     data_source_name::AbstractString = "",
-    hooks::ConsumerHooks = NOOP_CONSUMER_HOOKS,
+    hooks::ConsumerHooks = Consumer.NOOP_CONSUMER_HOOKS,
 )
     stream_id = settings.stream_id
     control_channel = client.context.control_channel
@@ -531,7 +531,7 @@ function attach_producer(
     config::ProducerConfig;
     discover::Bool = true,
     data_source_name::AbstractString = "",
-    hooks::ProducerHooks = NOOP_PRODUCER_HOOKS,
+    hooks::ProducerHooks = Producer.NOOP_PRODUCER_HOOKS,
 )
     stream_id = config.stream_id
     control_channel = client.context.control_channel
