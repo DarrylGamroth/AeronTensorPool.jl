@@ -193,16 +193,12 @@ end
 """
 Do work for a ConsumerHandle.
 """
-function do_work(handle::ConsumerHandle)
-    return Agent.do_work(handle.consumer_agent)
-end
+do_work(handle::ConsumerHandle) = Agent.do_work(handle.consumer_agent)
 
 """
 Do work for a ProducerHandle.
 """
-function do_work(handle::ProducerHandle)
-    return Agent.do_work(handle.producer_agent)
-end
+do_work(handle::ProducerHandle) = Agent.do_work(handle.producer_agent)
 
 """
 Convenience wrapper for publishing a frame via a ProducerHandle.
