@@ -7,15 +7,17 @@ Aeron media driver.
 
 Command:
 ```bash
-julia --project -e 'include("bench/system_bench.jl"); run_system_bench("config/defaults.toml", 3.0; payload_bytes=655360, warmup_s=0.5)'
+julia --project scripts/run_benchmarks.jl --system --duration 10 --payload-bytes 655360
 ```
 
 Results:
-- Publish rate: 16,153.9 fps
-- Consume rate: 16,153.9 fps
-- GC allocd delta (loop): 8,079,200 bytes
+- Publish rate: 16,501.5 fps
+- Consume rate: 16,501.2 fps
+- Publish bandwidth: 10,313.4 MiB/s
+- Consume bandwidth: 10,313.2 MiB/s
+- GC allocd delta (loop): 4,872,352 bytes
 - GC allocd delta (total): 0 bytes
-- GC live delta (total): 28,944 bytes
+- GC live delta (total): 18,384 bytes
 
 ## Allocation Breakdown (640 KiB payload)
 
