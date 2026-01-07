@@ -41,9 +41,9 @@ function Agent.do_work(agent::AppProducerAgent)
         if sent
             agent.sent += 1
             agent.last_send_ns = now_ns
-            @info "Producer published frame" seq = producer_state(agent.handle).seq - 1
+            @info "Producer published frame" seq = state(agent.handle).seq - 1
         else
-            connected = Aeron.is_connected(producer_state(agent.handle).runtime.pub_descriptor)
+            connected = Aeron.is_connected(state(agent.handle).runtime.pub_descriptor)
             @info "Producer publish skipped" descriptor_connected = connected
         end
     end
@@ -87,7 +87,7 @@ function run_producer(driver_cfg_path::String, producer_cfg_path::String, count:
         payload = Vector{UInt8}(undef, effective_payload_bytes)
         shape = Int32[effective_payload_bytes]
         strides = Int32[1]
-        agent = AppProducerAgent(
+        app_agent = AppProducerAgent(
             handle,
             count,
             payload,
@@ -98,7 +98,7 @@ function run_producer(driver_cfg_path::String, producer_cfg_path::String, count:
             UInt64(10_000_000),
             false,
         )
-        composite = CompositeAgent(producer_agent(handle), agent)
+        composite = CompositeAgent(agent(handle), app_agent)
         runner = AgentRunner(BackoffIdleStrategy(), composite)
         if isnothing(core_id)
             Agent.start_on_thread(runner)
@@ -106,11 +106,11 @@ function run_producer(driver_cfg_path::String, producer_cfg_path::String, count:
             Agent.start_on_thread(runner, core_id)
         end
         try
-            while !agent.ready
+            while !app_agent.ready
                 yield()
             end
             if count > 0
-                while agent.sent < count
+                while app_agent.sent < count
                     yield()
                 end
                 close(runner)
@@ -126,7 +126,7 @@ function run_producer(driver_cfg_path::String, producer_cfg_path::String, count:
         finally
             close(runner)
         end
-        @info "Producer done" agent.sent
+        @info "Producer done" app_agent.sent
         close(handle)
     finally
         close(tp_client)

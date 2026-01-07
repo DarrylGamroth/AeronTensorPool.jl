@@ -50,16 +50,16 @@ function Agent.on_start(agent::AppRateLimitedConsumerAgent)
 end
 
 function Agent.do_work(agent::AppRateLimitedConsumerAgent)
-    metrics = consumer_state(agent.handle).metrics
+    metrics = state(agent.handle).metrics
     if metrics.frames_ok != agent.last_frames_ok
-        header = consumer_state(agent.handle).runtime.frame_view.header
+        header = state(agent.handle).runtime.frame_view.header
         @info "Consumer frames_ok updated" frames_ok = metrics.frames_ok header_seq_commit = header.seq_commit
         agent.last_frames_ok = metrics.frames_ok
     end
     now_ns = UInt64(time_ns())
     if now_ns - agent.last_log_ns > 1_000_000_000
         @info "Consumer frame state" last_frame = agent.last_frame seen = agent.seen
-        desc_connected = Aeron.is_connected(consumer_state(agent.handle).runtime.sub_descriptor)
+        desc_connected = Aeron.is_connected(state(agent.handle).runtime.sub_descriptor)
         @info "Consumer descriptor connected" connected = desc_connected
         if metrics.drops_late != agent.last_drops_late ||
            metrics.drops_header_invalid != agent.last_drops_header_invalid
@@ -155,7 +155,7 @@ function run_consumer(
         app_ref = Ref{AppRateLimitedConsumerAgent}()
         hooks = ConsumerHooks(AppConsumerOnFrame(app_ref))
         handle = attach_consumer(tp_client, consumer_cfg; discover = false, hooks = hooks)
-        agent = AppRateLimitedConsumerAgent(
+        app_agent = AppRateLimitedConsumerAgent(
             handle,
             count,
             UInt64(0),
@@ -168,8 +168,8 @@ function run_consumer(
             0,
             false,
         )
-        app_ref[] = agent
-        composite = CompositeAgent(consumer_agent(handle), agent)
+        app_ref[] = app_agent
+        composite = CompositeAgent(agent(handle), app_agent)
         runner = AgentRunner(BackoffIdleStrategy(), composite)
         if isnothing(core_id)
             Agent.start_on_thread(runner)
@@ -177,11 +177,11 @@ function run_consumer(
             Agent.start_on_thread(runner, core_id)
         end
         try
-            while !agent.ready
+            while !app_agent.ready
                 yield()
             end
             if count > 0
-                while agent.seen < count
+                while app_agent.seen < count
                     yield()
                 end
                 close(runner)
@@ -197,7 +197,7 @@ function run_consumer(
         finally
             close(runner)
         end
-        @info "Consumer done" agent.seen
+        @info "Consumer done" app_agent.seen
         close(handle)
     finally
         close(tp_client)

@@ -152,10 +152,17 @@ mutable struct ProducerHandle
     producer_agent::ProducerAgent
 end
 
-consumer_agent(handle::ConsumerHandle) = handle.consumer_agent
-consumer_state(handle::ConsumerHandle) = handle.consumer_agent.state
-producer_agent(handle::ProducerHandle) = handle.producer_agent
-producer_state(handle::ProducerHandle) = handle.producer_agent.state
+"""
+Return the underlying agent for a handle.
+"""
+agent(handle::ConsumerHandle) = handle.consumer_agent
+agent(handle::ProducerHandle) = handle.producer_agent
+
+"""
+Return the underlying agent state for a handle.
+"""
+state(handle::ConsumerHandle) = handle.consumer_agent.state
+state(handle::ProducerHandle) = handle.producer_agent.state
 
 """
 Close a ConsumerHandle and its resources.
