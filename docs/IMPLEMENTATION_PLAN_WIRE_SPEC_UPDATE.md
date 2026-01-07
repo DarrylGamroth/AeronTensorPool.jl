@@ -1,49 +1,68 @@
-# Wire Spec v1.1 Update Plan
+# Wire Spec v1.1 Update Plan (Post-2026-01 Changes)
 
-Scope: Align implementation with updates in `docs/SHM_Tensor_Pool_Wire_Spec_v1.1.md` (seq_commit, TensorSlotHeader, validation rules, activity timestamp freshness). This plan focuses on code + tests; generated SBE code is regenerated as needed.
+Authoritative source: `docs/SHM_Tensor_Pool_Wire_Spec_v1.1.md`. This plan captures the new delta set (SlotHeader/TensorHeader split, clock domain, per-consumer stream rules, progress metadata changes, and security checks).
 
-## Phase 1: Gap Audit (no functional changes) ✅
-- Inventory current code references to `TensorSlotHeader256`, `frame_id`, and commit word semantics; note all call sites that must switch to `TensorSlotHeader` and `seq_commit`.
-- Verify consumer seqlock checks match the spec: LSB=1 means committed; `seq_commit >> 1` equals `FrameDescriptor.seq`.
-- Locate all `header_index` validation and bounds checks; ensure out-of-range drops are enforced.
-- Locate payload bounds checks: `values_len_bytes <= stride_bytes` and `payload_offset + values_len_bytes <= stride_bytes`.
-- Confirm activity/announce freshness checks are based on `activity_timestamp_ns` (not `announce_timestamp_ns`).
+## Phase 0: Audit and Alignment (no code changes)
+- Inventory all uses of `TensorSlotHeader`/`TensorSlotHeader256`, `FrameProgress.rowsFilled`, and `ShmPoolAnnounce.maxDims`.
+- Identify all header parsing/writing call sites that must move to embedded `TensorHeader` inside `SlotHeader.headerBytes`.
+- Locate all `ConsumerHello`/`ConsumerConfig` request/assign paths for per-consumer streams.
+- Confirm SHM URI validation paths and filesystem/symlink protections.
 
-## Phase 2: Core SHM Semantics Updates ✅
-- Producer write path:
-  - Use `seq_commit` encoding (`in_progress = seq << 1`, `committed = (seq << 1) | 1`).
-  - Ensure release semantics on both stores and payload visibility before committed store.
-  - Rename any header type usage to `TensorSlotHeader`.
-  - Enforce `payload_offset == 0` in v1.1.
-  - Zero-fill `dims[i]` and `strides[i]` for all `i >= ndims`.
-- Consumer read path:
-  - Validate `header_index` range before SHM access.
-  - Seqlock: read `seq_commit` (acquire), check LSB=1, read header/payload, re-read `seq_commit` (acquire), ensure unchanged and `seq_commit >> 1 == FrameDescriptor.seq`.
-  - Enforce `ndims in 1..MAX_DIMS`, `payload_offset == 0`, and bounds checks against `stride_bytes`.
-  - Drop on mismatch and account for `drops_gap`/`drops_late` per current policy.
+## Phase 1: Schema and Codegen
+- Validate that `schemas/wire-schema.xml` matches the normative wire spec fields, IDs, and ordering.
+- Regenerate SBE code from updated `schemas/wire-schema.xml`.
+- Update any compile-time constants to use regenerated schema values (e.g., `TensorHeader.maxDims`).
+- Remove old references to `TensorSlotHeader` and `FrameProgress.rowsFilled` in code/tests.
 
-## Phase 3: Codec and Naming Alignment ✅
-- Update any references from `TensorSlotHeader256` to `TensorSlotHeader` in code and tests.
-- Ensure generated SBE constants (e.g., `maxDims`) are referenced rather than hard-coded.
-- Regenerate SBE outputs from `schemas/wire-schema.xml` if codegen mismatches remain.
+## Phase 2: SlotHeader/TensorHeader Write Path (Producer/Bridge/RateLimiter)
+- Replace header writes with:
+  - `SlotHeader` fixed prefix fields.
+  - `SlotHeader.headerBytes` varData containing encoded `TensorHeader`.
+- Enforce `headerBytes` length validation (v1.1: 192 bytes including SBE header) during write.
+- Write `progress_unit` and `progress_stride_bytes` in the embedded header.
+- Update any `payload_offset` handling (v1.1: must remain 0).
 
-## Phase 4: Tests and Benchmarks ✅
-- Update unit tests to match new semantics (`seq_commit`, `ndims`, `payload_offset`, header_index bounds).
-- Add coverage for:
-  - drop when `ndims=0` or `ndims > MAX_DIMS`
-  - drop when `payload_offset != 0`
-  - drop when `values_len_bytes > stride_bytes`
-  - drop when `header_index` out of range
-  - drop on `seq_commit` mismatch with `FrameDescriptor.seq`
-- Update integration tests and examples to use the renamed header and `seq_commit` fields.
-- Re-run allocation tests and throughput benchmarks.
+## Phase 3: SlotHeader/TensorHeader Read Path (Consumer/Bridge/RateLimiter)
+- Parse `SlotHeader.headerBytes` as embedded SBE `TensorHeader` during seqlock reads.
+- Drop if `headerBytes` length or template ID is invalid.
+- Move dims/strides/major_order/dtype/progress fields to the embedded header.
+- Update seqlock algorithm step ordering to include `headerBytes` parse before accept.
 
-## Phase 5: Documentation Sync ✅
-- Update `docs/IMPLEMENTATION_PHASES.md` to mark these changes and current progress.
-- Ensure any API docs or examples referencing `frame_id` or `TensorSlotHeader256` are updated.
+## Phase 4: Progress Semantics
+- Remove `FrameProgress.rowsFilled` usage.
+- Enforce `progress_unit`/`progress_stride_bytes` consistency:
+  - If `progress_unit != NONE`, `progress_stride_bytes` must be non-zero and consistent with layout.
+  - Drop frames on inconsistencies.
+- Update any progress forwarding/bridge logic to match spec.
+
+## Phase 5: ShmPoolAnnounce Clock Domain
+- Add `announce_clock_domain` to announce encode/decode paths.
+- Enforce monotonic join-time filtering only when `ClockDomain.MONOTONIC`.
+- For `REALTIME_SYNCED`, apply freshness window based on receipt time only.
+- Reject unsynchronized realtime (spec forbids it in v1.1).
+
+## Phase 6: Per-Consumer Stream Request Rules
+- Update ConsumerHello encoding rules:
+  - Requests are valid only when channel is non-empty AND stream_id is non-zero.
+  - Reject non-empty channel with stream_id=0 and the inverse.
+- Update driver handling to reject invalid requests and return shared streams.
+- Update ConsumerConfig semantics (stream IDs are plain `uint32`, 0 = unassigned).
+
+## Phase 7: SHM URI Security and Hugepage Rules
+- Enforce filesystem path-only semantics for `shm:file` (Windows named SHM out of scope).
+- Add/verify no-follow open and post-open handle validation (TOCTOU/symlink protection).
+- Reject `require_hugepages=true` on platforms without reliable verification.
+
+## Phase 8: Tests, Examples, Benchmarks
+- Update unit tests for SlotHeader/TensorHeader, progress, and clock domain behavior.
+- Update bridge/ratelimiter tests and examples to use SlotHeader + embedded TensorHeader.
+- Update system benchmarks if they reference removed symbols.
+- Re-run allocation tests to confirm no new allocations in hot paths.
+
+## Phase 9: Documentation Sync
+- Update `docs/IMPLEMENTATION_PHASES.md` and any examples/diagrams to reflect SlotHeader/TensorHeader.
+- Ensure spec-derived documentation is consistent with updated per-consumer stream rules and announce clock domain.
 
 ## Tooling / Commands
-- Regenerate all schemas via build step:
-  - `julia --project -e 'using Pkg; Pkg.build("AeronTensorPool")'`
-- Run tests:
-  - `julia --project -e 'using Pkg; Pkg.test()'`
+- Regenerate code: `julia --project -e 'using Pkg; Pkg.build("AeronTensorPool")'`
+- Run tests: `julia --project -e 'using Pkg; Pkg.test()'`
