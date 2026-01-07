@@ -561,7 +561,7 @@ function attach_producer(
         client = client.aeron_client,
     )
     control_asm = Producer.make_control_assembler(producer_state; hooks = hooks)
-    qos_asm = make_qos_assembler(producer_state; hooks = hooks)
+    qos_asm = Producer.make_qos_assembler(producer_state; hooks = hooks)
     counters = ProducerCounters(producer_state.runtime.control.client, Int(config.producer_id), "Producer")
     producer_agent = ProducerAgent(producer_state, control_asm, qos_asm, counters)
     return ProducerHandle(client, request.driver_client, producer_agent)
