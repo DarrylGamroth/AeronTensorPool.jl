@@ -64,7 +64,7 @@ Upon accepting a source frame:
 1. Validate source `epoch` and header/payload consistency per the wire spec.
 2. Select a destination pool using configured mapping rules (e.g., smallest stride >= payload length).
 3. Write payload bytes into the destination SHM pool.
-4. Write `TensorSlotHeader` into the destination header ring, preserving `meta_version` and `timestamp_ns`, and overriding `pool_id`/`payload_slot` for the destination pool.
+4. Write `SlotHeader` (with embedded TensorHeader) into the destination header ring, preserving `meta_version` and `timestamp_ns`, and overriding `pool_id`/`payload_slot` for the destination pool.
 5. Commit via the standard `seq_commit` protocol.
 6. Publish a destination `FrameDescriptor` on the destination stream.
 

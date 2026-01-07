@@ -32,10 +32,9 @@
     <!-- Constant used for array sizing in generated code -->
     <type name="MaxDimsConst" primitiveType="uint8" presence="constant">8</type>
 
-    <!-- Fixed-length arrays for TensorSlotHeader (length matches MaxDimsConst) -->
+    <!-- Fixed-length arrays for TensorHeader (length matches MaxDimsConst) -->
     <type name="DimsArray"     primitiveType="int32" length="8"/>
     <type name="StridesArray"  primitiveType="int32" length="8"/>
-    <type name="Pad152"        primitiveType="uint8" length="152"/>
 
     <enum name="Bool" encodingType="uint8">
       <validValue name="FALSE">0</validValue>
@@ -60,6 +59,11 @@
       <validValue name="INVALID_PARAMS">2</validValue>
       <validValue name="REJECTED">3</validValue>
       <validValue name="INTERNAL_ERROR">4</validValue>
+    </enum>
+
+    <enum name="ClockDomain" encodingType="uint8">
+      <validValue name="MONOTONIC">1</validValue>
+      <validValue name="REALTIME_SYNCED">2</validValue>
     </enum>
 
     <enum name="RegionType" encodingType="int16">
@@ -100,10 +104,10 @@
     <field name="producerId"      id="2" type="uint32"/>
     <field name="epoch"           id="3" type="epoch_t"/>
     <field name="announceTimestampNs" id="4" type="uint64"/>
-    <field name="layoutVersion"   id="5" type="version_t"/>
-    <field name="headerNslots"    id="6" type="uint32"/>
-    <field name="headerSlotBytes" id="7" type="uint16"/>
-    <field name="maxDims"         id="8" type="uint8"/>
+    <field name="announceClockDomain" id="5" type="ClockDomain"/>
+    <field name="layoutVersion"   id="6" type="version_t"/>
+    <field name="headerNslots"    id="7" type="uint32"/>
+    <field name="headerSlotBytes" id="8" type="uint16"/>
     <group name="payloadPools"    id="9" dimensionType="groupSizeEncoding">
       <field name="poolId"      id="1" type="uint16"/>
       <field name="poolNslots"  id="2" type="uint32"/>
@@ -124,8 +128,8 @@
     <field name="progressIntervalUs"    id="8" type="uint32" presence="optional" nullValue="4294967295"/>
     <field name="progressBytesDelta"    id="9" type="uint32" presence="optional" nullValue="4294967295"/>
     <field name="progressRowsDelta"     id="10" type="uint32" presence="optional" nullValue="4294967295"/>
-    <field name="descriptorStreamId"    id="11" type="uint32" presence="optional" nullValue="4294967295"/>
-    <field name="controlStreamId"       id="12" type="uint32" presence="optional" nullValue="4294967295"/>
+    <field name="descriptorStreamId"    id="11" type="uint32"/>
+    <field name="controlStreamId"       id="12" type="uint32"/>
     <data  name="descriptorChannel"     id="13" type="varAsciiEncoding"/>
     <data  name="controlChannel"        id="14" type="varAsciiEncoding"/>
   </sbe:message>
@@ -135,8 +139,8 @@
     <field name="consumerId"         id="2" type="uint32"/>
     <field name="useShm"             id="3" type="Bool"/>
     <field name="mode"               id="4" type="Mode"/>
-    <field name="descriptorStreamId" id="6" type="uint32" presence="optional" nullValue="4294967295"/>
-    <field name="controlStreamId"    id="7" type="uint32" presence="optional" nullValue="4294967295"/>
+    <field name="descriptorStreamId" id="6" type="uint32"/>
+    <field name="controlStreamId"    id="7" type="uint32"/>
     <data  name="payloadFallbackUri" id="8" type="varAsciiEncoding"/>
     <data  name="descriptorChannel"  id="9" type="varAsciiEncoding"/>
     <data  name="controlChannel"     id="10" type="varAsciiEncoding"/>
@@ -158,7 +162,6 @@
     <field name="headerIndex"       id="4" type="uint32"/>
     <field name="payloadBytesFilled" id="5" type="uint64"/>
     <field name="state"             id="6" type="FrameProgressState"/>
-    <field name="rowsFilled"        id="7" type="uint32" presence="optional" nullValue="4294967295"/>
   </sbe:message>
 
   <sbe:message name="QosConsumer" id="5">
@@ -195,22 +198,29 @@
     <field name="activityTimestampNs" id="12" type="uint64"/>
   </sbe:message>
 
-  <sbe:message name="TensorSlotHeader" id="51" blockLength="256">
+  <sbe:message name="SlotHeader" id="51" blockLength="60">
     <field name="seqCommit"      id="1" type="uint64"/>
     <field name="valuesLenBytes" id="2" type="uint32"/>
     <field name="payloadSlot"    id="3" type="uint32"/>
     <field name="poolId"         id="4" type="uint16"/>
-    <field name="dtype"          id="5" type="Dtype"/>
-    <field name="majorOrder"     id="6" type="MajorOrder"/>
-    <field name="ndims"          id="7" type="uint8"/>
-    <field name="maxDims"        id="8" type="MaxDimsConst"/>
-    <field name="padAlign"       id="9" type="uint8"/>
-    <field name="payloadOffset"  id="10" type="uint32"/>
-    <field name="timestampNs"    id="11" type="uint64"/>
-    <field name="metaVersion"    id="12" type="version_t"/>
-    <field name="dims"           id="13" type="DimsArray"/>
-    <field name="strides"        id="14" type="StridesArray"/>
-    <field name="padding"        id="15" type="Pad152"/>
+    <field name="payloadOffset"  id="5" type="uint32"/>
+    <field name="timestampNs"    id="6" type="uint64"/>
+    <field name="metaVersion"    id="7" type="version_t"/>
+    <field name="pad"            id="8" type="uint8" length="26"/>
+    <data  name="headerBytes"    id="9" type="varDataEncoding"/>
+  </sbe:message>
+
+  <sbe:message name="TensorHeader" id="52" blockLength="184">
+    <field name="dtype"           id="1" type="Dtype"/>
+    <field name="majorOrder"      id="2" type="MajorOrder"/>
+    <field name="ndims"           id="3" type="uint8"/>
+    <field name="maxDims"         id="4" type="MaxDimsConst"/>
+    <field name="padAlign"        id="5" type="uint8"/>
+    <field name="progressUnit"         id="6" type="ProgressUnit"/>
+    <field name="progressStrideBytes"  id="7" type="uint32" minValue="1"/>
+    <field name="dims"            id="8" type="DimsArray"/>
+    <field name="strides"         id="9" type="StridesArray"/>
+    <field name="pad"             id="10" type="uint8" length="109"/>
   </sbe:message>
 
   <sbe:message name="DataSourceAnnounce" id="7">

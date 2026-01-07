@@ -13,7 +13,8 @@ It is written to be directly consumable by automated code-generation tools
 
 **Document Conventions** Normative sections: 6–11, 15.1–15.22, 16. Informative sections: 1–5, 12–14. "NOTE:"/"Rationale:" text is informative. Uppercase MUST/SHOULD/MAY keywords appear only in normative sections and carry RFC 2119 force; any lowercase "must/should/may" in informative text is non-normative.
 **Version History**
-- v1.1 (2025-12-30): Initial RFC-style specification. Adds normative algorithms, compatibility matrix, explicit field alignment (TensorSlotHeader), language-neutral requirements, and progress reporting protocol. Normative wire/SHM schemas included.
+- v1.1 (2025-12-30): Initial RFC-style specification. Adds normative algorithms, compatibility matrix, explicit field alignment (SlotHeader + TensorHeader), language-neutral requirements, and progress reporting protocol. Normative wire/SHM schemas included.
+- v1.1 also requires `announce_clock_domain` in `ShmPoolAnnounce` and forbids unsynchronized realtime timestamps.
 ---
 
 ## 1. Goals
@@ -75,8 +76,8 @@ shm:file?path=<absolute_path>[|require_hugepages=true]
 ```
 
 - Separator: parameters use Aeron-style `|` between entries (not `&`).
-- `path` (required): absolute path to the backing file (POSIX) or the platform-defined shared-memory identifier (e.g., Windows named shared memory). Examples: `/dev/shm/<name>` (tmpfs) or `/dev/hugepages/<name>` (hugetlbfs). Absolute POSIX paths use a leading `/`; platform-specific names follow their native rules.
-- `require_hugepages` (optional, default false): if true, the region MUST be backed by hugepages; mappings that do not satisfy this requirement MUST be rejected (see 15.22).
+- `path` (required): absolute filesystem path to the backing file (POSIX or Windows). Examples: `/dev/shm/<name>` (tmpfs), `/dev/hugepages/<name>` (hugetlbfs), or `C:\\aeron\\<name>` on Windows. Absolute POSIX paths use a leading `/`. Non-path platform identifiers (e.g., Windows named shared memory) are out of scope for v1.1; deployments that support them MUST define equivalent containment/allowlist rules.
+- `require_hugepages` (optional, default false): if true, the region MUST be backed by hugepages; mappings that do not satisfy this requirement MUST be rejected (see 15.22). On platforms without a reliable hugepage verification mechanism (e.g., Windows), `require_hugepages=true` is unsupported and MUST be rejected.
 - v1.1 supports only `shm:file`; other schemes or additional parameters are unsupported and MUST be rejected (see 15.22).
 
 Informative ABNF (single scheme):
@@ -176,27 +177,33 @@ slot_offset(i) =
     superblock_size + i * 256
 ```
 
-### 8.2 TensorSlotHeader
+### 8.2 SlotHeader and TensorHeader
 
 This header represents “almost fixed-size TensorMessage metadata” with the large `values` buffer stored out-of-line in a payload pool.
 
-SBE definition: `TensorSlotHeader` message in the schema appendix (v1.1 `MAX_DIMS=8`). The schema includes a `maxDims` constant field for codegen alignment; it is not encoded on the wire and MUST be treated as a compile-time constant. Changing `MAX_DIMS` requires a new `layout_version` and schema rebuild.
+SBE definition: `SlotHeader` and `TensorHeader` messages in the schema appendix (v1.1 `MAX_DIMS=8`). The schema includes a `maxDims` constant field for codegen alignment; it is not encoded on the wire and MUST be treated as a compile-time constant. Changing `MAX_DIMS` requires a new `layout_version` and schema rebuild.
 
-**Fields** (in wire/layout order)
+**SlotHeader fields** (wire/layout order, fixed 60-byte prefix + `headerBytes`)
 - `seq_commit : u64` (commit + sequence; LSB is commit bit, upper bits are `logical_sequence`)
 - `values_len_bytes : u32`
 - `payload_slot : u32`
 - `pool_id : u16`
+- `payload_offset : u32` (typically 0; reserved)
+- `timestamp_ns : u64`
+- `meta_version : u32` (ties frame to `DataSourceMeta`)
+- `pad : bytes[26]` (reserved; producers MAY zero-fill; consumers MUST ignore)
+- `headerBytes : varData` (length MUST match the embedded TensorHeader SBE message header + blockLength; v1.1 length is 192 bytes)
+
+**TensorHeader fields** (embedded inside `headerBytes`)
 - `dtype : enum Dtype` (scalar element type)
 - `major_order : enum MajorOrder` (row- vs column-major)
 - `ndims : u8`
 - `pad_align : u8` (aligns `dims`/`strides` to 4-byte boundary)
-- `payload_offset : u32` (typically 0; reserved)
-- `timestamp_ns : u64`
-- `meta_version : u32` (ties frame to `DataSourceMeta`)
+- `progress_unit : enum ProgressUnit` (NONE, ROWS, COLUMNS)
+- `progress_stride_bytes : u32` (bytes between adjacent rows/columns when `progress_unit!=NONE`; MUST be > 0 and equal to the true row/column stride)
 - `dims[MAX_DIMS] : i32[]`
 - `strides[MAX_DIMS] : i32[]` (bytes per dim; 0 = contiguous/infer)
-- padding to 256 bytes
+- padding to 192 bytes total (including the 8-byte SBE message header)
 
 Canonical identity: `logical_sequence = seq_commit >> 1`, `FrameDescriptor.seq`, and `FrameProgress.frame_id` MUST be equal for the same frame; consumers MUST DROP if any differ. No separate `frame_id` field exists in the header.
 
@@ -208,8 +215,9 @@ Canonical identity: `logical_sequence = seq_commit >> 1`, `FrameDescriptor.seq`,
 - For v1.1, `payload_offset` MUST be 0; consumers MUST drop frames with non-zero `payload_offset`.
 - Producers MUST zero-fill `dims[i]` and `strides[i]` for all `i >= ndims`; consumers MUST ignore indices `i >= ndims`.
 - Strides: `0` means inferred contiguous; negative strides are **not supported in v1.1**; strides MUST describe a non-overlapping layout consistent with `major_order` (row-major implies increasing stride as dimension index decreases); reject headers whose strides would overlap or contradict `major_order`.
+- Progress: if `progress_unit != NONE`, `progress_stride_bytes` MUST be non-zero and equal to the true row/column stride implied by `strides` (or inferred contiguous). Consumers MUST drop frames where `progress_unit != NONE` and `progress_stride_bytes` is zero or inconsistent with the declared layout.
 - Arrays alignment: `pad_align` ensures `dims` and `strides` are 4-byte aligned; consumers may rely on this for word accesses.
-- Padding (`Pad152`) is reserved/opaque; producers MAY leave it zeroed or use it for implementation-specific data; consumers MUST ignore it and MUST NOT store process-specific pointers/addresses there.
+- Padding is reserved/opaque; producers MAY leave it zeroed or use it for implementation-specific data; consumers MUST ignore it and MUST NOT store process-specific pointers/addresses there.
 - Frame identity: `logical_sequence` (derived from `seq_commit`), `FrameDescriptor.seq`, and `FrameProgress.frame_id` MUST match. Consumers SHOULD drop a frame if `seq_commit` and `FrameDescriptor.seq` disagree (stale header_index reuse).
 
 ### 8.3 Commit Encoding via `seq_commit` (Normative)
@@ -236,7 +244,8 @@ commit_state     = seq_commit & 1
 2. If `(seq_commit & 1) == 0` → skip/drop (not committed).
 3. Read header + payload.
 4. Re-read `seq_commit` (acquire).
-5. Accept only if unchanged, `(seq_commit & 1) == 1`, and `(seq_commit >> 1)` equals the expected sequence (from `FrameDescriptor.seq`).
+5. Parse `headerBytes` as an embedded SBE message (expect `TensorHeader` in v1.1); drop if header length or templateId is invalid (length MUST equal the embedded message header + blockLength).
+6. Accept only if unchanged, `(seq_commit & 1) == 1`, and `(seq_commit >> 1)` equals the expected sequence (from `FrameDescriptor.seq`).
 
 This prevents torn reads under overwrite.
 
@@ -287,11 +296,11 @@ Sent periodically (e.g. 1 Hz) and on change.
 - `stream_id : u32`
 - `producer_id : u32`
 - `epoch : u64`
-- `announce_timestamp_ns : u64` (producer time; monotonic or epoch time per deployment)
+- `announce_timestamp_ns : u64` (producer timestamp in declared clock domain)
+- `announce_clock_domain : enum ClockDomain` (MONOTONIC or REALTIME_SYNCED; v1.1 forbids unsynchronized realtime)
 - `layout_version : u32`
 - `header_nslots : u32`
 - `header_slot_bytes : u16` (must be 256)
-- `max_dims : u8` (v1.1 fixed at 8; changing it requires a new `layout_version` and schema rebuild)
 - repeating group `payload_pools`:
   - `pool_id : u16`
   - `region_uri : string`
@@ -303,7 +312,8 @@ Sent periodically (e.g. 1 Hz) and on change.
 - Consumers use this to open/mmap regions and validate superblocks.
 - If `epoch` changes, consumers must remap and reset state.
 - Consumers MUST treat `ShmPoolAnnounce` as soft-state and ignore stale announcements. At minimum, consumers MUST prefer the highest observed `epoch` per `stream_id` and MUST ignore any announce whose `announce_timestamp_ns` is older than a freshness window (RECOMMENDED: 3× the announce period) relative to local receipt time.
-- Consumers MUST ignore announcements whose `announce_timestamp_ns` precedes the consumer's join time (to avoid Aeron log replay). If a driver attach response is used, it MAY serve as the authoritative snapshot, but consumers MUST still require a fresh `ShmPoolAnnounce` before trusting periodic liveness.
+- Consumers MUST ignore announcements whose `announce_timestamp_ns` precedes the consumer's join time (to avoid Aeron log replay) **only when `announce_clock_domain=MONOTONIC`**. Define `join_time_ns` as the local monotonic time when the subscription image becomes available; compare directly only for MONOTONIC. For REALTIME_SYNCED, consumers MUST NOT apply the join-time drop rule and MUST rely on the freshness window relative to local receipt time instead.
+- `announce_clock_domain=REALTIME_SYNCED` indicates that `announce_timestamp_ns` is disciplined to a shared clock (e.g., PTP/NTP within a documented error budget). Unsynchronized realtime is not permitted in v1.1.
 
 #### 10.1.2 ConsumerHello (consumer → producer/supervisor)
 
@@ -321,17 +331,17 @@ Sent on startup and optionally periodically.
   - `progress_interval_us : u32` (minimum interval between `PROGRESS` messages; optional; if absent, producer defaults apply; **recommended default**: 250 µs)
   - `progress_bytes_delta : u32` (minimum byte delta to report; optional; if absent, producer defaults apply; **recommended default**: 65,536 bytes)
   - `progress_rows_delta : u32` (minimum row delta to report; optional; 0/absent if not row-major; **recommended default**: 0 when not row-major)
-- `descriptor_stream_id : u32` (optional; preferred stream ID, or 0 to let producer choose)
-- `control_stream_id : u32` (optional; preferred stream ID, or 0 to let producer choose)
-- `descriptor_channel : string` (optional; request per-consumer descriptor stream)
-- `control_channel : string` (optional; request per-consumer control stream)
+- `descriptor_stream_id : u32` (preferred stream ID, or 0 to let producer choose)
+- `control_stream_id : u32` (preferred stream ID, or 0 to let producer choose)
+- `descriptor_channel : string` (optional; request per-consumer descriptor stream; empty string means “not requested”)
+- `control_channel : string` (optional; request per-consumer control stream; empty string means “not requested”)
 
 **Purpose**
 - Advertise consumer capabilities.
 - Enables management decisions (e.g., instruct remote consumers to use a bridge).
 - Provides optional per-consumer progress throttling hints; producer aggregates hints (e.g., smallest intervals/deltas within producer safety floors) and retains final authority.
-- Optionally request a per-consumer descriptor stream when `descriptor_channel` and `descriptor_stream_id` are both provided (non-empty channel, non-zero stream id).
-- Optionally request a per-consumer control stream when `control_channel` and `control_stream_id` are both provided (non-empty channel, non-zero stream id).
+- Optionally request a per-consumer descriptor stream only when `descriptor_channel` is non-empty and `descriptor_stream_id` is non-zero. If either is missing, the request MUST be treated as absent; consumers MUST NOT send a non-empty channel with `descriptor_stream_id=0`, and producers MUST reject such requests.
+- Optionally request a per-consumer control stream only when `control_channel` is non-empty and `control_stream_id` is non-zero. If either is missing, the request MUST be treated as absent; consumers MUST NOT send a non-empty channel with `control_stream_id=0`, and producers MUST reject such requests.
 - Consumer IDs: recommended to be assigned by supervisor/authority per stream; if self-assigned, use randomized IDs and treat collisions (detected via `QosConsumer`) as a reason to reconnect with a new ID.
 
 #### 10.1.3 ConsumerConfig (producer/supervisor → consumer) [optional]
@@ -341,8 +351,8 @@ Sent on startup and optionally periodically.
 - `consumer_id : u32`
 - `use_shm : bool`
 - `mode : enum { STREAM, RATE_LIMITED }`
-- `descriptor_stream_id : u32` (optional; assigned per-consumer descriptor stream ID)
-- `control_stream_id : u32` (optional; assigned per-consumer control stream ID)
+- `descriptor_stream_id : u32` (assigned per-consumer descriptor stream ID; 0 means not assigned)
+- `control_stream_id : u32` (assigned per-consumer control stream ID; 0 means not assigned)
 - `payload_fallback_uri : string` (optional; e.g., bridge channel/stream info)
   - URI SHOULD follow Aeron channel syntax when bridged over Aeron (e.g., `aeron:udp?...`) or a documented scheme such as `bridge://<id>` when using a custom bridge; undefined schemes MUST be treated as unsupported.
 - `descriptor_channel : string` (optional; assigned per-consumer descriptor channel)
@@ -355,9 +365,9 @@ Sent on startup and optionally periodically.
 - Can assign per-consumer control streams when requested.
 
 **Per-consumer stream request rules**
-- Empty `descriptor_channel`/`control_channel` strings MUST be treated as “not requested/assigned”.
-- If only one of channel/stream_id is provided, the request MUST be treated as absent.
-- If a producer declines a per-consumer stream request, it MUST return empty channel and null/zero stream ID in `ConsumerConfig`, and the consumer MUST remain on the shared stream.
+- Empty `descriptor_channel`/`control_channel` strings (length=0) MUST be treated as “not requested/assigned”; length=0 is the only valid absent encoding.
+- If only one of channel/stream_id is provided, the request MUST be rejected (non-empty channel with stream_id=0, or non-zero stream_id with empty channel).
+- If a producer declines a per-consumer stream request, it MUST return empty channel and stream ID = 0 in `ConsumerConfig`, and the consumer MUST remain on the shared stream.
 - Per-consumer descriptor/control publications MUST be closed when the consumer is stale (no `QosConsumer` or `ConsumerHello` for 3–5× the configured hello/qos interval) or explicitly disconnected.
 
 ### 10.2 Data Availability
@@ -381,7 +391,7 @@ Optional fields (may reduce SHM reads for filtering):
 - Consumers derive all payload location/shape/type from the SHM header slot.
 - Consumers MUST drop if `header_index` is out of range for the mapped header ring.
 - Consumer MUST drop if the header slot’s committed `logical_sequence` (derived from `seq_commit >> 1`) does not equal `FrameDescriptor.seq` for that `header_index` (stale reuse guard).
-- Consumers MUST drop frames where `values_len_bytes > stride_bytes`, or where `payload_offset + values_len_bytes > stride_bytes` (when `payload_offset` is non-zero in future versions).
+- Consumers MUST drop frames where `values_len_bytes > stride_bytes`. (Future versions that permit non-zero `payload_offset` MUST additionally enforce `payload_offset + values_len_bytes <= stride_bytes`.)
 
 #### 10.2.2 FrameProgress (producer → interested consumers, optional)
 
@@ -394,19 +404,18 @@ Optional partial-availability hints during DMA.
 - `header_index : u32`
 - `payload_bytes_filled : u64`
 - `state : enum { UNKNOWN=0, STARTED=1, PROGRESS=2, COMPLETE=3 }`
-- optional: `rows_filled : u32` (if present, rows count for row-major sensors)
 
 **Rules**
 - Producer emits `STARTED` when acquisition for the slot begins.
 - Producer emits `PROGRESS` throttled (e.g., every N rows or X µs) with updated `payload_bytes_filled`.
 - Producer emits `COMPLETE` or simply the usual `FrameDescriptor` when DMA finishes; `seq_commit` semantics remain unchanged (LSB=1 = committed).
 - Consumers that do not opt in ignore `FrameProgress` and rely on `FrameDescriptor`.
-- Consumers that opt in must read only the prefix `[0:payload_bytes_filled)` (or rows up to `rows_filled`) and may reread `payload_bytes_filled` to confirm.
+- Consumers that opt in must read only the prefix `[0:payload_bytes_filled)` and may reread `payload_bytes_filled` to confirm. Consumers MUST validate `progress_unit`/`progress_stride_bytes` before treating any prefix as layout-safe; if `progress_unit != NONE` and `progress_stride_bytes` is zero or inconsistent with the declared strides, the frame MUST be dropped.
 - `FrameProgress.state=COMPLETE` does **not** guarantee payload visibility; consumers MUST still validate `seq_commit` before treating data as committed.
 - FrameDescriptor remains the canonical “frame available” signal; consumers MUST NOT treat `FrameProgress` (including COMPLETE) as a substitute, and producers MAY omit `FrameProgress` entirely.
 - Progress payload prefix safety:
   - If strides are inferred contiguous **and** `payload_offset=0`, then bytes in `[0:payload_bytes_filled)` are safe to read (subject to `seq_commit`).
-  - Otherwise, treat `payload_bytes_filled` as informational only unless `rows_filled` is present and the consumer understands the row layout; consumers MUST NOT assume prefix contiguity.
+  - Otherwise, treat `payload_bytes_filled` as informational only unless the embedded `TensorHeader` declares `progress_unit=ROWS` or `progress_unit=COLUMNS` and provides `progress_stride_bytes` for major-aligned interpretation.
 
 **State machine**
 - Per frame: STARTED → PROGRESS (0..N) → COMPLETE. No regression within a frame. New frame uses a new `frame_id`/`header_index`.
@@ -448,7 +457,7 @@ Sent on change and periodically (or on request). Carries structured key/format/v
   - `value : varData` (bytes per `format`)
 
 **Rules**
-- Each `TensorSlotHeader.meta_version` and/or `FrameDescriptor.meta_version` references the applicable metadata version.
+- Each `SlotHeader.meta_version` and/or `FrameDescriptor.meta_version` references the applicable metadata version.
 - Use `meta_version` bumps to add/remove `attributes`. Consumers MAY ignore unknown `key` values.
 
 #### 10.3.3 Meta blobs (optional, if large metadata is needed)
@@ -547,7 +556,6 @@ End of specification.
 ### 15.1 Validation and Compatibility
 - Consumers MUST validate that `layout_version`, `nslots`, `slot_bytes`, `stride_bytes`, `region_type`, and `pool_id` in `ShmRegionSuperblock` match the most recent `ShmPoolAnnounce`; mismatches MUST trigger a remap or fallback.
 - Consumers MUST validate `magic` and `epoch` on every `ShmPoolAnnounce`; `pid` is informational and cannot alone detect restarts or multi-producer contention.
-- `max_dims` in `ShmPoolAnnounce` MUST match the compiled SBE schema expectation; otherwise consumers SHOULD reject SHM and use fallback.
 - Consumers MUST validate `activity_timestamp_ns` freshness: announcements older than the freshness window (RECOMMENDED: 3× announce period) MUST be ignored.
 - Host endianness: implementation is little-endian only; big-endian hosts MUST reject or byte-swap consistently (out of scope in v1.1).
 
@@ -666,9 +674,10 @@ End of specification.
   1. On `FrameDescriptor`, validate `epoch`; derive/map `header_index`.
   2. Read `seq_commit` (acquire).
   3. If LSB is 0 → drop/skip.
-  4. Read header + payload.
-  5. Re-read `seq_commit` (acquire).
-  6. Accept only if unchanged, LSB is 1, and `(seq_commit >> 1) == seq`; otherwise drop and count (`drops_gap` or `drops_late`).
+  4. Read SlotHeader + `headerBytes` + payload.
+5. Parse `headerBytes` as an embedded SBE message (expect `TensorHeader` in v1.1); drop if header length or templateId is invalid (length MUST equal the embedded message header + blockLength).
+  6. Re-read `seq_commit` (acquire).
+  7. Accept only if unchanged, LSB is 1, and `(seq_commit >> 1) == seq`; otherwise drop and count (`drops_gap` or `drops_late`).
 
 - **Epoch remap**
   1. On `epoch` change, superblock/layout mismatch, or magic/version mismatch: unmap all regions for the stream.
@@ -820,16 +829,23 @@ Before mapping any announced shared-memory region, a consumer implementation
 MUST:
 
 1. Verify that the announced path is an absolute filesystem path.
-2. Resolve the announced path to its canonical form (e.g., via `realpath()` or
-  equivalent).
+2. Resolve the announced path to its canonical form using a platform-equivalent
+  mechanism (e.g., `realpath()` on POSIX, full-path normalization on Windows).
 3. Resolve each configured `allowed_base_dir` to its canonical form once (at
   startup/config-load) and use only those canonical paths for containment
   checks.
 4. Verify that the canonical announced path is fully contained within one of
   the canonical `allowed_base_dirs`.
-5. Perform a filesystem metadata check on the canonical announced path and
-  reject unless it is a regular file (hugetlbfs-backed regular files are
-  acceptable); block/char devices, FIFOs, and sockets MUST be rejected.
+5. Perform a filesystem metadata check on the canonical announced path using
+  platform-equivalent APIs and reject unless it is a regular file
+  (hugetlbfs-backed regular files are acceptable); block/char devices, FIFOs,
+  and sockets MUST be rejected.
+6. To avoid TOCTOU/symlink swaps, consumers MUST open the file with
+  no-follow/symlink-safe flags where available and MUST re-validate the opened
+  file descriptor/handle (e.g., fstat on the opened handle) before mapping. If
+  the platform cannot provide a safe no-follow open **and** a reliable opened-
+  handle identity check (e.g., inode+device or file ID), the consumer MUST
+  reject the mapping (fail closed).
 
 If any of these checks fail, the consumer MUST reject the region and MUST NOT
 map it.
@@ -866,7 +882,7 @@ during startup or supervision.
 ### 15.22 SHM Backend Validation (v1.1)
 
 - Consumers MUST reject any `region_uri` with an unknown scheme.
-- For `shm:file`, if `require_hugepages=true`, consumers MUST verify that the mapped region is hugepage-backed; if verification fails or is unsupported on the platform, the region MUST be rejected (no silent downgrade).
+- For `shm:file`, if `require_hugepages=true`, consumers MUST verify that the mapped region is hugepage-backed. On platforms without a reliable verification mechanism (e.g., Windows), `require_hugepages=true` is unsupported and MUST cause the region to be rejected (no silent downgrade).
 - `stride_bytes` is explicit and MUST NOT be inferred from page size. It MUST be a power of two and a multiple of the backing page size; if `require_hugepages=true`, it MUST also be a multiple of the mapped hugepage size.
 - For `shm:file`, parameters are separated by `|`; unknown parameters MUST be rejected.
 - Regions that violate these requirements MUST be rejected. On rejection, consumers MAY fall back to a configured `payload_fallback_uri`; otherwise they MUST fail the data source with a clear diagnostic. Rejected regions MUST NOT be partially consumed.
@@ -912,10 +928,9 @@ Reference schema patterned after Aeron archive control style; adjust IDs and fie
     <!-- Constant used for array sizing in generated code -->
     <type name="MaxDimsConst" primitiveType="uint8" presence="constant">8</type>
 
-    <!-- Fixed-length arrays for TensorSlotHeader (length matches MaxDimsConst) -->
+    <!-- Fixed-length arrays for TensorHeader (length matches MaxDimsConst) -->
     <type name="DimsArray"     primitiveType="int32" length="8"/>
     <type name="StridesArray"  primitiveType="int32" length="8"/>
-    <type name="Pad152"        primitiveType="uint8" length="152"/>
 
     <enum name="Bool" encodingType="uint8">
       <validValue name="FALSE">0</validValue>
@@ -934,12 +949,23 @@ Reference schema patterned after Aeron archive control style; adjust IDs and fie
       <validValue name="COMPLETE">3</validValue>
     </enum>
 
+    <enum name="ProgressUnit" encodingType="uint8">
+      <validValue name="NONE">0</validValue>
+      <validValue name="ROWS">1</validValue>
+      <validValue name="COLUMNS">2</validValue>
+    </enum>
+
     <enum name="ResponseCode" encodingType="int32">
       <validValue name="OK">0</validValue>
       <validValue name="UNSUPPORTED">1</validValue>
       <validValue name="INVALID_PARAMS">2</validValue>
       <validValue name="REJECTED">3</validValue>
       <validValue name="INTERNAL_ERROR">4</validValue>
+    </enum>
+
+    <enum name="ClockDomain" encodingType="uint8">
+      <validValue name="MONOTONIC">1</validValue>
+      <validValue name="REALTIME_SYNCED">2</validValue>
     </enum>
 
     <enum name="RegionType" encodingType="int16">
@@ -980,10 +1006,10 @@ Reference schema patterned after Aeron archive control style; adjust IDs and fie
     <field name="producerId"      id="2" type="uint32"/>
     <field name="epoch"           id="3" type="epoch_t"/>
     <field name="announceTimestampNs" id="4" type="uint64"/>
-    <field name="layoutVersion"   id="5" type="version_t"/>
-    <field name="headerNslots"    id="6" type="uint32"/>
-    <field name="headerSlotBytes" id="7" type="uint16"/>
-    <field name="maxDims"         id="8" type="uint8"/>
+    <field name="announceClockDomain" id="5" type="ClockDomain"/>
+    <field name="layoutVersion"   id="6" type="version_t"/>
+    <field name="headerNslots"    id="7" type="uint32"/>
+    <field name="headerSlotBytes" id="8" type="uint16"/>
     <group name="payloadPools"    id="9" dimensionType="groupSizeEncoding">
       <field name="poolId"      id="1" type="uint16"/>
       <field name="poolNslots"  id="2" type="uint32"/>
@@ -1004,8 +1030,8 @@ Reference schema patterned after Aeron archive control style; adjust IDs and fie
     <field name="progressIntervalUs"    id="8" type="uint32" presence="optional" nullValue="4294967295"/>
     <field name="progressBytesDelta"    id="9" type="uint32" presence="optional" nullValue="4294967295"/>
     <field name="progressRowsDelta"     id="10" type="uint32" presence="optional" nullValue="4294967295"/>
-    <field name="descriptorStreamId"    id="11" type="uint32" presence="optional" nullValue="4294967295"/>
-    <field name="controlStreamId"       id="12" type="uint32" presence="optional" nullValue="4294967295"/>
+    <field name="descriptorStreamId"    id="11" type="uint32"/>
+    <field name="controlStreamId"       id="12" type="uint32"/>
     <data  name="descriptorChannel"     id="13" type="varAsciiEncoding"/>
     <data  name="controlChannel"        id="14" type="varAsciiEncoding"/>
   </sbe:message>
@@ -1015,8 +1041,8 @@ Reference schema patterned after Aeron archive control style; adjust IDs and fie
     <field name="consumerId"         id="2" type="uint32"/>
     <field name="useShm"             id="3" type="Bool"/>
     <field name="mode"               id="4" type="Mode"/>
-    <field name="descriptorStreamId" id="6" type="uint32" presence="optional" nullValue="4294967295"/>
-    <field name="controlStreamId"    id="7" type="uint32" presence="optional" nullValue="4294967295"/>
+    <field name="descriptorStreamId" id="6" type="uint32"/>
+    <field name="controlStreamId"    id="7" type="uint32"/>
     <data  name="payloadFallbackUri" id="8" type="varAsciiEncoding"/>
     <data  name="descriptorChannel"  id="9" type="varAsciiEncoding"/>
     <data  name="controlChannel"     id="10" type="varAsciiEncoding"/>
@@ -1038,7 +1064,6 @@ Reference schema patterned after Aeron archive control style; adjust IDs and fie
     <field name="headerIndex"       id="4" type="uint32"/>
     <field name="payloadBytesFilled" id="5" type="uint64"/>
     <field name="state"             id="6" type="FrameProgressState"/>
-    <field name="rowsFilled"        id="7" type="uint32" presence="optional" nullValue="4294967295"/>
   </sbe:message>
 
   <sbe:message name="QosConsumer" id="5">
@@ -1075,23 +1100,29 @@ Reference schema patterned after Aeron archive control style; adjust IDs and fie
     <field name="activityTimestampNs" id="12" type="uint64"/>
   </sbe:message>
 
-  <sbe:message name="TensorSlotHeader" id="51" blockLength="256">
+  <sbe:message name="SlotHeader" id="51" blockLength="60">
     <field name="seqCommit"      id="1" type="uint64"/>
     <field name="valuesLenBytes" id="2" type="uint32"/>
     <field name="payloadSlot"    id="3" type="uint32"/>
     <field name="poolId"         id="4" type="uint16"/>
-    <field name="dtype"          id="5" type="Dtype"/>
-    <field name="majorOrder"     id="6" type="MajorOrder"/>
-    <field name="ndims"          id="7" type="uint8"/>
-    <field name="maxDims"        id="8" type="MaxDimsConst"/>
-    <field name="padAlign"       id="9" type="uint8"/>
-    <field name="payloadOffset"  id="10" type="uint32"/>
-    <!-- v1.1: payloadOffset MUST be 0 (reserved) -->
-    <field name="timestampNs"    id="11" type="uint64"/>
-    <field name="metaVersion"    id="12" type="version_t"/>
-    <field name="dims"           id="13" type="DimsArray"/>
-    <field name="strides"        id="14" type="StridesArray"/>
-    <field name="padding"        id="15" type="Pad152"/>
+    <field name="payloadOffset"  id="5" type="uint32"/>
+    <field name="timestampNs"    id="6" type="uint64"/>
+    <field name="metaVersion"    id="7" type="version_t"/>
+    <field name="pad"            id="8" type="uint8" length="26"/>
+    <data  name="headerBytes"    id="9" type="varDataEncoding"/>
+  </sbe:message>
+
+  <sbe:message name="TensorHeader" id="52" blockLength="184">
+    <field name="dtype"           id="1" type="Dtype"/>
+    <field name="majorOrder"      id="2" type="MajorOrder"/>
+    <field name="ndims"           id="3" type="uint8"/>
+    <field name="maxDims"         id="4" type="MaxDimsConst"/>
+    <field name="padAlign"        id="5" type="uint8"/>
+    <field name="progressUnit"    id="6" type="ProgressUnit"/>
+    <field name="progressStrideBytes"  id="7" type="uint32"/>
+    <field name="dims"            id="8" type="DimsArray"/>
+    <field name="strides"         id="9" type="StridesArray"/>
+    <field name="pad"             id="10" type="uint8" length="109"/>
   </sbe:message>
 
   <sbe:message name="DataSourceAnnounce" id="7">
