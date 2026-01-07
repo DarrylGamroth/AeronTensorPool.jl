@@ -31,7 +31,7 @@ end
 """
 Policy configuration for the driver.
 """
-struct DriverPolicies
+struct DriverPolicyConfig
     allow_dynamic_streams::Bool
     default_profile::String
     announce_period_ms::UInt32
@@ -82,7 +82,7 @@ Complete driver configuration loaded from TOML + env overrides.
 struct DriverConfig
     endpoints::DriverEndpoints
     shm::DriverShmConfig
-    policies::DriverPolicies
+    policies::DriverPolicyConfig
     stream_id_range::Union{DriverStreamIdRange, Nothing}
     descriptor_stream_id_range::Union{DriverStreamIdRange, Nothing}
     control_stream_id_range::Union{DriverStreamIdRange, Nothing}
@@ -93,7 +93,7 @@ end
 DriverConfig(
     endpoints::DriverEndpoints,
     shm::DriverShmConfig,
-    policies::DriverPolicies,
+    policies::DriverPolicyConfig,
     profiles::Dict{String, DriverProfileConfig},
     streams::Dict{String, DriverStreamConfig};
     stream_id_range::Union{DriverStreamIdRange, Nothing} = nothing,
@@ -274,7 +274,7 @@ function load_driver_config(path::AbstractString; env::AbstractDict = ENV)
         permissions_mode,
         allowed_dirs,
     )
-    policies = DriverPolicies(
+    policies = DriverPolicyConfig(
         allow_dynamic_streams,
         default_profile,
         announce_period_ms,

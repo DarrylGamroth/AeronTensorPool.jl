@@ -7,7 +7,7 @@ using UnsafeArrays
         qos_stream = Int32(12003)
         uri = "aeron:ipc"
 
-        consumer_cfg = ConsumerSettings(
+        consumer_cfg = ConsumerConfig(
             Aeron.MediaDriver.aeron_dir(driver),
             uri,
             descriptor_stream,

@@ -41,7 +41,7 @@ end
                 13002,
             )
             shm = DriverShmConfig(base_dir, false, UInt32(4096), "660", [base_dir])
-            policies = DriverPolicies(false, "raw", UInt32(100), UInt32(10_000), UInt32(3), false, false, UInt32(2000), "")
+            policies = DriverPolicyConfig(false, "raw", UInt32(100), UInt32(10_000), UInt32(3), false, false, UInt32(2000), "")
             profile = DriverProfileConfig(
                 "raw",
                 UInt32(8),
@@ -101,7 +101,7 @@ end
                 UInt64(65536),
                 false,
             )
-            consumer_cfg = ConsumerSettings(
+            consumer_cfg = ConsumerConfig(
                 Aeron.MediaDriver.aeron_dir(media_driver),
                 "aeron:ipc",
                 Int32(14001),

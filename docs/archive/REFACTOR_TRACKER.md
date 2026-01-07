@@ -24,14 +24,14 @@ This tracker lists refactor candidates identified during project review. Items a
 ## Core and Types (Step 3)
 - Split `src/core/constants.jl` into `constants.jl`, `types.jl`, and `messages.jl`.
   - Rationale: current file mixes constants, SBE aliases, config structs, and runtime types.
-  - Scope: move `PayloadPoolConfig`, `ProducerConfig`, `ConsumerSettings`, `PayloadView`, `ConsumerFrameView`, `ShmUri` into `types.jl`; keep SBE aliases and template ids in `messages.jl`; keep numeric constants in `constants.jl`.
+  - Scope: move `PayloadPoolConfig`, `ProducerConfig`, `ConsumerConfig`, `PayloadView`, `ConsumerFrameView`, `ShmUri` into `types.jl`; keep SBE aliases and template ids in `messages.jl`; keep numeric constants in `constants.jl`.
   - Risk: export list churn; requires updates to `src/AeronTensorPool.jl` include order.
   - Status: done.
 
 ## Naming Consistency (Step 4)
 - Rename mutable runtime configs to avoid conflicts with SBE message names.
   - Rationale: `ConsumerConfig` vs `ConsumerConfigMsg` is easy to confuse.
-  - Scope: rename `ConsumerConfig` -> `ConsumerSettings` (or `ConsumerRuntimeConfig`); adjust exports and docstrings.
+  - Scope: rename `ConsumerConfig` -> `ConsumerConfig` (or `ConsumerRuntimeConfig`); adjust exports and docstrings.
   - Risk: API change; requires downstream updates and docs.
   - Status: done.
 

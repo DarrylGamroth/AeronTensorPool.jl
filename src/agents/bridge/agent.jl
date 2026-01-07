@@ -9,8 +9,8 @@ struct BridgeAgent
     counters::BridgeCounters
 end
 
-@inline function bridge_consumer_settings(config::ConsumerSettings, mapping::BridgeMapping)
-    return ConsumerSettings(
+@inline function bridge_consumer_settings(config::ConsumerConfig, mapping::BridgeMapping)
+    return ConsumerConfig(
         config.aeron_dir,
         config.aeron_uri,
         config.descriptor_stream_id,
@@ -108,7 +108,7 @@ Returns:
 function BridgeAgent(
     bridge_config::BridgeConfig,
     mapping::BridgeMapping,
-    consumer_config::ConsumerSettings,
+    consumer_config::ConsumerConfig,
     producer_config::ProducerConfig;
     client::Aeron.Client,
     hooks::BridgeHooks = NOOP_BRIDGE_HOOKS,

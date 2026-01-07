@@ -6,7 +6,7 @@ via the consumer settings passed to the API. There is no client TOML; this is an
 option only.
 
 ```julia
-consumer_cfg = ConsumerSettings(
+consumer_cfg = ConsumerConfig(
     aeron_dir,
     "aeron:ipc?term-length=4m",
     Int32(1100),  # shared descriptor stream

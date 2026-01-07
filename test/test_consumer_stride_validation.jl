@@ -1,6 +1,6 @@
 @testset "Consumer stride validation" begin
     with_driver_and_client() do driver, client
-        consumer_cfg = ConsumerSettings(
+        consumer_cfg = ConsumerConfig(
             Aeron.MediaDriver.aeron_dir(driver),
             "aeron:ipc",
             Int32(12052),

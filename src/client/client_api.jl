@@ -410,7 +410,7 @@ Send a consumer attach request and return an AttachRequestHandle.
 """
 function request_attach_consumer(
     client::TensorPoolClient,
-    settings::ConsumerSettings;
+    settings::ConsumerConfig;
     stream_id::UInt32 = settings.stream_id,
     control_channel::AbstractString = client.context.control_channel,
     control_stream_id::Int32 = client.context.control_stream_id,
@@ -475,7 +475,7 @@ Attach a consumer using the high-level client API.
 """
 function attach_consumer(
     client::TensorPoolClient,
-    settings::ConsumerSettings;
+    settings::ConsumerConfig;
     discover::Bool = true,
     data_source_name::AbstractString = "",
     hooks::ConsumerHooks = NOOP_CONSUMER_HOOKS,

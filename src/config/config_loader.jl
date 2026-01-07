@@ -6,7 +6,7 @@ Bundled producer/consumer/supervisor configuration.
 """
 struct SystemConfig
     producer::ProducerConfig
-    consumer::ConsumerSettings
+    consumer::ConsumerConfig
     supervisor::SupervisorConfig
 end
 
@@ -285,14 +285,14 @@ function load_producer_config(path::AbstractString; env::AbstractDict = ENV)
 end
 
 """
-Load ConsumerSettings from a TOML file with optional environment overrides.
+Load ConsumerConfig from a TOML file with optional environment overrides.
 
 Arguments:
 - `path`: TOML file path.
 - `env`: environment dictionary for overrides (default: ENV).
 
 Returns:
-- `ConsumerSettings`.
+- `ConsumerConfig`.
 """
 function load_consumer_config(path::AbstractString; env::AbstractDict = ENV)
     cfg = TOML.parsefile(path)
@@ -337,7 +337,7 @@ function load_consumer_config(path::AbstractString; env::AbstractDict = ENV)
     announce_freshness_ns = UInt64(get(cons, "announce_freshness_ns", 3_000_000_000))
     mlock_shm = Bool(get(cons, "mlock_shm", false))
 
-    return ConsumerSettings(
+    return ConsumerConfig(
         aeron_dir,
         aeron_uri,
         descriptor_stream_id,

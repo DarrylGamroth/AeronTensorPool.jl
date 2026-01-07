@@ -74,7 +74,7 @@
         pool_uri2 = "shm:file?path=$(pool_path2)"
         write_layout(header_uri2, pool_uri2, UInt64(2))
 
-        consumer_cfg = ConsumerSettings(
+        consumer_cfg = ConsumerConfig(
             Aeron.MediaDriver.aeron_dir(media_driver),
             "aeron:ipc",
             Int32(15101),

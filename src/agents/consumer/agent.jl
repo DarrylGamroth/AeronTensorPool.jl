@@ -9,7 +9,7 @@ struct ConsumerAgent
 end
 
 """
-Construct a ConsumerAgent from a ConsumerSettings.
+Construct a ConsumerAgent from a ConsumerConfig.
 
 Arguments:
 - `config`: consumer settings.
@@ -20,7 +20,7 @@ Returns:
 - `ConsumerAgent` wrapping the consumer state and assemblers.
 """
 function ConsumerAgent(
-    config::ConsumerSettings;
+    config::ConsumerConfig;
     client::Aeron.Client,
     hooks::ConsumerHooks = NOOP_CONSUMER_HOOKS,
 )

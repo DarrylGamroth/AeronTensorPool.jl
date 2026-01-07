@@ -76,7 +76,7 @@
                 UInt64(65536),
                 false,
             )
-            src_consumer = ConsumerSettings(
+            src_consumer = ConsumerConfig(
                 aeron_dir,
                 "aeron:ipc",
                 Int32(1100),

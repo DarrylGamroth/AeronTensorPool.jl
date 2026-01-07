@@ -8,7 +8,7 @@ Arguments:
 Returns:
 - `ConsumerState` initialized for polling.
 """
-function init_consumer(config::ConsumerSettings; client::Aeron.Client)
+function init_consumer(config::ConsumerConfig; client::Aeron.Client)
     clock = Clocks.CachedEpochClock(Clocks.MonotonicClock())
     fetch!(clock)
     announce_join_ns = UInt64(Clocks.time_nanos(clock))
@@ -128,7 +128,7 @@ Returns:
 - `ConsumerState` mapped to the driver-provisioned regions.
 """
 function init_consumer_from_attach(
-    config::ConsumerSettings,
+    config::ConsumerConfig,
     attach::AttachResponse;
     driver_client::Union{DriverClientState, Nothing} = nothing,
     client::Aeron.Client,

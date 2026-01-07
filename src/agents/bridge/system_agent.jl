@@ -26,7 +26,7 @@ Returns:
 function BridgeSystemAgent(
     bridge_config::BridgeConfig,
     mappings::Vector{BridgeMapping},
-    consumer_config::ConsumerSettings,
+    consumer_config::ConsumerConfig,
     producer_config::ProducerConfig;
     client::Aeron.Client,
     hooks::BridgeHooks = NOOP_BRIDGE_HOOKS,

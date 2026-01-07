@@ -32,7 +32,7 @@ include("lifecycle_handlers.jl")
 include("agent.jl")
 
 export DriverConfig,
-    DriverPolicies,
+    DriverPolicyConfig,
     DriverEndpoints,
     DriverPoolConfig,
     DriverProfileConfig,

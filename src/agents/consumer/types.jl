@@ -1,7 +1,7 @@
 """
 Mutable consumer configuration (can be updated by ConsumerConfig messages).
 """
-mutable struct ConsumerSettings
+mutable struct ConsumerConfig
     aeron_dir::String
     aeron_uri::String
     descriptor_stream_id::Int32

@@ -34,7 +34,7 @@
 
             sb_enc = ShmRegionSuperblock.Encoder(Vector{UInt8})
 
-            consumer_cfg = ConsumerSettings(
+            consumer_cfg = ConsumerConfig(
                 Aeron.MediaDriver.aeron_dir(driver),
                 "aeron:ipc",
                 Int32(12012),
@@ -180,7 +180,7 @@
 
                     bad_pool_uri = "shm:file?path=$(pool_path2)|require_hugepages=true"
 
-                    fallback_cfg = ConsumerSettings(
+                    fallback_cfg = ConsumerConfig(
                         Aeron.MediaDriver.aeron_dir(driver),
                         "aeron:ipc",
                         Int32(12022),
@@ -218,7 +218,7 @@
                     @test fallback_state.config.use_shm == false
                     @test fallback_state.mappings.header_mmap === nothing
 
-                    maxdims_cfg = ConsumerSettings(
+                    maxdims_cfg = ConsumerConfig(
                         Aeron.MediaDriver.aeron_dir(driver),
                         "aeron:ipc",
                         Int32(12032),

@@ -50,8 +50,8 @@ function apply_canonical_layout(
     )
 end
 
-function apply_canonical_layout(config::ConsumerSettings, base_dir::String)
-    return ConsumerSettings(
+function apply_canonical_layout(config::ConsumerConfig, base_dir::String)
+    return ConsumerConfig(
         config.aeron_dir,
         config.aeron_uri,
         config.descriptor_stream_id,

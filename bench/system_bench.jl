@@ -122,8 +122,8 @@ function apply_canonical_layout(
     )
 end
 
-function apply_canonical_layout(config::ConsumerSettings, base_dir::String)
-    return ConsumerSettings(
+function apply_canonical_layout(config::ConsumerConfig, base_dir::String)
+    return ConsumerConfig(
         config.aeron_dir,
         config.aeron_uri,
         config.descriptor_stream_id,
@@ -193,14 +193,14 @@ function override_producer_streams(
 end
 
 function override_consumer_streams(
-    config::ConsumerSettings;
+    config::ConsumerConfig;
     stream_id::UInt32,
     descriptor_stream_id::Int32,
     control_stream_id::Int32,
     qos_stream_id::Int32,
     consumer_id::UInt32,
 )
-    return ConsumerSettings(
+    return ConsumerConfig(
         config.aeron_dir,
         config.aeron_uri,
         descriptor_stream_id,

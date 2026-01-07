@@ -5,9 +5,9 @@ This is the Phase 0 export inventory for AeronTensorPool. Public exports are def
 ## Exported Types and Constants
 - Dtype, MajorOrder, RegionType, DriverHugepagesPolicy, DriverResponseCode, DriverRole, DriverPublishMode, DriverLeaseRevokeReason, DriverShutdownReason
 - MAGIC_TPOLSHM1, SUPERBLOCK_SIZE, HEADER_SLOT_BYTES, MAX_DIMS
-- PayloadPoolConfig, DriverPoolConfig, DriverProfileConfig, DriverStreamConfig, DriverPolicies, DriverShmConfig, DriverEndpoints, DriverConfig
+- PayloadPoolConfig, DriverPoolConfig, DriverProfileConfig, DriverStreamConfig, DriverPolicyConfig, DriverShmConfig, DriverEndpoints, DriverConfig
 - ProducerConfig, ProducerState, ProducerAgent, ProducerInfo
-- ConsumerSettings, ConsumerConfigMsg, ConsumerState, ConsumerAgent, ConsumerInfo
+- ConsumerConfig, ConsumerConfigMsg, ConsumerState, ConsumerAgent, ConsumerInfo
 - SupervisorConfig, SupervisorState, SupervisorAgent
 - DriverAgent, DriverState
 - BridgeAgent, BridgeConfig, BridgeMapping, BridgeSourceInfo, BridgeAssembledFrame, BridgeSenderState, BridgeReceiverState

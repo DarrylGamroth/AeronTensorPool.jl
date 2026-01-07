@@ -84,7 +84,7 @@
                 false,
             )
 
-            src_consumer = ConsumerSettings(
+            src_consumer = ConsumerConfig(
                 aeron_dir,
                 "aeron:ipc",
                 Int32(1100),
@@ -117,7 +117,7 @@
                 false,
             )
 
-            dst_consumer = ConsumerSettings(
+            dst_consumer = ConsumerConfig(
                 aeron_dir,
                 "aeron:ipc",
                 Int32(2100),

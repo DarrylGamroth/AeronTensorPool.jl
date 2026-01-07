@@ -58,7 +58,7 @@
                 ),
             )
 
-            consumer_cfg = ConsumerSettings(
+            consumer_cfg = ConsumerConfig(
                 Aeron.MediaDriver.aeron_dir(driver),
                 "aeron:ipc",
                 Int32(12062),

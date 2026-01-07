@@ -90,7 +90,7 @@ function check_pattern(payload::AbstractVector{UInt8}, expected::UInt8)
 end
 
 function apply_per_consumer_channels!(
-    cfg::ConsumerSettings,
+    cfg::ConsumerConfig,
     channel::String,
     descriptor_stream_id::UInt32,
     control_stream_id::UInt32,

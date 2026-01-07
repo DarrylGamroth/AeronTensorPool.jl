@@ -34,7 +34,7 @@ include("lifecycle.jl")
 include("work.jl")
 include("agent.jl")
 
-export ConsumerSettings,
+export ConsumerConfig,
     PayloadView,
     payload_view,
     ConsumerState,

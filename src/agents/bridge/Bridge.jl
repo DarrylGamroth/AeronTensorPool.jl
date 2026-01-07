@@ -30,7 +30,7 @@ using ..Producer: PayloadPoolConfig,
     try_claim_slot!,
     encode_frame_descriptor!,
     publish_descriptor_to_consumers!
-using ..Consumer: ConsumerSettings, ConsumerState
+using ..Consumer: ConsumerConfig, ConsumerState
 
 include("types.jl")
 include("errors.jl")
