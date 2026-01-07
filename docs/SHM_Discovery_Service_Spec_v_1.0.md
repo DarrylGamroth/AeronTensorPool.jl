@@ -348,9 +348,9 @@ Client -> ShmAttachRequest (driver control endpoint from response)
 The following schema excerpt is normative for v1.0 of the Discovery API.
 
  **Normative encoding constraints (schema-level notes)**
- - `responseStreamId` MUST be present and non-zero. If zero, the request MUST be rejected (see §5.1).
+- `responseStreamId` MUST be present and non-zero. If zero, the request MUST be rejected (see §5.1).
  - `responseChannel` MUST be non-empty. If length=0, providers MUST drop the request without responding.
- - `driverControlStreamId` MUST be present and non-zero. Results with zero MUST be omitted or treated as invalid by clients.
+- `driverControlStreamId` MUST be present and non-zero. Results with zero MUST be omitted or treated as invalid by clients.
  - When `status=ERROR` or `status=NOT_FOUND`, `results.numInGroup` MUST be 0; clients MUST ignore any results if a non-zero count is received.
  - `data_source_name` SHOULD be at most 256 bytes.
 
