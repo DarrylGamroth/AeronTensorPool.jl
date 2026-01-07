@@ -40,7 +40,6 @@ using .Control
 using .Driver
 using .Discovery
 using .Client
-import .Client: agent, state
 
 include("config/config_loader.jl")
 
@@ -184,8 +183,8 @@ export AeronInitError,
     attach_consumer,
     attach_producer,
     connect,
-    agent,
-    state,
+    handle_agent,
+    handle_state,
     apply_consumer_config!,
     canonical_epoch_dir,
     canonical_header_uri,

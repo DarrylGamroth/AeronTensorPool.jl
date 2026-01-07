@@ -155,14 +155,14 @@ end
 """
 Return the underlying agent for a handle.
 """
-agent(handle::ConsumerHandle) = handle.consumer_agent
-agent(handle::ProducerHandle) = handle.producer_agent
+handle_agent(handle::ConsumerHandle) = handle.consumer_agent
+handle_agent(handle::ProducerHandle) = handle.producer_agent
 
 """
 Return the underlying agent state for a handle.
 """
-state(handle::ConsumerHandle) = handle.consumer_agent.state
-state(handle::ProducerHandle) = handle.producer_agent.state
+handle_state(handle::ConsumerHandle) = handle.consumer_agent.state
+handle_state(handle::ProducerHandle) = handle.producer_agent.state
 
 """
 Close a ConsumerHandle and its resources.
