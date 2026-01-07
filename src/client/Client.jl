@@ -1,5 +1,6 @@
 module Client
 
+using Agent
 using ..Core
 using ..Aeron
 using ..Control
