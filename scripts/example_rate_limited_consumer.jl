@@ -96,15 +96,12 @@ function apply_per_consumer_channels!(
     control_stream_id::UInt32,
     max_rate_hz::UInt16,
 )
-    cfg.aeron_uri = channel
-    cfg.descriptor_stream_id = Int32(descriptor_stream_id)
-    cfg.control_stream_id = Int32(control_stream_id)
     cfg.max_rate_hz = max_rate_hz
     cfg.mode = Mode.RATE_LIMITED
     cfg.requested_descriptor_channel = channel
-    cfg.requested_descriptor_stream_id = descriptor_stream_id
+    cfg.requested_descriptor_stream_id = UInt32(0)
     cfg.requested_control_channel = channel
-    cfg.requested_control_stream_id = control_stream_id
+    cfg.requested_control_stream_id = UInt32(0)
     return nothing
 end
 
@@ -144,8 +141,7 @@ function run_consumer(
         control_stream_id,
         max_rate_hz,
     )
-    @info "Per-consumer streams requested" channel = per_consumer_channel descriptor_stream_id =
-        Int32(descriptor_stream_id) control_stream_id = Int32(control_stream_id) max_rate_hz = max_rate_hz
+    @info "Per-consumer streams requested" channel = per_consumer_channel max_rate_hz = max_rate_hz
 
     core_id = haskey(ENV, "AGENT_TASK_CORE") ? parse(Int, ENV["AGENT_TASK_CORE"]) : nothing
 
