@@ -72,7 +72,7 @@ end
 Agent.name(::ProducerWork) = "producer-work"
 
 function Agent.do_work(agent::ProducerWork)
-    return producer_do_work!(agent.state, agent.control_assembler, agent.qos_assembler)
+    return Producer.producer_do_work!(agent.state, agent.control_assembler, agent.qos_assembler)
 end
 
 Agent.on_close(::ProducerWork) = nothing
@@ -677,10 +677,14 @@ function run_bridge_bench_runners(
                                     client = client,
                                 )
                                 fetch!(bridge_agent.receiver.producer_state.clock)
-                                emit_announce!(bridge_agent.receiver.producer_state)
+                                Producer.emit_announce!(bridge_agent.receiver.producer_state)
 
                                 producer_dst_work = let st = bridge_agent.receiver.producer_state
-                                    ProducerWork(st, make_control_assembler(st), make_qos_assembler(st))
+                                    ProducerWork(
+                                        st,
+                                        Producer.make_control_assembler(st),
+                                        Producer.make_qos_assembler(st),
+                                    )
                                 end
                                 runner_src = AgentRunner(
                                     BackoffIdleStrategy(),
@@ -706,9 +710,9 @@ function run_bridge_bench_runners(
                                         now_ns = time_ns()
                                         if now_ns >= next_announce
                                             fetch!(producer_src_agent.state.clock)
-                                            emit_announce!(producer_src_agent.state)
+                                            Producer.emit_announce!(producer_src_agent.state)
                                             fetch!(bridge_agent.receiver.producer_state.clock)
-                                            emit_announce!(bridge_agent.receiver.producer_state)
+                                            Producer.emit_announce!(bridge_agent.receiver.producer_state)
                                             next_announce = now_ns + Int64(50_000_000)
                                         end
                                         yield()
@@ -981,7 +985,11 @@ function run_bridge_bench(
                                     client = client,
                                 )
                                 producer_dst_work = let st = bridge_agent.receiver.producer_state
-                                    ProducerWork(st, make_control_assembler(st), make_qos_assembler(st))
+                                    ProducerWork(
+                                        st,
+                                        Producer.make_control_assembler(st),
+                                        Producer.make_qos_assembler(st),
+                                    )
                                 end
                                 producer_invoker = AgentInvoker(producer_src_agent)
                                 bridge_invoker = AgentInvoker(bridge_agent)
