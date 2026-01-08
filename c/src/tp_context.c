@@ -19,6 +19,7 @@ tp_err_t tp_context_init(tp_context_t **ctx)
     snprintf(tmp->descriptor_channel, sizeof(tmp->descriptor_channel), "%s", "aeron:ipc?term-length=4m");
     tmp->descriptor_stream_id = 1100;
     tmp->client_id = (uint32_t)getpid();
+    tmp->use_invoker = false;
     *ctx = tmp;
     return TP_OK;
 }
@@ -95,5 +96,15 @@ tp_err_t tp_context_set_client_id(tp_context_t *ctx, uint32_t client_id)
         return TP_ERR_ARG;
     }
     ctx->client_id = client_id;
+    return TP_OK;
+}
+
+tp_err_t tp_context_set_use_invoker(tp_context_t *ctx, bool value)
+{
+    if (ctx == NULL)
+    {
+        return TP_ERR_ARG;
+    }
+    ctx->use_invoker = value;
     return TP_OK;
 }

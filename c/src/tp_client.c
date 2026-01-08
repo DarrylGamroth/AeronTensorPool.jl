@@ -38,6 +38,10 @@ tp_err_t tp_client_connect(tp_context_t *ctx, tp_client_t **client)
     {
         aeron_context_set_dir(aeron_ctx, ctx->aeron_dir);
     }
+    if (ctx->use_invoker)
+    {
+        aeron_context_set_use_conductor_agent_invoker(aeron_ctx, true);
+    }
 
     aeron_t *aeron = NULL;
     if (aeron_init(&aeron, aeron_ctx) < 0)
@@ -109,7 +113,11 @@ int tp_client_do_work(tp_client_t *client)
     {
         return -1;
     }
-    int work = aeron_main_do_work(client->aeron);
+    int work = 0;
+    if (client->context->use_invoker)
+    {
+        work = aeron_main_do_work(client->aeron);
+    }
     work += tp_driver_poll(client, 10);
     return work;
 }

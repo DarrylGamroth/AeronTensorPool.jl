@@ -354,3 +354,12 @@ void tp_consumer_close(tp_consumer_t *consumer)
     }
     free(consumer);
 }
+
+bool tp_consumer_is_connected(tp_consumer_t *consumer)
+{
+    if (consumer == NULL || consumer->sub_descriptor == NULL)
+    {
+        return false;
+    }
+    return aeron_subscription_is_connected(consumer->sub_descriptor);
+}

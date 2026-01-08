@@ -108,12 +108,19 @@ int main(int argc, char **argv)
     }
 
     uint64_t deadline = now_ns() + 5000000000ULL;
+    const char *debug_conn_env = getenv("TP_DEBUG_CONN");
+    const bool debug_conn = debug_conn_env != NULL && debug_conn_env[0] != '\0';
     uint32_t sent = 0;
     uint32_t drops = 0;
     bool printed_error = false;
     while (sent < count && now_ns() < deadline)
     {
         tp_client_do_work(client);
+        if (debug_conn && sent == 0 && (now_ns() % 1000000000ULL) < 1000000ULL)
+        {
+            bool connected = tp_producer_is_connected(producer);
+            fprintf(stderr, "producer descriptor connected=%s\n", connected ? "true" : "false");
+        }
         tp_slot_claim_t claim;
         tp_err_t claim_err = tp_producer_try_claim_slot_by_size(producer, payload_bytes, &claim);
         if (claim_err != TP_OK)

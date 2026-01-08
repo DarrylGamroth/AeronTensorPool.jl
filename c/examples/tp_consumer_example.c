@@ -76,6 +76,8 @@ int main(int argc, char **argv)
         return 1;
     }
 
+    const char *debug_sub_env = getenv("TP_DEBUG_SUB");
+    const bool debug_sub = debug_sub_env != NULL && debug_sub_env[0] != '\0';
     uint64_t deadline = now_ns() + 5000000000ULL;
     uint32_t received = 0;
     tp_frame_view_t view;
@@ -83,6 +85,11 @@ int main(int argc, char **argv)
     {
         tp_client_do_work(client);
         tp_consumer_poll(consumer, 10);
+        if (debug_sub && received == 0 && (now_ns() % 1000000000ULL) < 1000000ULL)
+        {
+            bool connected = tp_consumer_is_connected(consumer);
+            fprintf(stderr, "consumer descriptor connected=%s\n", connected ? "true" : "false");
+        }
         tp_err_t read_err = tp_consumer_try_read_frame(consumer, &view);
         if (read_err == TP_OK)
         {

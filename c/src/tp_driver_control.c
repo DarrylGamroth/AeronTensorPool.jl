@@ -1,4 +1,5 @@
 #include "tp_internal.h"
+#include <sched.h>
 #include <stdio.h>
 
 int tp_add_publication(aeron_t *client, const char *channel, int32_t stream_id, aeron_publication_t **pub)
@@ -10,7 +11,7 @@ int tp_add_publication(aeron_t *client, const char *channel, int32_t stream_id, 
     }
     while (aeron_async_add_publication_poll(pub, async) == 0)
     {
-        aeron_main_do_work(client);
+        sched_yield();
     }
     return *pub != NULL ? 0 : -1;
 }
@@ -24,7 +25,7 @@ int tp_add_subscription(aeron_t *client, const char *channel, int32_t stream_id,
     }
     while (aeron_async_add_subscription_poll(sub, async) == 0)
     {
-        aeron_main_do_work(client);
+        sched_yield();
     }
     return *sub != NULL ? 0 : -1;
 }

@@ -40,6 +40,7 @@ typedef struct tp_context_stct
     char descriptor_channel[TP_URI_MAX];
     int32_t descriptor_stream_id;
     uint32_t client_id;
+    bool use_invoker;
 }
 tp_context_t;
 
