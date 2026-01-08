@@ -132,10 +132,23 @@ tp_err_t tp_attach_consumer(tp_client_t *client, uint32_t stream_id, tp_consumer
     err = tp_wait_attach(client, client->driver.pending_attach_correlation, &resp);
     if (err != TP_OK)
     {
+        const char *debug_env = getenv("TP_DEBUG_ATTACH");
+        if (debug_env != NULL && debug_env[0] != '\0')
+        {
+            fprintf(stderr, "tp_attach_consumer: wait_attach failed (err=%d)\n", err);
+        }
         return err;
     }
     if (resp.code != shm_tensorpool_driver_responseCode_OK)
     {
+        const char *debug_env = getenv("TP_DEBUG_ATTACH");
+        if (debug_env != NULL && debug_env[0] != '\0')
+        {
+            fprintf(stderr,
+                "tp_attach_consumer: attach rejected (code=%d, error=%s)\n",
+                resp.code,
+                resp.error_message);
+        }
         return TP_ERR_PROTOCOL;
     }
     return tp_init_consumer_from_attach(client, &resp, consumer);

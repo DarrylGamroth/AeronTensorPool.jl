@@ -1,4 +1,5 @@
 #include "tp_internal.h"
+#include <stdio.h>
 #include <time.h>
 
 uint64_t tp_now_ns(void)
@@ -24,6 +25,11 @@ tp_err_t tp_client_connect(tp_context_t *ctx, tp_client_t **client)
     aeron_context_t *aeron_ctx = NULL;
     if (aeron_context_init(&aeron_ctx) < 0)
     {
+        const char *debug_env = getenv("TP_DEBUG_AERON");
+        if (debug_env != NULL && debug_env[0] != '\0')
+        {
+            fprintf(stderr, "aeron_context_init failed: %d %s\n", aeron_errcode(), aeron_errmsg());
+        }
         free(tp);
         return TP_ERR_AERON;
     }
@@ -36,6 +42,11 @@ tp_err_t tp_client_connect(tp_context_t *ctx, tp_client_t **client)
     aeron_t *aeron = NULL;
     if (aeron_init(&aeron, aeron_ctx) < 0)
     {
+        const char *debug_env = getenv("TP_DEBUG_AERON");
+        if (debug_env != NULL && debug_env[0] != '\0')
+        {
+            fprintf(stderr, "aeron_init failed: %d %s\n", aeron_errcode(), aeron_errmsg());
+        }
         aeron_context_close(aeron_ctx);
         free(tp);
         return TP_ERR_AERON;
@@ -43,6 +54,11 @@ tp_err_t tp_client_connect(tp_context_t *ctx, tp_client_t **client)
 
     if (aeron_start(aeron) < 0)
     {
+        const char *debug_env = getenv("TP_DEBUG_AERON");
+        if (debug_env != NULL && debug_env[0] != '\0')
+        {
+            fprintf(stderr, "aeron_start failed: %d %s\n", aeron_errcode(), aeron_errmsg());
+        }
         aeron_close(aeron);
         aeron_context_close(aeron_ctx);
         free(tp);
@@ -56,6 +72,11 @@ tp_err_t tp_client_connect(tp_context_t *ctx, tp_client_t **client)
 
     if (tp_driver_client_init(tp) != TP_OK)
     {
+        const char *debug_env = getenv("TP_DEBUG_AERON");
+        if (debug_env != NULL && debug_env[0] != '\0')
+        {
+            fprintf(stderr, "tp_driver_client_init failed: %d %s\n", aeron_errcode(), aeron_errmsg());
+        }
         tp_client_close(tp);
         return TP_ERR_AERON;
     }

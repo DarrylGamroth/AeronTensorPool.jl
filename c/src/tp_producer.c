@@ -1,4 +1,5 @@
 #include "tp_internal.h"
+#include <stdio.h>
 
 static tp_err_t tp_init_producer_from_attach(tp_client_t *client, const tp_attach_response_t *resp, tp_producer_t **out)
 {
@@ -90,10 +91,23 @@ tp_err_t tp_attach_producer(tp_client_t *client, uint32_t stream_id, tp_producer
     err = tp_wait_attach(client, client->driver.pending_attach_correlation, &resp);
     if (err != TP_OK)
     {
+        const char *debug_env = getenv("TP_DEBUG_ATTACH");
+        if (debug_env != NULL && debug_env[0] != '\0')
+        {
+            fprintf(stderr, "tp_attach_producer: wait_attach failed (err=%d)\n", err);
+        }
         return err;
     }
     if (resp.code != shm_tensorpool_driver_responseCode_OK)
     {
+        const char *debug_env = getenv("TP_DEBUG_ATTACH");
+        if (debug_env != NULL && debug_env[0] != '\0')
+        {
+            fprintf(stderr,
+                "tp_attach_producer: attach rejected (code=%d, error=%s)\n",
+                resp.code,
+                resp.error_message);
+        }
         return TP_ERR_PROTOCOL;
     }
     return tp_init_producer_from_attach(client, &resp, producer);
@@ -258,6 +272,29 @@ static tp_err_t tp_publish_descriptor(tp_producer_t *producer, tp_slot_claim_t *
     int64_t position = aeron_publication_try_claim(producer->pub_descriptor, msg_len, &claim_buf);
     if (position < 0)
     {
+        const char *debug_env = getenv("TP_DEBUG_PUB");
+        if (debug_env != NULL && debug_env[0] != '\0')
+        {
+            const char *reason = "UNKNOWN";
+            if (position == AERON_PUBLICATION_NOT_CONNECTED)
+            {
+                reason = "NOT_CONNECTED";
+            }
+            else if (position == AERON_PUBLICATION_BACK_PRESSURED)
+            {
+                reason = "BACK_PRESSURED";
+            }
+            else if (position == AERON_PUBLICATION_ADMIN_ACTION)
+            {
+                reason = "ADMIN_ACTION";
+            }
+            fprintf(stderr,
+                "tp_publish_descriptor: try_claim failed (%s, position=%lld, errcode=%d, errmsg=%s)\n",
+                reason,
+                (long long)position,
+                aeron_errcode(),
+                aeron_errmsg());
+        }
         return TP_ERR_AERON;
     }
 

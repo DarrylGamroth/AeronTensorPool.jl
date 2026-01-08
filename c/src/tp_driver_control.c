@@ -208,10 +208,20 @@ tp_err_t tp_driver_client_init(tp_client_t *client)
 
     if (tp_add_publication(client->aeron, client->context->control_channel, client->context->control_stream_id, &driver->pub) < 0)
     {
+        const char *debug_env = getenv("TP_DEBUG_AERON");
+        if (debug_env != NULL && debug_env[0] != '\0')
+        {
+            fprintf(stderr, "driver client add publication failed: %d %s\n", aeron_errcode(), aeron_errmsg());
+        }
         return TP_ERR_AERON;
     }
     if (tp_add_subscription(client->aeron, client->context->control_channel, client->context->control_stream_id, &driver->sub) < 0)
     {
+        const char *debug_env = getenv("TP_DEBUG_AERON");
+        if (debug_env != NULL && debug_env[0] != '\0')
+        {
+            fprintf(stderr, "driver client add subscription failed: %d %s\n", aeron_errcode(), aeron_errmsg());
+        }
         return TP_ERR_AERON;
     }
 

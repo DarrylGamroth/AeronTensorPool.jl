@@ -21,6 +21,31 @@ int main(int argc, char **argv)
         fprintf(stderr, "context init failed\n");
         return 1;
     }
+    const char *aeron_dir = getenv("TP_AERON_DIR");
+    if (aeron_dir && aeron_dir[0] != '\0')
+    {
+        tp_context_set_aeron_dir(ctx, aeron_dir);
+    }
+    const char *control_channel = getenv("TP_CONTROL_CHANNEL");
+    if (control_channel && control_channel[0] != '\0')
+    {
+        tp_context_set_control_channel(ctx, control_channel);
+    }
+    const char *descriptor_channel = getenv("TP_DESCRIPTOR_CHANNEL");
+    if (descriptor_channel && descriptor_channel[0] != '\0')
+    {
+        tp_context_set_descriptor_channel(ctx, descriptor_channel);
+    }
+    const char *env = getenv("TP_CONTROL_STREAM_ID");
+    if (env && env[0] != '\0')
+    {
+        tp_context_set_control_stream_id(ctx, (uint32_t)strtoul(env, NULL, 10));
+    }
+    env = getenv("TP_DESCRIPTOR_STREAM_ID");
+    if (env && env[0] != '\0')
+    {
+        tp_context_set_descriptor_stream_id(ctx, (uint32_t)strtoul(env, NULL, 10));
+    }
     if (tp_client_connect(ctx, &client) != TP_OK)
     {
         fprintf(stderr, "client connect failed\n");
