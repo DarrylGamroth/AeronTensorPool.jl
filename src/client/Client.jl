@@ -9,9 +9,11 @@ using ..Discovery
 using ..Driver
 using ..AeronUtils
 using ..Agents
+using ..ShmTensorpoolControl
 import ..Agents.Producer: offer_frame!, try_claim_slot!, commit_slot!, with_claimed_slot!
 
 include("client_api.jl")
+include("qos_monitor.jl")
 
 export DriverClientState,
     TensorPoolContext,
@@ -31,6 +33,12 @@ export DriverClientState,
     request_attach_consumer,
     request_attach_producer,
     poll_attach!,
+    QosMonitor,
+    QosProducerSnapshot,
+    QosConsumerSnapshot,
+    poll!,
+    producer_qos,
+    consumer_qos,
     offer_frame!,
     try_claim_slot!,
     commit_slot!,
