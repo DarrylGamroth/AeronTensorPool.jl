@@ -66,7 +66,10 @@ src/
     state.jl
     streams.jl
   client/
-    client_api.jl
+    attach.jl
+    context.jl
+    discovery.jl
+    handles.jl
     discovery_client.jl
     driver_client.jl
   discovery/
@@ -122,7 +125,10 @@ src/
     counters.jl
     AeronUtils.jl
   client/
-    client_api.jl
+    attach.jl
+    context.jl
+    discovery.jl
+    handles.jl
     driver_client.jl
     Client.jl
   config/
