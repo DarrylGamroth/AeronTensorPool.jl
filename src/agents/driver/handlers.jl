@@ -167,6 +167,7 @@ function handle_consumer_hello!(state::DriverState, msg::ConsumerHello.Decoder)
     assigned_control_stream_id = UInt32(0)
 
     if invalid_descriptor_request || invalid_control_request
+        @tp_info "consumer stream request invalid" stream_id consumer_id
         emit_driver_consumer_config!(
             state,
             stream_id,
@@ -192,6 +193,9 @@ function handle_consumer_hello!(state::DriverState, msg::ConsumerHello.Decoder)
             assigned_control_channel = control_channel
         end
     end
+
+    @tp_info "consumer stream assignment" stream_id consumer_id descriptor_stream_id =
+        assigned_descriptor_stream_id control_stream_id = assigned_control_stream_id
 
     emit_driver_consumer_config!(
         state,

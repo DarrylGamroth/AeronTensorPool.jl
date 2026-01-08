@@ -208,6 +208,7 @@ function handle_attach_request!(state::DriverState, msg::ShmAttachRequest.Decode
         push!(stream_state.consumer_lease_ids, lease_id)
     end
 
+    @tp_info "lease attached" lease_id stream_id client_id role expiry_ns
     Hsm.dispatch!(lease.lifecycle, :AttachOk, state.metrics)
     emit_attach_response!(state, correlation_id, DriverResponseCode.OK, "", stream_state, lease_id, expiry_ns)
     emit_driver_announce!(state, stream_state)

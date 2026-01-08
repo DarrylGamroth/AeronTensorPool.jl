@@ -16,6 +16,7 @@ using UnsafeArrays
 import ..Agents.Producer: offer_frame!, try_claim_slot!, try_claim_slot_by_size!, commit_slot!, with_claimed_slot!, set_metadata!
 
 include("context.jl")
+include("callbacks.jl")
 include("handles.jl")
 include("discovery.jl")
 include("attach.jl")
@@ -28,8 +29,10 @@ export DriverClientState,
     ConsumerHandle,
     ProducerHandle,
     AttachRequestHandle,
+    ClientCallbacks,
     connect,
     do_work,
+    consumer_callbacks,
     handle_agent,
     handle_state,
     init_driver_client,
@@ -40,6 +43,7 @@ export DriverClientState,
     request_attach_consumer,
     request_attach_producer,
     poll_attach!,
+    producer_callbacks,
     QosMonitor,
     QosProducerSnapshot,
     QosConsumerSnapshot,

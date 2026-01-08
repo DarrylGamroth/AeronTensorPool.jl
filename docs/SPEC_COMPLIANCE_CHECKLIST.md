@@ -53,5 +53,4 @@ This checklist maps key MUST/SHOULD items to code/tests. The wire spec is author
 | --- | --- |
 | Meta blobs (large metadata chunking) | Not implemented |
 | Rate limiter agent (spec v1.0) | Spec exists; no integration tests |
-| Decimator agent | Removed; spec mentions should be revisited |
 

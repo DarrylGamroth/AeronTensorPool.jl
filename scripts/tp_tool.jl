@@ -19,8 +19,11 @@ function usage()
     println("  julia --project scripts/tp_tool.jl shm-validate <uri> <layout_version> <epoch> <stream_id> <nslots> <slot_bytes> <region_type> <pool_id>")
     println("  julia --project scripts/tp_tool.jl shm-summary <uri>")
     println("  julia --project scripts/tp_tool.jl announce-listen <aeron_dir> <channel> <stream_id> [duration_s]")
+    println("  julia --project scripts/tp_tool.jl control-listen <aeron_dir> <channel> <stream_id> [duration_s]")
     println("  julia --project scripts/tp_tool.jl metadata-listen <aeron_dir> <channel> <stream_id> [duration_s]")
+    println("  julia --project scripts/tp_tool.jl metadata-dump <aeron_dir> <channel> <stream_id> [timeout_ms]")
     println("  julia --project scripts/tp_tool.jl qos-listen <aeron_dir> <channel> <stream_id> [duration_s]")
+    println("  julia --project scripts/tp_tool.jl discovery-list <aeron_dir> <request_channel> <request_stream_id> <response_channel> <response_stream_id> [timeout_ms]")
     println("  julia --project scripts/tp_tool.jl discovery-query <aeron_dir> <request_channel> <request_stream_id> <response_channel> <response_stream_id> [stream_id] [producer_id] [data_source_id] [data_source_name] [tags_csv] [timeout_ms]")
     println("  julia --project scripts/tp_tool.jl bridge-status <aeron_dir> [filter]")
     println("  julia --project scripts/tp_tool.jl discover <aeron_dir> <request_channel> <request_stream_id> <response_channel> <response_stream_id> [stream_id] [producer_id] [data_source_id] [data_source_name] [tags_csv] [timeout_ms]")
@@ -174,6 +177,23 @@ function wait_for_discovery_response(
     return nothing
 end
 
+function wait_for_metadata_entry(
+    cache::MetadataCache,
+    stream_id::UInt32;
+    timeout_ms::Int = 5000,
+)
+    deadline = time_ns() + Int64(timeout_ms) * 1_000_000
+    while time_ns() < deadline
+        poll_metadata!(cache)
+        entry = metadata_entry(cache, stream_id)
+        if entry !== nothing
+            return entry
+        end
+        yield()
+    end
+    return nothing
+end
+
 function print_driver_status(state::DriverState)
     status = driver_status_snapshot(state)
     println("instance_id=$(status.instance_id)")
@@ -198,9 +218,11 @@ end
 function print_driver_leases(state::DriverState)
     leases = driver_leases_snapshot(state)
     println("leases=$(length(leases))")
+    now_ns = UInt64(time_ns())
     for lease in leases
+        expires_in_ns = lease.expiry_ns > now_ns ? lease.expiry_ns - now_ns : UInt64(0)
         println(
-            "lease_id=$(lease.lease_id) stream_id=$(lease.stream_id) client_id=$(lease.client_id) role=$(lease.role) expiry_ns=$(lease.expiry_ns) state=$(lease.lifecycle)",
+            "lease_id=$(lease.lease_id) stream_id=$(lease.stream_id) client_id=$(lease.client_id) role=$(lease.role) expiry_ns=$(lease.expiry_ns) expires_in_ns=$(expires_in_ns) state=$(lease.lifecycle)",
         )
     end
 end
@@ -584,6 +606,77 @@ function tp_tool_main(args::Vector{String})
         close(sub)
         close(client)
         close(ctx)
+    elseif cmd == "control-listen"
+        length(args) >= 4 || usage()
+        aeron_dir = args[2]
+        channel = args[3]
+        stream_id = parse(Int32, args[4])
+        duration_s = length(args) >= 5 ? parse(Float64, args[5]) : 5.0
+        ctx = Aeron.Context()
+        Aeron.aeron_dir!(ctx, aeron_dir)
+        client = Aeron.Client(ctx)
+        sub = Aeron.add_subscription(client, channel, stream_id)
+        handler = Aeron.FragmentHandler((_, buffer, _) -> begin
+            header = MessageHeader.Decoder(buffer, 0)
+            template_id = MessageHeader.templateId(header)
+            if template_id == ShmAttachRequest.sbe_template_id(ShmAttachRequest.Decoder)
+                dec = ShmAttachRequest.Decoder(buffer)
+                ShmAttachRequest.wrap!(dec, buffer, 0; header = header)
+                println(
+                    "ShmAttachRequest client_id=$(ShmAttachRequest.clientId(dec)) role=$(ShmAttachRequest.role(dec)) stream_id=$(ShmAttachRequest.streamId(dec)) publish_mode=$(ShmAttachRequest.publishMode(dec))",
+                )
+            elseif template_id == ShmAttachResponse.sbe_template_id(ShmAttachResponse.Decoder)
+                dec = ShmAttachResponse.Decoder(buffer)
+                ShmAttachResponse.wrap!(dec, buffer, 0; header = header)
+                println(
+                    "ShmAttachResponse corr=$(ShmAttachResponse.correlationId(dec)) code=$(ShmAttachResponse.code(dec)) lease_id=$(ShmAttachResponse.leaseId(dec)) stream_id=$(ShmAttachResponse.streamId(dec)) epoch=$(ShmAttachResponse.epoch(dec))",
+                )
+            elseif template_id == ShmDetachRequest.sbe_template_id(ShmDetachRequest.Decoder)
+                dec = ShmDetachRequest.Decoder(buffer)
+                ShmDetachRequest.wrap!(dec, buffer, 0; header = header)
+                println(
+                    "ShmDetachRequest client_id=$(ShmDetachRequest.clientId(dec)) lease_id=$(ShmDetachRequest.leaseId(dec)) stream_id=$(ShmDetachRequest.streamId(dec))",
+                )
+            elseif template_id == ShmDetachResponse.sbe_template_id(ShmDetachResponse.Decoder)
+                dec = ShmDetachResponse.Decoder(buffer)
+                ShmDetachResponse.wrap!(dec, buffer, 0; header = header)
+                println(
+                    "ShmDetachResponse corr=$(ShmDetachResponse.correlationId(dec)) code=$(ShmDetachResponse.code(dec))",
+                )
+            elseif template_id == ShmLeaseKeepalive.sbe_template_id(ShmLeaseKeepalive.Decoder)
+                dec = ShmLeaseKeepalive.Decoder(buffer)
+                ShmLeaseKeepalive.wrap!(dec, buffer, 0; header = header)
+                println(
+                    "ShmLeaseKeepalive lease_id=$(ShmLeaseKeepalive.leaseId(dec)) stream_id=$(ShmLeaseKeepalive.streamId(dec)) client_id=$(ShmLeaseKeepalive.clientId(dec))",
+                )
+            elseif template_id == ShmLeaseRevoked.sbe_template_id(ShmLeaseRevoked.Decoder)
+                dec = ShmLeaseRevoked.Decoder(buffer)
+                ShmLeaseRevoked.wrap!(dec, buffer, 0; header = header)
+                println(
+                    "ShmLeaseRevoked lease_id=$(ShmLeaseRevoked.leaseId(dec)) stream_id=$(ShmLeaseRevoked.streamId(dec)) client_id=$(ShmLeaseRevoked.clientId(dec)) reason=$(ShmLeaseRevoked.reason(dec))",
+                )
+            elseif template_id == ShmDriverShutdown.sbe_template_id(ShmDriverShutdown.Decoder)
+                dec = ShmDriverShutdown.Decoder(buffer)
+                ShmDriverShutdown.wrap!(dec, buffer, 0; header = header)
+                println(
+                    "ShmDriverShutdown reason=$(ShmDriverShutdown.reason(dec)) message=$(String(ShmDriverShutdown.message(dec)))",
+                )
+            elseif template_id == ShmDriverShutdownRequest.sbe_template_id(ShmDriverShutdownRequest.Decoder)
+                dec = ShmDriverShutdownRequest.Decoder(buffer)
+                ShmDriverShutdownRequest.wrap!(dec, buffer, 0; header = header)
+                println("ShmDriverShutdownRequest")
+            end
+            nothing
+        end)
+        assembler = Aeron.FragmentAssembler(handler)
+        deadline = time_ns() + Int64(round(duration_s * 1e9))
+        while time_ns() < deadline
+            Aeron.poll(sub, assembler, AeronTensorPool.DEFAULT_FRAGMENT_LIMIT)
+            yield()
+        end
+        close(sub)
+        close(client)
+        close(ctx)
     elseif cmd == "metadata-listen"
         length(args) >= 4 || usage()
         aeron_dir = args[2]
@@ -606,6 +699,29 @@ function tp_tool_main(args::Vector{String})
                 end
             end
             yield()
+        end
+        close(cache)
+        close(client)
+        close(ctx)
+    elseif cmd == "metadata-dump"
+        length(args) >= 4 || usage()
+        aeron_dir = args[2]
+        channel = args[3]
+        stream_id = parse(UInt32, args[4])
+        timeout_ms = length(args) >= 5 ? parse(Int, args[5]) : 5000
+        ctx = Aeron.Context()
+        Aeron.aeron_dir!(ctx, aeron_dir)
+        client = Aeron.Client(ctx)
+        cache = MetadataCache(channel, Int32(stream_id); client = client)
+        entry = wait_for_metadata_entry(cache, stream_id; timeout_ms = timeout_ms)
+        if entry === nothing
+            println("timeout")
+        else
+            println("stream_id=$(entry.stream_id) meta_version=$(entry.meta_version) name=$(entry.name)")
+            println("summary=$(entry.summary)")
+            for attr in entry.attributes
+                println("attr=$(attr.key) mime=$(attr.mime) value=$(String(attr.value))")
+            end
         end
         close(cache)
         close(client)
@@ -634,6 +750,51 @@ function tp_tool_main(args::Vector{String})
         close(monitor)
         close(client)
         close(ctx)
+    elseif cmd == "discovery-list"
+        length(args) >= 6 || usage()
+        aeron_dir = args[2]
+        request_channel = args[3]
+        request_stream_id = parse(Int32, args[4])
+        response_channel = args[5]
+        response_stream_id = parse(UInt32, args[6])
+        timeout_ms = length(args) >= 7 ? parse(Int, args[7]) : 5000
+        client_id = UInt32(getpid())
+
+        with_discovery_client(
+            aeron_dir,
+            request_channel,
+            request_stream_id,
+            response_channel,
+            response_stream_id,
+            client_id,
+        ) do client
+            entries = Vector{DiscoveryEntry}()
+            request_id = discover_streams!(client, entries)
+            request_id == 0 && error("discover send failed")
+            slot = wait_for_discovery_response(client, request_id; timeout_ms = timeout_ms)
+            slot === nothing && error("discover response timed out")
+            println("status=$(slot.status)")
+            println("count=$(slot.count)")
+            if !isempty(slot.error_message)
+                println("error=$(String(view(slot.error_message)))")
+            end
+            for entry in slot.out_entries
+                println("stream_id=$(entry.stream_id) producer_id=$(entry.producer_id) epoch=$(entry.epoch) layout=$(entry.layout_version)")
+                println("driver_instance_id=$(String(view(entry.driver_instance_id)))")
+                println("driver_control=$(String(view(entry.driver_control_channel))) stream=$(entry.driver_control_stream_id)")
+                println("header_uri=$(String(view(entry.header_region_uri))) nslots=$(entry.header_nslots) slot_bytes=$(entry.header_slot_bytes) max_dims=$(entry.max_dims)")
+                println("data_source_name=$(String(view(entry.data_source_name))) data_source_id=$(entry.data_source_id)")
+                if !isempty(entry.tags)
+                    tag_list = join([String(view(tag)) for tag in entry.tags], ",")
+                    println("tags=$tag_list")
+                end
+                if !isempty(entry.pools)
+                    for pool in entry.pools
+                        println("pool_id=$(pool.pool_id) nslots=$(pool.pool_nslots) stride=$(pool.stride_bytes) uri=$(String(view(pool.region_uri)))")
+                    end
+                end
+            end
+        end
     elseif cmd == "discover" || cmd == "discovery-query"
         length(args) >= 6 || usage()
         aeron_dir = args[2]

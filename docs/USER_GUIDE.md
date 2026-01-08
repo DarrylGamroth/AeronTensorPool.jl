@@ -227,6 +227,7 @@ Consumers attach locally to the receiver’s SHM, not to the remote producer.
 ## 14. Where to go next
 
 - Driver configuration: `docs/IMPLEMENTATION.md`
+- Client quickstart: `docs/CLIENT_QUICKSTART.md`
 - Wire details: `docs/SHM_Tensor_Pool_Wire_Spec_v1.1.md`
 - Discovery: `docs/SHM_Discovery_Service_Spec_v_1.0.md`
 - Bridge: `docs/SHM_Aeron_UDP_Bridge_Spec_v1.0.md`

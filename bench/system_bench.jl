@@ -77,6 +77,14 @@ end
 
 Agent.on_close(::ProducerWork) = nothing
 
+function make_counting_callbacks(counter::Base.RefValue{Int})
+    return ConsumerCallbacks(; on_frame! = (_, _) -> (counter[] += 1))
+end
+
+function make_atomic_callbacks(counter::Atomic{Int})
+    return ConsumerCallbacks(; on_frame! = (_, _) -> atomic_add!(counter, 1))
+end
+
 function apply_canonical_layout(
     config::ProducerConfig,
     base_dir::String;
@@ -268,9 +276,7 @@ function run_system_bench(
 
                             published = 0
                             consumed = Ref(0)
-                            consumer_callbacks = let consumed = consumed
-                                ConsumerCallbacks(; on_frame! = (st, _) -> (consumed[] += 1))
-                            end
+                            consumer_callbacks = make_counting_callbacks(consumed)
 
                             producer_agent = ProducerAgent(producer_cfg; client = client)
                             consumer_agent = ConsumerAgent(consumer_cfg; client = client, callbacks = consumer_callbacks)
@@ -665,9 +671,7 @@ function run_bridge_bench_runners(
                                 mapping =
                                     BridgeMapping(UInt32(src_stream_id), UInt32(dst_stream_id), "bench", UInt32(0), Int32(0), Int32(0))
                                 consumed = Atomic{Int}(0)
-                                consumer_callbacks = let consumed = consumed
-                                    ConsumerCallbacks(; on_frame! = (_, _) -> atomic_add!(consumed, 1))
-                                end
+                                consumer_callbacks = make_atomic_callbacks(consumed)
                                 consumer_dst_agent =
                                     ConsumerAgent(consumer_dst_cfg; client = client, callbacks = consumer_callbacks)
                                 bridge_agent = BridgeAgent(

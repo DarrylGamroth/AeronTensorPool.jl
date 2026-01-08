@@ -15,6 +15,7 @@ mutable struct AppProducerAgent
     last_send_ns::UInt64
     send_interval_ns::UInt64
     ready::Bool
+    log_every::Int
 end
 
 Agent.name(::AppProducerAgent) = "app-producer"
@@ -47,8 +48,10 @@ function Agent.do_work(agent::AppProducerAgent)
         if sent
             agent.sent += 1
             agent.last_send_ns = now_ns
-            @info "Producer published frame" seq = AeronTensorPool.handle_state(agent.handle).seq - 1
-        else
+            if agent.log_every > 0 && (agent.sent % agent.log_every == 0)
+                @info "Producer published frame" seq = AeronTensorPool.handle_state(agent.handle).seq - 1
+            end
+        elseif agent.log_every > 0
             connected = Aeron.is_connected(AeronTensorPool.handle_state(agent.handle).runtime.pub_descriptor)
             @info "Producer publish skipped" descriptor_connected = connected
         end
@@ -58,6 +61,7 @@ end
 
 function usage()
     println("Usage: julia --project scripts/example_producer.jl [driver_config] [producer_config] [count] [payload_bytes]")
+    println("Env: TP_EXAMPLE_VERBOSE=1, TP_EXAMPLE_LOG_EVERY=100")
 end
 
 function first_stream_id(cfg::DriverConfig)
@@ -85,6 +89,8 @@ function run_producer(driver_cfg_path::String, producer_cfg_path::String, count:
 
     effective_payload_bytes = payload_bytes == 0 ? default_payload_bytes(driver_cfg) : payload_bytes
     core_id = haskey(ENV, "AGENT_TASK_CORE") ? parse(Int, ENV["AGENT_TASK_CORE"]) : nothing
+    verbose = get(ENV, "TP_EXAMPLE_VERBOSE", "0") == "1"
+    log_every = parse(Int, get(ENV, "TP_EXAMPLE_LOG_EVERY", verbose ? "100" : "0"))
 
     ctx = TensorPoolContext(driver_cfg.endpoints)
     tp_client = connect(ctx)
@@ -127,6 +133,7 @@ function run_producer(driver_cfg_path::String, producer_cfg_path::String, count:
             UInt64(0),
             UInt64(10_000_000),
             false,
+            log_every,
         )
         composite = CompositeAgent(AeronTensorPool.handle_agent(handle), app_agent)
         runner = AgentRunner(BackoffIdleStrategy(), composite)
