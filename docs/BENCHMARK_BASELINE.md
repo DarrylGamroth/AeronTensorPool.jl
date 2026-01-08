@@ -4,7 +4,7 @@ Baseline numbers for regression tracking. Each section lists the exact command u
 
 ## System Bench (640 KiB payload)
 
-Run at: 2026-01-07 17:01:29 PST
+Run at: 2026-01-07 17:36:48 PST
 
 Command:
 ```bash
@@ -77,13 +77,13 @@ julia --project scripts/run_benchmarks.jl --system --duration 10 --payload-bytes
 ```
 
 Results:
-- Publish rate: 20,130.1 fps
-- Consume rate: 20,129.7 fps
-- Publish bandwidth: 12,581.3 MiB/s
-- Consume bandwidth: 12,581.0 MiB/s
-- GC allocd delta (loop): 13,748,752 bytes
+- Publish rate: 17,109.0 fps
+- Consume rate: 17,108.7 fps
+- Publish bandwidth: 10,693.1 MiB/s
+- Consume bandwidth: 10,692.9 MiB/s
+- GC allocd delta (loop): 13,101,456 bytes
 - GC allocd delta (total): 0 bytes
-- GC live delta (total): 18,224 bytes
+- GC live delta (total): 18,064 bytes
 
 ## Allocation Breakdown (640 KiB payload)
 
@@ -121,3 +121,28 @@ Command:
 ```bash
 JULIA_NUM_THREADS=2 julia --project scripts/run_benchmarks.jl --bridge-runners --duration 5 --payload-bytes 655360 --config config/defaults.toml
 ```
+
+Results:
+- Publish rate: 13,621.8 fps
+- Consume rate: 1,584.1 fps
+- Publish bandwidth: 8,513.6 MiB/s
+- Consume bandwidth: 990.1 MiB/s
+- GC allocd delta (loop): 29,050,384 bytes
+- GC allocd delta (total): 0 bytes
+- GC live delta (total): 289,160 bytes
+
+## Bridge Bench (Invoker path)
+
+Command:
+```bash
+julia --project scripts/run_benchmarks.jl --bridge --duration 10 --payload-bytes 655360 --config config/defaults.toml
+```
+
+Results:
+- Publish rate: 15,047.6 fps
+- Consume rate: 214.9 fps
+- Publish bandwidth: 9,404.8 MiB/s
+- Consume bandwidth: 134.3 MiB/s
+- GC allocd delta (loop): 20,358,880 bytes
+- GC allocd delta (total): 0 bytes
+- GC live delta (total): 39,968 bytes

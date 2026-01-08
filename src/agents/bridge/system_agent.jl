@@ -50,7 +50,7 @@ function BridgeSystemAgent(
         receiver = init_bridge_receiver(bridge_config, mapping; producer_state = producer_state, client = client, hooks = hooks)
         push!(senders, sender)
         push!(receivers, receiver)
-        push!(control_assemblers, make_control_assembler(consumer_state))
+        push!(control_assemblers, Consumer.make_control_assembler(consumer_state))
         push!(descriptor_assemblers, make_bridge_descriptor_assembler(sender; hooks = hooks))
         push!(counters, BridgeCounters(client, Int(mapping.dest_stream_id), "Bridge"))
     end

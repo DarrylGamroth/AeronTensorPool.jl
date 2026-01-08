@@ -136,7 +136,7 @@ function BridgeAgent(
         hooks = hooks,
     )
 
-    control_assembler = make_control_assembler(consumer_state)
+    control_assembler = Consumer.make_control_assembler(consumer_state)
     descriptor_assembler = make_bridge_descriptor_assembler(sender; hooks = hooks)
     counters = BridgeCounters(sender.client, Int(mapping.dest_stream_id), "Bridge")
 
