@@ -4,24 +4,27 @@ Baseline numbers for regression tracking. Each section lists the exact command u
 
 ## System Bench (640 KiB payload)
 
+Run at: 2026-01-07 17:01:29 PST
+
 Command:
 ```bash
 cat <<'EOF' >/tmp/tp_system_bench.toml
 [producer]
 aeron_dir = ""
-aeron_uri = "aeron:ipc"
+aeron_uri = "aeron:ipc?term-length=4m"
 descriptor_stream_id = 1100
 control_stream_id = 1000
 qos_stream_id = 1200
 metadata_stream_id = 1300
 stream_id = 1
-producer_id = 7
+producer_id = 1
 layout_version = 1
 nslots = 64
 shm_base_dir = "/dev/shm"
 shm_namespace = "tensorpool"
-producer_instance_id = "bench-producer"
+producer_instance_id = ""
 header_uri = ""
+max_dims = 8
 announce_interval_ns = 1000000000
 qos_interval_ns = 1000000000
 progress_interval_ns = 250000
@@ -35,14 +38,17 @@ nslots = 64
 
 [consumer]
 aeron_dir = ""
-aeron_uri = "aeron:ipc"
+aeron_uri = "aeron:ipc?term-length=4m"
 descriptor_stream_id = 1100
 control_stream_id = 1000
 qos_stream_id = 1200
 stream_id = 1
-consumer_id = 42
+consumer_id = 1
 expected_layout_version = 1
+max_dims = 8
 mode = "STREAM"
+decimation = 1
+max_outstanding_seq_gap = 0
 use_shm = true
 supports_shm = true
 supports_progress = false
@@ -59,7 +65,7 @@ qos_interval_ns = 1000000000
 
 [supervisor]
 aeron_dir = ""
-aeron_uri = "aeron:ipc"
+aeron_uri = "aeron:ipc?term-length=4m"
 control_stream_id = 1000
 qos_stream_id = 1200
 stream_id = 1
@@ -71,13 +77,13 @@ julia --project scripts/run_benchmarks.jl --system --duration 10 --payload-bytes
 ```
 
 Results:
-- Publish rate: 19,849.4 fps
-- Consume rate: 19,849.4 fps
-- Publish bandwidth: 12,405.9 MiB/s
-- Consume bandwidth: 12,405.9 MiB/s
-- GC allocd delta (loop): 4,195,872 bytes
+- Publish rate: 20,130.1 fps
+- Consume rate: 20,129.7 fps
+- Publish bandwidth: 12,581.3 MiB/s
+- Consume bandwidth: 12,581.0 MiB/s
+- GC allocd delta (loop): 13,748,752 bytes
 - GC allocd delta (total): 0 bytes
-- GC live delta (total): 45,024 bytes
+- GC live delta (total): 18,224 bytes
 
 ## Allocation Breakdown (640 KiB payload)
 

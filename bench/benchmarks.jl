@@ -22,7 +22,7 @@ function bench_write_header()
         Dtype.UINT8,
         MajorOrder.ROW,
         UInt8(2),
-        ProgressUnit.NONE,
+        AeronTensorPool.ProgressUnit.NONE,
         UInt32(0),
         $dims,
         $strides,
@@ -46,7 +46,7 @@ function bench_read_header()
         Dtype.UINT8,
         MajorOrder.ROW,
         UInt8(2),
-        ProgressUnit.NONE,
+        AeronTensorPool.ProgressUnit.NONE,
         UInt32(0),
         Int32[4, 4],
         Int32[4, 1],
@@ -54,7 +54,7 @@ function bench_read_header()
     slot_dec = SlotHeaderMsg.Decoder(Vector{UInt8})
     tensor_dec = TensorHeaderMsg.Decoder(Vector{UInt8})
     wrap_slot_header!(slot_dec, buffer, 0)
-    return @benchmark try_read_slot_header($slot_dec, $tensor_dec)
+    return @benchmark AeronTensorPool.try_read_slot_header($slot_dec, $tensor_dec)
 end
 
 function bench_descriptor_encode()
