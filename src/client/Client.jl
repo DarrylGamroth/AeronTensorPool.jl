@@ -13,7 +13,7 @@ using ..ShmTensorpoolControl
 using ..StringViews
 using Clocks
 using UnsafeArrays
-import ..Agents.Producer: offer_frame!, try_claim_slot!, commit_slot!, with_claimed_slot!, set_metadata!
+import ..Agents.Producer: offer_frame!, try_claim_slot!, try_claim_slot_by_size!, commit_slot!, with_claimed_slot!, set_metadata!
 
 include("context.jl")
 include("handles.jl")
@@ -57,6 +57,7 @@ export DriverClientState,
     set_metadata!,
     offer_frame!,
     try_claim_slot!,
+    try_claim_slot_by_size!,
     commit_slot!,
     with_claimed_slot!
 

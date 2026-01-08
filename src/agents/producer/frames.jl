@@ -291,6 +291,24 @@ function try_claim_slot!(state::ProducerState, pool_id::UInt16)
 end
 
 """
+Try to claim a payload slot by selecting the smallest pool that fits values_len.
+
+Arguments:
+- `state`: producer state and runtime resources.
+- `values_len`: required payload length in bytes.
+
+Returns:
+- `SlotClaim` on success, or `nothing` if no pool fits or the claim fails.
+"""
+function try_claim_slot_by_size!(state::ProducerState, values_len::Integer)
+    producer_driver_active(state) || return nothing
+    pool_idx = select_pool(state.config.payload_pools, values_len)
+    pool_idx == 0 && return nothing
+    pool_id = state.config.payload_pools[pool_idx].pool_id
+    return try_claim_slot!(state, pool_id)
+end
+
+"""
 Try to claim a payload slot, fill it, and commit the claim.
 
 Arguments:

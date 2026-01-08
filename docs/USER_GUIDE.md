@@ -113,6 +113,7 @@ Selection:
 Allocation API:
 - Copy path: `offer_frame!` chooses the pool automatically.
 - External device path: call `try_claim_slot!(producer_state, pool_id)` to claim a slot from a specific pool, write into the returned buffer, then `commit_slot!`.
+- Convenience: `try_claim_slot_by_size!` selects the smallest pool that fits `values_len` and then claims a slot.
 
 ---
 

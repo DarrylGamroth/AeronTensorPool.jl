@@ -91,6 +91,18 @@ function try_claim_slot!(
 end
 
 """
+Convenience wrapper for claiming a slot by size via a ProducerHandle.
+
+Returns `SlotClaim` on success, or `nothing` if no pool fits or the claim failed.
+"""
+function try_claim_slot_by_size!(
+    handle::ProducerHandle,
+    values_len::Integer,
+)
+    return try_claim_slot_by_size!(handle.producer_agent.state, values_len)
+end
+
+"""
 Convenience wrapper for committing a claimed slot via a ProducerHandle.
 """
 function commit_slot!(
