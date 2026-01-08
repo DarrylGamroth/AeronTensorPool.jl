@@ -19,6 +19,8 @@ function usage()
     println("  julia --project scripts/tp_tool.jl shm-validate <uri> <layout_version> <epoch> <stream_id> <nslots> <slot_bytes> <region_type> <pool_id>")
     println("  julia --project scripts/tp_tool.jl shm-summary <uri>")
     println("  julia --project scripts/tp_tool.jl announce-listen <aeron_dir> <channel> <stream_id> [duration_s]")
+    println("  julia --project scripts/tp_tool.jl metadata-listen <aeron_dir> <channel> <stream_id> [duration_s]")
+    println("  julia --project scripts/tp_tool.jl qos-listen <aeron_dir> <channel> <stream_id> [duration_s]")
     println("  julia --project scripts/tp_tool.jl discovery-query <aeron_dir> <request_channel> <request_stream_id> <response_channel> <response_stream_id> [stream_id] [producer_id] [data_source_id] [data_source_name] [tags_csv] [timeout_ms]")
     println("  julia --project scripts/tp_tool.jl bridge-status <aeron_dir> [filter]")
     println("  julia --project scripts/tp_tool.jl discover <aeron_dir> <request_channel> <request_stream_id> <response_channel> <response_stream_id> [stream_id] [producer_id] [data_source_id] [data_source_name] [tags_csv] [timeout_ms]")
@@ -580,6 +582,56 @@ function tp_tool_main(args::Vector{String})
             yield()
         end
         close(sub)
+        close(client)
+        close(ctx)
+    elseif cmd == "metadata-listen"
+        length(args) >= 4 || usage()
+        aeron_dir = args[2]
+        channel = args[3]
+        stream_id = parse(Int32, args[4])
+        duration_s = length(args) >= 5 ? parse(Float64, args[5]) : 5.0
+        ctx = Aeron.Context()
+        Aeron.aeron_dir!(ctx, aeron_dir)
+        client = Aeron.Client(ctx)
+        cache = MetadataCache(channel, stream_id; client = client)
+        deadline = time_ns() + Int64(round(duration_s * 1e9))
+        seen = Dict{UInt32, UInt32}()
+        while time_ns() < deadline
+            poll_metadata!(cache)
+            for (sid, entry) in cache.entries
+                last = get(seen, sid, UInt32(0))
+                if entry.meta_version != last
+                    println("stream_id=$(sid) meta_version=$(entry.meta_version) name=$(entry.name)")
+                    seen[sid] = entry.meta_version
+                end
+            end
+            yield()
+        end
+        close(cache)
+        close(client)
+        close(ctx)
+    elseif cmd == "qos-listen"
+        length(args) >= 4 || usage()
+        aeron_dir = args[2]
+        channel = args[3]
+        stream_id = parse(Int32, args[4])
+        duration_s = length(args) >= 5 ? parse(Float64, args[5]) : 5.0
+        ctx = Aeron.Context()
+        Aeron.aeron_dir!(ctx, aeron_dir)
+        client = Aeron.Client(ctx)
+        monitor = QosMonitor(channel, stream_id; client = client)
+        deadline = time_ns() + Int64(round(duration_s * 1e9))
+        while time_ns() < deadline
+            poll_qos!(monitor)
+            for snap in values(monitor.producers)
+                println("producer=$(snap.producer_id) stream=$(snap.stream_id) seq=$(snap.current_seq)")
+            end
+            for snap in values(monitor.consumers)
+                println("consumer=$(snap.consumer_id) stream=$(snap.stream_id) last_seq=$(snap.last_seq_seen)")
+            end
+            yield()
+        end
+        close(monitor)
         close(client)
         close(ctx)
     elseif cmd == "discover" || cmd == "discovery-query"

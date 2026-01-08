@@ -104,6 +104,29 @@ Never block on incomplete frames; drop and continue.
 
 ---
 
+## Logging
+
+Logging is disabled by default. Enable it with:
+
+- `TP_LOG=1`
+- `TP_LOG_LEVEL=10|20|30|40`
+- `TP_LOG_MODULES=Producer,Consumer,Driver` (optional module filter)
+
+See `docs/LOGGING.md` for details.
+
+---
+
+## CLI Tools
+
+The `tp_tool.jl` script provides basic inspection and control operations. Common ones:
+- `announce-listen` to watch control-plane traffic
+- `metadata-listen` to watch metadata updates
+- `qos-listen` to watch QoS snapshots
+
+Run `julia --project scripts/tp_tool.jl` for the full list.
+
+---
+
 ## 8. Metadata and `meta_version`
 
 Metadata is published separately:
@@ -115,6 +138,9 @@ Frames carry `meta_version` so consumers can interpret payloads correctly.
 Client helpers:
 - `MetadataPublisher` publishes `DataSourceAnnounce`/`DataSourceMeta` on the metadata stream.
 - `MetadataCache` subscribes to metadata and caches the latest entry per stream.
+
+Ownership:
+- If you pass a `QosMonitor` into `attach_producer(...; callbacks=..., qos_monitor=...)`, the producer agent owns and closes it on shutdown.
 
 ---
 

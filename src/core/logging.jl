@@ -15,31 +15,60 @@ const LOG_LEVEL = begin
     parsed = tryparse(Int, level)
     parsed === nothing ? LEVEL_INFO : parsed
 end
+const LOG_MODULES = begin
+    mods = get(ENV, "TP_LOG_MODULES", "")
+    isempty(mods) ? nothing : Set(Symbol.(split(mods, ',')))
+end
+
+@inline function module_enabled(mod::Module)
+    LOG_MODULES === nothing && return true
+    return nameof(mod) in LOG_MODULES
+end
 
 macro tp_debug(args...)
     if LOG_ENABLED && LOG_LEVEL <= LEVEL_DEBUG
-        return :(Base.@debug $(map(esc, args)...))
+        return quote
+            if TPLog.module_enabled(__module__)
+                Base.@debug $(map(esc, args)...)
+            end
+            nothing
+        end
     end
     return :(nothing)
 end
 
 macro tp_info(args...)
     if LOG_ENABLED && LOG_LEVEL <= LEVEL_INFO
-        return :(Base.@info $(map(esc, args)...))
+        return quote
+            if TPLog.module_enabled(__module__)
+                Base.@info $(map(esc, args)...)
+            end
+            nothing
+        end
     end
     return :(nothing)
 end
 
 macro tp_warn(args...)
     if LOG_ENABLED && LOG_LEVEL <= LEVEL_WARN
-        return :(Base.@warn $(map(esc, args)...))
+        return quote
+            if TPLog.module_enabled(__module__)
+                Base.@warn $(map(esc, args)...)
+            end
+            nothing
+        end
     end
     return :(nothing)
 end
 
 macro tp_error(args...)
     if LOG_ENABLED && LOG_LEVEL <= LEVEL_ERROR
-        return :(Base.@error $(map(esc, args)...))
+        return quote
+            if TPLog.module_enabled(__module__)
+                Base.@error $(map(esc, args)...)
+            end
+            nothing
+        end
     end
     return :(nothing)
 end
