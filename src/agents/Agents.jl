@@ -1,6 +1,5 @@
 module Agents
 
-include("agent_group.jl")
 include("producer/Producer.jl")
 include("consumer/Consumer.jl")
 include("supervisor/Supervisor.jl")
@@ -52,8 +51,6 @@ using .Discovery: DiscoveryProviderState,
 using .DiscoveryRegistry: DiscoveryRegistryState,
     DiscoveryRegistryAgent
 
-using .AgentGroups: AgentGroup
-
 using ..Driver: DriverAgent
 
 export Producer,
@@ -61,7 +58,6 @@ export Producer,
     Supervisor,
     Bridge,
     DiscoveryRegistry,
-    AgentGroup,
     ProducerState,
     ProducerHooks,
     ProducerInfo,

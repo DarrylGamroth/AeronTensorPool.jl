@@ -275,7 +275,7 @@ function run_system_bench(
                             producer_agent = ProducerAgent(producer_cfg; client = client)
                             consumer_agent = ConsumerAgent(consumer_cfg; client = client, hooks = consumer_hooks)
                             supervisor_agent = SupervisorAgent(supervisor_cfg; client = client)
-                            system_agent = AgentGroup(producer_agent, consumer_agent, supervisor_agent)
+                            system_agent = CompositeAgent(producer_agent, consumer_agent, supervisor_agent)
                             system_invoker = AgentInvoker(system_agent)
                             Agent.start(system_invoker)
 
@@ -684,7 +684,7 @@ function run_bridge_bench_runners(
                                 end
                                 runner_src = AgentRunner(
                                     BackoffIdleStrategy(),
-                                    AgentGroup(producer_src_agent, bridge_agent, producer_dst_work),
+                                    CompositeAgent(producer_src_agent, bridge_agent, producer_dst_work),
                                 )
                                 runner_dst = AgentRunner(BackoffIdleStrategy(), consumer_dst_agent)
                                 Agent.start_on_thread(runner_src)

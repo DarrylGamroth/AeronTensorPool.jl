@@ -44,7 +44,6 @@ using .Client
 include("config/config_loader.jl")
 
 export AeronInitError,
-    AgentGroup,
     AttachRequestProxy,
     AttachRequestHandle,
     AttachRejectedError,
