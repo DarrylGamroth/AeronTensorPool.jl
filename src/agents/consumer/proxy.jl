@@ -11,6 +11,10 @@ function emit_consumer_hello!(state::ConsumerState)
     progress_interval = state.config.progress_interval_us
     progress_bytes = state.config.progress_bytes_delta
     progress_rows = state.config.progress_rows_delta
+    if progress_rows != 0
+        # Progress rows depend on major axis; ConsumerHello doesn't know per-frame order.
+        progress_rows = 0
+    end
     if !state.config.supports_progress
         progress_interval = typemax(UInt32)
         progress_bytes = typemax(UInt32)

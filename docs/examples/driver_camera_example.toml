@@ -15,7 +15,6 @@ base_dir = "/dev/shm/tensorpool"
 require_hugepages = false
 page_size_bytes = 4096
 permissions_mode = "660"
-allowed_base_dirs = ["/dev/shm/tensorpool"]
 
 [policies]
 allow_dynamic_streams = true
