@@ -50,6 +50,7 @@ if (TP_BUILD_TESTS)
     enable_testing()
     add_executable(tp_superblock_test tests/tp_superblock_test.c)
     target_link_libraries(tp_superblock_test PRIVATE tensorpool_client)
+    target_include_directories(tp_superblock_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
     add_test(NAME tp_superblock_test COMMAND tp_superblock_test)
 endif ()
 
