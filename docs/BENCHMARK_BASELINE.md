@@ -1,23 +1,83 @@
 # Benchmark Baseline
 
-Baseline numbers for regression tracking. All runs use `config/defaults.toml` with the embedded
-Aeron media driver.
+Baseline numbers for regression tracking. Each section lists the exact command used.
 
 ## System Bench (640 KiB payload)
 
 Command:
 ```bash
-julia --project scripts/run_benchmarks.jl --system --duration 10 --payload-bytes 655360
+cat <<'EOF' >/tmp/tp_system_bench.toml
+[producer]
+aeron_dir = ""
+aeron_uri = "aeron:ipc"
+descriptor_stream_id = 1100
+control_stream_id = 1000
+qos_stream_id = 1200
+metadata_stream_id = 1300
+stream_id = 1
+producer_id = 7
+layout_version = 1
+nslots = 64
+shm_base_dir = "/dev/shm"
+shm_namespace = "tensorpool"
+producer_instance_id = "bench-producer"
+header_uri = ""
+announce_interval_ns = 1000000000
+qos_interval_ns = 1000000000
+progress_interval_ns = 250000
+progress_bytes_delta = 65536
+
+[[producer.payload_pools]]
+pool_id = 1
+uri = ""
+stride_bytes = 1048576
+nslots = 64
+
+[consumer]
+aeron_dir = ""
+aeron_uri = "aeron:ipc"
+descriptor_stream_id = 1100
+control_stream_id = 1000
+qos_stream_id = 1200
+stream_id = 1
+consumer_id = 42
+expected_layout_version = 1
+mode = "STREAM"
+use_shm = true
+supports_shm = true
+supports_progress = false
+max_rate_hz = 0
+payload_fallback_uri = ""
+shm_base_dir = "/dev/shm"
+allowed_base_dirs = ["/dev/shm"]
+require_hugepages = false
+progress_interval_us = 250
+progress_bytes_delta = 65536
+progress_rows_delta = 0
+hello_interval_ns = 1000000000
+qos_interval_ns = 1000000000
+
+[supervisor]
+aeron_dir = ""
+aeron_uri = "aeron:ipc"
+control_stream_id = 1000
+qos_stream_id = 1200
+stream_id = 1
+liveness_timeout_ns = 5000000000
+liveness_check_interval_ns = 1000000000
+EOF
+
+julia --project -e 'include("bench/system_bench.jl"); run_system_bench("/tmp/tp_system_bench.toml", 10.0; payload_bytes=655360)'
 ```
 
 Results:
-- Publish rate: 16,501.5 fps
-- Consume rate: 16,501.2 fps
-- Publish bandwidth: 10,313.4 MiB/s
-- Consume bandwidth: 10,313.2 MiB/s
-- GC allocd delta (loop): 4,872,352 bytes
+- Publish rate: 19,849.4 fps
+- Consume rate: 19,849.4 fps
+- Publish bandwidth: 12,405.9 MiB/s
+- Consume bandwidth: 12,405.9 MiB/s
+- GC allocd delta (loop): 4,195,872 bytes
 - GC allocd delta (total): 0 bytes
-- GC live delta (total): 18,384 bytes
+- GC live delta (total): 45,024 bytes
 
 ## Allocation Breakdown (640 KiB payload)
 
@@ -47,17 +107,3 @@ Command:
 ```bash
 JULIA_NUM_THREADS=2 julia --project scripts/run_benchmarks.jl --bridge-runners --duration 5 --payload-bytes 655360 --config config/defaults.toml
 ```
-## System Bench (Single Process, Producer/Consumer/Supervisor)
-
-### 640 KiB payloads (10s)
-- payload_bytes: 655,360
-- Published: 198,495 frames in 10.0s
-- Consumed: 198,495 frames in 10.0s
-- Publish rate: 19,849.4 fps
-- Consume rate: 19,849.4 fps
-- Publish bandwidth: 12,405.9 MiB/s
-- Consume bandwidth: 12,405.9 MiB/s
-- GC allocd delta (loop): 4,195,872 bytes
-- GC live delta (loop): 4,243,312 bytes
-- GC allocd delta (total): 0 bytes
-- GC live delta (total): 45,024 bytes
