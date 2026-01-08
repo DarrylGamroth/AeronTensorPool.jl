@@ -1,6 +1,6 @@
 using Test
 
-@testset "Driver prefault zeros new regions" begin
+@testset "Driver cleanup_shm_on_exit removes regions" begin
     with_driver_and_client() do media_driver, client
         base_dir = mktempdir()
 
@@ -15,7 +15,7 @@ using Test
             15002,
         )
         shm = DriverShmConfig(base_dir, false, UInt32(4096), "660", [base_dir])
-        policies = DriverPolicyConfig(false, "raw", UInt32(100), UInt32(10_000), UInt32(3), true, false, false, false, UInt32(2000), "")
+        policies = DriverPolicyConfig(false, "raw", UInt32(100), UInt32(10_000), UInt32(3), false, false, false, true, UInt32(2000), "")
         profile = DriverProfileConfig(
             "raw",
             UInt32(4),
@@ -62,19 +62,16 @@ using Test
         @test attach !== nothing
         @test attach.code == DriverResponseCode.OK
 
-        header_uri = String(view(attach.header_region_uri))
-        header_mmap = mmap_shm(header_uri, SUPERBLOCK_SIZE + HEADER_SLOT_BYTES * 4)
-        header_bytes = view(header_mmap, SUPERBLOCK_SIZE + 1:length(header_mmap))
-        @test all(==(0x00), header_bytes)
-
-        @test length(attach.pools) == 1
-        pool_uri = String(view(attach.pools[1].region_uri))
-        pool_mmap = mmap_shm(pool_uri, SUPERBLOCK_SIZE + Int(profile.header_nslots) * Int(profile.payload_pools[1].stride_bytes))
-        pool_bytes = view(pool_mmap, SUPERBLOCK_SIZE + 1:length(pool_mmap))
-        @test all(==(0x00), pool_bytes)
+        header_path = parse_shm_uri(String(view(attach.header_region_uri))).path
+        pool_path = parse_shm_uri(String(view(attach.pools[1].region_uri))).path
+        @test ispath(header_path)
+        @test ispath(pool_path)
 
         close_driver_state!(driver_state)
         close(pub)
         close(sub)
+
+        @test !ispath(header_path)
+        @test !ispath(pool_path)
     end
 end

@@ -14,7 +14,7 @@ using Test
             14002,
         )
         shm = DriverShmConfig(base_dir, false, UInt32(4096), "660", [base_dir])
-        policies = DriverPolicyConfig(false, "raw", UInt32(100), UInt32(10_000), UInt32(3), false, false, UInt32(2000), "")
+        policies = DriverPolicyConfig(false, "raw", UInt32(100), UInt32(10_000), UInt32(3), false, false, false, false, UInt32(2000), "")
         profile = DriverProfileConfig(
             "raw",
             UInt32(8),

@@ -55,6 +55,10 @@ function mmap_shm_existing(uri::AbstractString, size::Integer; write::Bool = fal
     return mmap_shm_existing_linux(uri, size; write = write)
 end
 
+function shm_available_bytes(path::AbstractString)
+    return shm_available_bytes_linux(path)
+end
+
 """
 Attempt to mlock a mapped buffer. On non-Unix platforms this is a no-op with a warning.
 

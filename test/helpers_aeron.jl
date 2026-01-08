@@ -119,6 +119,7 @@ end
 
 function close_driver_state!(state::DriverState)
     try
+        AeronTensorPool.Driver.cleanup_shm_on_exit!(state)
         close(state.runtime.control.pub_control)
         close(state.runtime.pub_announce)
         close(state.runtime.pub_qos)

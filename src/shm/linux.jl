@@ -96,3 +96,24 @@ function mmap_shm_existing_linux(uri::AbstractString, size::Integer; write::Bool
         return Mmap.mmap(io, Vector{UInt8}, size; grow = false, shared = true)
     end
 end
+
+struct StatvfsLinux
+    f_bsize::Culong
+    f_frsize::Culong
+    f_blocks::Culong
+    f_bfree::Culong
+    f_bavail::Culong
+    f_files::Culong
+    f_ffree::Culong
+    f_favail::Culong
+    f_fsid::Culong
+    f_flag::Culong
+    f_namemax::Culong
+end
+
+function shm_available_bytes_linux(path::AbstractString)
+    buf = Ref{StatvfsLinux}()
+    rc = ccall(:statvfs, Cint, (Cstring, Ref{StatvfsLinux}), path, buf)
+    rc == 0 || throw(ShmValidationError("statvfs failed for path: $(path) (errno=$(Libc.errno()))"))
+    return Int(buf[].f_bsize) * Int(buf[].f_bavail)
+end

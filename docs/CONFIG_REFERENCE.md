@@ -46,7 +46,9 @@ Optional keys and defaults:
 - `policies.lease_keepalive_interval_ms` (uint32): client keepalive interval. Default: `1000`.
 - `policies.lease_expiry_grace_intervals` (uint32): missed keepalives before expiry. Default: `3`.
 - `policies.prefault_shm` (bool): prefault/zero SHM regions on create. Default: `true`.
+- `policies.reuse_existing_shm` (bool): reuse existing SHM files without truncation. Default: `false`.
 - `policies.mlock_shm` (bool): mlock SHM regions on create; fatal if enabled and mlock fails. Default: `false`.
+- `policies.cleanup_shm_on_exit` (bool): remove SHM files on driver shutdown. Default: `false`.
 - `policies.shutdown_timeout_ms` (uint32): drain period before shutdown completes. Default: `2000`.
 - `policies.shutdown_token` (string): admin shutdown token. Default: empty (disabled).
 

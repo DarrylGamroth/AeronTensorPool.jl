@@ -131,9 +131,22 @@ function provision_stream_epoch!(state::DriverState, stream_state::DriverStreamS
 
     header_path = parse_shm_uri(header_uri).path
     header_size = SUPERBLOCK_SIZE + Int(stream_state.profile.header_nslots) * HEADER_SLOT_BYTES
-    ensure_shm_file!(state, header_path, header_size, state.config.shm.permissions_mode)
-    header_mmap = mmap_shm(header_uri, header_size; write = true)
-    if state.config.policies.prefault_shm
+    created = ensure_shm_file!(
+        state,
+        header_path,
+        header_size,
+        state.config.shm.permissions_mode,
+        state.config.policies.reuse_existing_shm,
+    )
+    if created && state.config.policies.prefault_shm
+        available = shm_available_bytes(header_path)
+        if available < header_size
+            throw(ArgumentError("insufficient shm space for header region: need $(header_size) bytes, have $(available)"))
+        end
+    end
+    header_mmap = created ? mmap_shm(header_uri, header_size; write = true) :
+                  mmap_shm_existing(header_uri, header_size; write = true)
+    if created && state.config.policies.prefault_shm
         fill!(header_mmap, 0x00)
     end
     if state.config.policies.mlock_shm
@@ -163,9 +176,22 @@ function provision_stream_epoch!(state::DriverState, stream_state::DriverStreamS
         pool_uri = stream_state.pool_uris[pool.pool_id]
         pool_path = parse_shm_uri(pool_uri).path
         pool_size = SUPERBLOCK_SIZE + Int(stream_state.profile.header_nslots) * Int(pool.stride_bytes)
-        ensure_shm_file!(state, pool_path, pool_size, state.config.shm.permissions_mode)
-        pool_mmap = mmap_shm(pool_uri, pool_size; write = true)
-        if state.config.policies.prefault_shm
+        created = ensure_shm_file!(
+            state,
+            pool_path,
+            pool_size,
+            state.config.shm.permissions_mode,
+            state.config.policies.reuse_existing_shm,
+        )
+        if created && state.config.policies.prefault_shm
+            available = shm_available_bytes(pool_path)
+            if available < pool_size
+                throw(ArgumentError("insufficient shm space for payload pool $(pool.pool_id): need $(pool_size) bytes, have $(available)"))
+            end
+        end
+        pool_mmap = created ? mmap_shm(pool_uri, pool_size; write = true) :
+                    mmap_shm_existing(pool_uri, pool_size; write = true)
+        if created && state.config.policies.prefault_shm
             fill!(pool_mmap, 0x00)
         end
         if state.config.policies.mlock_shm
@@ -195,7 +221,13 @@ end
 
 parse_mode(mode_str::AbstractString) = parse(UInt32, mode_str; base = 8)
 
-function ensure_shm_file!(state::DriverState, path::AbstractString, size::Int, mode_str::AbstractString)
+function ensure_shm_file!(
+    state::DriverState,
+    path::AbstractString,
+    size::Int,
+    mode_str::AbstractString,
+    reuse_existing::Bool,
+)
     isabspath(path) || throw(ArgumentError("SHM path must be absolute"))
     path_allowed(path, state.config.shm.allowed_base_dirs) ||
         throw(ArgumentError("SHM path not within allowed_base_dirs"))
@@ -206,12 +238,19 @@ function ensure_shm_file!(state::DriverState, path::AbstractString, size::Int, m
     if ispath(path) && !isfile(path)
         throw(ArgumentError("SHM path must be a regular file"))
     end
-    Shm.open_shm_nofollow(path, Shm.SHM_O_RDWR | Shm.SHM_O_CREAT) do io
-        truncate(io, size)
+    created = !isfile(path)
+    if !created && reuse_existing
+        Shm.open_shm_nofollow(path, Shm.SHM_O_RDWR) do io
+            filesize(io) >= size || throw(ArgumentError("SHM file smaller than expected size"))
+        end
+    else
+        Shm.open_shm_nofollow(path, Shm.SHM_O_RDWR | Shm.SHM_O_CREAT) do io
+            truncate(io, size)
+        end
     end
     isfile(path) || throw(ArgumentError("SHM path not a regular file"))
     chmod(path, parse_mode(mode_str))
-    return nothing
+    return created
 end
 
 add_hugepage_flag(uri::AbstractString) = "$(uri)|require_hugepages=true"
@@ -227,4 +266,23 @@ function path_allowed(path::AbstractString, allowed_dirs::AbstractVector{<:Abstr
         end
     end
     return false
+end
+
+function cleanup_shm_on_exit!(state::DriverState)
+    state.config.policies.cleanup_shm_on_exit || return nothing
+    for stream_state in values(state.streams)
+        if !isempty(stream_state.header_uri)
+            header_path = parse_shm_uri(stream_state.header_uri).path
+            if path_allowed(header_path, state.config.shm.allowed_base_dirs)
+                rm(header_path; force = true)
+            end
+        end
+        for uri in values(stream_state.pool_uris)
+            pool_path = parse_shm_uri(uri).path
+            if path_allowed(pool_path, state.config.shm.allowed_base_dirs)
+                rm(pool_path; force = true)
+            end
+        end
+    end
+    return nothing
 end
