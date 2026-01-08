@@ -369,6 +369,7 @@ function tp_tool_main(args::Vector{String})
         client = Aeron.Client(ctx)
         pub = Aeron.add_publication(client, aeron_uri, control_stream)
 
+        claim = Aeron.BufferClaim()
         buf = Vector{UInt8}(undef, 512)
         enc = ConsumerConfigMsg.Encoder(Vector{UInt8})
         ConsumerConfigMsg.wrap_and_apply_header!(enc, buf, 0)
@@ -380,8 +381,11 @@ function tp_tool_main(args::Vector{String})
         )
         ConsumerConfigMsg.mode!(enc, mode)
         ConsumerConfigMsg.payloadFallbackUri!(enc, payload_fallback_uri)
-
-        Aeron.offer(pub, view(buf, 1:sbe_message_length(enc)))
+        msg_len = sbe_message_length(enc)
+        sent = with_claimed_buffer!(pub, claim, msg_len) do dst
+            copyto!(dst, 1, buf, 1, msg_len)
+        end
+        sent || error("consumer config claim failed")
         close(pub)
         close(client)
     elseif cmd == "driver-attach"
