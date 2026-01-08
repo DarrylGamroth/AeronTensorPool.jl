@@ -86,7 +86,7 @@ The driver enforces exclusive producer leases and handles epoch changes.
 ## 6. Publishing data (Producer)
 
 Producer loop (typical path):
-1. Fill payload and header via `offer_frame!` (preferred).
+1. Use `offer_frame!` for the copy path, or `try_claim_slot!` + `commit_slot!` when external devices fill SHM buffers directly.
 2. `offer_frame!` handles the seqlock (`seq_commit`) and publishes `FrameDescriptor` on success.
 
 ---

@@ -54,7 +54,7 @@ profile = "camera"
 ### Start driver (AgentRunner)
 
 ```bash
-LAUNCH_MEDIA_DRIVER=true julia --project scripts/example_driver.jl docs/examples/driver_integration_example.toml
+julia --project scripts/example_driver.jl docs/examples/driver_integration_example.toml
 ```
 
 ## Application 2: Frame Producer (application-defined Agent)
