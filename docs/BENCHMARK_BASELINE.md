@@ -45,7 +45,6 @@ stream_id = 1
 consumer_id = 1
 expected_layout_version = 1
 mode = "STREAM"
-decimation = 1
 max_outstanding_seq_gap = 0
 use_shm = true
 supports_shm = true
