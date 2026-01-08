@@ -72,7 +72,7 @@ end
 Agent.name(::ProducerWork) = "producer-work"
 
 function Agent.do_work(agent::ProducerWork)
-    return producer_do_work!(agent.state, agent.control_assembler; qos_assembler = agent.qos_assembler)
+    return producer_do_work!(agent.state, agent.control_assembler, agent.qos_assembler)
 end
 
 Agent.on_close(::ProducerWork) = nothing
@@ -275,7 +275,7 @@ function run_system_bench(
                             producer_agent = ProducerAgent(producer_cfg; client = client)
                             consumer_agent = ConsumerAgent(consumer_cfg; client = client, hooks = consumer_hooks)
                             supervisor_agent = SupervisorAgent(supervisor_cfg; client = client)
-                            system_agent = CompositeAgent(producer_agent, consumer_agent, supervisor_agent)
+                            system_agent = AgentGroup(producer_agent, consumer_agent, supervisor_agent)
                             system_invoker = AgentInvoker(system_agent)
                             Agent.start(system_invoker)
 
@@ -349,8 +349,46 @@ function run_system_bench(
                         measure_allocd("producer_do_work") do
                             Agent.invoke(system_invoker)
                         end
+                        measure_allocd("composite_do_work") do
+                            Agent.do_work(system_agent)
+                        end
+                        measure_allocd("producer_do_work_raw") do
+                            Producer.producer_do_work!(
+                                producer,
+                                producer_agent.control_assembler,
+                                producer_agent.qos_assembler,
+                            )
+                        end
+                        measure_allocd("producer_do_work_agent") do
+                            Agent.do_work(producer_agent)
+                        end
+                        measure_allocd("producer_counter_updates") do
+                            Aeron.increment!(producer_agent.counters.base.total_duty_cycles)
+                            work_done = 0
+                            if work_done > 0
+                                Aeron.add!(
+                                    producer_agent.counters.base.total_work_done,
+                                    Int64(work_done),
+                                )
+                            end
+                            producer_agent.counters.frames_published[] = Int64(producer_agent.state.seq)
+                            producer_agent.counters.announces[] =
+                                Int64(producer_agent.state.metrics.announce_count)
+                            producer_agent.counters.qos_published[] =
+                                Int64(producer_agent.state.metrics.qos_count)
+                        end
                         measure_allocd("consumer_do_work") do
                             Agent.invoke(system_invoker)
+                        end
+                        measure_allocd("consumer_do_work_raw") do
+                            Consumer.consumer_do_work!(
+                                consumer,
+                                consumer_agent.descriptor_assembler,
+                                consumer_agent.control_assembler,
+                            )
+                        end
+                        measure_allocd("consumer_do_work_agent") do
+                            Agent.do_work(consumer_agent)
                         end
                         if consumer.mappings.header_mmap !== nothing
                             Producer.offer_frame!(producer, payload, shape, strides, Dtype.UINT8, UInt32(0))
@@ -360,6 +398,16 @@ function run_system_bench(
                         end
                         measure_allocd("supervisor_do_work") do
                             Agent.invoke(system_invoker)
+                        end
+                        measure_allocd("supervisor_do_work_raw") do
+                            Supervisor.supervisor_do_work!(
+                                supervisor,
+                                supervisor_agent.control_assembler,
+                                supervisor_agent.qos_assembler,
+                            )
+                        end
+                        measure_allocd("supervisor_do_work_agent") do
+                            Agent.do_work(supervisor_agent)
                         end
                         measure_allocd("publish_frame") do
                             if consumer.mappings.header_mmap !== nothing
@@ -636,7 +684,7 @@ function run_bridge_bench_runners(
                                 end
                                 runner_src = AgentRunner(
                                     BackoffIdleStrategy(),
-                                    CompositeAgent(producer_src_agent, bridge_agent, producer_dst_work),
+                                    AgentGroup(producer_src_agent, bridge_agent, producer_dst_work),
                                 )
                                 runner_dst = AgentRunner(BackoffIdleStrategy(), consumer_dst_agent)
                                 Agent.start_on_thread(runner_src)

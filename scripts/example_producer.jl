@@ -98,7 +98,7 @@ function run_producer(driver_cfg_path::String, producer_cfg_path::String, count:
             UInt64(10_000_000),
             false,
         )
-        composite = CompositeAgent(AeronTensorPool.handle_agent(handle), app_agent)
+        composite = AgentGroup(AeronTensorPool.handle_agent(handle), app_agent)
         runner = AgentRunner(BackoffIdleStrategy(), composite)
         if isnothing(core_id)
             Agent.start_on_thread(runner)

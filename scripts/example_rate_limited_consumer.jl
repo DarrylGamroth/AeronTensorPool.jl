@@ -165,7 +165,7 @@ function run_consumer(
             false,
         )
         app_ref[] = app_agent
-        composite = CompositeAgent(AeronTensorPool.handle_agent(handle), app_agent)
+        composite = AgentGroup(AeronTensorPool.handle_agent(handle), app_agent)
         runner = AgentRunner(BackoffIdleStrategy(), composite)
         if isnothing(core_id)
             Agent.start_on_thread(runner)

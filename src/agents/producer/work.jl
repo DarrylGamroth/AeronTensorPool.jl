@@ -16,8 +16,8 @@ Returns:
 """
 function producer_do_work!(
     state::ProducerState,
-    control_assembler::Aeron.FragmentAssembler;
-    qos_assembler::Union{Aeron.FragmentAssembler, Nothing} = nothing,
+    control_assembler::Aeron.FragmentAssembler,
+    qos_assembler::Union{Aeron.FragmentAssembler, Nothing},
     fragment_limit::Int32 = DEFAULT_FRAGMENT_LIMIT,
 )
     fetch!(state.clock)
@@ -34,4 +34,13 @@ function producer_do_work!(
         work_count += handle_driver_events!(state, now_ns)
     end
     return work_count
+end
+
+function producer_do_work!(
+    state::ProducerState,
+    control_assembler::Aeron.FragmentAssembler;
+    qos_assembler::Union{Aeron.FragmentAssembler, Nothing} = nothing,
+    fragment_limit::Int32 = DEFAULT_FRAGMENT_LIMIT,
+)
+    return producer_do_work!(state, control_assembler, qos_assembler, fragment_limit)
 end

@@ -35,8 +35,7 @@ Agent.name(agent::ProducerAgent) = "producer"
 
 function Agent.do_work(agent::ProducerAgent)
     Aeron.increment!(agent.counters.base.total_duty_cycles)
-    work_done =
-        producer_do_work!(agent.state, agent.control_assembler; qos_assembler = agent.qos_assembler)
+    work_done = producer_do_work!(agent.state, agent.control_assembler, agent.qos_assembler)
     if work_done > 0
         Aeron.add!(agent.counters.base.total_work_done, Int64(work_done))
     end

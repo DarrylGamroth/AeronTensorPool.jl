@@ -132,7 +132,7 @@ function run_consumer(driver_cfg_path::String, consumer_cfg_path::String, count:
             false,
         )
         app_ref[] = app_agent
-        composite = CompositeAgent(AeronTensorPool.handle_agent(handle), app_agent)
+        composite = AgentGroup(AeronTensorPool.handle_agent(handle), app_agent)
         runner = AgentRunner(BackoffIdleStrategy(), composite)
         if isnothing(core_id)
             Agent.start_on_thread(runner)
