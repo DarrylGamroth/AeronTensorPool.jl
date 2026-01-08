@@ -17,7 +17,7 @@ This playbook complements the spec and implementation guide with deployment and 
 
 ## Common Profiles
 - Low-latency: small nslots, smaller stride classes, IPC transport, pinned CPU for producer/consumer.
-- Throughput: larger nslots, larger stride classes (hugepages), relaxed consumer mode (RATE_LIMITED).
+- Throughput: larger nslots, larger stride classes (hugepages), rate-limited delivery when needed.
 - Multi-consumer: increase nslots for worst-case consumer latency; set supervisor liveness timeout to 3-5x announce cadence.
 
 ## Tuning Matrix
@@ -52,6 +52,11 @@ Suggested thresholds (tune per deployment)
 - In standalone mode, run the SHM driver in-process (analogous to an embedded driver pattern).
 - Use driver announce/qos streams for operator visibility.
 
+## Configuration References
+- Driver and bridge configuration: `docs/CONFIG_REFERENCE.md`
+- Authoritative driver spec: `docs/SHM_Driver_Model_Spec_v1.0.md`
+- Authoritative bridge spec: `docs/SHM_Aeron_UDP_Bridge_Spec_v1.0.md`
+
 ## GC Monitoring (Julia)
 - Track `GC.num()` and `GC.gc_time_ns()` under load for jitter spikes.
 - Use allocation tests and keep hot loops allocation-free after init.
@@ -72,6 +77,11 @@ Keepalive:
 
 Detach:
 - `julia --project scripts/tp_tool.jl driver-detach /dev/shm/aeron aeron:ipc 1000 7 producer 42 123`
+
+Listen for control-plane traffic:
+- `julia --project scripts/tp_tool.jl announce-listen /dev/shm/aeron aeron:ipc 1000`
+- `julia --project scripts/tp_tool.jl metadata-listen /dev/shm/aeron aeron:ipc 1300`
+- `julia --project scripts/tp_tool.jl qos-listen /dev/shm/aeron aeron:ipc 1200`
 
 ## Julia Apps (1.12+)
 - Build app executables:
