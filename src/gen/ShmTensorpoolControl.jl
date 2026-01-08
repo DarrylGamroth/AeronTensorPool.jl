@@ -11177,72 +11177,72 @@ begin
     export progressBytesDelta, progressBytesDelta!
 end
 begin
-    progressMajorDelta_id(::AbstractConsumerHello) = begin
+    progressMajorDeltaUnits_id(::AbstractConsumerHello) = begin
             UInt16(10)
         end
-    progressMajorDelta_id(::Type{<:AbstractConsumerHello}) = begin
+    progressMajorDeltaUnits_id(::Type{<:AbstractConsumerHello}) = begin
             UInt16(10)
         end
-    progressMajorDelta_since_version(::AbstractConsumerHello) = begin
+    progressMajorDeltaUnits_since_version(::AbstractConsumerHello) = begin
             UInt16(0)
         end
-    progressMajorDelta_since_version(::Type{<:AbstractConsumerHello}) = begin
+    progressMajorDeltaUnits_since_version(::Type{<:AbstractConsumerHello}) = begin
             UInt16(0)
         end
-    progressMajorDelta_in_acting_version(m::AbstractConsumerHello) = begin
+    progressMajorDeltaUnits_in_acting_version(m::AbstractConsumerHello) = begin
             sbe_acting_version(m) >= UInt16(0)
         end
-    progressMajorDelta_encoding_offset(::AbstractConsumerHello) = begin
+    progressMajorDeltaUnits_encoding_offset(::AbstractConsumerHello) = begin
             Int(27)
         end
-    progressMajorDelta_encoding_offset(::Type{<:AbstractConsumerHello}) = begin
+    progressMajorDeltaUnits_encoding_offset(::Type{<:AbstractConsumerHello}) = begin
             Int(27)
         end
-    progressMajorDelta_encoding_length(::AbstractConsumerHello) = begin
+    progressMajorDeltaUnits_encoding_length(::AbstractConsumerHello) = begin
             Int(4)
         end
-    progressMajorDelta_encoding_length(::Type{<:AbstractConsumerHello}) = begin
+    progressMajorDeltaUnits_encoding_length(::Type{<:AbstractConsumerHello}) = begin
             Int(4)
         end
-    progressMajorDelta_null_value(::AbstractConsumerHello) = begin
+    progressMajorDeltaUnits_null_value(::AbstractConsumerHello) = begin
             UInt32(4294967295)
         end
-    progressMajorDelta_null_value(::Type{<:AbstractConsumerHello}) = begin
+    progressMajorDeltaUnits_null_value(::Type{<:AbstractConsumerHello}) = begin
             UInt32(4294967295)
         end
-    progressMajorDelta_min_value(::AbstractConsumerHello) = begin
+    progressMajorDeltaUnits_min_value(::AbstractConsumerHello) = begin
             UInt32(0)
         end
-    progressMajorDelta_min_value(::Type{<:AbstractConsumerHello}) = begin
+    progressMajorDeltaUnits_min_value(::Type{<:AbstractConsumerHello}) = begin
             UInt32(0)
         end
-    progressMajorDelta_max_value(::AbstractConsumerHello) = begin
+    progressMajorDeltaUnits_max_value(::AbstractConsumerHello) = begin
             UInt32(4294967294)
         end
-    progressMajorDelta_max_value(::Type{<:AbstractConsumerHello}) = begin
+    progressMajorDeltaUnits_max_value(::Type{<:AbstractConsumerHello}) = begin
             UInt32(4294967294)
         end
 end
 begin
-    function progressMajorDelta_meta_attribute(::AbstractConsumerHello, meta_attribute)
+    function progressMajorDeltaUnits_meta_attribute(::AbstractConsumerHello, meta_attribute)
         meta_attribute === :presence && return Symbol("optional")
         meta_attribute === :semanticType && return Symbol("")
         return Symbol("")
     end
-    function progressMajorDelta_meta_attribute(::Type{<:AbstractConsumerHello}, meta_attribute)
+    function progressMajorDeltaUnits_meta_attribute(::Type{<:AbstractConsumerHello}, meta_attribute)
         meta_attribute === :presence && return Symbol("optional")
         meta_attribute === :semanticType && return Symbol("")
         return Symbol("")
     end
 end
 begin
-    @inline function progressMajorDelta(m::Decoder)
+    @inline function progressMajorDeltaUnits(m::Decoder)
             return decode_value(UInt32, m.buffer, m.offset + 27)
         end
-    @inline progressMajorDelta!(m::Encoder, val) = begin
+    @inline progressMajorDeltaUnits!(m::Encoder, val) = begin
                 encode_value(UInt32, m.buffer, m.offset + 27, val)
             end
-    export progressMajorDelta, progressMajorDelta!
+    export progressMajorDeltaUnits, progressMajorDeltaUnits!
 end
 begin
     descriptorStreamId_id(::AbstractConsumerHello) = begin

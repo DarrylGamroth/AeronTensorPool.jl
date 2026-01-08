@@ -234,7 +234,7 @@ end
                     ConsumerHello.expectedLayoutVersion!(consumer_state.runtime.hello_encoder, consumer_state.config.expected_layout_version)
                     ConsumerHello.progressIntervalUs!(consumer_state.runtime.hello_encoder, typemax(UInt32))
                     ConsumerHello.progressBytesDelta!(consumer_state.runtime.hello_encoder, typemax(UInt32))
-                    ConsumerHello.progressMajorDelta!(consumer_state.runtime.hello_encoder, typemax(UInt32))
+                    ConsumerHello.progressMajorDeltaUnits!(consumer_state.runtime.hello_encoder, typemax(UInt32))
                     ConsumerHello.descriptorStreamId!(
                         consumer_state.runtime.hello_encoder,
                         UInt32(0),

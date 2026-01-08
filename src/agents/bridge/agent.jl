@@ -32,7 +32,7 @@ function bridge_consumer_settings(config::ConsumerConfig, mapping::BridgeMapping
         config.require_hugepages,
         config.progress_interval_us,
         config.progress_bytes_delta,
-        config.progress_major_delta,
+        config.progress_major_delta_units,
         config.hello_interval_ns,
         config.qos_interval_ns,
         config.announce_freshness_ns,

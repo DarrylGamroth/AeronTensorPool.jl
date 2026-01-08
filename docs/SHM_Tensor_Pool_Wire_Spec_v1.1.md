@@ -330,7 +330,7 @@ Sent on startup and optionally periodically.
 - optional progress policy hints (producer may coarsen across consumers):
   - `progress_interval_us : u32` (minimum interval between `PROGRESS` messages; optional; if absent, producer defaults apply; **recommended default**: 250 µs)
   - `progress_bytes_delta : u32` (minimum byte delta to report; optional; if absent, producer defaults apply; **recommended default**: 65,536 bytes)
-- `progress_major_delta : u32` (minimum major-axis delta to report; optional; **recommended default**: 0 when unknown)
+- `progress_major_delta_units : u32` (minimum major-axis delta to report; optional; **recommended default**: 0 when unknown)
 - `descriptor_stream_id : u32` (preferred stream ID, or 0 to let producer choose)
 - `control_stream_id : u32` (preferred stream ID, or 0 to let producer choose)
 - `descriptor_channel : string` (optional; request per-consumer descriptor stream; empty string means “not requested”)
@@ -425,7 +425,7 @@ Optional partial-availability hints during DMA.
 - Cap burstiness with a per-stream max rate (e.g., 1–2 kHz) or token bucket; drop intermediate updates but always send the latest state when the interval elapses.
 - Use monotone triggers: combine (a) time-based tick, (b) byte/row delta threshold, (c) final `COMPLETE`. This avoids floods of tiny updates and long silences.
 - Only publish when at least one subscriber has `supports_progress=true`; otherwise skip to reduce control-plane load.
-- When consumers provide policy hints (`progress_interval_us`, `progress_bytes_delta`, `progress_major_delta`), producer applies the most aggressive common policy that stays within its safety floor: take the **smallest** interval and **smallest** deltas offered, but not below producer minima.
+- When consumers provide policy hints (`progress_interval_us`, `progress_bytes_delta`, `progress_major_delta_units`), producer applies the most aggressive common policy that stays within its safety floor: take the **smallest** interval and **smallest** deltas offered, but not below producer minima.
 - If no hints are provided, fall back to producer defaults (recommend 250 µs interval, 64 KiB delta, rows hint unset).
 
 ### 10.3 Per-Data-Source Metadata
@@ -1029,7 +1029,7 @@ Reference schema patterned after Aeron archive control style; adjust IDs and fie
     <field name="expectedLayoutVersion" id="7" type="version_t"/>
     <field name="progressIntervalUs"    id="8" type="uint32" presence="optional" nullValue="4294967295"/>
     <field name="progressBytesDelta"    id="9" type="uint32" presence="optional" nullValue="4294967295"/>
-    <field name="progressMajorDelta"    id="10" type="uint32" presence="optional" nullValue="4294967295"/>
+    <field name="progressMajorDeltaUnits" id="10" type="uint32" presence="optional" nullValue="4294967295"/>
     <field name="descriptorStreamId"    id="11" type="uint32"/>
     <field name="controlStreamId"       id="12" type="uint32"/>
     <data  name="descriptorChannel"     id="13" type="varAsciiEncoding"/>

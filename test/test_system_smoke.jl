@@ -52,7 +52,7 @@ allowed_base_dirs = ["$(dir)"]
 require_hugepages = false
 progress_interval_us = 250
 progress_bytes_delta = 65536
-progress_major_delta = 0
+progress_major_delta_units = 0
 hello_interval_ns = 1000000000
 qos_interval_ns = 1000000000
 

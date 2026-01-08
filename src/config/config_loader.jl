@@ -331,7 +331,7 @@ function load_consumer_config(path::AbstractString; env::AbstractDict = ENV)
     require_hugepages = Bool(get(cons, "require_hugepages", false))
     progress_interval_us = UInt32(get(cons, "progress_interval_us", 250))
     progress_bytes_delta = UInt32(get(cons, "progress_bytes_delta", 65536))
-    progress_major_delta = UInt32(get(cons, "progress_major_delta", 0))
+    progress_major_delta_units = UInt32(get(cons, "progress_major_delta_units", 0))
     hello_interval_ns = UInt64(get(cons, "hello_interval_ns", 1_000_000_000))
     qos_interval_ns = UInt64(get(cons, "qos_interval_ns", 1_000_000_000))
     announce_freshness_ns = UInt64(get(cons, "announce_freshness_ns", 3_000_000_000))
@@ -359,7 +359,7 @@ function load_consumer_config(path::AbstractString; env::AbstractDict = ENV)
         require_hugepages,
         progress_interval_us,
         progress_bytes_delta,
-        progress_major_delta,
+        progress_major_delta_units,
         hello_interval_ns,
         qos_interval_ns,
         announce_freshness_ns,
