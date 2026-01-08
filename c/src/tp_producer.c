@@ -203,19 +203,20 @@ static tp_err_t tp_write_slot_header(
     uint64_t tensor_len =
         shm_tensorpool_control_messageHeader_encoded_length() +
         shm_tensorpool_control_tensorHeader_sbe_block_length();
-    shm_tensorpool_control_slotHeader_set_headerBytes_length(&slot, (uint32_t)tensor_len);
-
-    uint64_t header_pos = shm_tensorpool_control_slotHeader_sbe_position(&slot) +
-        shm_tensorpool_control_slotHeader_headerBytes_header_length();
+    uint8_t header_buf[256];
+    if (tensor_len > sizeof(header_buf))
+    {
+        return TP_ERR_PROTOCOL;
+    }
 
     struct shm_tensorpool_control_messageHeader hdr;
     struct shm_tensorpool_control_tensorHeader tensor_msg;
     shm_tensorpool_control_messageHeader_wrap(
         &hdr,
-        (char *)header_base + header_pos,
+        (char *)header_buf,
         0,
         shm_tensorpool_control_messageHeader_sbe_schema_version(),
-        producer->header.length - header_pos);
+        sizeof(header_buf));
     shm_tensorpool_control_messageHeader_set_blockLength(&hdr, shm_tensorpool_control_tensorHeader_sbe_block_length());
     shm_tensorpool_control_messageHeader_set_templateId(&hdr, shm_tensorpool_control_tensorHeader_sbe_template_id());
     shm_tensorpool_control_messageHeader_set_schemaId(&hdr, shm_tensorpool_control_tensorHeader_sbe_schema_id());
@@ -223,9 +224,9 @@ static tp_err_t tp_write_slot_header(
 
     shm_tensorpool_control_tensorHeader_wrap_for_encode(
         &tensor_msg,
-        (char *)header_base + header_pos + shm_tensorpool_control_messageHeader_encoded_length(),
+        (char *)header_buf + shm_tensorpool_control_messageHeader_encoded_length(),
         0,
-        producer->header.length - header_pos - shm_tensorpool_control_messageHeader_encoded_length());
+        sizeof(header_buf) - shm_tensorpool_control_messageHeader_encoded_length());
 
     shm_tensorpool_control_tensorHeader_set_dtype(&tensor_msg, tensor->dtype);
     shm_tensorpool_control_tensorHeader_set_majorOrder(&tensor_msg, tensor->major_order);
@@ -237,6 +238,13 @@ static tp_err_t tp_write_slot_header(
     {
         shm_tensorpool_control_tensorHeader_set_dims_unsafe(&tensor_msg, i, tensor->dims[i]);
         shm_tensorpool_control_tensorHeader_set_strides_unsafe(&tensor_msg, i, tensor->strides[i]);
+    }
+    if (shm_tensorpool_control_slotHeader_put_headerBytes(
+            &slot,
+            (char *)header_buf,
+            (uint32_t)tensor_len) == NULL)
+    {
+        return TP_ERR_PROTOCOL;
     }
 
     return TP_OK;

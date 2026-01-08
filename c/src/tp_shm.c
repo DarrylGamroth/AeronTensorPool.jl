@@ -124,7 +124,12 @@ tp_err_t tp_shm_validate_superblock(
     {
         return TP_ERR_PROTOCOL;
     }
-    if ((uint16_t)shm_tensorpool_control_shmRegionSuperblock_regionType(&sb) != expected_region_type)
+    enum shm_tensorpool_control_regionType region_val;
+    if (!shm_tensorpool_control_shmRegionSuperblock_regionType(&sb, &region_val))
+    {
+        return TP_ERR_PROTOCOL;
+    }
+    if ((uint16_t)region_val != expected_region_type)
     {
         return TP_ERR_PROTOCOL;
     }

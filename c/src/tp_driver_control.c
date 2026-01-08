@@ -71,7 +71,12 @@ static void tp_decode_attach_response(tp_driver_client_t *driver, char *buffer, 
     tp_attach_response_t *out = &driver->last_attach;
     memset(out, 0, sizeof(*out));
     out->correlation_id = shm_tensorpool_driver_shmAttachResponse_correlationId(&resp);
-    out->code = shm_tensorpool_driver_shmAttachResponse_code(&resp);
+    enum shm_tensorpool_driver_responseCode code_val;
+    if (!shm_tensorpool_driver_shmAttachResponse_code(&resp, &code_val))
+    {
+        return;
+    }
+    out->code = (int32_t)code_val;
     out->lease_id = shm_tensorpool_driver_shmAttachResponse_leaseId(&resp);
     out->lease_expiry_ns = shm_tensorpool_driver_shmAttachResponse_leaseExpiryTimestampNs(&resp);
     out->stream_id = shm_tensorpool_driver_shmAttachResponse_streamId(&resp);
@@ -138,7 +143,12 @@ static void tp_decode_detach_response(tp_driver_client_t *driver, char *buffer, 
         length - shm_tensorpool_driver_messageHeader_encoded_length());
 
     driver->last_detach_correlation = shm_tensorpool_driver_shmDetachResponse_correlationId(&resp);
-    driver->last_detach_code = shm_tensorpool_driver_shmDetachResponse_code(&resp);
+    enum shm_tensorpool_driver_responseCode code_val;
+    if (!shm_tensorpool_driver_shmDetachResponse_code(&resp, &code_val))
+    {
+        return;
+    }
+    driver->last_detach_code = (int32_t)code_val;
 }
 
 static void tp_driver_fragment_handler(void *clientd, const uint8_t *buffer, size_t length, aeron_header_t *header)

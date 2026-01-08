@@ -13,10 +13,27 @@
 # limitations under the License.
 
 include(CheckSymbolExists)
+include(CheckIncludeFile)
 
 if ("${CMAKE_SYSTEM_NAME}" MATCHES "Linux")
     set(CMAKE_REQUIRED_DEFINITIONS "-D_GNU_SOURCE")
     add_definitions(-D_DEFAULT_SOURCE)
+endif ()
+
+if (NOT DEFINED AERON_VERSION_TXT)
+    add_definitions(-DAERON_VERSION_TXT=\"0.0.0\")
+endif ()
+if (NOT DEFINED AERON_VERSION_GITSHA)
+    add_definitions(-DAERON_VERSION_GITSHA=\"unknown\")
+endif ()
+if (NOT DEFINED AERON_VERSION_MAJOR)
+    add_definitions(-DAERON_VERSION_MAJOR=0)
+endif ()
+if (NOT DEFINED AERON_VERSION_MINOR)
+    add_definitions(-DAERON_VERSION_MINOR=0)
+endif ()
+if (NOT DEFINED AERON_VERSION_PATCH)
+    add_definitions(-DAERON_VERSION_PATCH=0)
 endif ()
 
 if (MSVC AND "${CMAKE_SYSTEM_NAME}" MATCHES "Windows")

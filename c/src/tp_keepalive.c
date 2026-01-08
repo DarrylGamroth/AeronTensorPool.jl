@@ -29,7 +29,7 @@ tp_err_t tp_lease_keepalive(tp_client_t *client, uint64_t lease_id, uint32_t str
     shm_tensorpool_driver_shmLeaseKeepalive_set_streamId(&keepalive, stream_id);
     shm_tensorpool_driver_shmLeaseKeepalive_set_clientId(&keepalive, client_id);
     shm_tensorpool_driver_shmLeaseKeepalive_set_role(&keepalive, role);
-    shm_tensorpool_driver_shmLeaseKeepalive_set_timestampNs(&keepalive, tp_now_ns());
+    shm_tensorpool_driver_shmLeaseKeepalive_set_clientTimestampNs(&keepalive, tp_now_ns());
 
     aeron_buffer_claim_commit(&claim);
     return TP_OK;

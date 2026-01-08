@@ -195,21 +195,26 @@ tp_err_t tp_consumer_try_read_frame(tp_consumer_t *consumer, tp_frame_view_t *vi
         shm_tensorpool_control_slotHeader_sbe_schema_version(),
         consumer->header.length - header_offset);
 
-    uint32_t header_len = shm_tensorpool_control_slotHeader_headerBytes_length(&slot);
-    uint64_t header_pos = shm_tensorpool_control_slotHeader_sbe_position(&slot) +
-        shm_tensorpool_control_slotHeader_headerBytes_header_length();
-    if (header_len != (shm_tensorpool_control_messageHeader_encoded_length() + shm_tensorpool_control_tensorHeader_sbe_block_length()))
+    struct shm_tensorpool_control_slotHeader_string_view header_view =
+        shm_tensorpool_control_slotHeader_get_headerBytes_as_string_view(&slot);
+    if (header_view.data == NULL)
     {
         return TP_ERR_PROTOCOL;
     }
-    if (header_pos + header_len > consumer->header.length)
+    uint32_t header_len = header_view.length;
+    if (header_len != (shm_tensorpool_control_messageHeader_encoded_length() +
+        shm_tensorpool_control_tensorHeader_sbe_block_length()))
     {
         return TP_ERR_PROTOCOL;
     }
 
     struct shm_tensorpool_control_messageHeader hdr;
     if (!shm_tensorpool_control_messageHeader_wrap(
-            &hdr, (char *)consumer->header.addr + header_pos, 0, shm_tensorpool_control_messageHeader_sbe_schema_version(), consumer->header.length - header_pos))
+            &hdr,
+            (char *)header_view.data,
+            0,
+            shm_tensorpool_control_messageHeader_sbe_schema_version(),
+            header_len))
     {
         return TP_ERR_PROTOCOL;
     }
@@ -225,11 +230,11 @@ tp_err_t tp_consumer_try_read_frame(tp_consumer_t *consumer, tp_frame_view_t *vi
     struct shm_tensorpool_control_tensorHeader tensor;
     shm_tensorpool_control_tensorHeader_wrap_for_decode(
         &tensor,
-        (char *)consumer->header.addr + header_pos + shm_tensorpool_control_messageHeader_encoded_length(),
+        (char *)header_view.data + shm_tensorpool_control_messageHeader_encoded_length(),
         0,
         shm_tensorpool_control_tensorHeader_sbe_block_length(),
         shm_tensorpool_control_tensorHeader_sbe_schema_version(),
-        consumer->header.length - header_pos - shm_tensorpool_control_messageHeader_encoded_length());
+        header_len - shm_tensorpool_control_messageHeader_encoded_length());
 
     uint64_t end = __atomic_load_n(commit_ptr, __ATOMIC_ACQUIRE);
     if (begin != end || (end & 1ULL) != 0)
@@ -266,11 +271,26 @@ tp_err_t tp_consumer_try_read_frame(tp_consumer_t *consumer, tp_frame_view_t *vi
     view->meta_version = shm_tensorpool_control_slotHeader_metaVersion(&slot);
     view->payload = pool->mapping.addr + payload_pos;
     view->payload_len = values_len;
-    view->tensor.dtype = shm_tensorpool_control_tensorHeader_dtype(&tensor);
-    view->tensor.major_order = shm_tensorpool_control_tensorHeader_majorOrder(&tensor);
+    enum shm_tensorpool_control_dtype dtype_val;
+    if (!shm_tensorpool_control_tensorHeader_dtype(&tensor, &dtype_val))
+    {
+        return TP_ERR_PROTOCOL;
+    }
+    enum shm_tensorpool_control_majorOrder major_val;
+    if (!shm_tensorpool_control_tensorHeader_majorOrder(&tensor, &major_val))
+    {
+        return TP_ERR_PROTOCOL;
+    }
+    view->tensor.dtype = (uint8_t)dtype_val;
+    view->tensor.major_order = (uint8_t)major_val;
     view->tensor.ndims = shm_tensorpool_control_tensorHeader_ndims(&tensor);
     view->tensor.pad_align = shm_tensorpool_control_tensorHeader_padAlign(&tensor);
-    view->tensor.progress_unit = shm_tensorpool_control_tensorHeader_progressUnit(&tensor);
+    enum shm_tensorpool_control_progressUnit progress_val;
+    if (!shm_tensorpool_control_tensorHeader_progressUnit(&tensor, &progress_val))
+    {
+        return TP_ERR_PROTOCOL;
+    }
+    view->tensor.progress_unit = (uint8_t)progress_val;
     view->tensor.progress_stride_bytes = shm_tensorpool_control_tensorHeader_progressStrideBytes(&tensor);
     for (uint32_t i = 0; i < TP_MAX_DIMS; i++)
     {
