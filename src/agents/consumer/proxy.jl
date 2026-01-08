@@ -10,11 +10,7 @@ Returns:
 function emit_consumer_hello!(state::ConsumerState)
     progress_interval = state.config.progress_interval_us
     progress_bytes = state.config.progress_bytes_delta
-    progress_rows = state.config.progress_rows_delta
-    if progress_rows != 0
-        # Progress rows depend on major axis; ConsumerHello doesn't know per-frame order.
-        progress_rows = 0
-    end
+    progress_major = state.config.progress_major_delta
     if !state.config.supports_progress
         progress_interval = typemax(UInt32)
         progress_bytes = typemax(UInt32)
@@ -58,7 +54,7 @@ function emit_consumer_hello!(state::ConsumerState)
     sent = let st = state,
         interval = progress_interval,
         bytes = progress_bytes,
-        rows = progress_rows,
+        major_delta = progress_major,
         descriptor_requested = descriptor_requested,
         control_requested = control_requested,
         requested_descriptor_channel = requested_descriptor_channel,
@@ -82,7 +78,7 @@ function emit_consumer_hello!(state::ConsumerState)
             ConsumerHello.expectedLayoutVersion!(st.runtime.hello_encoder, st.config.expected_layout_version)
             ConsumerHello.progressIntervalUs!(st.runtime.hello_encoder, interval)
             ConsumerHello.progressBytesDelta!(st.runtime.hello_encoder, bytes)
-            ConsumerHello.progressRowsDelta!(st.runtime.hello_encoder, rows)
+            ConsumerHello.progressMajorDelta!(st.runtime.hello_encoder, major_delta)
             if descriptor_requested
                 ConsumerHello.descriptorChannel!(st.runtime.hello_encoder, requested_descriptor_channel)
             else

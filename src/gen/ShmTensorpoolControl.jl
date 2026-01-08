@@ -11177,72 +11177,72 @@ begin
     export progressBytesDelta, progressBytesDelta!
 end
 begin
-    progressRowsDelta_id(::AbstractConsumerHello) = begin
+    progressMajorDelta_id(::AbstractConsumerHello) = begin
             UInt16(10)
         end
-    progressRowsDelta_id(::Type{<:AbstractConsumerHello}) = begin
+    progressMajorDelta_id(::Type{<:AbstractConsumerHello}) = begin
             UInt16(10)
         end
-    progressRowsDelta_since_version(::AbstractConsumerHello) = begin
+    progressMajorDelta_since_version(::AbstractConsumerHello) = begin
             UInt16(0)
         end
-    progressRowsDelta_since_version(::Type{<:AbstractConsumerHello}) = begin
+    progressMajorDelta_since_version(::Type{<:AbstractConsumerHello}) = begin
             UInt16(0)
         end
-    progressRowsDelta_in_acting_version(m::AbstractConsumerHello) = begin
+    progressMajorDelta_in_acting_version(m::AbstractConsumerHello) = begin
             sbe_acting_version(m) >= UInt16(0)
         end
-    progressRowsDelta_encoding_offset(::AbstractConsumerHello) = begin
+    progressMajorDelta_encoding_offset(::AbstractConsumerHello) = begin
             Int(27)
         end
-    progressRowsDelta_encoding_offset(::Type{<:AbstractConsumerHello}) = begin
+    progressMajorDelta_encoding_offset(::Type{<:AbstractConsumerHello}) = begin
             Int(27)
         end
-    progressRowsDelta_encoding_length(::AbstractConsumerHello) = begin
+    progressMajorDelta_encoding_length(::AbstractConsumerHello) = begin
             Int(4)
         end
-    progressRowsDelta_encoding_length(::Type{<:AbstractConsumerHello}) = begin
+    progressMajorDelta_encoding_length(::Type{<:AbstractConsumerHello}) = begin
             Int(4)
         end
-    progressRowsDelta_null_value(::AbstractConsumerHello) = begin
+    progressMajorDelta_null_value(::AbstractConsumerHello) = begin
             UInt32(4294967295)
         end
-    progressRowsDelta_null_value(::Type{<:AbstractConsumerHello}) = begin
+    progressMajorDelta_null_value(::Type{<:AbstractConsumerHello}) = begin
             UInt32(4294967295)
         end
-    progressRowsDelta_min_value(::AbstractConsumerHello) = begin
+    progressMajorDelta_min_value(::AbstractConsumerHello) = begin
             UInt32(0)
         end
-    progressRowsDelta_min_value(::Type{<:AbstractConsumerHello}) = begin
+    progressMajorDelta_min_value(::Type{<:AbstractConsumerHello}) = begin
             UInt32(0)
         end
-    progressRowsDelta_max_value(::AbstractConsumerHello) = begin
+    progressMajorDelta_max_value(::AbstractConsumerHello) = begin
             UInt32(4294967294)
         end
-    progressRowsDelta_max_value(::Type{<:AbstractConsumerHello}) = begin
+    progressMajorDelta_max_value(::Type{<:AbstractConsumerHello}) = begin
             UInt32(4294967294)
         end
 end
 begin
-    function progressRowsDelta_meta_attribute(::AbstractConsumerHello, meta_attribute)
+    function progressMajorDelta_meta_attribute(::AbstractConsumerHello, meta_attribute)
         meta_attribute === :presence && return Symbol("optional")
         meta_attribute === :semanticType && return Symbol("")
         return Symbol("")
     end
-    function progressRowsDelta_meta_attribute(::Type{<:AbstractConsumerHello}, meta_attribute)
+    function progressMajorDelta_meta_attribute(::Type{<:AbstractConsumerHello}, meta_attribute)
         meta_attribute === :presence && return Symbol("optional")
         meta_attribute === :semanticType && return Symbol("")
         return Symbol("")
     end
 end
 begin
-    @inline function progressRowsDelta(m::Decoder)
+    @inline function progressMajorDelta(m::Decoder)
             return decode_value(UInt32, m.buffer, m.offset + 27)
         end
-    @inline progressRowsDelta!(m::Encoder, val) = begin
+    @inline progressMajorDelta!(m::Encoder, val) = begin
                 encode_value(UInt32, m.buffer, m.offset + 27, val)
             end
-    export progressRowsDelta, progressRowsDelta!
+    export progressMajorDelta, progressMajorDelta!
 end
 begin
     descriptorStreamId_id(::AbstractConsumerHello) = begin

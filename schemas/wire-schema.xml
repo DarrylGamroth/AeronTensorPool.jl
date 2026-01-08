@@ -133,7 +133,7 @@
     <field name="expectedLayoutVersion" id="7" type="version_t"/>
     <field name="progressIntervalUs"    id="8" type="uint32" presence="optional" nullValue="4294967295"/>
     <field name="progressBytesDelta"    id="9" type="uint32" presence="optional" nullValue="4294967295"/>
-    <field name="progressRowsDelta"     id="10" type="uint32" presence="optional" nullValue="4294967295"/>
+    <field name="progressMajorDelta"    id="10" type="uint32" presence="optional" nullValue="4294967295"/>
     <field name="descriptorStreamId"    id="11" type="uint32"/>
     <field name="controlStreamId"       id="12" type="uint32"/>
     <data  name="descriptorChannel"     id="13" type="varAsciiEncoding"/>

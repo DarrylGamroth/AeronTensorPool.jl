@@ -23,7 +23,7 @@ mutable struct ConsumerConfig
     require_hugepages::Bool
     progress_interval_us::UInt32
     progress_bytes_delta::UInt32
-    progress_rows_delta::UInt32
+    progress_major_delta::UInt32
     hello_interval_ns::UInt64
     qos_interval_ns::UInt64
     announce_freshness_ns::UInt64
