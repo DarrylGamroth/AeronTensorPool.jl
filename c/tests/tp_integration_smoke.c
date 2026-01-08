@@ -22,7 +22,7 @@ int main(int argc, char **argv)
     (void)argv;
 
     const char *env = getenv("TP_STREAM_ID");
-    uint32_t stream_id = env ? (uint32_t)strtoul(env, NULL, 10) : 1000;
+    uint32_t stream_id = env ? (uint32_t)strtoul(env, NULL, 10) : 1;
 
     tp_context_t *ctx_prod = NULL;
     tp_context_t *ctx_cons = NULL;
