@@ -26,6 +26,7 @@ add_library(tensorpool_client STATIC
     src/tp_context.c
     src/tp_detach.c
     src/tp_driver_control.c
+    src/tp_keepalive.c
     src/tp_producer.c
     src/tp_shm.c)
 

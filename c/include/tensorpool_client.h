@@ -33,6 +33,7 @@ tp_err_t tp_attach_producer(tp_client_t *client, uint32_t stream_id, tp_producer
 tp_err_t tp_attach_consumer(tp_client_t *client, uint32_t stream_id, tp_consumer_t **consumer);
 
 tp_err_t tp_detach(tp_client_t *client, uint64_t lease_id, uint32_t stream_id, uint32_t client_id, uint8_t role);
+tp_err_t tp_lease_keepalive(tp_client_t *client, uint64_t lease_id, uint32_t stream_id, uint32_t client_id, uint8_t role);
 
 tp_err_t tp_producer_offer_frame(
     tp_producer_t *producer,
