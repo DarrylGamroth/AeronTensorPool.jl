@@ -64,6 +64,19 @@ Stream fields:
 Environment overrides:
 - Drivers SHOULD accept `ENV` overrides using Aeron’s convention: uppercase the key and replace `.` with `_` (e.g., `driver.control_stream_id` -> `DRIVER_CONTROL_STREAM_ID`).
 
+Example profile with four pool sizes:
+
+```toml
+[profiles.camera]
+header_nslots = 256
+payload_pools = [
+  { pool_id = 1, stride_bytes = 65536 },
+  { pool_id = 2, stride_bytes = 262144 },
+  { pool_id = 3, stride_bytes = 1048576 },
+  { pool_id = 4, stride_bytes = 4194304 }
+]
+```
+
 ---
 
 ## 2. Bridge Configuration (authoritative)

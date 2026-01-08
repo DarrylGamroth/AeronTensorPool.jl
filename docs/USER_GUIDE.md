@@ -89,6 +89,31 @@ Producer loop (typical path):
 1. Use `offer_frame!` for the copy path, or `try_claim_slot!` + `commit_slot!` when external devices fill SHM buffers directly.
 2. `offer_frame!` handles the seqlock (`seq_commit`) and publishes `FrameDescriptor` on success.
 
+### Pool selection and allocation
+
+Pools are defined by the driver profile as fixed-size stride classes. The producer selects the smallest pool whose `stride_bytes` can hold the payload.
+
+Example: four pool sizes (64 KiB, 256 KiB, 1 MiB, 4 MiB):
+
+```toml
+[profiles.camera]
+header_nslots = 256
+payload_pools = [
+  { pool_id = 1, stride_bytes = 65536 },
+  { pool_id = 2, stride_bytes = 262144 },
+  { pool_id = 3, stride_bytes = 1048576 },
+  { pool_id = 4, stride_bytes = 4194304 }
+]
+```
+
+Selection:
+- If `values_len = 120_000`, use `pool_id=2` (256 KiB).
+- If `values_len = 900_000`, use `pool_id=3` (1 MiB).
+
+Allocation API:
+- Copy path: `offer_frame!` chooses the pool automatically.
+- External device path: call `try_claim_slot!(producer_state, pool_id)` to claim a slot from a specific pool, write into the returned buffer, then `commit_slot!`.
+
 ---
 
 ## 7. Consuming data (Consumer)
