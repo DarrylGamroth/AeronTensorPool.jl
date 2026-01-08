@@ -47,3 +47,17 @@ Command:
 ```bash
 JULIA_NUM_THREADS=2 julia --project scripts/run_benchmarks.jl --bridge-runners --duration 5 --payload-bytes 655360 --config config/defaults.toml
 ```
+## System Bench (Single Process, Producer/Consumer/Supervisor)
+
+### 640 KiB payloads (10s)
+- payload_bytes: 655,360
+- Published: 198,495 frames in 10.0s
+- Consumed: 198,495 frames in 10.0s
+- Publish rate: 19,849.4 fps
+- Consume rate: 19,849.4 fps
+- Publish bandwidth: 12,405.9 MiB/s
+- Consume bandwidth: 12,405.9 MiB/s
+- GC allocd delta (loop): 4,195,872 bytes
+- GC live delta (loop): 4,243,312 bytes
+- GC allocd delta (total): 0 bytes
+- GC live delta (total): 45,024 bytes
