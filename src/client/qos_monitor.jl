@@ -103,6 +103,12 @@ function poll!(monitor::QosMonitor, fragment_limit::Int32 = DEFAULT_FRAGMENT_LIM
 end
 
 """
+Poll QoS monitor (wrapper to avoid name conflicts).
+"""
+poll_qos!(monitor::QosMonitor, fragment_limit::Int32 = DEFAULT_FRAGMENT_LIMIT) =
+    poll!(monitor, fragment_limit)
+
+"""
 Close the monitor subscription.
 """
 function Base.close(monitor::QosMonitor)

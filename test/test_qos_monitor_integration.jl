@@ -80,7 +80,7 @@ liveness_check_interval_ns = 1000000000
                 Consumer.emit_qos!(consumer)
 
                 ok = wait_for() do
-                    poll!(monitor)
+                    poll_qos!(monitor)
                     prod = producer_qos(monitor, system.producer.producer_id)
                     cons = consumer_qos(monitor, system.consumer.consumer_id)
                     return prod !== nothing && cons !== nothing
