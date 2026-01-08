@@ -57,6 +57,8 @@ tp_err_t tp_consumer_try_read_frame(tp_consumer_t *consumer, tp_frame_view_t *vi
 void tp_producer_close(tp_producer_t *producer);
 void tp_consumer_close(tp_consumer_t *consumer);
 
+bool tp_producer_is_connected(tp_producer_t *producer);
+
 #ifdef __cplusplus
 }
 #endif

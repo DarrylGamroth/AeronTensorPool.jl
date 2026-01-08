@@ -349,3 +349,12 @@ void tp_producer_close(tp_producer_t *producer)
     }
     free(producer);
 }
+
+bool tp_producer_is_connected(tp_producer_t *producer)
+{
+    if (producer == NULL || producer->pub_descriptor == NULL)
+    {
+        return false;
+    }
+    return aeron_publication_is_connected(producer->pub_descriptor);
+}

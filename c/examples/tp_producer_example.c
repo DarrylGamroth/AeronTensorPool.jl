@@ -1,3 +1,4 @@
+#include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -25,6 +26,8 @@ int main(int argc, char **argv)
     uint32_t payload_bytes = env ? (uint32_t)strtoul(env, NULL, 10) : 1024;
     env = getenv("TP_COUNT");
     uint32_t count = env ? (uint32_t)strtoul(env, NULL, 10) : 10;
+    env = getenv("TP_SEND_DELAY_MS");
+    uint32_t send_delay_ms = env ? (uint32_t)strtoul(env, NULL, 10) : 0;
 
     tp_context_t *ctx = NULL;
     tp_client_t *client = NULL;
@@ -99,8 +102,15 @@ int main(int argc, char **argv)
     tensor.dims[0] = (int32_t)payload_bytes;
     tensor.strides[0] = 1;
 
+    if (send_delay_ms > 0)
+    {
+        usleep(send_delay_ms * 1000);
+    }
+
     uint64_t deadline = now_ns() + 5000000000ULL;
     uint32_t sent = 0;
+    uint32_t drops = 0;
+    bool printed_error = false;
     while (sent < count && now_ns() < deadline)
     {
         tp_client_do_work(client);
@@ -111,15 +121,22 @@ int main(int argc, char **argv)
             continue;
         }
         memcpy(claim.ptr, payload, payload_bytes);
-        if (tp_producer_commit_slot(producer, &claim, payload_bytes, &tensor, 1) != TP_OK)
+        tp_err_t commit_err = tp_producer_commit_slot(producer, &claim, payload_bytes, &tensor, 1);
+        if (commit_err != TP_OK)
         {
-            fprintf(stderr, "commit_slot failed\n");
-            break;
+            if (!printed_error)
+            {
+                fprintf(stderr, "commit_slot failed (err=%d)\n", commit_err);
+                printed_error = true;
+            }
+            drops++;
+            usleep(1000);
+            continue;
         }
         sent++;
     }
 
-    fprintf(stdout, "sent %u frames\n", sent);
+    fprintf(stdout, "sent %u frames (drops=%u)\n", sent, drops);
 
     free(payload);
     tp_producer_close(producer);
