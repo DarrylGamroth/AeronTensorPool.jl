@@ -50,6 +50,9 @@ function init_producer(config::ProducerConfig; client::Aeron.Client)
         ShmPoolAnnounce.Encoder(UnsafeArrays.UnsafeArray{UInt8, 1}),
         QosProducer.Encoder(UnsafeArrays.UnsafeArray{UInt8, 1}),
         ConsumerConfigMsg.Encoder(UnsafeArrays.UnsafeArray{UInt8, 1}),
+        DataSourceAnnounce.Encoder(UnsafeArrays.UnsafeArray{UInt8, 1}),
+        DataSourceMeta.Encoder(UnsafeArrays.UnsafeArray{UInt8, 1}),
+        Aeron.BufferClaim(),
         Aeron.BufferClaim(),
         Aeron.BufferClaim(),
         Aeron.BufferClaim(),
@@ -77,6 +80,11 @@ function init_producer(config::ProducerConfig; client::Aeron.Client)
         true,
         false,
         true,
+        UInt32(0),
+        "",
+        "",
+        MetadataAttribute[],
+        false,
     )
 
     emit_announce!(state)
@@ -207,6 +215,9 @@ function init_producer_from_attach(
         ShmPoolAnnounce.Encoder(UnsafeArrays.UnsafeArray{UInt8, 1}),
         QosProducer.Encoder(UnsafeArrays.UnsafeArray{UInt8, 1}),
         ConsumerConfigMsg.Encoder(UnsafeArrays.UnsafeArray{UInt8, 1}),
+        DataSourceAnnounce.Encoder(UnsafeArrays.UnsafeArray{UInt8, 1}),
+        DataSourceMeta.Encoder(UnsafeArrays.UnsafeArray{UInt8, 1}),
+        Aeron.BufferClaim(),
         Aeron.BufferClaim(),
         Aeron.BufferClaim(),
         Aeron.BufferClaim(),
@@ -233,6 +244,11 @@ function init_producer_from_attach(
         Dict{UInt32, ProducerConsumerStream}(),
         true,
         false,
+        false,
+        UInt32(0),
+        "",
+        "",
+        MetadataAttribute[],
         false,
     )
     return state

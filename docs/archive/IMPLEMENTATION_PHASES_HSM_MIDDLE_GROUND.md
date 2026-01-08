@@ -63,7 +63,7 @@ Goals
 
 Deliverables
 - `Tick` handler triggers existing `poll_timers!` and drive `announce`/`lease_check` events.
-- Entry/exit hooks used only for side effects (no transitions).
+- Entry/exit callbacks used only for side effects (no transitions).
 
 Validation
 - Existing integration tests pass; timing behavior unchanged.

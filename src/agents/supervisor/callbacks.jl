@@ -1,7 +1,7 @@
 """
 Hook container for supervisor events.
 """
-struct SupervisorHooks{FAnnounce, FHello, FQosP, FQosC}
+struct SupervisorCallbacks{FAnnounce, FHello, FQosP, FQosC}
     on_announce!::FAnnounce
     on_consumer_hello!::FHello
     on_qos_producer!::FQosP
@@ -16,7 +16,7 @@ noop_supervisor_qos_producer!(::SupervisorState, ::QosProducer.Decoder) = nothin
 
 noop_supervisor_qos_consumer!(::SupervisorState, ::QosConsumer.Decoder) = nothing
 
-const NOOP_SUPERVISOR_HOOKS = SupervisorHooks(
+const NOOP_SUPERVISOR_CALLBACKS = SupervisorCallbacks(
     noop_supervisor_announce!,
     noop_supervisor_hello!,
     noop_supervisor_qos_producer!,

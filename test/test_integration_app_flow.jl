@@ -1,11 +1,11 @@
 using Test
 
-struct FrameCountHook
+struct FrameCountCallback
     count::Base.RefValue{Int}
 end
 
-function (hook::FrameCountHook)(::ConsumerState, ::ConsumerFrameView)
-    hook.count[] += 1
+function (callback::FrameCountCallback)(::ConsumerState, ::ConsumerFrameView)
+    callback.count[] += 1
     return nothing
 end
 
@@ -152,8 +152,8 @@ end
         prod_ctrl = Producer.make_control_assembler(producer_state)
         prod_qos = Producer.make_qos_assembler(producer_state)
         count_ref = Ref(0)
-        hooks = ConsumerHooks(FrameCountHook(count_ref))
-        cons_desc = Consumer.make_descriptor_assembler(consumer_state; hooks = hooks)
+        callbacks = ConsumerCallbacks(FrameCountCallback(count_ref))
+        cons_desc = Consumer.make_descriptor_assembler(consumer_state; callbacks = callbacks)
         cons_ctrl = Consumer.make_control_assembler(consumer_state)
 
         payload = Vector{UInt8}(undef, 256)

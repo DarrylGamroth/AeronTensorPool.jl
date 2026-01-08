@@ -6,6 +6,7 @@ using Logging
 
 mutable struct AppProducerAgent
     handle::ProducerHandle
+    meta_version::UInt32
     max_count::Int
     payload::Vector{UInt8}
     shape::Vector{Int32}
@@ -17,6 +18,11 @@ mutable struct AppProducerAgent
 end
 
 Agent.name(::AppProducerAgent) = "app-producer"
+
+struct AppProducerOnQos end
+
+(hook::AppProducerOnQos)(::ProducerState, snapshot::QosProducerSnapshot) =
+    @info "Producer QoS snapshot" current_seq = snapshot.current_seq
 
 function Agent.on_start(agent::AppProducerAgent)
     agent.ready = true
@@ -36,7 +42,7 @@ function Agent.do_work(agent::AppProducerAgent)
             agent.shape,
             agent.strides,
             Dtype.UINT8,
-            UInt32(0),
+            agent.meta_version,
         )
         if sent
             agent.sent += 1
@@ -83,12 +89,36 @@ function run_producer(driver_cfg_path::String, producer_cfg_path::String, count:
     ctx = TensorPoolContext(driver_cfg.endpoints)
     tp_client = connect(ctx)
     try
-        handle = attach_producer(tp_client, producer_cfg; discover = false)
+        meta_version = UInt32(1)
+        qos_monitor = QosMonitor(producer_cfg; client = tp_client.aeron_client)
+        metadata_attrs = MetadataAttribute[
+            MetadataAttribute("pattern" => ("text/plain", "counter")),
+            MetadataAttribute("payload_bytes" => ("text/plain", effective_payload_bytes)),
+        ]
+        noop_hello!(_, _) = nothing
+        noop_qos!(_, _) = nothing
+        noop_frame!(_, _, _) = nothing
+        callbacks = ProducerCallbacks(; on_qos_producer! = AppProducerOnQos())
+        handle = attach_producer(
+            tp_client,
+            producer_cfg;
+            discover = false,
+            callbacks = callbacks,
+            qos_monitor = qos_monitor,
+        )
+        set_metadata!(
+            handle,
+            meta_version,
+            "example-producer";
+            summary = "metadata example",
+            attributes = metadata_attrs,
+        )
         payload = Vector{UInt8}(undef, effective_payload_bytes)
         shape = Int32[effective_payload_bytes]
         strides = Int32[1]
         app_agent = AppProducerAgent(
             handle,
+            meta_version,
             count,
             payload,
             shape,

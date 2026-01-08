@@ -10,15 +10,17 @@ using ..Driver
 using ..AeronUtils
 using ..Agents
 using ..ShmTensorpoolControl
+using ..StringViews
 using Clocks
 using UnsafeArrays
-import ..Agents.Producer: offer_frame!, try_claim_slot!, commit_slot!, with_claimed_slot!
+import ..Agents.Producer: offer_frame!, try_claim_slot!, commit_slot!, with_claimed_slot!, set_metadata!
 
 include("context.jl")
 include("handles.jl")
 include("discovery.jl")
 include("attach.jl")
 include("qos_monitor.jl")
+include("metadata.jl")
 
 export DriverClientState,
     TensorPoolContext,
@@ -44,6 +46,15 @@ export DriverClientState,
     poll_qos!,
     producer_qos,
     consumer_qos,
+    MetadataAttribute,
+    MetadataEntry,
+    MetadataPublisher,
+    MetadataCache,
+    emit_metadata_announce!,
+    emit_metadata_meta!,
+    poll_metadata!,
+    metadata_entry,
+    set_metadata!,
     offer_frame!,
     try_claim_slot!,
     commit_slot!,

@@ -7,23 +7,23 @@ Create a control-channel fragment assembler for the supervisor.
 
 Arguments:
 - `state`: supervisor state.
-- `hooks`: optional supervisor hooks.
+- `callbacks`: optional supervisor callbacks.
 
 Returns:
 - `Aeron.FragmentAssembler` configured for control messages.
 """
-function make_control_assembler(state::SupervisorState; hooks::SupervisorHooks = NOOP_SUPERVISOR_HOOKS)
+function make_control_assembler(state::SupervisorState; callbacks::SupervisorCallbacks = NOOP_SUPERVISOR_CALLBACKS)
     handler = Aeron.FragmentHandler(state) do st, buffer, _
         header = MessageHeader.Decoder(buffer, 0)
         template_id = MessageHeader.templateId(header)
         if template_id == TEMPLATE_SHM_POOL_ANNOUNCE
             ShmPoolAnnounce.wrap!(st.runtime.announce_decoder, buffer, 0; header = header)
             handle_shm_pool_announce!(st, st.runtime.announce_decoder)
-            hooks.on_announce!(st, st.runtime.announce_decoder)
+            callbacks.on_announce!(st, st.runtime.announce_decoder)
         elseif template_id == TEMPLATE_CONSUMER_HELLO
             ConsumerHello.wrap!(st.runtime.hello_decoder, buffer, 0; header = header)
             handle_consumer_hello!(st, st.runtime.hello_decoder)
-            hooks.on_consumer_hello!(st, st.runtime.hello_decoder)
+            callbacks.on_consumer_hello!(st, st.runtime.hello_decoder)
         end
         nothing
     end
@@ -35,23 +35,23 @@ Create a QoS fragment assembler for the supervisor.
 
 Arguments:
 - `state`: supervisor state.
-- `hooks`: optional supervisor hooks.
+- `callbacks`: optional supervisor callbacks.
 
 Returns:
 - `Aeron.FragmentAssembler` configured for QoS messages.
 """
-function make_qos_assembler(state::SupervisorState; hooks::SupervisorHooks = NOOP_SUPERVISOR_HOOKS)
+function make_qos_assembler(state::SupervisorState; callbacks::SupervisorCallbacks = NOOP_SUPERVISOR_CALLBACKS)
     handler = Aeron.FragmentHandler(state) do st, buffer, _
         header = MessageHeader.Decoder(buffer, 0)
         template_id = MessageHeader.templateId(header)
         if template_id == TEMPLATE_QOS_PRODUCER
             QosProducer.wrap!(st.runtime.qos_producer_decoder, buffer, 0; header = header)
             handle_qos_producer!(st, st.runtime.qos_producer_decoder)
-            hooks.on_qos_producer!(st, st.runtime.qos_producer_decoder)
+            callbacks.on_qos_producer!(st, st.runtime.qos_producer_decoder)
         elseif template_id == TEMPLATE_QOS_CONSUMER
             QosConsumer.wrap!(st.runtime.qos_consumer_decoder, buffer, 0; header = header)
             handle_qos_consumer!(st, st.runtime.qos_consumer_decoder)
-            hooks.on_qos_consumer!(st, st.runtime.qos_consumer_decoder)
+            callbacks.on_qos_consumer!(st, st.runtime.qos_consumer_decoder)
         end
         nothing
     end

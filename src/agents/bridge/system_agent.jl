@@ -18,7 +18,7 @@ Arguments:
 - `consumer_config`: base consumer configuration (stream_id overridden per mapping).
 - `producer_config`: base producer configuration (stream_id overridden per mapping).
 - `client`: Aeron client to use for publications/subscriptions.
-- `hooks`: optional bridge hooks.
+- `callbacks`: optional bridge callbacks.
 
 Returns:
 - `BridgeSystemAgent` wrapping per-mapping sender/receiver state.
@@ -29,7 +29,7 @@ function BridgeSystemAgent(
     consumer_config::ConsumerConfig,
     producer_config::ProducerConfig;
     client::Aeron.Client,
-    hooks::BridgeHooks = NOOP_BRIDGE_HOOKS,
+    callbacks::BridgeCallbacks = NOOP_BRIDGE_CALLBACKS,
 )
     validate_bridge_config(bridge_config, mappings)
     senders = BridgeSenderState[]
@@ -47,11 +47,11 @@ function BridgeSystemAgent(
             client = client,
         )
         sender = init_bridge_sender(consumer_state, bridge_config, mapping; client = client)
-        receiver = init_bridge_receiver(bridge_config, mapping; producer_state = producer_state, client = client, hooks = hooks)
+        receiver = init_bridge_receiver(bridge_config, mapping; producer_state = producer_state, client = client, callbacks = callbacks)
         push!(senders, sender)
         push!(receivers, receiver)
         push!(control_assemblers, Consumer.make_control_assembler(consumer_state))
-        push!(descriptor_assemblers, make_bridge_descriptor_assembler(sender; hooks = hooks))
+        push!(descriptor_assemblers, make_bridge_descriptor_assembler(sender; callbacks = callbacks))
         push!(counters, BridgeCounters(client, Int(mapping.dest_stream_id), "Bridge"))
     end
     return BridgeSystemAgent(senders, receivers, control_assemblers, descriptor_assemblers, counters)

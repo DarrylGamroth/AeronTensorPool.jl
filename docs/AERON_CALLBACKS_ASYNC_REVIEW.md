@@ -12,7 +12,7 @@ be useful in this project, along with risks and recommendations.
 
 ### Where it could help
 - Connection observability for consumer/bridge subscriptions without polling `Aeron.is_connected`.
-- Debug or metrics hooks for image/session metadata in scripts or diagnostics tooling.
+- Debug or metrics callbacks for image/session metadata in scripts or diagnostics tooling.
 
 ### Risks / constraints
 - Callbacks run on Aeron conductor threads; handlers must be allocation-free and thread-safe.
@@ -39,7 +39,7 @@ be useful in this project, along with risks and recommendations.
 
 - Callbacks:
   - Consumer/bridge subscriptions for readiness tracking or diagnostics.
-  - Optional debug hooks in `scripts/*` or tooling.
+  - Optional debug callbacks in `scripts/*` or tooling.
 - Async:
   - Producer per-consumer stream creation.
   - Bridge dynamic destination management.

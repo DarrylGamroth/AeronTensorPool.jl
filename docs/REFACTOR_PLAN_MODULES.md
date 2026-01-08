@@ -153,7 +153,7 @@ src/
     bridge/
       adapters.jl
       assembly.jl
-      hooks.jl
+      callbacks.jl
       proxy.jl
       receiver.jl
       sender.jl
@@ -162,7 +162,7 @@ src/
       consumer.jl
       frames.jl
       handlers.jl
-      hooks.jl
+      callbacks.jl
       init.jl
       lifecycle.jl
       mapping.jl
@@ -182,7 +182,7 @@ src/
     producer/
       frames.jl
       handlers.jl
-      hooks.jl
+      callbacks.jl
       init.jl
       lifecycle.jl
       producer.jl
@@ -192,7 +192,7 @@ src/
       work.jl
     supervisor/
       handlers.jl
-      hooks.jl
+      callbacks.jl
       init.jl
       state.jl
       supervisor.jl

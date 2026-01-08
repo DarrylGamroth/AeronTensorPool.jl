@@ -92,7 +92,7 @@ end
 end
 
 @on_exit function(sm::LeaseHsm, ::ACTIVE)
-    # teardown hooks (metrics, revocation bookkeeping)
+    # teardown callbacks (metrics, revocation bookkeeping)
 end
 
 @on_event function(sm::LeaseHsm, ::ACTIVE, ::LeaseTimeout, now_ns::UInt64)
@@ -165,4 +165,4 @@ end
 
 - Event handling is type‑stable and zero‑allocation (Val‑based dispatch).
 - Hierarchy allows `Running` to share handlers while `Running_Draining` overrides attach behavior.
-- Entry/exit hooks make timer arming and teardown deterministic.
+- Entry/exit callbacks make timer arming and teardown deterministic.

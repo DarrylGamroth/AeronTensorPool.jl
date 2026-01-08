@@ -1,6 +1,6 @@
 # QoS Monitor Plan
 
-Goal: provide an optional QoS monitor helper that subscribes to the QoS stream and maintains last-seen snapshots for producers/consumers. This is a convenience layer above the existing hooks.
+Goal: provide an optional QoS monitor helper that subscribes to the QoS stream and maintains last-seen snapshots for producers/consumers. This is a convenience layer above the existing callbacks.
 
 ## Scope
 - Add a `QosMonitor` type that:

@@ -36,7 +36,7 @@ include("types.jl")
 include("errors.jl")
 include("counters.jl")
 include("state.jl")
-include("hooks.jl")
+include("callbacks.jl")
 include("adapters.jl")
 include("assembly.jl")
 include("sender.jl")
@@ -51,7 +51,7 @@ export BridgeMapping,
     BridgeConfig,
     BridgeSenderState,
     BridgeReceiverState,
-    BridgeHooks,
+    BridgeCallbacks,
     BridgeAssembledFrame,
     BridgeSourceInfo,
     BridgeCounters,

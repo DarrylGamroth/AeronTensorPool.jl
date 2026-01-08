@@ -22,10 +22,11 @@ using ...ShmTensorpoolDiscovery
 
 include("types.jl")
 include("state.jl")
-include("hooks.jl")
+include("callbacks.jl")
 include("counters.jl")
 include("shm.jl")
 include("frames.jl")
+include("metadata.jl")
 include("proxy.jl")
 include("handlers.jl")
 include("init.jl")
@@ -38,7 +39,7 @@ export PayloadPoolConfig,
     SlotClaim,
     select_pool,
     ProducerState,
-    ProducerHooks,
+    ProducerCallbacks,
     ProducerConsumerStream,
     ProducerCounters,
     init_producer,
@@ -51,6 +52,9 @@ export PayloadPoolConfig,
     emit_consumer_config!,
     emit_progress_complete!,
     emit_qos!,
+    emit_metadata_announce!,
+    emit_metadata_meta!,
+    set_metadata!,
     handle_consumer_hello!,
     poll_control!,
     poll_qos!,

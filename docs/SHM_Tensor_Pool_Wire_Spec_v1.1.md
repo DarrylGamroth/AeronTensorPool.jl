@@ -438,7 +438,7 @@ Periodic beacon for discovery/inventory.
 - `stream_id : u32`
 - `producer_id : u32`
 - `epoch : u64`
-- `meta_version : u32`
+- `meta_version : u32` (metadata correlation/version; increments when metadata changes)
 - optional: human-readable name/id (bounded varAscii)
 - optional: nominal dtype/shape summary
 - keep this lean; richer metadata lives in `DataSourceMeta`

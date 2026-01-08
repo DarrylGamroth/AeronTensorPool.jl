@@ -23,7 +23,7 @@ using ..Producer: PayloadPoolConfig
 
 include("types.jl")
 include("state.jl")
-include("hooks.jl")
+include("callbacks.jl")
 include("counters.jl")
 include("frames.jl")
 include("mapping.jl")
@@ -38,7 +38,7 @@ export ConsumerConfig,
     PayloadView,
     payload_view,
     ConsumerState,
-    ConsumerHooks,
+    ConsumerCallbacks,
     ConsumerFrameView,
     ConsumerCounters,
     init_consumer,

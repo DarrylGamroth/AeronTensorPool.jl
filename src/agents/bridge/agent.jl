@@ -75,16 +75,16 @@ Create a descriptor assembler that forwards frames to the bridge sender.
 
 Arguments:
 - `state`: bridge sender state.
-- `hooks`: optional bridge hooks.
+- `callbacks`: optional bridge callbacks.
 """
-function make_bridge_descriptor_assembler(state::BridgeSenderState; hooks::BridgeHooks = NOOP_BRIDGE_HOOKS)
+function make_bridge_descriptor_assembler(state::BridgeSenderState; callbacks::BridgeCallbacks = NOOP_BRIDGE_CALLBACKS)
     decoder = FrameDescriptor.Decoder(UnsafeArrays.UnsafeArray{UInt8, 1})
     handler = Aeron.FragmentHandler(state) do st, buffer, _
         header = MessageHeader.Decoder(buffer, 0)
         if MessageHeader.templateId(header) == TEMPLATE_FRAME_DESCRIPTOR
             FrameDescriptor.wrap!(decoder, buffer, 0; header = header)
             bridge_send_frame!(st, decoder)
-            hooks.on_send_frame!(st, decoder)
+            callbacks.on_send_frame!(st, decoder)
         end
         nothing
     end
@@ -100,7 +100,7 @@ Arguments:
 - `mapping`: bridge mapping definition.
 - `producer_state`: optional producer state for rematerialization.
 - `client`: Aeron client to use for publications/subscriptions.
-- `hooks`: optional bridge hooks.
+- `callbacks`: optional bridge callbacks.
 
 Returns:
 - `BridgeAgent` wrapping sender/receiver states and assemblers.
@@ -111,7 +111,7 @@ function BridgeAgent(
     consumer_config::ConsumerConfig,
     producer_config::ProducerConfig;
     client::Aeron.Client,
-    hooks::BridgeHooks = NOOP_BRIDGE_HOOKS,
+    callbacks::BridgeCallbacks = NOOP_BRIDGE_CALLBACKS,
 )
     validate_bridge_config(bridge_config, [mapping])
     consumer_state = Consumer.init_consumer(
@@ -133,11 +133,11 @@ function BridgeAgent(
         mapping;
         producer_state = producer_state,
         client = client,
-        hooks = hooks,
+        callbacks = callbacks,
     )
 
     control_assembler = Consumer.make_control_assembler(consumer_state)
-    descriptor_assembler = make_bridge_descriptor_assembler(sender; hooks = hooks)
+    descriptor_assembler = make_bridge_descriptor_assembler(sender; callbacks = callbacks)
     counters = BridgeCounters(sender.client, Int(mapping.dest_stream_id), "Bridge")
 
     return BridgeAgent(sender, receiver, control_assembler, descriptor_assembler, counters)

@@ -27,6 +27,7 @@ function producer_do_work!(
     if qos_assembler !== nothing
         work_count += poll_qos!(state, qos_assembler, fragment_limit)
     end
+    work_count += emit_metadata_if_dirty!(state, now_ns)
     work_count += poll_timers!(state, now_ns)
     work_count += cleanup_consumer_streams!(state, now_ns)
     if !isnothing(state.driver_client)

@@ -147,13 +147,13 @@ For TensorPool, the equivalent should be `do_work(client)` on a `TensorPoolClien
 - **Client naming**: optional `client_name` for diagnostics (Aeron `clientName` analog).
 - **Driver invoker integration**: if driver runs in-process, define whether client invoker should drive driver invoker (Aeron `driverAgentInvoker` analog).
 - **Versioning/compat**: surface layout/schema compatibility checks in attach responses and API errors.
-- **Idle strategies**: provide `IdleStrategy` hooks (Aeron-style) for client invoker loops and waiting behaviors.
+- **Idle strategies**: provide `IdleStrategy` callbacks (Aeron-style) for client invoker loops and waiting behaviors.
 - **Error handlers**: allow a user-supplied error handler to mirror Aeron’s `ErrorHandler` pattern.
 - **Close semantics**: define timeouts and linger behavior when closing clients and handles.
 - **Client identity**: consider exposing a client ID or label for diagnostics (Aeron `clientId`/`clientName` analog).
 - **Retry policy**: make attach/discovery retry backoff configurable rather than fixed.
 - **Metrics toggles**: enable/disable counters for minimal deployments.
-- **Testing hooks**: decide whether any testing-only toggles should be exposed or hidden.
+- **Testing callbacks**: decide whether any testing-only toggles should be exposed or hidden.
 - **Context immutability**: consider freezing `TensorPoolContext` after `connect` like Aeron.
 - **API versioning**: plan how the public API versioning aligns with schema/layout versions.
 - **Migration guidance**: provide a mapping from current low-level calls to the new client API.

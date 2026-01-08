@@ -3,12 +3,12 @@ Create a descriptor fragment assembler for the consumer.
 
 Arguments:
 - `state`: consumer state.
-- `hooks`: optional consumer hooks (default: NOOP_CONSUMER_HOOKS).
+- `callbacks`: optional consumer callbacks (default: NOOP_CONSUMER_CALLBACKS).
 
 Returns:
 - `Aeron.FragmentAssembler` configured for descriptor messages.
 """
-function make_descriptor_assembler(state::ConsumerState; hooks::ConsumerHooks = NOOP_CONSUMER_HOOKS)
+function make_descriptor_assembler(state::ConsumerState; callbacks::ConsumerCallbacks = NOOP_CONSUMER_CALLBACKS)
     handler = Aeron.FragmentHandler(state) do st, buffer, _
         header = MessageHeader.Decoder(buffer, 0)
         if MessageHeader.templateId(header) == TEMPLATE_FRAME_DESCRIPTOR
@@ -16,7 +16,7 @@ function make_descriptor_assembler(state::ConsumerState; hooks::ConsumerHooks = 
             FrameDescriptor.wrap!(st.runtime.desc_decoder, buffer, 0; header = header)
             if try_read_frame!(st, st.runtime.desc_decoder)
                 st.metrics.frames_ok += 1
-                hooks.on_frame!(st, st.runtime.frame_view)
+                callbacks.on_frame!(st, st.runtime.frame_view)
                 @tp_info "consumer frame ready" seq = seqlock_sequence(st.runtime.frame_view.header.seq_commit)
             end
         end

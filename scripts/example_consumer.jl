@@ -6,6 +6,12 @@ using Logging
 
 mutable struct AppConsumerAgent
     handle::ConsumerHandle
+    callbacks::ConsumerCallbacks
+    qos_monitor::QosMonitor
+    metadata_cache::MetadataCache
+    stream_id::UInt32
+    consumer_id::UInt32
+    producer_id::UInt32
     max_count::Int
     last_frame::UInt64
     seen::Int
@@ -13,6 +19,8 @@ mutable struct AppConsumerAgent
     last_drops_late::UInt64
     last_drops_header_invalid::UInt64
     last_log_ns::UInt64
+    last_qos_log_ns::UInt64
+    last_meta_version::UInt32
     validate_limit::Int
     validated::Int
     ready::Bool
@@ -50,6 +58,8 @@ function Agent.on_start(agent::AppConsumerAgent)
 end
 
 function Agent.do_work(agent::AppConsumerAgent)
+    poll_qos!(agent.qos_monitor)
+    poll_metadata!(agent.metadata_cache)
     metrics = AeronTensorPool.handle_state(agent.handle).metrics
     if metrics.frames_ok != agent.last_frames_ok
         header = AeronTensorPool.handle_state(agent.handle).runtime.frame_view.header
@@ -69,6 +79,26 @@ function Agent.do_work(agent::AppConsumerAgent)
             agent.last_drops_header_invalid = metrics.drops_header_invalid
         end
         agent.last_log_ns = now_ns
+    end
+    if now_ns - agent.last_qos_log_ns > 1_000_000_000
+        snapshot = consumer_qos(agent.qos_monitor, agent.consumer_id)
+        if snapshot !== nothing
+            @info "Consumer QoS snapshot" last_seq_seen = snapshot.last_seq_seen drops_gap = snapshot.drops_gap
+            agent.callbacks.on_qos_consumer!(AeronTensorPool.handle_state(agent.handle), snapshot)
+        end
+        producer_snapshot = producer_qos(agent.qos_monitor, agent.producer_id)
+        if producer_snapshot !== nothing
+            @info "Producer QoS snapshot" current_seq = producer_snapshot.current_seq
+            agent.callbacks.on_qos_producer!(AeronTensorPool.handle_state(agent.handle), producer_snapshot)
+        end
+        agent.last_qos_log_ns = now_ns
+    end
+    entry = metadata_entry(agent.metadata_cache, agent.stream_id)
+    if entry !== nothing && entry.meta_version != agent.last_meta_version
+        @info "Metadata update" meta_version = entry.meta_version name = entry.name
+        agent.producer_id = entry.producer_id
+        agent.callbacks.on_metadata!(AeronTensorPool.handle_state(agent.handle), entry)
+        agent.last_meta_version = entry.meta_version
     end
     return 0
 end
@@ -104,6 +134,8 @@ function run_consumer(driver_cfg_path::String, consumer_cfg_path::String, count:
 
     discovery_channel = get(ENV, "TP_DISCOVERY_CHANNEL", "")
     discovery_stream_id = parse(Int32, get(ENV, "TP_DISCOVERY_STREAM_ID", "0"))
+    metadata_channel = get(ENV, "TP_METADATA_CHANNEL", consumer_cfg.aeron_uri)
+    metadata_stream_id = parse(Int32, get(ENV, "TP_METADATA_STREAM_ID", "1300"))
 
     core_id = haskey(ENV, "AGENT_TASK_CORE") ? parse(Int, ENV["AGENT_TASK_CORE"]) : nothing
 
@@ -116,10 +148,18 @@ function run_consumer(driver_cfg_path::String, consumer_cfg_path::String, count:
     tp_client = connect(ctx)
     try
         app_ref = Ref{AppConsumerAgent}()
-        hooks = ConsumerHooks(AppConsumerOnFrame(app_ref))
-        handle = attach_consumer(tp_client, consumer_cfg; discover = !isempty(discovery_channel), hooks = hooks)
+        callbacks = ConsumerCallbacks(; on_frame! = AppConsumerOnFrame(app_ref))
+        handle = attach_consumer(tp_client, consumer_cfg; discover = !isempty(discovery_channel), callbacks = callbacks)
+        qos_monitor = QosMonitor(consumer_cfg; client = tp_client.aeron_client)
+        metadata_cache = MetadataCache(metadata_channel, metadata_stream_id; client = tp_client.aeron_client)
         app_agent = AppConsumerAgent(
             handle,
+            callbacks,
+            qos_monitor,
+            metadata_cache,
+            consumer_cfg.stream_id,
+            consumer_cfg.consumer_id,
+            UInt32(0),
             count,
             UInt64(0),
             0,
@@ -127,6 +167,8 @@ function run_consumer(driver_cfg_path::String, consumer_cfg_path::String, count:
             UInt64(0),
             UInt64(0),
             UInt64(0),
+            UInt64(0),
+            UInt32(0),
             10,
             0,
             false,
@@ -161,6 +203,8 @@ function run_consumer(driver_cfg_path::String, consumer_cfg_path::String, count:
             close(runner)
         end
         @info "Consumer done" app_agent.seen
+        close(metadata_cache)
+        close(qos_monitor)
         close(handle)
     finally
         close(tp_client)

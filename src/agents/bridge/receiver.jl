@@ -15,7 +15,7 @@ function init_bridge_receiver(
     mapping::BridgeMapping;
     producer_state::Union{Nothing, ProducerState} = nothing,
     client::Aeron.Client,
-    hooks::BridgeHooks = NOOP_BRIDGE_HOOKS,
+    callbacks::BridgeCallbacks = NOOP_BRIDGE_CALLBACKS,
 )
     if (config.forward_progress || config.forward_qos) &&
        (mapping.source_control_stream_id == 0 || mapping.dest_control_stream_id == 0)
@@ -104,7 +104,7 @@ function init_bridge_receiver(
         false,
     )
 
-    state.payload_assembler = make_bridge_payload_assembler(state; hooks = hooks)
+    state.payload_assembler = make_bridge_payload_assembler(state; callbacks = callbacks)
     state.control_assembler = make_bridge_control_assembler(state)
     if sub_metadata !== nothing
         state.metadata_assembler = make_bridge_metadata_receiver_assembler(state)

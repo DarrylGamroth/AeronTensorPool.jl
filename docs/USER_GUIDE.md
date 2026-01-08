@@ -95,10 +95,10 @@ Producer loop (typical path):
 
 Consumer loop (typical path):
 1. Initialize with `init_consumer_from_attach`, then build a descriptor assembler.
-2. Register hooks (see `ConsumerHooks`) to process `ConsumerFrameView`.
-3. The consumer agent polls descriptors, performs the seqlock checks, and invokes hooks on valid frames.
+2. Register callbacks (see `ConsumerCallbacks`) to process `ConsumerFrameView`.
+3. The consumer agent polls descriptors, performs the seqlock checks, and invokes callbacks on valid frames.
 
-If you need custom validation, use the `ConsumerFrameView` (header + payload view) from the hook.
+If you need custom validation, use the `ConsumerFrameView` (header + payload view) from the callback.
 
 Never block on incomplete frames; drop and continue.
 
@@ -111,6 +111,10 @@ Metadata is published separately:
 - `DataSourceMeta` contains the actual metadata payload.
 
 Frames carry `meta_version` so consumers can interpret payloads correctly.
+
+Client helpers:
+- `MetadataPublisher` publishes `DataSourceAnnounce`/`DataSourceMeta` on the metadata stream.
+- `MetadataCache` subscribes to metadata and caches the latest entry per stream.
 
 ---
 

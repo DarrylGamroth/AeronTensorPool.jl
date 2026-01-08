@@ -22,10 +22,13 @@ mutable struct ProducerRuntime
     announce_encoder::ShmPoolAnnounce.Encoder{UnsafeArrays.UnsafeArray{UInt8, 1}}
     qos_encoder::QosProducer.Encoder{UnsafeArrays.UnsafeArray{UInt8, 1}}
     config_encoder::ConsumerConfigMsg.Encoder{UnsafeArrays.UnsafeArray{UInt8, 1}}
+    metadata_announce_encoder::DataSourceAnnounce.Encoder{UnsafeArrays.UnsafeArray{UInt8, 1}}
+    metadata_meta_encoder::DataSourceMeta.Encoder{UnsafeArrays.UnsafeArray{UInt8, 1}}
     descriptor_claim::Aeron.BufferClaim
     progress_claim::Aeron.BufferClaim
     qos_claim::Aeron.BufferClaim
     config_claim::Aeron.BufferClaim
+    metadata_claim::Aeron.BufferClaim
     hello_decoder::ConsumerHello.Decoder{UnsafeArrays.UnsafeArray{UInt8, 1}}
     qos_decoder::QosConsumer.Decoder{UnsafeArrays.UnsafeArray{UInt8, 1}}
     config_decoder::ConsumerConfigMsg.Decoder{UnsafeArrays.UnsafeArray{UInt8, 1}}
@@ -86,4 +89,9 @@ mutable struct ProducerState{ClockT}
     driver_active::Bool
     supports_progress::Bool
     emit_announce::Bool
+    metadata_version::UInt32
+    metadata_name::String
+    metadata_summary::String
+    metadata_attrs::Vector{MetadataAttribute}
+    metadata_dirty::Bool
 end

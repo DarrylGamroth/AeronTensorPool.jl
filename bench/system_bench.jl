@@ -145,7 +145,7 @@ function apply_canonical_layout(config::ConsumerConfig, base_dir::String)
         config.require_hugepages,
         config.progress_interval_us,
         config.progress_bytes_delta,
-        config.progress_rows_delta,
+        config.progress_major_delta_units,
         config.hello_interval_ns,
         config.qos_interval_ns,
         config.announce_freshness_ns,
@@ -222,7 +222,7 @@ function override_consumer_streams(
         config.require_hugepages,
         config.progress_interval_us,
         config.progress_bytes_delta,
-        config.progress_rows_delta,
+        config.progress_major_delta_units,
         config.hello_interval_ns,
         config.qos_interval_ns,
         config.announce_freshness_ns,
@@ -268,12 +268,12 @@ function run_system_bench(
 
                             published = 0
                             consumed = Ref(0)
-                            consumer_hooks = let consumed = consumed
-                                ConsumerHooks((st, _) -> (consumed[] += 1))
+                            consumer_callbacks = let consumed = consumed
+                                ConsumerCallbacks(; on_frame! = (st, _) -> (consumed[] += 1))
                             end
 
                             producer_agent = ProducerAgent(producer_cfg; client = client)
-                            consumer_agent = ConsumerAgent(consumer_cfg; client = client, hooks = consumer_hooks)
+                            consumer_agent = ConsumerAgent(consumer_cfg; client = client, callbacks = consumer_callbacks)
                             supervisor_agent = SupervisorAgent(supervisor_cfg; client = client)
                             system_agent = CompositeAgent(producer_agent, consumer_agent, supervisor_agent)
                             system_invoker = AgentInvoker(system_agent)
@@ -665,10 +665,11 @@ function run_bridge_bench_runners(
                                 mapping =
                                     BridgeMapping(UInt32(src_stream_id), UInt32(dst_stream_id), "bench", UInt32(0), Int32(0), Int32(0))
                                 consumed = Atomic{Int}(0)
-                                consumer_hooks = let consumed = consumed
-                                    ConsumerHooks((_, _) -> atomic_add!(consumed, 1))
+                                consumer_callbacks = let consumed = consumed
+                                    ConsumerCallbacks(; on_frame! = (_, _) -> atomic_add!(consumed, 1))
                                 end
-                                consumer_dst_agent = ConsumerAgent(consumer_dst_cfg; client = client, hooks = consumer_hooks)
+                                consumer_dst_agent =
+                                    ConsumerAgent(consumer_dst_cfg; client = client, callbacks = consumer_callbacks)
                                 bridge_agent = BridgeAgent(
                                     bridge_cfg,
                                     mapping,
@@ -973,10 +974,11 @@ function run_bridge_bench(
                                 mapping =
                                     BridgeMapping(UInt32(src_stream_id), UInt32(dst_stream_id), "bench", UInt32(0), Int32(0), Int32(0))
                                 consumed = Ref(0)
-                                consumer_hooks = let consumed = consumed
-                                    ConsumerHooks((_, _) -> (consumed[] += 1))
+                                consumer_callbacks = let consumed = consumed
+                                    ConsumerCallbacks(; on_frame! = (_, _) -> (consumed[] += 1))
                                 end
-                                consumer_dst_agent = ConsumerAgent(consumer_dst_cfg; client = client, hooks = consumer_hooks)
+                                consumer_dst_agent =
+                                    ConsumerAgent(consumer_dst_cfg; client = client, callbacks = consumer_callbacks)
                                 bridge_agent = BridgeAgent(
                                     bridge_cfg,
                                     mapping,

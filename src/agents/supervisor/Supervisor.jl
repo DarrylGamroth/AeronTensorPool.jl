@@ -21,7 +21,7 @@ using ...ShmTensorpoolBridge
 using ...ShmTensorpoolDiscovery
 
 include("state.jl")
-include("hooks.jl")
+include("callbacks.jl")
 include("counters.jl")
 include("handlers.jl")
 include("init.jl")
@@ -30,7 +30,7 @@ include("agent.jl")
 
 export SupervisorState,
     SupervisorConfig,
-    SupervisorHooks,
+    SupervisorCallbacks,
     ProducerInfo,
     ConsumerInfo,
     SupervisorCounters,

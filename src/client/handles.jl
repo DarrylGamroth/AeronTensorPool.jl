@@ -135,3 +135,22 @@ function with_claimed_slot!(
         meta_version,
     )
 end
+
+"""
+Set producer metadata for a ProducerHandle.
+"""
+function set_metadata!(
+    handle::ProducerHandle,
+    meta_version::UInt32,
+    name::AbstractString;
+    summary::AbstractString = "",
+    attributes::AbstractVector{MetadataAttribute} = MetadataAttribute[],
+)
+    return set_metadata!(
+        handle.producer_agent.state,
+        meta_version,
+        name;
+        summary = summary,
+        attributes = attributes,
+    )
+end

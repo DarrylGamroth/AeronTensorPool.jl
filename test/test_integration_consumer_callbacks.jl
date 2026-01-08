@@ -1,15 +1,15 @@
 using Test
 
-struct TestFrameHook
+struct TestFrameCallback
     count::Base.RefValue{Int}
 end
 
-function (hook::TestFrameHook)(::ConsumerState, ::ConsumerFrameView)
-    hook.count[] += 1
+function (callback::TestFrameCallback)(::ConsumerState, ::ConsumerFrameView)
+    callback.count[] += 1
     return nothing
 end
 
-@testset "Consumer hook integration" begin
+@testset "Consumer callback integration" begin
     with_driver_and_client() do media_driver, client
         base_dir = mktempdir()
 
@@ -125,8 +125,8 @@ end
         )
 
         count = Ref(0)
-        hooks = ConsumerHooks(TestFrameHook(count))
-        desc_asm = Consumer.make_descriptor_assembler(consumer_state; hooks = hooks)
+        callbacks = ConsumerCallbacks(TestFrameCallback(count))
+        desc_asm = Consumer.make_descriptor_assembler(consumer_state; callbacks = callbacks)
         ctrl_asm = Consumer.make_control_assembler(consumer_state)
 
         payload = Vector{UInt8}(undef, 64)

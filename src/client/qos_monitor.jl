@@ -1,32 +1,10 @@
-"""
-Snapshot of the latest producer QoS message.
-"""
-mutable struct QosProducerSnapshot
-    stream_id::UInt32
-    producer_id::UInt32
-    epoch::UInt64
-    current_seq::UInt64
-    last_qos_ns::UInt64
-end
-
-"""
-Snapshot of the latest consumer QoS message.
-"""
-mutable struct QosConsumerSnapshot
-    stream_id::UInt32
-    consumer_id::UInt32
-    epoch::UInt64
-    mode::Mode.SbeEnum
-    last_seq_seen::UInt64
-    drops_gap::UInt64
-    drops_late::UInt64
-    last_qos_ns::UInt64
-end
+import ..Core: AbstractQosMonitor, QosProducerSnapshot, QosConsumerSnapshot
+import ..Core: poll_qos!, producer_qos, consumer_qos
 
 """
 QoS monitor that tracks last-seen producer and consumer QoS messages.
 """
-mutable struct QosMonitor{ClockT}
+mutable struct QosMonitor{ClockT} <: AbstractQosMonitor
     client::Aeron.Client
     sub_qos::Aeron.Subscription
     assembler::Aeron.FragmentAssembler
@@ -96,17 +74,11 @@ end
 """
 Poll the QoS subscription and update snapshots.
 """
-function poll!(monitor::QosMonitor, fragment_limit::Int32 = DEFAULT_FRAGMENT_LIMIT)
+function poll_qos!(monitor::QosMonitor, fragment_limit::Int32 = DEFAULT_FRAGMENT_LIMIT)
     fetch!(monitor.clock)
     monitor.last_poll_ns = UInt64(Clocks.time_nanos(monitor.clock))
     return Aeron.poll(monitor.sub_qos, monitor.assembler, fragment_limit)
 end
-
-"""
-Poll QoS monitor (wrapper to avoid name conflicts).
-"""
-poll_qos!(monitor::QosMonitor, fragment_limit::Int32 = DEFAULT_FRAGMENT_LIMIT) =
-    poll!(monitor, fragment_limit)
 
 """
 Close the monitor subscription.

@@ -149,8 +149,8 @@ function run_consumer(
     tp_client = connect(ctx)
     try
         app_ref = Ref{AppRateLimitedConsumerAgent}()
-        hooks = ConsumerHooks(AppConsumerOnFrame(app_ref))
-        handle = attach_consumer(tp_client, consumer_cfg; discover = false, hooks = hooks)
+        callbacks = ConsumerCallbacks(; on_frame! = AppConsumerOnFrame(app_ref))
+        handle = attach_consumer(tp_client, consumer_cfg; discover = false, callbacks = callbacks)
         app_agent = AppRateLimitedConsumerAgent(
             handle,
             count,

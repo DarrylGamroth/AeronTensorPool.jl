@@ -8,11 +8,23 @@ using ..SBE
 include("logging.jl")
 using .TPLog
 include("fixed_string.jl")
+include("metadata.jl")
+include("qos_api.jl")
 include("messages.jl")
 include("errors.jl")
 
 export TensorPoolError,
     FixedString,
+    MetadataAttribute,
+    MetadataEntry,
+    DEFAULT_METADATA_TEXT_FORMAT,
+    DEFAULT_METADATA_BINARY_FORMAT,
+    AbstractQosMonitor,
+    QosProducerSnapshot,
+    QosConsumerSnapshot,
+    poll_qos!,
+    producer_qos,
+    consumer_qos,
     MAX_DIMS,
     RegionType,
     Dtype,

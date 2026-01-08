@@ -120,7 +120,7 @@ function attach_consumer(
     settings::ConsumerConfig;
     discover::Bool = true,
     data_source_name::AbstractString = "",
-    hooks::ConsumerHooks = Consumer.NOOP_CONSUMER_HOOKS,
+    callbacks::ConsumerCallbacks = Consumer.NOOP_CONSUMER_CALLBACKS,
 )
     stream_id = settings.stream_id
     control_channel = client.context.control_channel
@@ -150,7 +150,7 @@ function attach_consumer(
         driver_client = request.driver_client,
         client = client.aeron_client,
     )
-    descriptor_asm = Consumer.make_descriptor_assembler(consumer_state; hooks = hooks)
+    descriptor_asm = Consumer.make_descriptor_assembler(consumer_state; callbacks = callbacks)
     control_asm = Consumer.make_control_assembler(consumer_state)
     counters = ConsumerCounters(consumer_state.runtime.control.client, Int(settings.consumer_id), "Consumer")
     consumer_agent = ConsumerAgent(consumer_state, descriptor_asm, control_asm, counters)
@@ -165,7 +165,9 @@ function attach_producer(
     config::ProducerConfig;
     discover::Bool = true,
     data_source_name::AbstractString = "",
-    hooks::ProducerHooks = Producer.NOOP_PRODUCER_HOOKS,
+    callbacks::ProducerCallbacks = Producer.NOOP_PRODUCER_CALLBACKS,
+    qos_monitor::Union{AbstractQosMonitor, Nothing} = nothing,
+    qos_interval_ns::UInt64 = config.qos_interval_ns,
 )
     stream_id = config.stream_id
     control_channel = client.context.control_channel
@@ -194,9 +196,17 @@ function attach_producer(
         driver_client = request.driver_client,
         client = client.aeron_client,
     )
-    control_asm = Producer.make_control_assembler(producer_state; hooks = hooks)
-    qos_asm = Producer.make_qos_assembler(producer_state; hooks = hooks)
+    control_asm = Producer.make_control_assembler(producer_state; callbacks = callbacks)
+    qos_asm = Producer.make_qos_assembler(producer_state; callbacks = callbacks)
     counters = ProducerCounters(producer_state.runtime.control.client, Int(config.producer_id), "Producer")
-    producer_agent = ProducerAgent(producer_state, control_asm, qos_asm, counters)
+    producer_agent = ProducerAgent(
+        producer_state,
+        control_asm,
+        qos_asm,
+        counters,
+        callbacks,
+        qos_monitor,
+        PolledTimer(qos_interval_ns),
+    )
     return ProducerHandle(client, request.driver_client, producer_agent)
 end

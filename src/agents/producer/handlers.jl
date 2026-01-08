@@ -3,18 +3,18 @@ Create a control-channel fragment assembler for the producer.
 
 Arguments:
 - `state`: producer state.
-- `hooks`: optional producer hooks.
+- `callbacks`: optional producer callbacks.
 
 Returns:
 - `Aeron.FragmentAssembler` configured for control messages.
 """
-function make_control_assembler(state::ProducerState; hooks::ProducerHooks = NOOP_PRODUCER_HOOKS)
+function make_control_assembler(state::ProducerState; callbacks::ProducerCallbacks = NOOP_PRODUCER_CALLBACKS)
     handler = Aeron.FragmentHandler(state) do st, buffer, _
         header = MessageHeader.Decoder(buffer, 0)
         if MessageHeader.templateId(header) == TEMPLATE_CONSUMER_HELLO
             ConsumerHello.wrap!(st.runtime.hello_decoder, buffer, 0; header = header)
             handle_consumer_hello!(st, st.runtime.hello_decoder)
-            hooks.on_consumer_hello!(st, st.runtime.hello_decoder)
+            callbacks.on_consumer_hello!(st, st.runtime.hello_decoder)
         elseif MessageHeader.templateId(header) == TEMPLATE_CONSUMER_CONFIG
             ConsumerConfigMsg.wrap!(st.runtime.config_decoder, buffer, 0; header = header)
             handle_consumer_config!(st, st.runtime.config_decoder)
@@ -29,18 +29,18 @@ Create a QoS fragment assembler for the producer.
 
 Arguments:
 - `state`: producer state.
-- `hooks`: optional producer hooks.
+- `callbacks`: optional producer callbacks.
 
 Returns:
 - `Aeron.FragmentAssembler` configured for QoS messages.
 """
-function make_qos_assembler(state::ProducerState; hooks::ProducerHooks = NOOP_PRODUCER_HOOKS)
+function make_qos_assembler(state::ProducerState; callbacks::ProducerCallbacks = NOOP_PRODUCER_CALLBACKS)
     handler = Aeron.FragmentHandler(state) do st, buffer, _
         header = MessageHeader.Decoder(buffer, 0)
         if MessageHeader.templateId(header) == TEMPLATE_QOS_CONSUMER
             QosConsumer.wrap!(st.runtime.qos_decoder, buffer, 0; header = header)
             handle_qos_consumer!(st, st.runtime.qos_decoder)
-            hooks.on_qos_consumer!(st, st.runtime.qos_decoder)
+            callbacks.on_qos_consumer!(st, st.runtime.qos_decoder)
         end
         nothing
     end
