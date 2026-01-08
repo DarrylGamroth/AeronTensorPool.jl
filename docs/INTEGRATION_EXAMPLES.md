@@ -162,3 +162,49 @@ use the same attach flow as the example producer, but replace the generator loop
 - The driver owns SHM allocation and announces layout via `ShmPoolAnnounce`.
 - Producers/consumers attach via the driver client API and map SHM from responses.
 - The example producer/consumer scripts are a working end-to-end reference.
+
+## C ↔ Julia Interop Helpers
+
+These scripts align the C client env vars with a driver config and provide
+end-to-end smoke checks.
+
+### Export interop env (shared between C and Julia)
+
+```bash
+eval "$(scripts/interop_env.sh docs/examples/driver_integration_example.toml docs/examples/interop_env_example.toml)"
+```
+
+### C integration smoke (attach + claim + commit + read)
+
+```bash
+scripts/run_c_integration_smoke.sh docs/examples/driver_integration_example.toml c/build
+```
+
+### Interop sweep (driver + C smoke + Julia consumer/producer)
+
+```bash
+scripts/run_interop_all.sh docs/examples/driver_integration_example.toml c/build
+```
+
+Defaults:
+- `TP_INTEROP_USE_EMBEDDED=1` (starts a standalone MediaDriver via `scripts/run_media_driver.jl` with a temp `AERON_DIR`)
+- `TP_INTEROP_TIMEOUT_S=30`
+
+### Cross-check C ↔ Julia (C producer → Julia consumer, Julia producer → C consumer)
+
+```bash
+scripts/run_interop_crosscheck.sh docs/examples/driver_integration_example.toml c/build
+```
+
+### Inspect endpoints and live attach response
+
+```bash
+scripts/interop_print_endpoints.sh docs/examples/driver_integration_example.toml docs/examples/interop_env_example.toml
+```
+
+### Decode raw control-plane messages
+
+```bash
+scripts/interop_decode_message.jl /path/to/buffer.bin
+scripts/interop_decode_message.jl hex:01020304
+```
