@@ -33,10 +33,16 @@ using Test
         )
 
         driver_state = init_driver(cfg; client = client)
-        stream_state = driver_state.streams[UInt32(5001)]
+        stream_state, status = AeronTensorPool.Driver.get_or_create_stream!(
+            driver_state,
+            UInt32(5001),
+            DriverPublishMode.EXISTING_OR_CREATE,
+        )
+        @test stream_state !== nothing
+        @test status == :ok
         stream_state.epoch = UInt64(42)
 
-        header_uri, pool_uris = canonical_shm_paths(
+        header_uri, pool_uris = AeronTensorPool.canonical_shm_paths(
             base_dir,
             "stream-5001",
             endpoints.instance_id,

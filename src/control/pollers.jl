@@ -237,7 +237,6 @@ function snapshot_attach_response!(resp::AttachResponse, msg::ShmAttachResponse.
     resp.header_slot_bytes = ShmAttachResponse.headerSlotBytes(msg)
     resp.max_dims = ShmAttachResponse.maxDims(msg)
 
-    copyto!(resp.header_region_uri, ShmAttachResponse.headerRegionUri(msg, StringView))
     payload_groups = ShmAttachResponse.payloadPools(msg)
     pool_count = 0
     for group in payload_groups
@@ -254,6 +253,7 @@ function snapshot_attach_response!(resp::AttachResponse, msg::ShmAttachResponse.
     end
     resp.pool_count = pool_count
 
+    copyto!(resp.header_region_uri, ShmAttachResponse.headerRegionUri(msg, StringView))
     copyto!(resp.error_message, ShmAttachResponse.errorMessage(msg, StringView))
     return resp
 end
