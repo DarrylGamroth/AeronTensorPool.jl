@@ -10,6 +10,7 @@ using ..Driver
 using ..AeronUtils
 using ..Agents
 using ..ShmTensorpoolControl
+using UnsafeArrays
 import ..Agents.Producer: offer_frame!, try_claim_slot!, commit_slot!, with_claimed_slot!
 
 include("client_api.jl")
