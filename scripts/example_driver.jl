@@ -15,6 +15,12 @@ function load_driver_config_with_env(config_path::String)
     if haskey(ENV, "AERON_DIR")
         env["DRIVER_AERON_DIR"] = ENV["AERON_DIR"]
     end
+    if haskey(ENV, "TP_CONTROL_CHANNEL")
+        env["DRIVER_CONTROL_CHANNEL"] = ENV["TP_CONTROL_CHANNEL"]
+    end
+    if haskey(ENV, "TP_CONTROL_STREAM_ID")
+        env["DRIVER_CONTROL_STREAM_ID"] = ENV["TP_CONTROL_STREAM_ID"]
+    end
     return load_driver_config(config_path; env = env)
 end
 
