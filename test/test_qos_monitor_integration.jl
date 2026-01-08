@@ -71,6 +71,14 @@ liveness_check_interval_ns = 1000000000
             env["AERON_DIR"] = Aeron.MediaDriver.aeron_dir(driver)
             system = load_system_config(config_path; env = env)
 
+            prepare_canonical_shm_layout(
+                system.producer.shm_base_dir;
+                namespace = system.producer.shm_namespace,
+                producer_instance_id = system.producer.producer_instance_id,
+                epoch = 1,
+                pool_id = 1,
+            )
+
             producer = Producer.init_producer(system.producer; client = client)
             consumer = Consumer.init_consumer(system.consumer; client = client)
             monitor = QosMonitor(system.consumer; client = client)
