@@ -1,0 +1,94 @@
+#include "tp_internal.h"
+#include <time.h>
+
+uint64_t tp_now_ns(void)
+{
+    struct timespec ts;
+    clock_gettime(CLOCK_MONOTONIC, &ts);
+    return (uint64_t)ts.tv_sec * 1000000000ULL + (uint64_t)ts.tv_nsec;
+}
+
+tp_err_t tp_client_connect(tp_context_t *ctx, tp_client_t **client)
+{
+    if (ctx == NULL || client == NULL)
+    {
+        return TP_ERR_ARG;
+    }
+
+    tp_client_t *tp = (tp_client_t *)calloc(1, sizeof(tp_client_t));
+    if (tp == NULL)
+    {
+        return TP_ERR_NOMEM;
+    }
+
+    aeron_context_t *aeron_ctx = NULL;
+    if (aeron_context_init(&aeron_ctx) < 0)
+    {
+        free(tp);
+        return TP_ERR_AERON;
+    }
+
+    if (ctx->aeron_dir[0] != '\0')
+    {
+        aeron_context_set_dir(aeron_ctx, ctx->aeron_dir);
+    }
+
+    aeron_t *aeron = NULL;
+    if (aeron_init(&aeron, aeron_ctx) < 0)
+    {
+        aeron_context_close(aeron_ctx);
+        free(tp);
+        return TP_ERR_AERON;
+    }
+
+    if (aeron_start(aeron) < 0)
+    {
+        aeron_close(aeron);
+        aeron_context_close(aeron_ctx);
+        free(tp);
+        return TP_ERR_AERON;
+    }
+
+    tp->context = ctx;
+    tp->aeron_ctx = aeron_ctx;
+    tp->aeron = aeron;
+    tp->next_correlation_id = 1;
+
+    if (tp_driver_client_init(tp) != TP_OK)
+    {
+        tp_client_close(tp);
+        return TP_ERR_AERON;
+    }
+
+    *client = tp;
+    return TP_OK;
+}
+
+void tp_client_close(tp_client_t *client)
+{
+    if (client == NULL)
+    {
+        return;
+    }
+    tp_driver_client_close(&client->driver);
+    if (client->aeron)
+    {
+        aeron_close(client->aeron);
+    }
+    if (client->aeron_ctx)
+    {
+        aeron_context_close(client->aeron_ctx);
+    }
+    free(client);
+}
+
+int tp_client_do_work(tp_client_t *client)
+{
+    if (client == NULL)
+    {
+        return -1;
+    }
+    int work = aeron_main_do_work(client->aeron);
+    work += tp_driver_poll(client, 10);
+    return work;
+}

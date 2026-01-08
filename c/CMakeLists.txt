@@ -1,0 +1,45 @@
+cmake_minimum_required(VERSION 3.16)
+project(tensorpool_client C)
+
+set(CMAKE_C_STANDARD 11)
+set(CMAKE_C_STANDARD_REQUIRED ON)
+
+option(TP_BUILD_EXAMPLES "Build C client examples" ON)
+option(TP_USE_BUNDLED_AERON "Use vendored Aeron C client" ON)
+
+if (TP_USE_BUNDLED_AERON)
+    add_subdirectory(vendor/aeron)
+    set(TP_AERON_TARGET aeron)
+else ()
+    find_library(TP_AERON_TARGET aeron)
+    if (NOT TP_AERON_TARGET)
+        message(FATAL_ERROR "Aeron library not found; set TP_USE_BUNDLED_AERON=ON or provide libaeron")
+    endif ()
+endif ()
+
+add_library(tensorpool_client STATIC
+    src/tp_attach.c
+    src/tp_client.c
+    src/tp_consumer.c
+    src/tp_context.c
+    src/tp_detach.c
+    src/tp_driver_control.c
+    src/tp_producer.c
+    src/tp_shm.c)
+
+target_include_directories(tensorpool_client
+    PUBLIC
+        ${CMAKE_CURRENT_SOURCE_DIR}/include
+        ${CMAKE_CURRENT_SOURCE_DIR}/gen/wire
+        ${CMAKE_CURRENT_SOURCE_DIR}/gen/driver)
+
+target_include_directories(tensorpool_client
+    PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/src)
+
+target_link_libraries(tensorpool_client PRIVATE ${TP_AERON_TARGET})
+
+if (TP_BUILD_EXAMPLES)
+    add_executable(tp_attach_example examples/tp_attach_example.c)
+    target_link_libraries(tp_attach_example PRIVATE tensorpool_client)
+endif ()

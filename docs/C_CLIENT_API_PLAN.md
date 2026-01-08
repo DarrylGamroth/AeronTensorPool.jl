@@ -108,14 +108,17 @@ Key MUSTs:
 - Implement `tp_context`, `tp_client`, driver control attach/detach/keepalive.
 - SHM mapping + superblock validation.
 - Simple consumer read loop.
+Status: complete.
 
 ### Phase 2: Producer zero-copy + copy path
 - Slot claim/commit + offer_frame.
 - Pool selection by size.
+Status: complete.
 
 ### Phase 3: Tests + tooling
 - Integration tests against Julia driver.
 - Example C producer/consumer programs.
+Status: in progress (CMake + example program added; tests still pending).
 
 Optional features (deferred from v1):
 - QoS monitor.
@@ -124,6 +127,7 @@ Optional features (deferred from v1):
 
 ## 9. Open Questions (to resolve before coding)
 - How much of Aeron C client to vendor vs depend on? Prefer vendoring only the minimal required pieces.
+Status: vendored Aeron C client sources under `c/vendor/aeron` with CMake build.
 
 ## 10. References
 - Aeron C client layout: `/home/dgamroth/workspaces/codex/aeron/aeron-client/src/main/c`
