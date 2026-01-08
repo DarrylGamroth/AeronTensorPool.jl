@@ -93,10 +93,10 @@ julia --project scripts/run_benchmarks.jl --system --duration 1 --payload-bytes 
 ```
 
 Results:
-- `producer_do_work`: 0 bytes
-- `consumer_do_work`: 0 bytes
-- `consumer_do_work (with frame)`: 0 bytes
-- `supervisor_do_work`: 0 bytes
+- `producer_do_work`: 4464 bytes
+- `consumer_do_work`: 4464 bytes
+- `consumer_do_work (with frame)`: 4464 bytes
+- `supervisor_do_work`: 4464 bytes
 - `publish_frame`: 0 bytes
 - `producer_poll_timers`: 0 bytes
 - `consumer_poll_timers`: 0 bytes
@@ -105,7 +105,7 @@ Results:
 - `supervisor_poll_timers`: 0 bytes
 - `yield`: 0 bytes
 - Empty loop (256 iters): 0 bytes
-- Loop alloc delta: 128 bytes (over 256 iters)
+- Loop alloc delta: 1,142,784 bytes (over 256 iters)
 
 ## Bridge Bench (AgentRunner path)
 
