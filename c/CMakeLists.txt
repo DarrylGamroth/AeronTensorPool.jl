@@ -60,5 +60,8 @@ endif ()
 if (TP_BUILD_INTEGRATION_TESTS)
     add_executable(tp_integration_smoke tests/tp_integration_smoke.c)
     target_link_libraries(tp_integration_smoke PRIVATE tensorpool_client)
+    target_include_directories(tp_integration_smoke PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/src
+        ${CMAKE_CURRENT_SOURCE_DIR}/vendor/aeron)
     add_test(NAME tp_integration_smoke COMMAND tp_integration_smoke)
 endif ()

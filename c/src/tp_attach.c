@@ -35,12 +35,12 @@ tp_err_t tp_send_attach_request(
     shm_tensorpool_driver_shmAttachRequest_set_clientId(&req, client->context->client_id);
     shm_tensorpool_driver_shmAttachRequest_set_role(&req, role);
     shm_tensorpool_driver_shmAttachRequest_set_publishMode(&req, publish_mode);
-    shm_tensorpool_driver_shmAttachRequest_set_expectedLayoutVersion(&req, UINT32_MAX);
-    shm_tensorpool_driver_shmAttachRequest_set_maxDims(&req, UINT8_MAX);
+    shm_tensorpool_driver_shmAttachRequest_set_expectedLayoutVersion(&req, 0);
+    shm_tensorpool_driver_shmAttachRequest_set_maxDims(&req, 0);
     shm_tensorpool_driver_shmAttachRequest_set_requireHugepages(&req, shm_tensorpool_driver_hugepagesPolicy_UNSPECIFIED);
 
     aeron_buffer_claim_commit(&claim);
-    client->driver.last_attach_correlation = correlation_id;
+    client->driver.pending_attach_correlation = correlation_id;
     return TP_OK;
 }
 

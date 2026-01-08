@@ -50,6 +50,7 @@ typedef struct tp_driver_client_stct
     aeron_fragment_assembler_t *assembler;
     tp_attach_response_t last_attach;
     int64_t last_attach_correlation;
+    int64_t pending_attach_correlation;
     int32_t last_detach_code;
     int64_t last_detach_correlation;
 }

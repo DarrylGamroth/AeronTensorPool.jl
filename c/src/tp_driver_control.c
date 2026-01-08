@@ -1,4 +1,5 @@
 #include "tp_internal.h"
+#include <stdio.h>
 
 int tp_add_publication(aeron_t *client, const char *channel, int32_t stream_id, aeron_publication_t **pub)
 {
@@ -87,16 +88,36 @@ static void tp_decode_attach_response(tp_driver_client_t *driver, char *buffer, 
     out->max_dims = shm_tensorpool_driver_shmAttachResponse_maxDims(&resp);
 
     struct shm_tensorpool_driver_shmAttachResponse_payloadPools pools;
-    uint64_t pos = shm_tensorpool_driver_shmAttachResponse_sbe_position(&resp);
-    if (shm_tensorpool_driver_shmAttachResponse_payloadPools_wrap_for_decode(&pools, resp.buffer, &pos, acting_version, resp.buffer_length))
+    uint64_t *pos = shm_tensorpool_driver_shmAttachResponse_sbe_position_ptr(&resp);
+    uint16_t block_len = 0;
+    uint16_t count = 0;
+    if (*pos + 4 <= resp.buffer_length)
     {
-        uint32_t count = (uint32_t)shm_tensorpool_driver_shmAttachResponse_payloadPools_count(&pools);
-        if (count > TP_MAX_POOLS)
+        memcpy(&block_len, resp.buffer + *pos, sizeof(uint16_t));
+        memcpy(&count, resp.buffer + *pos + 2, sizeof(uint16_t));
+    }
+
+    bool group_first = block_len == shm_tensorpool_driver_shmAttachResponse_payloadPools_sbe_block_length();
+    if (!group_first)
+    {
+        uint32_t header_len = shm_tensorpool_driver_shmAttachResponse_headerRegionUri_length(&resp);
+        const char *header_uri = shm_tensorpool_driver_shmAttachResponse_headerRegionUri(&resp);
+        tp_copy_ascii(out->header_uri, sizeof(out->header_uri), header_uri, header_len);
+
+        uint32_t err_len = shm_tensorpool_driver_shmAttachResponse_errorMessage_length(&resp);
+        const char *err_msg = shm_tensorpool_driver_shmAttachResponse_errorMessage(&resp);
+        tp_copy_ascii(out->error_message, sizeof(out->error_message), err_msg, err_len);
+    }
+
+    if (shm_tensorpool_driver_shmAttachResponse_payloadPools_wrap_for_decode(&pools, resp.buffer, pos, acting_version, resp.buffer_length))
+    {
+        uint32_t group_count = (uint32_t)shm_tensorpool_driver_shmAttachResponse_payloadPools_count(&pools);
+        if (group_count > TP_MAX_POOLS)
         {
-            count = TP_MAX_POOLS;
+            group_count = TP_MAX_POOLS;
         }
-        out->pool_count = count;
-        for (uint32_t i = 0; i < count && shm_tensorpool_driver_shmAttachResponse_payloadPools_has_next(&pools); i++)
+        out->pool_count = group_count;
+        for (uint32_t i = 0; i < group_count && shm_tensorpool_driver_shmAttachResponse_payloadPools_has_next(&pools); i++)
         {
             shm_tensorpool_driver_shmAttachResponse_payloadPools_next(&pools);
             out->pools[i].pool_id = shm_tensorpool_driver_shmAttachResponse_payloadPools_poolId(&pools);
@@ -108,13 +129,16 @@ static void tp_decode_attach_response(tp_driver_client_t *driver, char *buffer, 
         }
     }
 
-    uint32_t header_len = shm_tensorpool_driver_shmAttachResponse_headerRegionUri_length(&resp);
-    const char *header_uri = shm_tensorpool_driver_shmAttachResponse_headerRegionUri(&resp);
-    tp_copy_ascii(out->header_uri, sizeof(out->header_uri), header_uri, header_len);
+    if (group_first)
+    {
+        uint32_t header_len = shm_tensorpool_driver_shmAttachResponse_headerRegionUri_length(&resp);
+        const char *header_uri = shm_tensorpool_driver_shmAttachResponse_headerRegionUri(&resp);
+        tp_copy_ascii(out->header_uri, sizeof(out->header_uri), header_uri, header_len);
 
-    uint32_t err_len = shm_tensorpool_driver_shmAttachResponse_errorMessage_length(&resp);
-    const char *err_msg = shm_tensorpool_driver_shmAttachResponse_errorMessage(&resp);
-    tp_copy_ascii(out->error_message, sizeof(out->error_message), err_msg, err_len);
+        uint32_t err_len = shm_tensorpool_driver_shmAttachResponse_errorMessage_length(&resp);
+        const char *err_msg = shm_tensorpool_driver_shmAttachResponse_errorMessage(&resp);
+        tp_copy_ascii(out->error_message, sizeof(out->error_message), err_msg, err_len);
+    }
 
     driver->last_attach_correlation = out->correlation_id;
 }

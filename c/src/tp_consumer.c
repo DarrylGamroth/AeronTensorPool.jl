@@ -1,4 +1,5 @@
 #include "tp_internal.h"
+#include <stdio.h>
 
 static void tp_descriptor_handler(void *clientd, const uint8_t *buffer, size_t length, aeron_header_t *header)
 {
@@ -122,13 +123,13 @@ tp_err_t tp_attach_consumer(tp_client_t *client, uint32_t stream_id, tp_consumer
     {
         return TP_ERR_ARG;
     }
-    tp_err_t err = tp_send_attach_request(client, stream_id, shm_tensorpool_driver_role_CONSUMER, shm_tensorpool_driver_publishMode_EXISTING_OR_CREATE);
+    tp_err_t err = tp_send_attach_request(client, stream_id, shm_tensorpool_driver_role_CONSUMER, shm_tensorpool_driver_publishMode_REQUIRE_EXISTING);
     if (err != TP_OK)
     {
         return err;
     }
     tp_attach_response_t resp;
-    err = tp_wait_attach(client, client->driver.last_attach_correlation, &resp);
+    err = tp_wait_attach(client, client->driver.pending_attach_correlation, &resp);
     if (err != TP_OK)
     {
         return err;
@@ -205,6 +206,10 @@ tp_err_t tp_consumer_try_read_frame(tp_consumer_t *consumer, tp_frame_view_t *vi
     if (header_len != (shm_tensorpool_control_messageHeader_encoded_length() +
         shm_tensorpool_control_tensorHeader_sbe_block_length()))
     {
+        if (getenv("TP_DEBUG_FRAME") != NULL)
+        {
+            fprintf(stderr, "headerBytes length mismatch: %u\n", header_len);
+        }
         return TP_ERR_PROTOCOL;
     }
 
@@ -216,14 +221,28 @@ tp_err_t tp_consumer_try_read_frame(tp_consumer_t *consumer, tp_frame_view_t *vi
             shm_tensorpool_control_messageHeader_sbe_schema_version(),
             header_len))
     {
+        if (getenv("TP_DEBUG_FRAME") != NULL)
+        {
+            fprintf(stderr, "messageHeader wrap failed\n");
+        }
         return TP_ERR_PROTOCOL;
     }
     if (shm_tensorpool_control_messageHeader_templateId(&hdr) != shm_tensorpool_control_tensorHeader_sbe_template_id())
     {
+        if (getenv("TP_DEBUG_FRAME") != NULL)
+        {
+            fprintf(stderr, "tensorHeader template mismatch: %u\n",
+                shm_tensorpool_control_messageHeader_templateId(&hdr));
+        }
         return TP_ERR_PROTOCOL;
     }
     if (shm_tensorpool_control_messageHeader_blockLength(&hdr) != shm_tensorpool_control_tensorHeader_sbe_block_length())
     {
+        if (getenv("TP_DEBUG_FRAME") != NULL)
+        {
+            fprintf(stderr, "tensorHeader block length mismatch: %u\n",
+                shm_tensorpool_control_messageHeader_blockLength(&hdr));
+        }
         return TP_ERR_PROTOCOL;
     }
 

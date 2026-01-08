@@ -87,7 +87,7 @@ tp_err_t tp_attach_producer(tp_client_t *client, uint32_t stream_id, tp_producer
     }
 
     tp_attach_response_t resp;
-    err = tp_wait_attach(client, client->driver.last_attach_correlation, &resp);
+    err = tp_wait_attach(client, client->driver.pending_attach_correlation, &resp);
     if (err != TP_OK)
     {
         return err;
