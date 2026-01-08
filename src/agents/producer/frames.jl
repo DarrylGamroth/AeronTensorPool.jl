@@ -230,6 +230,32 @@ function payload_slot_view(
 end
 
 """
+Try to return a view into a producer payload slot.
+
+Arguments:
+- `state`: producer state.
+- `pool_id`: payload pool identifier.
+- `slot`: 0-based payload slot index.
+- `len`: view length in bytes (default: full stride).
+
+Returns:
+- `SubArray` view into the payload buffer, or `nothing` if the slot is invalid or the length exceeds stride.
+"""
+function try_payload_slot_view(
+    state::ProducerState,
+    pool_id::UInt16,
+    slot::UInt32;
+    len::Integer = -1,
+)
+    pool = payload_pool_config(state, pool_id)
+    pool === nothing && return nothing
+    slot < pool.nslots || return nothing
+    payload_mmap = state.mappings.payload_mmaps[pool.pool_id]
+    view_len = len < 0 ? Int(pool.stride_bytes) : Int(len)
+    return Shm.try_payload_slot_view(payload_mmap, pool.stride_bytes, slot, view_len)
+end
+
+"""
 Try to claim a payload slot for external filling.
 
 Arguments:

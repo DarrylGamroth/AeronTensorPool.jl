@@ -59,6 +59,7 @@ export PayloadPoolConfig,
     try_claim_slot!,
     with_claimed_slot!,
     payload_pool_config,
+    try_payload_slot_view,
     ProducerAgent
 
 end

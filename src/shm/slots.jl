@@ -68,7 +68,30 @@ function payload_slot_view(
     slot::Integer,
     len::Integer = stride_bytes,
 )
-    len <= stride_bytes || throw(ArgumentError("len exceeds stride_bytes"))
+    @boundscheck len <= stride_bytes || throw(ArgumentError("len exceeds stride_bytes"))
+    offset = payload_slot_offset(stride_bytes, slot)
+    return view(buffer, offset + 1:offset + Int(len))
+end
+
+"""
+Try to return a view into a payload slot region.
+
+Arguments:
+- `buffer`: payload mmap buffer.
+- `stride_bytes`: pool stride size in bytes.
+- `slot`: 0-based payload slot index.
+- `len`: view length in bytes (defaults to `stride_bytes`).
+
+Returns:
+- `SubArray` view into the payload buffer, or `nothing` if `len` exceeds `stride_bytes`.
+"""
+function try_payload_slot_view(
+    buffer::AbstractVector{UInt8},
+    stride_bytes::Integer,
+    slot::Integer,
+    len::Integer = stride_bytes,
+)
+    len <= stride_bytes || return nothing
     offset = payload_slot_offset(stride_bytes, slot)
     return view(buffer, offset + 1:offset + Int(len))
 end
