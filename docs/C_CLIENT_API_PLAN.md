@@ -25,7 +25,7 @@ This plan defines the initial C client implementation for AeronTensorPool. It fo
     - `tp_qos.c/.h` (optional QoS monitor)
     - `tp_metadata.c/.h` (optional metadata cache)
   - `tests/` (C tests; integration against Julia driver)
-  - `CMakeLists.txt`
+  - `CMakeLists.txt` (preferred build system for v1)
 
 ## 2. Public API Shape (Aeron-style)
 ### Context + Client
@@ -74,7 +74,7 @@ Key MUSTs:
 - `ShmLeaseKeepalive` cadence and expiry rules.
 
 ## 4. SBE Codec Strategy
-- Use SBE C codegen for wire/driver/discovery schemas.
+- Use `../simple-binary-encoding` with the Java `sbe-tool` for C codegen.
 - Generate codecs into `c/gen/` and keep them in the repo for deterministic builds.
 - Provide thin wrapper functions for:
   - wrap + apply header
@@ -103,29 +103,27 @@ Key MUSTs:
   - Producer->Consumer loop with SHM
   - Discovery + attach flow
 
-## 8. Deliverables (phased)
+## 8. Deliverables (phased, v1 minimal)
 ### Phase 1: Core attach + SHM
-- Implement `tp_context`, `tp_client`, driver control attach/detach/keepalive
-- SHM mapping + superblock validation
-- Simple consumer read loop
+- Implement `tp_context`, `tp_client`, driver control attach/detach/keepalive.
+- SHM mapping + superblock validation.
+- Simple consumer read loop.
 
 ### Phase 2: Producer zero-copy + copy path
-- Slot claim/commit + offer_frame
-- Pool selection by size
+- Slot claim/commit + offer_frame.
+- Pool selection by size.
 
-### Phase 3: Optional features
-- QoS monitor
-- Metadata cache
-- Discovery client
+### Phase 3: Tests + tooling
+- Integration tests against Julia driver.
+- Example C producer/consumer programs.
 
-### Phase 4: Tests + tooling
-- Integration tests against Julia driver
-- Example C producer/consumer programs
+Optional features (deferred from v1):
+- QoS monitor.
+- Metadata cache.
+- Discovery client.
 
 ## 9. Open Questions (to resolve before coding)
-- C build system (CMake vs Meson)
-- How much of Aeron C client to vendor vs depend on?
-- Whether to include optional features (QoS/metadata/discovery) in v1 or keep minimal.
+- How much of Aeron C client to vendor vs depend on? Prefer vendoring only the minimal required pieces.
 
 ## 10. References
 - Aeron C client layout: `/home/dgamroth/workspaces/codex/aeron/aeron-client/src/main/c`
