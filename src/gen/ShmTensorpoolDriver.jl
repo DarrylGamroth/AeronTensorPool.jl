@@ -25,7 +25,6 @@ using StringViews
 @enumx T = SbeEnum PublishMode::UInt8 begin
         REQUIRE_EXISTING = 1
         EXISTING_OR_CREATE = 2
-        UNKNOWN = 255
         NULL_VALUE = UInt8(255)
     end
 @enumx T = SbeEnum ResponseCode::Int32 begin
@@ -1517,12 +1516,12 @@ begin
 end
 begin
     function errorMessage_meta_attribute(::AbstractShmDetachResponse, meta_attribute)
-        meta_attribute === :presence && return Symbol("optional")
+        meta_attribute === :presence && return Symbol("required")
         meta_attribute === :semanticType && return Symbol("")
         return Symbol("")
     end
     function errorMessage_meta_attribute(::Type{<:AbstractShmDetachResponse}, meta_attribute)
-        meta_attribute === :presence && return Symbol("optional")
+        meta_attribute === :presence && return Symbol("required")
         meta_attribute === :semanticType && return Symbol("")
         return Symbol("")
     end
@@ -1945,12 +1944,12 @@ begin
 end
 begin
     function errorMessage_meta_attribute(::AbstractShmDriverShutdown, meta_attribute)
-        meta_attribute === :presence && return Symbol("optional")
+        meta_attribute === :presence && return Symbol("required")
         meta_attribute === :semanticType && return Symbol("")
         return Symbol("")
     end
     function errorMessage_meta_attribute(::Type{<:AbstractShmDriverShutdown}, meta_attribute)
-        meta_attribute === :presence && return Symbol("optional")
+        meta_attribute === :presence && return Symbol("required")
         meta_attribute === :semanticType && return Symbol("")
         return Symbol("")
     end
@@ -2650,12 +2649,12 @@ begin
 end
 begin
     function errorMessage_meta_attribute(::AbstractShmLeaseRevoked, meta_attribute)
-        meta_attribute === :presence && return Symbol("optional")
+        meta_attribute === :presence && return Symbol("required")
         meta_attribute === :semanticType && return Symbol("")
         return Symbol("")
     end
     function errorMessage_meta_attribute(::Type{<:AbstractShmLeaseRevoked}, meta_attribute)
-        meta_attribute === :presence && return Symbol("optional")
+        meta_attribute === :presence && return Symbol("required")
         meta_attribute === :semanticType && return Symbol("")
         return Symbol("")
     end
@@ -4159,12 +4158,12 @@ begin
 end
 begin
     function headerRegionUri_meta_attribute(::AbstractShmAttachResponse, meta_attribute)
-        meta_attribute === :presence && return Symbol("optional")
+        meta_attribute === :presence && return Symbol("required")
         meta_attribute === :semanticType && return Symbol("")
         return Symbol("")
     end
     function headerRegionUri_meta_attribute(::Type{<:AbstractShmAttachResponse}, meta_attribute)
-        meta_attribute === :presence && return Symbol("optional")
+        meta_attribute === :presence && return Symbol("required")
         meta_attribute === :semanticType && return Symbol("")
         return Symbol("")
     end
@@ -4283,12 +4282,12 @@ begin
 end
 begin
     function errorMessage_meta_attribute(::AbstractShmAttachResponse, meta_attribute)
-        meta_attribute === :presence && return Symbol("optional")
+        meta_attribute === :presence && return Symbol("required")
         meta_attribute === :semanticType && return Symbol("")
         return Symbol("")
     end
     function errorMessage_meta_attribute(::Type{<:AbstractShmAttachResponse}, meta_attribute)
-        meta_attribute === :presence && return Symbol("optional")
+        meta_attribute === :presence && return Symbol("required")
         meta_attribute === :semanticType && return Symbol("")
         return Symbol("")
     end
@@ -4841,12 +4840,12 @@ begin
 end
 begin
     function errorMessage_meta_attribute(::AbstractShmDriverShutdownRequest, meta_attribute)
-        meta_attribute === :presence && return Symbol("optional")
+        meta_attribute === :presence && return Symbol("required")
         meta_attribute === :semanticType && return Symbol("")
         return Symbol("")
     end
     function errorMessage_meta_attribute(::Type{<:AbstractShmDriverShutdownRequest}, meta_attribute)
-        meta_attribute === :presence && return Symbol("optional")
+        meta_attribute === :presence && return Symbol("required")
         meta_attribute === :semanticType && return Symbol("")
         return Symbol("")
     end

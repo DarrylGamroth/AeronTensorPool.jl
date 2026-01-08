@@ -73,17 +73,19 @@ The driver MAY create new SHM regions on demand when `publishMode=EXISTING_OR_CR
 
 `correlationId` is client-supplied; the driver MUST echo it unchanged in `ShmAttachResponse`.
 
-For `code=OK`, the response MUST include: `leaseId`, `streamId`, `epoch`, `layoutVersion`, `headerNslots`, `headerSlotBytes`, `maxDims`, `headerRegionUri`, and a complete `payloadPools` group with each pool's `regionUri`, `poolId`, `poolNslots`, and `strideBytes`. These fields are required even if the SBE schema marks them as optional. `headerSlotBytes` is fixed at `256` by the Wire Specification, and `maxDims` is fixed by the schema constant (v1.1: `8`).
+For `code=OK`, the response MUST include: `leaseId`, `streamId`, `epoch`, `layoutVersion`, `headerNslots`, `headerSlotBytes`, `maxDims`, `headerRegionUri`, and a complete `payloadPools` group with each pool's `regionUri`, `poolId`, `poolNslots`, and `strideBytes`. `headerSlotBytes` is fixed at `256` by the Wire Specification, and `maxDims` is fixed by the schema constant (v1.1: `8`).
 
 For `code != OK`, the response MUST include `correlationId` and `code`, and SHOULD include `errorMessage` with a diagnostic string.
 
 Optional primitive fields in the SBE schema MUST use explicit `nullValue` sentinels. For `code=OK`, all required fields MUST be non-null; for `code != OK`, optional response fields SHOULD be set to their `nullValue`.
 
-For optional enum fields, `UNKNOWN` (value 255) is the null sentinel and MUST be used when the field is absent. For required enum fields that are conceptually optional, this specification uses an explicit `UNSPECIFIED` value instead of `UNKNOWN` (e.g., `HugepagesPolicy`).
+For optional enum fields, the `nullValue` MUST be used when the field is absent and MUST NOT match any defined enum constant. For required enum fields that are conceptually optional, this specification uses an explicit `UNSPECIFIED` value (e.g., `HugepagesPolicy`).
+
+Variable-length `data` fields (e.g., `errorMessage`, `headerRegionUri`) MUST NOT be marked `presence="optional"` in the schema for sbe-tool compatibility. Absence is represented by a zero-length value.
 
 If `code=OK` and any required field is set to its `nullValue`, the client MUST treat the response as a protocol error, DROP the attach, and reattach.
 
-For `code=OK`, `headerRegionUri` and every `payloadPools.regionUri` MUST be present, non-empty, and not blank. If any required URI is absent or empty, the client MUST treat the response as a protocol error, DROP the attach, and reattach.
+For `code=OK`, `headerRegionUri` and every `payloadPools.regionUri` MUST be present, non-empty, and not blank. If any required URI is absent or empty (length=0), the client MUST treat the response as a protocol error, DROP the attach, and reattach.
 
 For `code=OK`, the driver MUST set `poolNslots` equal to `headerNslots` for each payload pool. Clients MUST treat any mismatch as a protocol error, DROP the attach, and reattach.
 
@@ -91,7 +93,7 @@ If `leaseExpiryTimestampNs` is present, clients MUST treat it as a hard deadline
 
 All URIs returned by the driver MUST satisfy the Wire Specification URI validation rules; clients MUST validate and reject URIs that fail those rules.
 
-If `errorMessage` is present, it MUST be limited to 1024 bytes; drivers SHOULD truncate longer messages.
+If `errorMessage` is present (length > 0), it MUST be limited to 1024 bytes; drivers SHOULD truncate longer messages.
 
 ### 4.3 Attach Request Semantics (Normative)
 
@@ -496,7 +498,6 @@ See `docs/examples/driver_camera_example.toml` for a concrete example.
     <enum name="PublishMode" encodingType="uint8">
       <validValue name="REQUIRE_EXISTING">1</validValue>
       <validValue name="EXISTING_OR_CREATE">2</validValue>
-      <validValue name="UNKNOWN">255</validValue>
     </enum>
 
     <enum name="LeaseRevokeReason" encodingType="uint8">
@@ -547,8 +548,8 @@ See `docs/examples/driver_camera_example.toml` for a concrete example.
       <field name="strideBytes" id="3" type="uint32"/>
       <data  name="regionUri"   id="4" type="varAsciiEncoding"/>
     </group>
-    <data  name="headerRegionUri"       id="11" type="varAsciiEncoding" presence="optional"/>
-    <data  name="errorMessage"           id="30" type="varAsciiEncoding" presence="optional"/>
+    <data  name="headerRegionUri"       id="11" type="varAsciiEncoding"/>
+    <data  name="errorMessage"           id="30" type="varAsciiEncoding"/>
   </sbe:message>
 
   <sbe:message name="ShmDetachRequest" id="3">
@@ -562,7 +563,7 @@ See `docs/examples/driver_camera_example.toml` for a concrete example.
   <sbe:message name="ShmDetachResponse" id="4">
     <field name="correlationId" id="1" type="int64"/>
     <field name="code"          id="2" type="ResponseCode"/>
-    <data  name="errorMessage"  id="3" type="varAsciiEncoding" presence="optional"/>
+    <data  name="errorMessage"  id="3" type="varAsciiEncoding"/>
   </sbe:message>
 
   <sbe:message name="ShmLeaseKeepalive" id="5">
@@ -576,7 +577,7 @@ See `docs/examples/driver_camera_example.toml` for a concrete example.
   <sbe:message name="ShmDriverShutdown" id="6">
     <field name="timestampNs" id="1" type="uint64"/>
     <field name="reason"      id="2" type="ShutdownReason"/>
-    <data  name="errorMessage" id="3" type="varAsciiEncoding" presence="optional"/>
+    <data  name="errorMessage" id="3" type="varAsciiEncoding"/>
   </sbe:message>
 
   <sbe:message name="ShmLeaseRevoked" id="7">
@@ -586,14 +587,14 @@ See `docs/examples/driver_camera_example.toml` for a concrete example.
     <field name="clientId"    id="4" type="uint32"/>
     <field name="role"        id="5" type="Role"/>
     <field name="reason"      id="6" type="LeaseRevokeReason"/>
-    <data  name="errorMessage" id="7" type="varAsciiEncoding" presence="optional"/>
+    <data  name="errorMessage" id="7" type="varAsciiEncoding"/>
   </sbe:message>
 
   <sbe:message name="ShmDriverShutdownRequest" id="8">
     <field name="correlationId" id="1" type="int64"/>
     <field name="reason"        id="2" type="ShutdownReason"/>
     <data  name="token"         id="3" type="varAsciiEncoding"/>
-    <data  name="errorMessage"  id="4" type="varAsciiEncoding" presence="optional"/>
+    <data  name="errorMessage"  id="4" type="varAsciiEncoding"/>
   </sbe:message>
 
 </sbe:messageSchema>

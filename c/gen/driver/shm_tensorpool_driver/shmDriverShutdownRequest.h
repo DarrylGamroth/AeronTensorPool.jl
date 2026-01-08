@@ -221,7 +221,7 @@ SBE_ONE_DEF struct shm_tensorpool_driver_shmDriverShutdownRequest *shm_tensorpoo
 
 SBE_ONE_DEF uint16_t shm_tensorpool_driver_shmDriverShutdownRequest_sbe_block_length(void)
 {
-    return (uint16_t)0;
+    return (uint16_t)9;
 }
 
 #define SHM_TENSORPOOL_DRIVER_SHM_DRIVER_SHUTDOWN_REQUEST_SBE_TEMPLATE_ID (uint16_t)8
@@ -357,6 +357,166 @@ SBE_ONE_DEF uint64_t shm_tensorpool_driver_shmDriverShutdownRequest_acting_versi
     return codec->acting_version;
 }
 
+SBE_ONE_DEF const char *shm_tensorpool_driver_shmDriverShutdownRequest_correlationId_meta_attribute(
+    const enum shm_tensorpool_driver_shmDriverShutdownRequest_meta_attribute attribute)
+{
+    switch (attribute)
+    {
+        case shm_tensorpool_driver_shmDriverShutdownRequest_meta_attribute_EPOCH: return "";
+        case shm_tensorpool_driver_shmDriverShutdownRequest_meta_attribute_TIME_UNIT: return "";
+        case shm_tensorpool_driver_shmDriverShutdownRequest_meta_attribute_SEMANTIC_TYPE: return "";
+        case shm_tensorpool_driver_shmDriverShutdownRequest_meta_attribute_PRESENCE: return "required";
+    }
+
+    return "";
+}
+
+SBE_ONE_DEF uint16_t shm_tensorpool_driver_shmDriverShutdownRequest_correlationId_id(void)
+{
+    return 1;
+}
+
+SBE_ONE_DEF uint64_t shm_tensorpool_driver_shmDriverShutdownRequest_correlationId_since_version(void)
+{
+    return 0;
+}
+
+SBE_ONE_DEF bool shm_tensorpool_driver_shmDriverShutdownRequest_correlationId_in_acting_version(
+    const struct shm_tensorpool_driver_shmDriverShutdownRequest *const codec)
+{
+#if defined(__clang__)
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wtautological-compare"
+#endif
+    return codec->acting_version >= shm_tensorpool_driver_shmDriverShutdownRequest_correlationId_since_version();
+#if defined(__clang__)
+#pragma clang diagnostic pop
+#endif
+}
+
+SBE_ONE_DEF size_t shm_tensorpool_driver_shmDriverShutdownRequest_correlationId_encoding_offset(void)
+{
+    return 0;
+}
+
+SBE_ONE_DEF int64_t shm_tensorpool_driver_shmDriverShutdownRequest_correlationId_null_value(void)
+{
+    return SBE_NULLVALUE_INT64;
+}
+
+SBE_ONE_DEF int64_t shm_tensorpool_driver_shmDriverShutdownRequest_correlationId_min_value(void)
+{
+    return INT64_C(-9223372036854775807);
+}
+
+SBE_ONE_DEF int64_t shm_tensorpool_driver_shmDriverShutdownRequest_correlationId_max_value(void)
+{
+    return INT64_C(9223372036854775807);
+}
+
+SBE_ONE_DEF size_t shm_tensorpool_driver_shmDriverShutdownRequest_correlationId_encoding_length(void)
+{
+    return 8;
+}
+
+SBE_ONE_DEF int64_t shm_tensorpool_driver_shmDriverShutdownRequest_correlationId(
+    const struct shm_tensorpool_driver_shmDriverShutdownRequest *const codec)
+{
+    int64_t val;
+#if defined(__GNUG__) && !defined(__clang__)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
+#endif
+    memcpy(&val, codec->buffer + codec->offset + 0, sizeof(int64_t));
+#if defined(__GNUG__) && !defined(__clang__)
+#pragma GCC diagnostic pop
+#endif
+    return SBE_LITTLE_ENDIAN_ENCODE_64(val);
+}
+
+SBE_ONE_DEF struct shm_tensorpool_driver_shmDriverShutdownRequest *shm_tensorpool_driver_shmDriverShutdownRequest_set_correlationId(
+    struct shm_tensorpool_driver_shmDriverShutdownRequest *const codec,
+    const int64_t value)
+{
+    int64_t val = SBE_LITTLE_ENDIAN_ENCODE_64(value);
+#if defined(__GNUG__) && !defined(__clang__)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
+#endif
+    memcpy(codec->buffer + codec->offset + 0, &val, sizeof(int64_t));
+#if defined(__GNUG__) && !defined(__clang__)
+#pragma GCC diagnostic pop
+#endif
+    return codec;
+}
+
+SBE_ONE_DEF const char *shm_tensorpool_driver_shmDriverShutdownRequest_reason_meta_attribute(
+    const enum shm_tensorpool_driver_shmDriverShutdownRequest_meta_attribute attribute)
+{
+    switch (attribute)
+    {
+        case shm_tensorpool_driver_shmDriverShutdownRequest_meta_attribute_EPOCH: return "";
+        case shm_tensorpool_driver_shmDriverShutdownRequest_meta_attribute_TIME_UNIT: return "";
+        case shm_tensorpool_driver_shmDriverShutdownRequest_meta_attribute_SEMANTIC_TYPE: return "";
+        case shm_tensorpool_driver_shmDriverShutdownRequest_meta_attribute_PRESENCE: return "required";
+    }
+
+    return "";
+}
+
+SBE_ONE_DEF uint16_t shm_tensorpool_driver_shmDriverShutdownRequest_reason_id(void)
+{
+    return 2;
+}
+
+SBE_ONE_DEF uint64_t shm_tensorpool_driver_shmDriverShutdownRequest_reason_since_version(void)
+{
+    return 0;
+}
+
+SBE_ONE_DEF bool shm_tensorpool_driver_shmDriverShutdownRequest_reason_in_acting_version(
+    const struct shm_tensorpool_driver_shmDriverShutdownRequest *const codec)
+{
+#if defined(__clang__)
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wtautological-compare"
+#endif
+    return codec->acting_version >= shm_tensorpool_driver_shmDriverShutdownRequest_reason_since_version();
+#if defined(__clang__)
+#pragma clang diagnostic pop
+#endif
+}
+
+SBE_ONE_DEF size_t shm_tensorpool_driver_shmDriverShutdownRequest_reason_encoding_offset(void)
+{
+    return 8;
+}
+
+SBE_ONE_DEF size_t shm_tensorpool_driver_shmDriverShutdownRequest_reason_encoding_length(void)
+{
+    return 1;
+}
+
+SBE_ONE_DEF bool shm_tensorpool_driver_shmDriverShutdownRequest_reason(
+    const struct shm_tensorpool_driver_shmDriverShutdownRequest *const codec,
+    enum shm_tensorpool_driver_shutdownReason *const out)
+{
+    uint8_t val;
+    memcpy(&val, codec->buffer + codec->offset + 8, sizeof(uint8_t));
+
+    return shm_tensorpool_driver_shutdownReason_get((val), out);
+}
+
+SBE_ONE_DEF struct shm_tensorpool_driver_shmDriverShutdownRequest *shm_tensorpool_driver_shmDriverShutdownRequest_set_reason(
+    struct shm_tensorpool_driver_shmDriverShutdownRequest *const codec,
+    const enum shm_tensorpool_driver_shutdownReason value)
+{
+    uint8_t val = (value);
+    memcpy(codec->buffer + codec->offset + 8, &val, sizeof(uint8_t));
+
+    return codec;
+}
+
 SBE_ONE_DEF const char *shm_tensorpool_driver_shmDriverShutdownRequest_token_meta_attribute(
     const enum shm_tensorpool_driver_shmDriverShutdownRequest_meta_attribute attribute)
 {
@@ -396,7 +556,7 @@ SBE_ONE_DEF bool shm_tensorpool_driver_shmDriverShutdownRequest_token_in_acting_
 
 SBE_ONE_DEF uint16_t shm_tensorpool_driver_shmDriverShutdownRequest_token_id(void)
 {
-    return 1;
+    return 3;
 }
 
 SBE_ONE_DEF uint64_t shm_tensorpool_driver_shmDriverShutdownRequest_token_header_length(void)
@@ -475,6 +635,149 @@ SBE_ONE_DEF struct shm_tensorpool_driver_shmDriverShutdownRequest_string_view sh
 }
 
 SBE_ONE_DEF struct shm_tensorpool_driver_shmDriverShutdownRequest *shm_tensorpool_driver_shmDriverShutdownRequest_put_token(
+    struct shm_tensorpool_driver_shmDriverShutdownRequest *const codec,
+    const char *src,
+    const uint32_t length)
+{
+    uint64_t length_of_length_field = 4;
+    uint64_t length_position = shm_tensorpool_driver_shmDriverShutdownRequest_sbe_position(codec);
+    uint32_t length_field_value = SBE_LITTLE_ENDIAN_ENCODE_32(length);
+    if (!shm_tensorpool_driver_shmDriverShutdownRequest_set_sbe_position(codec, length_position + length_of_length_field))
+    {
+        return NULL;
+    }
+
+    memcpy(codec->buffer + length_position, &length_field_value, sizeof(uint32_t));
+    uint64_t pos = shm_tensorpool_driver_shmDriverShutdownRequest_sbe_position(codec);
+
+    if (!shm_tensorpool_driver_shmDriverShutdownRequest_set_sbe_position(codec, pos + length))
+    {
+        return NULL;
+    }
+
+    memcpy(codec->buffer + pos, src, length);
+
+    return codec;
+}
+
+SBE_ONE_DEF const char *shm_tensorpool_driver_shmDriverShutdownRequest_errorMessage_meta_attribute(
+    const enum shm_tensorpool_driver_shmDriverShutdownRequest_meta_attribute attribute)
+{
+    switch (attribute)
+    {
+        case shm_tensorpool_driver_shmDriverShutdownRequest_meta_attribute_EPOCH: return "";
+        case shm_tensorpool_driver_shmDriverShutdownRequest_meta_attribute_TIME_UNIT: return "";
+        case shm_tensorpool_driver_shmDriverShutdownRequest_meta_attribute_SEMANTIC_TYPE: return "";
+        case shm_tensorpool_driver_shmDriverShutdownRequest_meta_attribute_PRESENCE: return "required";
+    }
+
+    return "";
+}
+
+SBE_ONE_DEF const char *shm_tensorpool_driver_shmDriverShutdownRequest_errorMessage_character_encoding(void)
+{
+    return "null";
+}
+
+SBE_ONE_DEF uint64_t shm_tensorpool_driver_shmDriverShutdownRequest_errorMessage_since_version(void)
+{
+    return 0;
+}
+
+SBE_ONE_DEF bool shm_tensorpool_driver_shmDriverShutdownRequest_errorMessage_in_acting_version(
+    const struct shm_tensorpool_driver_shmDriverShutdownRequest *const codec)
+{
+#if defined(__clang__)
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wtautological-compare"
+#endif
+    return codec->acting_version >= shm_tensorpool_driver_shmDriverShutdownRequest_errorMessage_since_version();
+#if defined(__clang__)
+#pragma clang diagnostic pop
+#endif
+}
+
+SBE_ONE_DEF uint16_t shm_tensorpool_driver_shmDriverShutdownRequest_errorMessage_id(void)
+{
+    return 4;
+}
+
+SBE_ONE_DEF uint64_t shm_tensorpool_driver_shmDriverShutdownRequest_errorMessage_header_length(void)
+{
+    return 4;
+}
+
+SBE_ONE_DEF uint32_t shm_tensorpool_driver_shmDriverShutdownRequest_errorMessage_length(
+    const struct shm_tensorpool_driver_shmDriverShutdownRequest *const codec)
+{
+    uint32_t length;
+    memcpy(&length, codec->buffer + shm_tensorpool_driver_shmDriverShutdownRequest_sbe_position(codec), sizeof(uint32_t));
+
+    return SBE_LITTLE_ENDIAN_ENCODE_32(length);
+}
+
+SBE_ONE_DEF const char *shm_tensorpool_driver_shmDriverShutdownRequest_errorMessage(
+    struct shm_tensorpool_driver_shmDriverShutdownRequest *const codec)
+{
+    uint32_t length_field_value;
+    memcpy(&length_field_value, codec->buffer + shm_tensorpool_driver_shmDriverShutdownRequest_sbe_position(codec), sizeof(uint32_t));
+    const char *field_ptr = (codec->buffer + shm_tensorpool_driver_shmDriverShutdownRequest_sbe_position(codec) + 4);
+
+    if (!shm_tensorpool_driver_shmDriverShutdownRequest_set_sbe_position(
+        codec, shm_tensorpool_driver_shmDriverShutdownRequest_sbe_position(codec) + 4 + SBE_LITTLE_ENDIAN_ENCODE_32(length_field_value)))
+    {
+        return NULL;
+    }
+
+    return field_ptr;
+}
+
+SBE_ONE_DEF uint64_t shm_tensorpool_driver_shmDriverShutdownRequest_get_errorMessage(
+    struct shm_tensorpool_driver_shmDriverShutdownRequest *const codec,
+    char *dst,
+    const uint64_t length)
+{
+    uint64_t length_of_length_field = 4;
+    uint64_t length_position = shm_tensorpool_driver_shmDriverShutdownRequest_sbe_position(codec);
+    if (!shm_tensorpool_driver_shmDriverShutdownRequest_set_sbe_position(codec, length_position + length_of_length_field))
+    {
+        return 0;
+    }
+
+    uint32_t length_field_value;
+    memcpy(&length_field_value, codec->buffer + length_position, sizeof(uint32_t));
+    uint64_t data_length = SBE_LITTLE_ENDIAN_ENCODE_32(length_field_value);
+    uint64_t bytes_to_copy = length < data_length ? length : data_length;
+    uint64_t pos = shm_tensorpool_driver_shmDriverShutdownRequest_sbe_position(codec);
+
+    if (!shm_tensorpool_driver_shmDriverShutdownRequest_set_sbe_position(codec, pos + data_length))
+    {
+        return 0;
+    }
+
+    memcpy(dst, codec->buffer + pos, bytes_to_copy);
+
+    return bytes_to_copy;
+}
+
+SBE_ONE_DEF struct shm_tensorpool_driver_shmDriverShutdownRequest_string_view shm_tensorpool_driver_shmDriverShutdownRequest_get_errorMessage_as_string_view(
+    struct shm_tensorpool_driver_shmDriverShutdownRequest *const codec)
+{
+    uint32_t length_field_value = shm_tensorpool_driver_shmDriverShutdownRequest_errorMessage_length(codec);
+    const char *field_ptr = codec->buffer + shm_tensorpool_driver_shmDriverShutdownRequest_sbe_position(codec) + 4;
+    if (!shm_tensorpool_driver_shmDriverShutdownRequest_set_sbe_position(
+        codec, shm_tensorpool_driver_shmDriverShutdownRequest_sbe_position(codec) + 4 + length_field_value))
+    {
+        struct shm_tensorpool_driver_shmDriverShutdownRequest_string_view ret = {NULL, 0};
+        return ret;
+    }
+
+    struct shm_tensorpool_driver_shmDriverShutdownRequest_string_view ret = {field_ptr, length_field_value};
+
+    return ret;
+}
+
+SBE_ONE_DEF struct shm_tensorpool_driver_shmDriverShutdownRequest *shm_tensorpool_driver_shmDriverShutdownRequest_put_errorMessage(
     struct shm_tensorpool_driver_shmDriverShutdownRequest *const codec,
     const char *src,
     const uint32_t length)

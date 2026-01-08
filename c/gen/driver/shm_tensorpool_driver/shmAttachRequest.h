@@ -711,7 +711,7 @@ SBE_ONE_DEF const char *shm_tensorpool_driver_shmAttachRequest_expectedLayoutVer
         case shm_tensorpool_driver_shmAttachRequest_meta_attribute_EPOCH: return "";
         case shm_tensorpool_driver_shmAttachRequest_meta_attribute_TIME_UNIT: return "";
         case shm_tensorpool_driver_shmAttachRequest_meta_attribute_SEMANTIC_TYPE: return "";
-        case shm_tensorpool_driver_shmAttachRequest_meta_attribute_PRESENCE: return "optional";
+        case shm_tensorpool_driver_shmAttachRequest_meta_attribute_PRESENCE: return "required";
     }
 
     return "";
@@ -804,7 +804,7 @@ SBE_ONE_DEF const char *shm_tensorpool_driver_shmAttachRequest_maxDims_meta_attr
         case shm_tensorpool_driver_shmAttachRequest_meta_attribute_EPOCH: return "";
         case shm_tensorpool_driver_shmAttachRequest_meta_attribute_TIME_UNIT: return "";
         case shm_tensorpool_driver_shmAttachRequest_meta_attribute_SEMANTIC_TYPE: return "";
-        case shm_tensorpool_driver_shmAttachRequest_meta_attribute_PRESENCE: return "optional";
+        case shm_tensorpool_driver_shmAttachRequest_meta_attribute_PRESENCE: return "required";
     }
 
     return "";
@@ -964,7 +964,7 @@ SBE_ONE_DEF const char *shm_tensorpool_driver_shmAttachRequest_requireHugepages_
         case shm_tensorpool_driver_shmAttachRequest_meta_attribute_EPOCH: return "";
         case shm_tensorpool_driver_shmAttachRequest_meta_attribute_TIME_UNIT: return "";
         case shm_tensorpool_driver_shmAttachRequest_meta_attribute_SEMANTIC_TYPE: return "";
-        case shm_tensorpool_driver_shmAttachRequest_meta_attribute_PRESENCE: return "optional";
+        case shm_tensorpool_driver_shmAttachRequest_meta_attribute_PRESENCE: return "required";
     }
 
     return "";

@@ -224,11 +224,11 @@ SBE_ONE_DEF uint16_t shm_tensorpool_driver_shmDriverShutdown_sbe_block_length(vo
     return (uint16_t)9;
 }
 
-#define SHM_TENSORPOOL_DRIVER_SHM_DRIVER_SHUTDOWN_SBE_TEMPLATE_ID (uint16_t)7
+#define SHM_TENSORPOOL_DRIVER_SHM_DRIVER_SHUTDOWN_SBE_TEMPLATE_ID (uint16_t)6
 
 SBE_ONE_DEF uint16_t shm_tensorpool_driver_shmDriverShutdown_sbe_template_id(void)
 {
-    return (uint16_t)7;
+    return (uint16_t)6;
 }
 
 SBE_ONE_DEF uint16_t shm_tensorpool_driver_shmDriverShutdown_sbe_schema_id(void)

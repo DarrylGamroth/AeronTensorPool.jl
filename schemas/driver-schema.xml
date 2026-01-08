@@ -47,7 +47,6 @@
     <enum name="PublishMode" encodingType="uint8">
       <validValue name="REQUIRE_EXISTING">1</validValue>
       <validValue name="EXISTING_OR_CREATE">2</validValue>
-      <validValue name="UNKNOWN">255</validValue>
     </enum>
 
     <enum name="LeaseRevokeReason" encodingType="uint8">
@@ -98,8 +97,8 @@
       <field name="strideBytes" id="3" type="uint32"/>
       <data  name="regionUri"   id="4" type="varAsciiEncoding"/>
     </group>
-    <data  name="headerRegionUri"       id="11" type="varAsciiEncoding" presence="optional"/>
-    <data  name="errorMessage"           id="30" type="varAsciiEncoding" presence="optional"/>
+    <data  name="headerRegionUri"       id="11" type="varAsciiEncoding"/>
+    <data  name="errorMessage"           id="30" type="varAsciiEncoding"/>
   </sbe:message>
 
   <sbe:message name="ShmDetachRequest" id="3">
@@ -113,7 +112,7 @@
   <sbe:message name="ShmDetachResponse" id="4">
     <field name="correlationId" id="1" type="int64"/>
     <field name="code"          id="2" type="ResponseCode"/>
-    <data  name="errorMessage"  id="3" type="varAsciiEncoding" presence="optional"/>
+    <data  name="errorMessage"  id="3" type="varAsciiEncoding"/>
   </sbe:message>
 
   <sbe:message name="ShmLeaseKeepalive" id="5">
@@ -127,7 +126,7 @@
   <sbe:message name="ShmDriverShutdown" id="6">
     <field name="timestampNs" id="1" type="uint64"/>
     <field name="reason"      id="2" type="ShutdownReason"/>
-    <data  name="errorMessage" id="3" type="varAsciiEncoding" presence="optional"/>
+    <data  name="errorMessage" id="3" type="varAsciiEncoding"/>
   </sbe:message>
 
   <sbe:message name="ShmLeaseRevoked" id="7">
@@ -137,14 +136,14 @@
     <field name="clientId"    id="4" type="uint32"/>
     <field name="role"        id="5" type="Role"/>
     <field name="reason"      id="6" type="LeaseRevokeReason"/>
-    <data  name="errorMessage" id="7" type="varAsciiEncoding" presence="optional"/>
+    <data  name="errorMessage" id="7" type="varAsciiEncoding"/>
   </sbe:message>
 
   <sbe:message name="ShmDriverShutdownRequest" id="8">
     <field name="correlationId" id="1" type="int64"/>
     <field name="reason"        id="2" type="ShutdownReason"/>
     <data  name="token"         id="3" type="varAsciiEncoding"/>
-    <data  name="errorMessage"  id="4" type="varAsciiEncoding" presence="optional"/>
+    <data  name="errorMessage"  id="4" type="varAsciiEncoding"/>
   </sbe:message>
 
 </sbe:messageSchema>

@@ -221,14 +221,14 @@ SBE_ONE_DEF struct shm_tensorpool_driver_shmLeaseRevoked *shm_tensorpool_driver_
 
 SBE_ONE_DEF uint16_t shm_tensorpool_driver_shmLeaseRevoked_sbe_block_length(void)
 {
-    return (uint16_t)18;
+    return (uint16_t)26;
 }
 
-#define SHM_TENSORPOOL_DRIVER_SHM_LEASE_REVOKED_SBE_TEMPLATE_ID (uint16_t)6
+#define SHM_TENSORPOOL_DRIVER_SHM_LEASE_REVOKED_SBE_TEMPLATE_ID (uint16_t)7
 
 SBE_ONE_DEF uint16_t shm_tensorpool_driver_shmLeaseRevoked_sbe_template_id(void)
 {
-    return (uint16_t)6;
+    return (uint16_t)7;
 }
 
 SBE_ONE_DEF uint16_t shm_tensorpool_driver_shmLeaseRevoked_sbe_schema_id(void)
@@ -357,6 +357,99 @@ SBE_ONE_DEF uint64_t shm_tensorpool_driver_shmLeaseRevoked_acting_version(
     return codec->acting_version;
 }
 
+SBE_ONE_DEF const char *shm_tensorpool_driver_shmLeaseRevoked_timestampNs_meta_attribute(
+    const enum shm_tensorpool_driver_shmLeaseRevoked_meta_attribute attribute)
+{
+    switch (attribute)
+    {
+        case shm_tensorpool_driver_shmLeaseRevoked_meta_attribute_EPOCH: return "";
+        case shm_tensorpool_driver_shmLeaseRevoked_meta_attribute_TIME_UNIT: return "";
+        case shm_tensorpool_driver_shmLeaseRevoked_meta_attribute_SEMANTIC_TYPE: return "";
+        case shm_tensorpool_driver_shmLeaseRevoked_meta_attribute_PRESENCE: return "required";
+    }
+
+    return "";
+}
+
+SBE_ONE_DEF uint16_t shm_tensorpool_driver_shmLeaseRevoked_timestampNs_id(void)
+{
+    return 1;
+}
+
+SBE_ONE_DEF uint64_t shm_tensorpool_driver_shmLeaseRevoked_timestampNs_since_version(void)
+{
+    return 0;
+}
+
+SBE_ONE_DEF bool shm_tensorpool_driver_shmLeaseRevoked_timestampNs_in_acting_version(
+    const struct shm_tensorpool_driver_shmLeaseRevoked *const codec)
+{
+#if defined(__clang__)
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wtautological-compare"
+#endif
+    return codec->acting_version >= shm_tensorpool_driver_shmLeaseRevoked_timestampNs_since_version();
+#if defined(__clang__)
+#pragma clang diagnostic pop
+#endif
+}
+
+SBE_ONE_DEF size_t shm_tensorpool_driver_shmLeaseRevoked_timestampNs_encoding_offset(void)
+{
+    return 0;
+}
+
+SBE_ONE_DEF uint64_t shm_tensorpool_driver_shmLeaseRevoked_timestampNs_null_value(void)
+{
+    return SBE_NULLVALUE_UINT64;
+}
+
+SBE_ONE_DEF uint64_t shm_tensorpool_driver_shmLeaseRevoked_timestampNs_min_value(void)
+{
+    return UINT64_C(0x0);
+}
+
+SBE_ONE_DEF uint64_t shm_tensorpool_driver_shmLeaseRevoked_timestampNs_max_value(void)
+{
+    return UINT64_C(0xfffffffffffffffe);
+}
+
+SBE_ONE_DEF size_t shm_tensorpool_driver_shmLeaseRevoked_timestampNs_encoding_length(void)
+{
+    return 8;
+}
+
+SBE_ONE_DEF uint64_t shm_tensorpool_driver_shmLeaseRevoked_timestampNs(
+    const struct shm_tensorpool_driver_shmLeaseRevoked *const codec)
+{
+    uint64_t val;
+#if defined(__GNUG__) && !defined(__clang__)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
+#endif
+    memcpy(&val, codec->buffer + codec->offset + 0, sizeof(uint64_t));
+#if defined(__GNUG__) && !defined(__clang__)
+#pragma GCC diagnostic pop
+#endif
+    return SBE_LITTLE_ENDIAN_ENCODE_64(val);
+}
+
+SBE_ONE_DEF struct shm_tensorpool_driver_shmLeaseRevoked *shm_tensorpool_driver_shmLeaseRevoked_set_timestampNs(
+    struct shm_tensorpool_driver_shmLeaseRevoked *const codec,
+    const uint64_t value)
+{
+    uint64_t val = SBE_LITTLE_ENDIAN_ENCODE_64(value);
+#if defined(__GNUG__) && !defined(__clang__)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
+#endif
+    memcpy(codec->buffer + codec->offset + 0, &val, sizeof(uint64_t));
+#if defined(__GNUG__) && !defined(__clang__)
+#pragma GCC diagnostic pop
+#endif
+    return codec;
+}
+
 SBE_ONE_DEF const char *shm_tensorpool_driver_shmLeaseRevoked_leaseId_meta_attribute(
     const enum shm_tensorpool_driver_shmLeaseRevoked_meta_attribute attribute)
 {
@@ -373,7 +466,7 @@ SBE_ONE_DEF const char *shm_tensorpool_driver_shmLeaseRevoked_leaseId_meta_attri
 
 SBE_ONE_DEF uint16_t shm_tensorpool_driver_shmLeaseRevoked_leaseId_id(void)
 {
-    return 1;
+    return 2;
 }
 
 SBE_ONE_DEF uint64_t shm_tensorpool_driver_shmLeaseRevoked_leaseId_since_version(void)
@@ -396,7 +489,7 @@ SBE_ONE_DEF bool shm_tensorpool_driver_shmLeaseRevoked_leaseId_in_acting_version
 
 SBE_ONE_DEF size_t shm_tensorpool_driver_shmLeaseRevoked_leaseId_encoding_offset(void)
 {
-    return 0;
+    return 8;
 }
 
 SBE_ONE_DEF uint64_t shm_tensorpool_driver_shmLeaseRevoked_leaseId_null_value(void)
@@ -427,7 +520,7 @@ SBE_ONE_DEF uint64_t shm_tensorpool_driver_shmLeaseRevoked_leaseId(
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
 #endif
-    memcpy(&val, codec->buffer + codec->offset + 0, sizeof(uint64_t));
+    memcpy(&val, codec->buffer + codec->offset + 8, sizeof(uint64_t));
 #if defined(__GNUG__) && !defined(__clang__)
 #pragma GCC diagnostic pop
 #endif
@@ -443,7 +536,7 @@ SBE_ONE_DEF struct shm_tensorpool_driver_shmLeaseRevoked *shm_tensorpool_driver_
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
 #endif
-    memcpy(codec->buffer + codec->offset + 0, &val, sizeof(uint64_t));
+    memcpy(codec->buffer + codec->offset + 8, &val, sizeof(uint64_t));
 #if defined(__GNUG__) && !defined(__clang__)
 #pragma GCC diagnostic pop
 #endif
@@ -466,7 +559,7 @@ SBE_ONE_DEF const char *shm_tensorpool_driver_shmLeaseRevoked_streamId_meta_attr
 
 SBE_ONE_DEF uint16_t shm_tensorpool_driver_shmLeaseRevoked_streamId_id(void)
 {
-    return 2;
+    return 3;
 }
 
 SBE_ONE_DEF uint64_t shm_tensorpool_driver_shmLeaseRevoked_streamId_since_version(void)
@@ -489,7 +582,7 @@ SBE_ONE_DEF bool shm_tensorpool_driver_shmLeaseRevoked_streamId_in_acting_versio
 
 SBE_ONE_DEF size_t shm_tensorpool_driver_shmLeaseRevoked_streamId_encoding_offset(void)
 {
-    return 8;
+    return 16;
 }
 
 SBE_ONE_DEF uint32_t shm_tensorpool_driver_shmLeaseRevoked_streamId_null_value(void)
@@ -520,7 +613,7 @@ SBE_ONE_DEF uint32_t shm_tensorpool_driver_shmLeaseRevoked_streamId(
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
 #endif
-    memcpy(&val, codec->buffer + codec->offset + 8, sizeof(uint32_t));
+    memcpy(&val, codec->buffer + codec->offset + 16, sizeof(uint32_t));
 #if defined(__GNUG__) && !defined(__clang__)
 #pragma GCC diagnostic pop
 #endif
@@ -536,7 +629,7 @@ SBE_ONE_DEF struct shm_tensorpool_driver_shmLeaseRevoked *shm_tensorpool_driver_
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
 #endif
-    memcpy(codec->buffer + codec->offset + 8, &val, sizeof(uint32_t));
+    memcpy(codec->buffer + codec->offset + 16, &val, sizeof(uint32_t));
 #if defined(__GNUG__) && !defined(__clang__)
 #pragma GCC diagnostic pop
 #endif
@@ -559,7 +652,7 @@ SBE_ONE_DEF const char *shm_tensorpool_driver_shmLeaseRevoked_clientId_meta_attr
 
 SBE_ONE_DEF uint16_t shm_tensorpool_driver_shmLeaseRevoked_clientId_id(void)
 {
-    return 3;
+    return 4;
 }
 
 SBE_ONE_DEF uint64_t shm_tensorpool_driver_shmLeaseRevoked_clientId_since_version(void)
@@ -582,7 +675,7 @@ SBE_ONE_DEF bool shm_tensorpool_driver_shmLeaseRevoked_clientId_in_acting_versio
 
 SBE_ONE_DEF size_t shm_tensorpool_driver_shmLeaseRevoked_clientId_encoding_offset(void)
 {
-    return 12;
+    return 20;
 }
 
 SBE_ONE_DEF uint32_t shm_tensorpool_driver_shmLeaseRevoked_clientId_null_value(void)
@@ -613,7 +706,7 @@ SBE_ONE_DEF uint32_t shm_tensorpool_driver_shmLeaseRevoked_clientId(
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
 #endif
-    memcpy(&val, codec->buffer + codec->offset + 12, sizeof(uint32_t));
+    memcpy(&val, codec->buffer + codec->offset + 20, sizeof(uint32_t));
 #if defined(__GNUG__) && !defined(__clang__)
 #pragma GCC diagnostic pop
 #endif
@@ -629,7 +722,7 @@ SBE_ONE_DEF struct shm_tensorpool_driver_shmLeaseRevoked *shm_tensorpool_driver_
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
 #endif
-    memcpy(codec->buffer + codec->offset + 12, &val, sizeof(uint32_t));
+    memcpy(codec->buffer + codec->offset + 20, &val, sizeof(uint32_t));
 #if defined(__GNUG__) && !defined(__clang__)
 #pragma GCC diagnostic pop
 #endif
@@ -652,7 +745,7 @@ SBE_ONE_DEF const char *shm_tensorpool_driver_shmLeaseRevoked_role_meta_attribut
 
 SBE_ONE_DEF uint16_t shm_tensorpool_driver_shmLeaseRevoked_role_id(void)
 {
-    return 4;
+    return 5;
 }
 
 SBE_ONE_DEF uint64_t shm_tensorpool_driver_shmLeaseRevoked_role_since_version(void)
@@ -675,7 +768,7 @@ SBE_ONE_DEF bool shm_tensorpool_driver_shmLeaseRevoked_role_in_acting_version(
 
 SBE_ONE_DEF size_t shm_tensorpool_driver_shmLeaseRevoked_role_encoding_offset(void)
 {
-    return 16;
+    return 24;
 }
 
 SBE_ONE_DEF size_t shm_tensorpool_driver_shmLeaseRevoked_role_encoding_length(void)
@@ -688,7 +781,7 @@ SBE_ONE_DEF bool shm_tensorpool_driver_shmLeaseRevoked_role(
     enum shm_tensorpool_driver_role *const out)
 {
     uint8_t val;
-    memcpy(&val, codec->buffer + codec->offset + 16, sizeof(uint8_t));
+    memcpy(&val, codec->buffer + codec->offset + 24, sizeof(uint8_t));
 
     return shm_tensorpool_driver_role_get((val), out);
 }
@@ -698,7 +791,7 @@ SBE_ONE_DEF struct shm_tensorpool_driver_shmLeaseRevoked *shm_tensorpool_driver_
     const enum shm_tensorpool_driver_role value)
 {
     uint8_t val = (value);
-    memcpy(codec->buffer + codec->offset + 16, &val, sizeof(uint8_t));
+    memcpy(codec->buffer + codec->offset + 24, &val, sizeof(uint8_t));
 
     return codec;
 }
@@ -719,7 +812,7 @@ SBE_ONE_DEF const char *shm_tensorpool_driver_shmLeaseRevoked_reason_meta_attrib
 
 SBE_ONE_DEF uint16_t shm_tensorpool_driver_shmLeaseRevoked_reason_id(void)
 {
-    return 5;
+    return 6;
 }
 
 SBE_ONE_DEF uint64_t shm_tensorpool_driver_shmLeaseRevoked_reason_since_version(void)
@@ -742,7 +835,7 @@ SBE_ONE_DEF bool shm_tensorpool_driver_shmLeaseRevoked_reason_in_acting_version(
 
 SBE_ONE_DEF size_t shm_tensorpool_driver_shmLeaseRevoked_reason_encoding_offset(void)
 {
-    return 17;
+    return 25;
 }
 
 SBE_ONE_DEF size_t shm_tensorpool_driver_shmLeaseRevoked_reason_encoding_length(void)
@@ -755,7 +848,7 @@ SBE_ONE_DEF bool shm_tensorpool_driver_shmLeaseRevoked_reason(
     enum shm_tensorpool_driver_leaseRevokeReason *const out)
 {
     uint8_t val;
-    memcpy(&val, codec->buffer + codec->offset + 17, sizeof(uint8_t));
+    memcpy(&val, codec->buffer + codec->offset + 25, sizeof(uint8_t));
 
     return shm_tensorpool_driver_leaseRevokeReason_get((val), out);
 }
@@ -765,7 +858,150 @@ SBE_ONE_DEF struct shm_tensorpool_driver_shmLeaseRevoked *shm_tensorpool_driver_
     const enum shm_tensorpool_driver_leaseRevokeReason value)
 {
     uint8_t val = (value);
-    memcpy(codec->buffer + codec->offset + 17, &val, sizeof(uint8_t));
+    memcpy(codec->buffer + codec->offset + 25, &val, sizeof(uint8_t));
+
+    return codec;
+}
+
+SBE_ONE_DEF const char *shm_tensorpool_driver_shmLeaseRevoked_errorMessage_meta_attribute(
+    const enum shm_tensorpool_driver_shmLeaseRevoked_meta_attribute attribute)
+{
+    switch (attribute)
+    {
+        case shm_tensorpool_driver_shmLeaseRevoked_meta_attribute_EPOCH: return "";
+        case shm_tensorpool_driver_shmLeaseRevoked_meta_attribute_TIME_UNIT: return "";
+        case shm_tensorpool_driver_shmLeaseRevoked_meta_attribute_SEMANTIC_TYPE: return "";
+        case shm_tensorpool_driver_shmLeaseRevoked_meta_attribute_PRESENCE: return "required";
+    }
+
+    return "";
+}
+
+SBE_ONE_DEF const char *shm_tensorpool_driver_shmLeaseRevoked_errorMessage_character_encoding(void)
+{
+    return "null";
+}
+
+SBE_ONE_DEF uint64_t shm_tensorpool_driver_shmLeaseRevoked_errorMessage_since_version(void)
+{
+    return 0;
+}
+
+SBE_ONE_DEF bool shm_tensorpool_driver_shmLeaseRevoked_errorMessage_in_acting_version(
+    const struct shm_tensorpool_driver_shmLeaseRevoked *const codec)
+{
+#if defined(__clang__)
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wtautological-compare"
+#endif
+    return codec->acting_version >= shm_tensorpool_driver_shmLeaseRevoked_errorMessage_since_version();
+#if defined(__clang__)
+#pragma clang diagnostic pop
+#endif
+}
+
+SBE_ONE_DEF uint16_t shm_tensorpool_driver_shmLeaseRevoked_errorMessage_id(void)
+{
+    return 7;
+}
+
+SBE_ONE_DEF uint64_t shm_tensorpool_driver_shmLeaseRevoked_errorMessage_header_length(void)
+{
+    return 4;
+}
+
+SBE_ONE_DEF uint32_t shm_tensorpool_driver_shmLeaseRevoked_errorMessage_length(
+    const struct shm_tensorpool_driver_shmLeaseRevoked *const codec)
+{
+    uint32_t length;
+    memcpy(&length, codec->buffer + shm_tensorpool_driver_shmLeaseRevoked_sbe_position(codec), sizeof(uint32_t));
+
+    return SBE_LITTLE_ENDIAN_ENCODE_32(length);
+}
+
+SBE_ONE_DEF const char *shm_tensorpool_driver_shmLeaseRevoked_errorMessage(
+    struct shm_tensorpool_driver_shmLeaseRevoked *const codec)
+{
+    uint32_t length_field_value;
+    memcpy(&length_field_value, codec->buffer + shm_tensorpool_driver_shmLeaseRevoked_sbe_position(codec), sizeof(uint32_t));
+    const char *field_ptr = (codec->buffer + shm_tensorpool_driver_shmLeaseRevoked_sbe_position(codec) + 4);
+
+    if (!shm_tensorpool_driver_shmLeaseRevoked_set_sbe_position(
+        codec, shm_tensorpool_driver_shmLeaseRevoked_sbe_position(codec) + 4 + SBE_LITTLE_ENDIAN_ENCODE_32(length_field_value)))
+    {
+        return NULL;
+    }
+
+    return field_ptr;
+}
+
+SBE_ONE_DEF uint64_t shm_tensorpool_driver_shmLeaseRevoked_get_errorMessage(
+    struct shm_tensorpool_driver_shmLeaseRevoked *const codec,
+    char *dst,
+    const uint64_t length)
+{
+    uint64_t length_of_length_field = 4;
+    uint64_t length_position = shm_tensorpool_driver_shmLeaseRevoked_sbe_position(codec);
+    if (!shm_tensorpool_driver_shmLeaseRevoked_set_sbe_position(codec, length_position + length_of_length_field))
+    {
+        return 0;
+    }
+
+    uint32_t length_field_value;
+    memcpy(&length_field_value, codec->buffer + length_position, sizeof(uint32_t));
+    uint64_t data_length = SBE_LITTLE_ENDIAN_ENCODE_32(length_field_value);
+    uint64_t bytes_to_copy = length < data_length ? length : data_length;
+    uint64_t pos = shm_tensorpool_driver_shmLeaseRevoked_sbe_position(codec);
+
+    if (!shm_tensorpool_driver_shmLeaseRevoked_set_sbe_position(codec, pos + data_length))
+    {
+        return 0;
+    }
+
+    memcpy(dst, codec->buffer + pos, bytes_to_copy);
+
+    return bytes_to_copy;
+}
+
+SBE_ONE_DEF struct shm_tensorpool_driver_shmLeaseRevoked_string_view shm_tensorpool_driver_shmLeaseRevoked_get_errorMessage_as_string_view(
+    struct shm_tensorpool_driver_shmLeaseRevoked *const codec)
+{
+    uint32_t length_field_value = shm_tensorpool_driver_shmLeaseRevoked_errorMessage_length(codec);
+    const char *field_ptr = codec->buffer + shm_tensorpool_driver_shmLeaseRevoked_sbe_position(codec) + 4;
+    if (!shm_tensorpool_driver_shmLeaseRevoked_set_sbe_position(
+        codec, shm_tensorpool_driver_shmLeaseRevoked_sbe_position(codec) + 4 + length_field_value))
+    {
+        struct shm_tensorpool_driver_shmLeaseRevoked_string_view ret = {NULL, 0};
+        return ret;
+    }
+
+    struct shm_tensorpool_driver_shmLeaseRevoked_string_view ret = {field_ptr, length_field_value};
+
+    return ret;
+}
+
+SBE_ONE_DEF struct shm_tensorpool_driver_shmLeaseRevoked *shm_tensorpool_driver_shmLeaseRevoked_put_errorMessage(
+    struct shm_tensorpool_driver_shmLeaseRevoked *const codec,
+    const char *src,
+    const uint32_t length)
+{
+    uint64_t length_of_length_field = 4;
+    uint64_t length_position = shm_tensorpool_driver_shmLeaseRevoked_sbe_position(codec);
+    uint32_t length_field_value = SBE_LITTLE_ENDIAN_ENCODE_32(length);
+    if (!shm_tensorpool_driver_shmLeaseRevoked_set_sbe_position(codec, length_position + length_of_length_field))
+    {
+        return NULL;
+    }
+
+    memcpy(codec->buffer + length_position, &length_field_value, sizeof(uint32_t));
+    uint64_t pos = shm_tensorpool_driver_shmLeaseRevoked_sbe_position(codec);
+
+    if (!shm_tensorpool_driver_shmLeaseRevoked_set_sbe_position(codec, pos + length))
+    {
+        return NULL;
+    }
+
+    memcpy(codec->buffer + pos, src, length);
 
     return codec;
 }
