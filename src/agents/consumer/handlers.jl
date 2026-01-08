@@ -11,6 +11,9 @@ Returns:
 function make_descriptor_assembler(state::ConsumerState; callbacks::ConsumerCallbacks = NOOP_CONSUMER_CALLBACKS)
     handler = Aeron.FragmentHandler(state) do st, buffer, _
         header = MessageHeader.Decoder(buffer, 0)
+        if MessageHeader.schemaId(header) != MessageHeader.sbe_schema_id(MessageHeader.Decoder)
+            return nothing
+        end
         if MessageHeader.templateId(header) == TEMPLATE_FRAME_DESCRIPTOR
             @tp_info "consumer descriptor received"
             FrameDescriptor.wrap!(st.runtime.desc_decoder, buffer, 0; header = header)
@@ -37,6 +40,9 @@ Returns:
 function make_control_assembler(state::ConsumerState)
     handler = Aeron.FragmentHandler(state) do st, buffer, _
         header = MessageHeader.Decoder(buffer, 0)
+        if MessageHeader.schemaId(header) != MessageHeader.sbe_schema_id(MessageHeader.Decoder)
+            return nothing
+        end
         template_id = MessageHeader.templateId(header)
         if template_id == TEMPLATE_SHM_POOL_ANNOUNCE
             ShmPoolAnnounce.wrap!(st.runtime.announce_decoder, buffer, 0; header = header)
@@ -64,6 +70,9 @@ Returns:
 function make_progress_assembler(state::ConsumerState)
     handler = Aeron.FragmentHandler(state) do st, buffer, _
         header = MessageHeader.Decoder(buffer, 0)
+        if MessageHeader.schemaId(header) != MessageHeader.sbe_schema_id(MessageHeader.Decoder)
+            return nothing
+        end
         if MessageHeader.templateId(header) == TEMPLATE_FRAME_PROGRESS
             FrameProgress.wrap!(st.runtime.progress_decoder, buffer, 0; header = header)
         end

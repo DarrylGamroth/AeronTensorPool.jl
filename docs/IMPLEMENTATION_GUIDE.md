@@ -45,11 +45,19 @@ Producer flow (Wire 15.19):
 4) Write commit_word COMMITTED (release).
 5) Publish FrameDescriptor; optionally FrameProgress.
 
+Producer startup:
+- Wait for descriptor publication connectivity before publishing; `try_claim` returns `-1` until at least one subscriber connects.
+
 Consumer flow (Wire 15.19):
 1) Read commit_word (acquire); drop if odd.
 2) Read header and payload.
 3) Re-read commit_word (acquire); drop if changed or odd.
 4) Accept only if header.frame_id == descriptor.seq.
+
+Implementation notes:
+- Control/QoS/metadata channels can carry mixed message families; guard on `MessageHeader.schemaId` (or `DriverMessageHeader.schemaId`) before decoding.
+- Regenerate codecs after schema changes with `julia --project -e 'using Pkg; Pkg.build(\"AeronTensorPool\")'` to avoid schema/version mismatches.
+- Embedded TensorHeader decode should use `TensorHeaderMsg.wrap!` (headerBytes already includes its MessageHeader). Use `wrap_and_apply_header!` only on the write path.
 
 Control plane:
 - ShmPoolAnnounce informs mmap and validation.

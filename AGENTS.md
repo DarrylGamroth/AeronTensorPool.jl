@@ -114,6 +114,12 @@ Each agent follows the same organization for readability:
 - Use work_count rather than boolean flags for pollers.
 - Prefer `try_claim` over `offer` for small control messages.
 
+## Integration pitfalls (recent findings)
+- Mixed schema traffic: control/QoS/metadata can share a channel; always guard on `MessageHeader.schemaId` (or `DriverMessageHeader.schemaId`) before decoding to avoid SBE template/schema mismatch errors.
+- Embedded TensorHeader decode: `SlotHeader.headerBytes` includes a `MessageHeader`; use the default `TensorHeaderMsg.wrap!` when decoding (and `wrap_and_apply_header!` only on the write path).
+- Regenerate codecs after spec/schema edits: run `julia --project -e 'using Pkg; Pkg.build(\"AeronTensorPool\")'` to avoid stale schema/version mismatches.
+- Producer startup: wait for descriptor publication connectivity before sending frames; `try_claim` returns `-1` when no consumer is connected.
+
 ## Scripts
 - `scripts/run_role.jl`: run a single role with a config
 - `scripts/run_all.sh` / `scripts/run_all_driver.sh`: multi-role local runs

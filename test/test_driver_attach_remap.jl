@@ -125,13 +125,13 @@
             ShmAttachResponse.headerNslots!(enc, nslots)
             ShmAttachResponse.headerSlotBytes!(enc, UInt16(HEADER_SLOT_BYTES))
             ShmAttachResponse.maxDims!(enc, UInt8(MAX_DIMS))
-            ShmAttachResponse.headerRegionUri!(enc, header_uri)
             pools = ShmAttachResponse.payloadPools!(enc, 1)
             entry = ShmAttachResponse.PayloadPools.next!(pools)
             ShmAttachResponse.PayloadPools.poolId!(entry, UInt16(1))
             ShmAttachResponse.PayloadPools.poolNslots!(entry, nslots)
             ShmAttachResponse.PayloadPools.strideBytes!(entry, stride)
             ShmAttachResponse.PayloadPools.regionUri!(entry, pool_uri)
+            ShmAttachResponse.headerRegionUri!(enc, header_uri)
             ShmAttachResponse.errorMessage!(enc, "")
             return nothing
         end

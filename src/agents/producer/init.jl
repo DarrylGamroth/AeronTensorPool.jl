@@ -184,12 +184,21 @@ function init_producer_from_attach(
     mappings = map_producer_from_attach(driver_config, attach)
     mappings === nothing && throw(ArgumentError("payload superblock validation failed"))
 
+    @tp_info "Producer Aeron endpoints" aeron_uri = driver_config.aeron_uri descriptor_stream_id =
+        driver_config.descriptor_stream_id control_stream_id = driver_config.control_stream_id qos_stream_id =
+        driver_config.qos_stream_id metadata_stream_id = driver_config.metadata_stream_id
     pub_descriptor = Aeron.add_publication(client, driver_config.aeron_uri, driver_config.descriptor_stream_id)
+    @tp_info "Producer publication ready" stream_id = driver_config.descriptor_stream_id
     pub_control = Aeron.add_publication(client, driver_config.aeron_uri, driver_config.control_stream_id)
+    @tp_info "Producer control publication ready" stream_id = driver_config.control_stream_id
     pub_qos = Aeron.add_publication(client, driver_config.aeron_uri, driver_config.qos_stream_id)
+    @tp_info "Producer qos publication ready" stream_id = driver_config.qos_stream_id
     pub_metadata = Aeron.add_publication(client, driver_config.aeron_uri, driver_config.metadata_stream_id)
+    @tp_info "Producer metadata publication ready" stream_id = driver_config.metadata_stream_id
     sub_control = Aeron.add_subscription(client, driver_config.aeron_uri, driver_config.control_stream_id)
+    @tp_info "Producer control subscription ready" stream_id = driver_config.control_stream_id
     sub_qos = Aeron.add_subscription(client, driver_config.aeron_uri, driver_config.qos_stream_id)
+    @tp_info "Producer qos subscription ready" stream_id = driver_config.qos_stream_id
 
     timer_set = TimerSet(
         (PolledTimer(driver_config.announce_interval_ns), PolledTimer(driver_config.qos_interval_ns)),

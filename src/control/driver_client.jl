@@ -173,8 +173,12 @@ function driver_client_do_work!(state::DriverClientState, now_ns::UInt64)
             client_timestamp_ns = now_ns,
         )
         if sent
+            @tp_info "Driver keepalive sent" client_id = state.client_id role = state.role lease_id = state.lease_id stream_id =
+                state.stream_id
             work_count += 1
         else
+            @tp_warn "Driver keepalive failed" client_id = state.client_id role = state.role lease_id = state.lease_id stream_id =
+                state.stream_id
             state.keepalive_failed = true
             state.revoked = true
             state.lease_id = UInt64(0)

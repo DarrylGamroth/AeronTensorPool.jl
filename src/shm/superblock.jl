@@ -330,7 +330,7 @@ function read_slot_header(
     buffer::AbstractVector{UInt8},
     header_pos::Integer,
 )
-    TensorHeaderMsg.wrap!(tensor, buffer, header_pos; header = MessageHeader.Decoder(buffer, header_pos))
+    TensorHeaderMsg.wrap!(tensor, buffer, header_pos)
 
     dims = TensorHeaderMsg.dims(tensor, NTuple{MAX_DIMS, Int32})
     strides = TensorHeaderMsg.strides(tensor, NTuple{MAX_DIMS, Int32})

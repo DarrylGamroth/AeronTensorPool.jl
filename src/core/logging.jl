@@ -27,8 +27,9 @@ end
 
 macro tp_debug(args...)
     if LOG_ENABLED && LOG_LEVEL <= LEVEL_DEBUG
+        mod = __module__
         return quote
-            if TPLog.module_enabled(__module__)
+            if TPLog.module_enabled($mod)
                 Base.@debug $(map(esc, args)...)
             end
             nothing
@@ -39,8 +40,9 @@ end
 
 macro tp_info(args...)
     if LOG_ENABLED && LOG_LEVEL <= LEVEL_INFO
+        mod = __module__
         return quote
-            if TPLog.module_enabled(__module__)
+            if TPLog.module_enabled($mod)
                 Base.@info $(map(esc, args)...)
             end
             nothing
@@ -51,8 +53,9 @@ end
 
 macro tp_warn(args...)
     if LOG_ENABLED && LOG_LEVEL <= LEVEL_WARN
+        mod = __module__
         return quote
-            if TPLog.module_enabled(__module__)
+            if TPLog.module_enabled($mod)
                 Base.@warn $(map(esc, args)...)
             end
             nothing
@@ -63,8 +66,9 @@ end
 
 macro tp_error(args...)
     if LOG_ENABLED && LOG_LEVEL <= LEVEL_ERROR
+        mod = __module__
         return quote
-            if TPLog.module_enabled(__module__)
+            if TPLog.module_enabled($mod)
                 Base.@error $(map(esc, args)...)
             end
             nothing

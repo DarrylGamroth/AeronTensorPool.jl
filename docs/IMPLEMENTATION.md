@@ -19,6 +19,11 @@ For a combined wire + driver overview, see `docs/IMPLEMENTATION_GUIDE.md`.
   - Inline load: `modname = @load_schema "wire-schema.xml"` then `using .` to access types; suitable for tooling/tests.
   - File generation: `SBE.generate("wire-schema.xml", "gen/TensorPool.jl")`; then `include("gen/TensorPool.jl"); using .TensorPool`.
 - Regenerate codecs whenever the schema or layout_version changes.
+ - After spec/schema edits, run `julia --project -e 'using Pkg; Pkg.build(\"AeronTensorPool\")'` to keep generated codecs in sync.
+
+## 2b. Decoder Guards and Schema Mixing
+- Control/QoS/metadata channels may carry mixed message families. Always check `MessageHeader.schemaId` (or `DriverMessageHeader.schemaId`) before decoding.
+- Treat schema mismatches as non-fatal: ignore the fragment rather than throwing in hot paths.
 
 ## 2a. Source Layout (Aeron-style, Julian)
 - `src/core`: shared constants and error types.
@@ -47,6 +52,9 @@ For a combined wire + driver overview, see `docs/IMPLEMENTATION_GUIDE.md`.
 4) Fill header (shape/strides, pool/slot, meta_version, etc.)
 5) seq_commit = (seq << 1) | 1 (store release)
 6) Publish FrameDescriptor; optional FrameProgress COMPLETE
+
+Implementation notes:
+- On startup, producers SHOULD wait for descriptor publication connectivity before publishing. `try_claim` returns `-1` until at least one subscriber is connected.
 
 ## 5. Consumer Flow (spec §15.19)
 1) Validate epoch from FrameDescriptor; compute header_index

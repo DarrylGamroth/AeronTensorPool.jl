@@ -2,6 +2,7 @@ module Producer
 
 using ...Core
 using ...Core.TPLog
+import ...Core: poll_qos!, producer_qos
 using ...Aeron
 using ...Agent
 using ...Shm

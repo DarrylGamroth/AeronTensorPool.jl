@@ -14,6 +14,7 @@ mutable struct AppProducerAgent
     sent::Int
     last_send_ns::UInt64
     send_interval_ns::UInt64
+    last_connect_log_ns::UInt64
     ready::Bool
     log_every::Int
 end
@@ -27,17 +28,26 @@ struct AppProducerOnQos end
 
 function Agent.on_start(agent::AppProducerAgent)
     agent.ready = true
+    @info "AppProducerAgent started"
     return nothing
 end
 
 function Agent.do_work(agent::AppProducerAgent)
     now_ns = UInt64(time_ns())
+    state = AeronTensorPool.handle_state(agent.handle)
+    if !Aeron.is_connected(state.runtime.pub_descriptor)
+        if now_ns - agent.last_connect_log_ns > 1_000_000_000
+            @info "Waiting for descriptor publication to connect"
+            agent.last_connect_log_ns = now_ns
+        end
+        return 0
+    end
     if now_ns - agent.last_send_ns < agent.send_interval_ns
         return 0
     end
     if agent.max_count == 0 || agent.sent < agent.max_count
         fill!(agent.payload, UInt8(agent.sent % 256))
-        sent = Producer.offer_frame!(
+        sent = AeronTensorPool.offer_frame!(
             agent.handle,
             agent.payload,
             agent.shape,
@@ -49,11 +59,10 @@ function Agent.do_work(agent::AppProducerAgent)
             agent.sent += 1
             agent.last_send_ns = now_ns
             if agent.log_every > 0 && (agent.sent % agent.log_every == 0)
-                @info "Producer published frame" seq = AeronTensorPool.handle_state(agent.handle).seq - 1
+                @info "Producer published frame" seq = state.seq - 1
             end
         elseif agent.log_every > 0
-            connected = Aeron.is_connected(AeronTensorPool.handle_state(agent.handle).runtime.pub_descriptor)
-            @info "Producer publish skipped" descriptor_connected = connected
+            @info "Producer publish skipped" descriptor_connected = true
         end
     end
     return 0
@@ -62,6 +71,11 @@ end
 function usage()
     println("Usage: julia --project scripts/example_producer.jl [driver_config] [producer_config] [count] [payload_bytes]")
     println("Env: TP_EXAMPLE_VERBOSE=1, TP_EXAMPLE_LOG_EVERY=100")
+end
+
+function agent_error_handler(agent, err)
+    @error "Agent error" agent = Agent.name(agent) exception = (err, catch_backtrace())
+    return nothing
 end
 
 function first_stream_id(cfg::DriverConfig)
@@ -75,6 +89,32 @@ function default_payload_bytes(cfg::DriverConfig)
     return Int(profile.payload_pools[1].stride_bytes)
 end
 
+function override_producer_config_for_driver(config::ProducerConfig, driver_cfg::DriverConfig)
+    return ProducerConfig(
+        config.aeron_dir,
+        driver_cfg.endpoints.control_channel,
+        config.descriptor_stream_id,
+        driver_cfg.endpoints.control_stream_id,
+        driver_cfg.endpoints.qos_stream_id,
+        config.metadata_stream_id,
+        config.stream_id,
+        config.producer_id,
+        config.layout_version,
+        config.nslots,
+        config.shm_base_dir,
+        config.shm_namespace,
+        config.producer_instance_id,
+        config.header_uri,
+        config.payload_pools,
+        config.max_dims,
+        config.announce_interval_ns,
+        config.qos_interval_ns,
+        config.progress_interval_ns,
+        config.progress_bytes_delta,
+        config.mlock_shm,
+    )
+end
+
 function run_producer(driver_cfg_path::String, producer_cfg_path::String, count::Int, payload_bytes::Int)
     env_driver = Dict(ENV)
     if haskey(ENV, "AERON_DIR")
@@ -86,6 +126,7 @@ function run_producer(driver_cfg_path::String, producer_cfg_path::String, count:
     env = Dict(ENV)
     env["TP_STREAM_ID"] = string(stream_id)
     producer_cfg = load_producer_config(producer_cfg_path; env = env)
+    producer_cfg = override_producer_config_for_driver(producer_cfg, driver_cfg)
 
     effective_payload_bytes = payload_bytes == 0 ? default_payload_bytes(driver_cfg) : payload_bytes
     core_id = haskey(ENV, "AGENT_TASK_CORE") ? parse(Int, ENV["AGENT_TASK_CORE"]) : nothing
@@ -112,6 +153,13 @@ function run_producer(driver_cfg_path::String, producer_cfg_path::String, count:
             callbacks = callbacks,
             qos_monitor = qos_monitor,
         )
+        state = AeronTensorPool.handle_state(handle)
+        @info "Producer driver lease" lease_id = handle.driver_client.lease_id stream_id =
+            handle.driver_client.stream_id
+        @info "Producer attach complete" stream_id = state.config.stream_id control_stream_id = state.config.control_stream_id descriptor_stream_id =
+            state.config.descriptor_stream_id
+        @info "Producer Aeron connections" descriptor_connected = Aeron.is_connected(state.runtime.pub_descriptor) control_connected =
+            Aeron.is_connected(state.runtime.control.pub_control) qos_connected = Aeron.is_connected(state.runtime.pub_qos)
         set_metadata!(
             handle,
             meta_version,
@@ -132,11 +180,12 @@ function run_producer(driver_cfg_path::String, producer_cfg_path::String, count:
             0,
             UInt64(0),
             UInt64(10_000_000),
+            UInt64(0),
             false,
             log_every,
         )
         composite = CompositeAgent(AeronTensorPool.handle_agent(handle), app_agent)
-        runner = AgentRunner(BackoffIdleStrategy(), composite)
+        runner = AgentRunner(BackoffIdleStrategy(), composite; error_handler = agent_error_handler)
         if isnothing(core_id)
             Agent.start_on_thread(runner)
         else

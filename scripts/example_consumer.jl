@@ -56,6 +56,7 @@ end
 
 function Agent.on_start(agent::AppConsumerAgent)
     agent.ready = true
+    @info "AppConsumerAgent started"
     return nothing
 end
 
@@ -116,6 +117,11 @@ function usage()
     println("Env: TP_EXAMPLE_VERBOSE=1, TP_EXAMPLE_LOG_EVERY=100")
 end
 
+function agent_error_handler(agent, err)
+    @error "Agent error" agent = Agent.name(agent) exception = (err, catch_backtrace())
+    return nothing
+end
+
 function first_stream_id(cfg::DriverConfig)
     isempty(cfg.streams) && error("driver config has no streams")
     return first(values(cfg.streams)).stream_id
@@ -140,6 +146,9 @@ function run_consumer(driver_cfg_path::String, consumer_cfg_path::String, count:
     end
     env["TP_STREAM_ID"] = string(stream_id)
     consumer_cfg = load_consumer_config(consumer_cfg_path; env = env)
+    consumer_cfg.aeron_uri = driver_cfg.endpoints.control_channel
+    consumer_cfg.control_stream_id = driver_cfg.endpoints.control_stream_id
+    consumer_cfg.qos_stream_id = driver_cfg.endpoints.qos_stream_id
 
     discovery_channel = get(ENV, "TP_DISCOVERY_CHANNEL", "")
     discovery_stream_id = parse(Int32, get(ENV, "TP_DISCOVERY_STREAM_ID", "0"))
@@ -161,6 +170,13 @@ function run_consumer(driver_cfg_path::String, consumer_cfg_path::String, count:
         app_ref = Ref{AppConsumerAgent}()
         callbacks = ConsumerCallbacks(; on_frame! = AppConsumerOnFrame(app_ref))
         handle = attach_consumer(tp_client, consumer_cfg; discover = !isempty(discovery_channel), callbacks = callbacks)
+        state = AeronTensorPool.handle_state(handle)
+        @info "Consumer driver lease" lease_id = handle.driver_client.lease_id stream_id =
+            handle.driver_client.stream_id
+        @info "Consumer attach complete" stream_id = state.config.stream_id control_stream_id = state.config.control_stream_id descriptor_stream_id =
+            state.config.descriptor_stream_id
+        @info "Consumer Aeron connections" descriptor_connected = Aeron.is_connected(state.runtime.sub_descriptor) control_connected =
+            Aeron.is_connected(state.runtime.control.sub_control) qos_connected = Aeron.is_connected(state.runtime.sub_qos)
         qos_monitor = QosMonitor(consumer_cfg; client = tp_client.aeron_client)
         metadata_cache = MetadataCache(metadata_channel, metadata_stream_id; client = tp_client.aeron_client)
         app_agent = AppConsumerAgent(
@@ -188,7 +204,7 @@ function run_consumer(driver_cfg_path::String, consumer_cfg_path::String, count:
         )
         app_ref[] = app_agent
         composite = CompositeAgent(AeronTensorPool.handle_agent(handle), app_agent)
-        runner = AgentRunner(BackoffIdleStrategy(), composite)
+        runner = AgentRunner(BackoffIdleStrategy(), composite; error_handler = agent_error_handler)
         if isnothing(core_id)
             Agent.start_on_thread(runner)
         else

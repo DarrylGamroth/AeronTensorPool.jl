@@ -196,6 +196,9 @@ metadata_entry(cache::MetadataCache, stream_id::UInt32) = get(cache.entries, str
 function make_metadata_cache_assembler(cache::MetadataCache)
     handler = Aeron.FragmentHandler(cache) do st, buffer, header
         header = MessageHeader.Decoder(buffer, 0)
+        if MessageHeader.schemaId(header) != MessageHeader.sbe_schema_id(MessageHeader.Decoder)
+            return nothing
+        end
         template_id = MessageHeader.templateId(header)
         if template_id == TEMPLATE_DATA_SOURCE_ANNOUNCE
             DataSourceAnnounce.wrap!(st.announce_decoder, buffer, 0; header = header)

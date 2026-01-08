@@ -1,5 +1,6 @@
 using Aeron
 using AeronTensorPool
+using UnsafeArrays
 
 function usage()
     println("Usage:")
@@ -600,8 +601,8 @@ function tp_tool_main(args::Vector{String})
         client = Aeron.Client(ctx)
         sub = Aeron.add_subscription(client, channel, stream_id)
         handler = Aeron.FragmentHandler((_, buffer, _) -> begin
-            header = MessageHeader.Decoder(buffer, 0)
-            template_id = MessageHeader.templateId(header)
+            header = DriverMessageHeader.Decoder(buffer, 0)
+            template_id = DriverMessageHeader.templateId(header)
             if template_id == ShmPoolAnnounce.sbe_template_id(ShmPoolAnnounce.Decoder)
                 dec = ShmPoolAnnounce.Decoder(buffer)
                 ShmPoolAnnounce.wrap!(dec, buffer, 0; header = header)
@@ -640,52 +641,52 @@ function tp_tool_main(args::Vector{String})
         client = Aeron.Client(ctx)
         sub = Aeron.add_subscription(client, channel, stream_id)
         handler = Aeron.FragmentHandler((_, buffer, _) -> begin
-            header = MessageHeader.Decoder(buffer, 0)
-            template_id = MessageHeader.templateId(header)
+            header = DriverMessageHeader.Decoder(buffer, 0)
+            template_id = DriverMessageHeader.templateId(header)
             if template_id == ShmAttachRequest.sbe_template_id(ShmAttachRequest.Decoder)
-                dec = ShmAttachRequest.Decoder(buffer)
+                dec = ShmAttachRequest.Decoder(UnsafeArrays.UnsafeArray{UInt8, 1})
                 ShmAttachRequest.wrap!(dec, buffer, 0; header = header)
                 println(
                     "ShmAttachRequest client_id=$(ShmAttachRequest.clientId(dec)) role=$(ShmAttachRequest.role(dec)) stream_id=$(ShmAttachRequest.streamId(dec)) publish_mode=$(ShmAttachRequest.publishMode(dec))",
                 )
             elseif template_id == ShmAttachResponse.sbe_template_id(ShmAttachResponse.Decoder)
-                dec = ShmAttachResponse.Decoder(buffer)
+                dec = ShmAttachResponse.Decoder(UnsafeArrays.UnsafeArray{UInt8, 1})
                 ShmAttachResponse.wrap!(dec, buffer, 0; header = header)
                 println(
                     "ShmAttachResponse corr=$(ShmAttachResponse.correlationId(dec)) code=$(ShmAttachResponse.code(dec)) lease_id=$(ShmAttachResponse.leaseId(dec)) stream_id=$(ShmAttachResponse.streamId(dec)) epoch=$(ShmAttachResponse.epoch(dec))",
                 )
             elseif template_id == ShmDetachRequest.sbe_template_id(ShmDetachRequest.Decoder)
-                dec = ShmDetachRequest.Decoder(buffer)
+                dec = ShmDetachRequest.Decoder(UnsafeArrays.UnsafeArray{UInt8, 1})
                 ShmDetachRequest.wrap!(dec, buffer, 0; header = header)
                 println(
                     "ShmDetachRequest client_id=$(ShmDetachRequest.clientId(dec)) lease_id=$(ShmDetachRequest.leaseId(dec)) stream_id=$(ShmDetachRequest.streamId(dec))",
                 )
             elseif template_id == ShmDetachResponse.sbe_template_id(ShmDetachResponse.Decoder)
-                dec = ShmDetachResponse.Decoder(buffer)
+                dec = ShmDetachResponse.Decoder(UnsafeArrays.UnsafeArray{UInt8, 1})
                 ShmDetachResponse.wrap!(dec, buffer, 0; header = header)
                 println(
                     "ShmDetachResponse corr=$(ShmDetachResponse.correlationId(dec)) code=$(ShmDetachResponse.code(dec))",
                 )
             elseif template_id == ShmLeaseKeepalive.sbe_template_id(ShmLeaseKeepalive.Decoder)
-                dec = ShmLeaseKeepalive.Decoder(buffer)
+                dec = ShmLeaseKeepalive.Decoder(UnsafeArrays.UnsafeArray{UInt8, 1})
                 ShmLeaseKeepalive.wrap!(dec, buffer, 0; header = header)
                 println(
                     "ShmLeaseKeepalive lease_id=$(ShmLeaseKeepalive.leaseId(dec)) stream_id=$(ShmLeaseKeepalive.streamId(dec)) client_id=$(ShmLeaseKeepalive.clientId(dec))",
                 )
             elseif template_id == ShmLeaseRevoked.sbe_template_id(ShmLeaseRevoked.Decoder)
-                dec = ShmLeaseRevoked.Decoder(buffer)
+                dec = ShmLeaseRevoked.Decoder(UnsafeArrays.UnsafeArray{UInt8, 1})
                 ShmLeaseRevoked.wrap!(dec, buffer, 0; header = header)
                 println(
                     "ShmLeaseRevoked lease_id=$(ShmLeaseRevoked.leaseId(dec)) stream_id=$(ShmLeaseRevoked.streamId(dec)) client_id=$(ShmLeaseRevoked.clientId(dec)) reason=$(ShmLeaseRevoked.reason(dec))",
                 )
             elseif template_id == ShmDriverShutdown.sbe_template_id(ShmDriverShutdown.Decoder)
-                dec = ShmDriverShutdown.Decoder(buffer)
+                dec = ShmDriverShutdown.Decoder(UnsafeArrays.UnsafeArray{UInt8, 1})
                 ShmDriverShutdown.wrap!(dec, buffer, 0; header = header)
                 println(
-                    "ShmDriverShutdown reason=$(ShmDriverShutdown.reason(dec)) message=$(String(ShmDriverShutdown.message(dec)))",
+                    "ShmDriverShutdown reason=$(ShmDriverShutdown.reason(dec)) message=$(String(ShmDriverShutdown.errorMessage(dec)))",
                 )
             elseif template_id == ShmDriverShutdownRequest.sbe_template_id(ShmDriverShutdownRequest.Decoder)
-                dec = ShmDriverShutdownRequest.Decoder(buffer)
+                dec = ShmDriverShutdownRequest.Decoder(UnsafeArrays.UnsafeArray{UInt8, 1})
                 ShmDriverShutdownRequest.wrap!(dec, buffer, 0; header = header)
                 println("ShmDriverShutdownRequest")
             end

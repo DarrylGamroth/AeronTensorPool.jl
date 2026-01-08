@@ -58,8 +58,8 @@ function Agent.do_work(agent::ProducerAgent)
     if agent.qos_monitor !== nothing
         now_ns = UInt64(Clocks.time_nanos(agent.state.clock))
         if expired(agent.qos_timer, now_ns)
-            Core.poll_qos!(agent.qos_monitor)
-            snapshot = Core.producer_qos(agent.qos_monitor, agent.state.config.producer_id)
+            poll_qos!(agent.qos_monitor)
+            snapshot = producer_qos(agent.qos_monitor, agent.state.config.producer_id)
             if snapshot !== nothing
                 agent.callbacks.on_qos_producer!(agent.state, snapshot)
             end

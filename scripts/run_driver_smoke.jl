@@ -16,11 +16,11 @@ function write_driver_config(path::String, aeron_dir::String, shm_dir::String)
 instance_id = "driver-smoke"
 aeron_dir = "$(aeron_dir)"
 control_channel = "aeron:ipc"
-control_stream_id = 15000
+control_stream_id = 1000
 announce_channel = "aeron:ipc"
-announce_stream_id = 15001
+announce_stream_id = 1001
 qos_channel = "aeron:ipc"
-qos_stream_id = 15002
+qos_stream_id = 1200
 
 [shm]
 base_dir = "$(shm_dir)"
@@ -92,19 +92,19 @@ Aeron.MediaDriver.launch_embedded() do media_driver
             end
         end
 
-        attach_cmd = `julia --project scripts/tp_tool.jl driver-attach $(aeron_dir) aeron:ipc 15000 7 producer 42`
+        attach_cmd = `julia --project scripts/tp_tool.jl driver-attach $(aeron_dir) aeron:ipc 1000 7 producer 42`
         attach_out = read(attach_cmd, String)
         println(attach_out)
         lease_id = parse_lease_id(attach_out)
         lease_id != 0 || error("driver attach failed")
 
         keepalive_cmd =
-            `julia --project scripts/tp_tool.jl driver-keepalive $(aeron_dir) aeron:ipc 15000 7 producer 42 $(lease_id)`
+            `julia --project scripts/tp_tool.jl driver-keepalive $(aeron_dir) aeron:ipc 1000 7 producer 42 $(lease_id)`
         keepalive_out = read(keepalive_cmd, String)
         println("keepalive=$(strip(keepalive_out))")
 
         detach_cmd =
-            `julia --project scripts/tp_tool.jl driver-detach $(aeron_dir) aeron:ipc 15000 7 producer 42 $(lease_id)`
+            `julia --project scripts/tp_tool.jl driver-detach $(aeron_dir) aeron:ipc 1000 7 producer 42 $(lease_id)`
         detach_out = read(detach_cmd, String)
         println(detach_out)
 
