@@ -333,20 +333,20 @@ function handle_shm_pool_announce!(state::ConsumerState, msg::ShmPoolAnnounce.De
     consumer_driver_active(state) || return false
     ShmPoolAnnounce.layoutVersion(msg) == state.config.expected_layout_version || return false
     announce_ts = ShmPoolAnnounce.announceTimestampNs(msg)
+    clock_domain = ShmPoolAnnounce.announceClockDomain(msg)
     now_ns = UInt64(Clocks.time_nanos(state.clock))
     if announce_ts == 0
         return false
     end
-    if announce_ts + state.config.announce_freshness_ns < state.announce_join_ns ||
-       now_ns > announce_ts + state.config.announce_freshness_ns
-        return false
-    end
-    if ShmPoolAnnounce.maxDims(msg) != state.config.max_dims
-        if !isempty(state.config.payload_fallback_uri)
-            state.config.use_shm = false
-            reset_mappings!(state)
-            return true
+
+    if clock_domain == ClockDomain.MONOTONIC
+        if announce_ts + state.config.announce_freshness_ns < state.announce_join_ns ||
+           now_ns > announce_ts + state.config.announce_freshness_ns
+            return false
         end
+    elseif clock_domain == ClockDomain.REALTIME_SYNCED
+        now_ns > announce_ts + state.config.announce_freshness_ns && return false
+    else
         return false
     end
 

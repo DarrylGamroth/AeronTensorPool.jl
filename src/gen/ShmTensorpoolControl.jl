@@ -15,6 +15,11 @@ using StringViews
         TRUE = 1
         NULL_VALUE = UInt8(255)
     end
+@enumx T = SbeEnum ClockDomain::UInt8 begin
+        MONOTONIC = 1
+        REALTIME_SYNCED = 2
+        NULL_VALUE = UInt8(255)
+    end
 @enumx T = SbeEnum Dtype::Int16 begin
         UNKNOWN = 0
         UINT8 = 1
@@ -48,6 +53,12 @@ using StringViews
 @enumx T = SbeEnum Mode::UInt8 begin
         STREAM = 1
         RATE_LIMITED = 2
+        NULL_VALUE = UInt8(255)
+    end
+@enumx T = SbeEnum ProgressUnit::UInt8 begin
+        NONE = 0
+        ROWS = 1
+        COLUMNS = 2
         NULL_VALUE = UInt8(255)
     end
 @enumx T = SbeEnum RegionType::Int16 begin
@@ -1565,6 +1576,896 @@ end
         return
     end
 end
+module TensorHeader
+export AbstractTensorHeader, Decoder, Encoder
+using SBE: AbstractSbeMessage, PositionPointer, to_string
+import SBE: sbe_buffer, sbe_offset, sbe_position_ptr, sbe_position, sbe_position!
+import SBE: sbe_block_length, sbe_template_id, sbe_schema_id, sbe_schema_version
+import SBE: sbe_acting_block_length, sbe_acting_version, sbe_rewind!
+import SBE: sbe_encoded_length, sbe_decoded_length, sbe_semantic_type
+abstract type AbstractTensorHeader{T} <: AbstractSbeMessage{T} end
+using ..MessageHeader
+using StringViews: StringView
+using ..Dtype
+using ..MajorOrder
+using ..ProgressUnit
+begin
+    import SBE: encode_value_le, decode_value_le, encode_array_le, decode_array_le
+    const encode_value = encode_value_le
+    const decode_value = decode_value_le
+    const encode_array = encode_array_le
+    const decode_array = decode_array_le
+end
+@inline function rstrip_nul(a::Union{AbstractString, AbstractArray})
+        pos = findfirst(iszero, a)
+        len = if pos !== nothing
+                pos - 1
+            else
+                Base.length(a)
+            end
+        return view(a, 1:len)
+    end
+mutable struct Decoder{T <: AbstractArray{UInt8}} <: AbstractTensorHeader{T}
+    buffer::T
+    offset::Int64
+    position_ptr::PositionPointer
+    acting_block_length::UInt16
+    acting_version::UInt16
+    function Decoder{T}() where T <: AbstractArray{UInt8}
+        obj = new{T}()
+        obj.offset = Int64(0)
+        obj.position_ptr = PositionPointer()
+        obj.acting_block_length = UInt16(0)
+        obj.acting_version = UInt16(0)
+        return obj
+    end
+end
+mutable struct Encoder{T <: AbstractArray{UInt8}} <: AbstractTensorHeader{T}
+    buffer::T
+    offset::Int64
+    position_ptr::PositionPointer
+    function Encoder{T}() where T <: AbstractArray{UInt8}
+        obj = new{T}()
+        obj.offset = Int64(0)
+        obj.position_ptr = PositionPointer()
+        return obj
+    end
+end
+@inline function Decoder(::Type{T}) where T <: AbstractArray{UInt8}
+        return Decoder{T}()
+    end
+@inline function Encoder(::Type{T}) where T <: AbstractArray{UInt8}
+        return Encoder{T}()
+    end
+@inline function wrap!(m::Decoder{T}, buffer::T, offset::Integer, acting_block_length::Integer, acting_version::Integer) where T
+        m.buffer = buffer
+        m.offset = Int64(offset)
+        m.acting_block_length = UInt16(acting_block_length)
+        m.acting_version = UInt16(acting_version)
+        m.position_ptr[] = m.offset + m.acting_block_length
+        return m
+    end
+@inline function wrap!(m::Decoder, buffer::AbstractArray, offset::Integer = 0; header = MessageHeader.Decoder(buffer, offset))
+        if MessageHeader.templateId(header) != UInt16(52) || MessageHeader.schemaId(header) != UInt16(900)
+            throw(DomainError("Template id or schema id mismatch"))
+        end
+        return wrap!(m, buffer, offset + sbe_encoded_length(header), MessageHeader.blockLength(header), MessageHeader.version(header))
+    end
+@inline function wrap!(m::Encoder{T}, buffer::T, offset::Integer) where T
+        m.buffer = buffer
+        m.offset = Int64(offset)
+        m.position_ptr[] = m.offset + UInt16(184)
+        return m
+    end
+@inline function wrap_and_apply_header!(m::Encoder, buffer::AbstractArray, offset::Integer = 0; header = MessageHeader.Encoder(buffer, offset))
+        MessageHeader.blockLength!(header, UInt16(184))
+        MessageHeader.templateId!(header, UInt16(52))
+        MessageHeader.schemaId!(header, UInt16(900))
+        MessageHeader.version!(header, UInt16(1))
+        return wrap!(m, buffer, offset + sbe_encoded_length(header))
+    end
+sbe_buffer(m::AbstractTensorHeader) = begin
+        m.buffer
+    end
+sbe_offset(m::AbstractTensorHeader) = begin
+        m.offset
+    end
+sbe_position_ptr(m::AbstractTensorHeader) = begin
+        m.position_ptr
+    end
+sbe_position(m::AbstractTensorHeader) = begin
+        m.position_ptr[]
+    end
+sbe_position!(m::AbstractTensorHeader, position) = begin
+        m.position_ptr[] = position
+    end
+sbe_block_length(::AbstractTensorHeader) = begin
+        UInt16(184)
+    end
+sbe_block_length(::Type{<:AbstractTensorHeader}) = begin
+        UInt16(184)
+    end
+sbe_template_id(::AbstractTensorHeader) = begin
+        UInt16(52)
+    end
+sbe_template_id(::Type{<:AbstractTensorHeader}) = begin
+        UInt16(52)
+    end
+sbe_schema_id(::AbstractTensorHeader) = begin
+        UInt16(900)
+    end
+sbe_schema_id(::Type{<:AbstractTensorHeader}) = begin
+        UInt16(900)
+    end
+sbe_schema_version(::AbstractTensorHeader) = begin
+        UInt16(1)
+    end
+sbe_schema_version(::Type{<:AbstractTensorHeader}) = begin
+        UInt16(1)
+    end
+sbe_semantic_type(::AbstractTensorHeader) = begin
+        ""
+    end
+sbe_acting_block_length(m::Decoder) = begin
+        m.acting_block_length
+    end
+sbe_acting_block_length(::Encoder) = begin
+        UInt16(184)
+    end
+sbe_acting_version(m::Decoder) = begin
+        m.acting_version
+    end
+sbe_acting_version(::Encoder) = begin
+        UInt16(1)
+    end
+sbe_rewind!(m::AbstractTensorHeader) = begin
+        sbe_position!(m, m.offset + sbe_acting_block_length(m))
+    end
+sbe_encoded_length(m::AbstractTensorHeader) = begin
+        sbe_position(m) - m.offset
+    end
+Base.sizeof(m::AbstractTensorHeader) = begin
+        sbe_encoded_length(m)
+    end
+begin
+    dtype_id(::AbstractTensorHeader) = begin
+            UInt16(1)
+        end
+    dtype_id(::Type{<:AbstractTensorHeader}) = begin
+            UInt16(1)
+        end
+    dtype_since_version(::AbstractTensorHeader) = begin
+            UInt16(0)
+        end
+    dtype_since_version(::Type{<:AbstractTensorHeader}) = begin
+            UInt16(0)
+        end
+    dtype_in_acting_version(m::AbstractTensorHeader) = begin
+            sbe_acting_version(m) >= UInt16(0)
+        end
+    dtype_encoding_offset(::AbstractTensorHeader) = begin
+            Int(0)
+        end
+    dtype_encoding_offset(::Type{<:AbstractTensorHeader}) = begin
+            Int(0)
+        end
+    dtype_encoding_length(::AbstractTensorHeader) = begin
+            Int(2)
+        end
+    dtype_encoding_length(::Type{<:AbstractTensorHeader}) = begin
+            Int(2)
+        end
+    dtype_null_value(::AbstractTensorHeader) = begin
+            Int16(-32768)
+        end
+    dtype_null_value(::Type{<:AbstractTensorHeader}) = begin
+            Int16(-32768)
+        end
+    dtype_min_value(::AbstractTensorHeader) = begin
+            Int16(-32767)
+        end
+    dtype_min_value(::Type{<:AbstractTensorHeader}) = begin
+            Int16(-32767)
+        end
+    dtype_max_value(::AbstractTensorHeader) = begin
+            Int16(32767)
+        end
+    dtype_max_value(::Type{<:AbstractTensorHeader}) = begin
+            Int16(32767)
+        end
+end
+begin
+    function dtype_meta_attribute(::AbstractTensorHeader, meta_attribute)
+        meta_attribute === :presence && return Symbol("required")
+        meta_attribute === :semanticType && return Symbol("")
+        return Symbol("")
+    end
+    function dtype_meta_attribute(::Type{<:AbstractTensorHeader}, meta_attribute)
+        meta_attribute === :presence && return Symbol("required")
+        meta_attribute === :semanticType && return Symbol("")
+        return Symbol("")
+    end
+end
+begin
+    @inline function dtype(m::Decoder, ::Type{Integer})
+            return decode_value(Int16, m.buffer, m.offset + 0)
+        end
+    @inline function dtype(m::Decoder)
+            raw = decode_value(Int16, m.buffer, m.offset + 0)
+            return Dtype.SbeEnum(raw)
+        end
+    @inline function dtype!(m::Encoder, value::Dtype.SbeEnum)
+            encode_value(Int16, m.buffer, m.offset + 0, Int16(value))
+        end
+    export dtype, dtype!
+end
+begin
+    majorOrder_id(::AbstractTensorHeader) = begin
+            UInt16(2)
+        end
+    majorOrder_id(::Type{<:AbstractTensorHeader}) = begin
+            UInt16(2)
+        end
+    majorOrder_since_version(::AbstractTensorHeader) = begin
+            UInt16(0)
+        end
+    majorOrder_since_version(::Type{<:AbstractTensorHeader}) = begin
+            UInt16(0)
+        end
+    majorOrder_in_acting_version(m::AbstractTensorHeader) = begin
+            sbe_acting_version(m) >= UInt16(0)
+        end
+    majorOrder_encoding_offset(::AbstractTensorHeader) = begin
+            Int(2)
+        end
+    majorOrder_encoding_offset(::Type{<:AbstractTensorHeader}) = begin
+            Int(2)
+        end
+    majorOrder_encoding_length(::AbstractTensorHeader) = begin
+            Int(2)
+        end
+    majorOrder_encoding_length(::Type{<:AbstractTensorHeader}) = begin
+            Int(2)
+        end
+    majorOrder_null_value(::AbstractTensorHeader) = begin
+            Int16(-32768)
+        end
+    majorOrder_null_value(::Type{<:AbstractTensorHeader}) = begin
+            Int16(-32768)
+        end
+    majorOrder_min_value(::AbstractTensorHeader) = begin
+            Int16(-32767)
+        end
+    majorOrder_min_value(::Type{<:AbstractTensorHeader}) = begin
+            Int16(-32767)
+        end
+    majorOrder_max_value(::AbstractTensorHeader) = begin
+            Int16(32767)
+        end
+    majorOrder_max_value(::Type{<:AbstractTensorHeader}) = begin
+            Int16(32767)
+        end
+end
+begin
+    function majorOrder_meta_attribute(::AbstractTensorHeader, meta_attribute)
+        meta_attribute === :presence && return Symbol("required")
+        meta_attribute === :semanticType && return Symbol("")
+        return Symbol("")
+    end
+    function majorOrder_meta_attribute(::Type{<:AbstractTensorHeader}, meta_attribute)
+        meta_attribute === :presence && return Symbol("required")
+        meta_attribute === :semanticType && return Symbol("")
+        return Symbol("")
+    end
+end
+begin
+    @inline function majorOrder(m::Decoder, ::Type{Integer})
+            return decode_value(Int16, m.buffer, m.offset + 2)
+        end
+    @inline function majorOrder(m::Decoder)
+            raw = decode_value(Int16, m.buffer, m.offset + 2)
+            return MajorOrder.SbeEnum(raw)
+        end
+    @inline function majorOrder!(m::Encoder, value::MajorOrder.SbeEnum)
+            encode_value(Int16, m.buffer, m.offset + 2, Int16(value))
+        end
+    export majorOrder, majorOrder!
+end
+begin
+    ndims_id(::AbstractTensorHeader) = begin
+            UInt16(3)
+        end
+    ndims_id(::Type{<:AbstractTensorHeader}) = begin
+            UInt16(3)
+        end
+    ndims_since_version(::AbstractTensorHeader) = begin
+            UInt16(0)
+        end
+    ndims_since_version(::Type{<:AbstractTensorHeader}) = begin
+            UInt16(0)
+        end
+    ndims_in_acting_version(m::AbstractTensorHeader) = begin
+            sbe_acting_version(m) >= UInt16(0)
+        end
+    ndims_encoding_offset(::AbstractTensorHeader) = begin
+            Int(4)
+        end
+    ndims_encoding_offset(::Type{<:AbstractTensorHeader}) = begin
+            Int(4)
+        end
+    ndims_encoding_length(::AbstractTensorHeader) = begin
+            Int(1)
+        end
+    ndims_encoding_length(::Type{<:AbstractTensorHeader}) = begin
+            Int(1)
+        end
+    ndims_null_value(::AbstractTensorHeader) = begin
+            UInt8(255)
+        end
+    ndims_null_value(::Type{<:AbstractTensorHeader}) = begin
+            UInt8(255)
+        end
+    ndims_min_value(::AbstractTensorHeader) = begin
+            UInt8(0)
+        end
+    ndims_min_value(::Type{<:AbstractTensorHeader}) = begin
+            UInt8(0)
+        end
+    ndims_max_value(::AbstractTensorHeader) = begin
+            UInt8(254)
+        end
+    ndims_max_value(::Type{<:AbstractTensorHeader}) = begin
+            UInt8(254)
+        end
+end
+begin
+    function ndims_meta_attribute(::AbstractTensorHeader, meta_attribute)
+        meta_attribute === :presence && return Symbol("required")
+        meta_attribute === :semanticType && return Symbol("")
+        return Symbol("")
+    end
+    function ndims_meta_attribute(::Type{<:AbstractTensorHeader}, meta_attribute)
+        meta_attribute === :presence && return Symbol("required")
+        meta_attribute === :semanticType && return Symbol("")
+        return Symbol("")
+    end
+end
+begin
+    @inline function ndims(m::Decoder)
+            return decode_value(UInt8, m.buffer, m.offset + 4)
+        end
+    @inline ndims!(m::Encoder, val) = begin
+                encode_value(UInt8, m.buffer, m.offset + 4, val)
+            end
+    export ndims, ndims!
+end
+begin
+    maxDims_id(::AbstractTensorHeader) = begin
+            UInt16(4)
+        end
+    maxDims_id(::Type{<:AbstractTensorHeader}) = begin
+            UInt16(4)
+        end
+    maxDims_since_version(::AbstractTensorHeader) = begin
+            UInt16(0)
+        end
+    maxDims_since_version(::Type{<:AbstractTensorHeader}) = begin
+            UInt16(0)
+        end
+    maxDims_in_acting_version(m::AbstractTensorHeader) = begin
+            sbe_acting_version(m) >= UInt16(0)
+        end
+    maxDims_encoding_offset(::AbstractTensorHeader) = begin
+            Int(5)
+        end
+    maxDims_encoding_offset(::Type{<:AbstractTensorHeader}) = begin
+            Int(5)
+        end
+    maxDims_encoding_length(::AbstractTensorHeader) = begin
+            Int(0)
+        end
+    maxDims_encoding_length(::Type{<:AbstractTensorHeader}) = begin
+            Int(0)
+        end
+    maxDims_null_value(::AbstractTensorHeader) = begin
+            UInt8(255)
+        end
+    maxDims_null_value(::Type{<:AbstractTensorHeader}) = begin
+            UInt8(255)
+        end
+    maxDims_min_value(::AbstractTensorHeader) = begin
+            UInt8(0)
+        end
+    maxDims_min_value(::Type{<:AbstractTensorHeader}) = begin
+            UInt8(0)
+        end
+    maxDims_max_value(::AbstractTensorHeader) = begin
+            UInt8(254)
+        end
+    maxDims_max_value(::Type{<:AbstractTensorHeader}) = begin
+            UInt8(254)
+        end
+end
+begin
+    function maxDims_meta_attribute(::AbstractTensorHeader, meta_attribute)
+        meta_attribute === :presence && return Symbol("required")
+        meta_attribute === :semanticType && return Symbol("")
+        return Symbol("")
+    end
+    function maxDims_meta_attribute(::Type{<:AbstractTensorHeader}, meta_attribute)
+        meta_attribute === :presence && return Symbol("required")
+        meta_attribute === :semanticType && return Symbol("")
+        return Symbol("")
+    end
+end
+begin
+    @inline maxDims(::Decoder) = begin
+                UInt8(8)
+            end
+    @inline maxDims(::Type{<:Decoder}) = begin
+                UInt8(8)
+            end
+    export maxDims
+end
+begin
+    padAlign_id(::AbstractTensorHeader) = begin
+            UInt16(5)
+        end
+    padAlign_id(::Type{<:AbstractTensorHeader}) = begin
+            UInt16(5)
+        end
+    padAlign_since_version(::AbstractTensorHeader) = begin
+            UInt16(0)
+        end
+    padAlign_since_version(::Type{<:AbstractTensorHeader}) = begin
+            UInt16(0)
+        end
+    padAlign_in_acting_version(m::AbstractTensorHeader) = begin
+            sbe_acting_version(m) >= UInt16(0)
+        end
+    padAlign_encoding_offset(::AbstractTensorHeader) = begin
+            Int(5)
+        end
+    padAlign_encoding_offset(::Type{<:AbstractTensorHeader}) = begin
+            Int(5)
+        end
+    padAlign_encoding_length(::AbstractTensorHeader) = begin
+            Int(1)
+        end
+    padAlign_encoding_length(::Type{<:AbstractTensorHeader}) = begin
+            Int(1)
+        end
+    padAlign_null_value(::AbstractTensorHeader) = begin
+            UInt8(255)
+        end
+    padAlign_null_value(::Type{<:AbstractTensorHeader}) = begin
+            UInt8(255)
+        end
+    padAlign_min_value(::AbstractTensorHeader) = begin
+            UInt8(0)
+        end
+    padAlign_min_value(::Type{<:AbstractTensorHeader}) = begin
+            UInt8(0)
+        end
+    padAlign_max_value(::AbstractTensorHeader) = begin
+            UInt8(254)
+        end
+    padAlign_max_value(::Type{<:AbstractTensorHeader}) = begin
+            UInt8(254)
+        end
+end
+begin
+    function padAlign_meta_attribute(::AbstractTensorHeader, meta_attribute)
+        meta_attribute === :presence && return Symbol("required")
+        meta_attribute === :semanticType && return Symbol("")
+        return Symbol("")
+    end
+    function padAlign_meta_attribute(::Type{<:AbstractTensorHeader}, meta_attribute)
+        meta_attribute === :presence && return Symbol("required")
+        meta_attribute === :semanticType && return Symbol("")
+        return Symbol("")
+    end
+end
+begin
+    @inline function padAlign(m::Decoder)
+            return decode_value(UInt8, m.buffer, m.offset + 5)
+        end
+    @inline padAlign!(m::Encoder, val) = begin
+                encode_value(UInt8, m.buffer, m.offset + 5, val)
+            end
+    export padAlign, padAlign!
+end
+begin
+    progressUnit_id(::AbstractTensorHeader) = begin
+            UInt16(6)
+        end
+    progressUnit_id(::Type{<:AbstractTensorHeader}) = begin
+            UInt16(6)
+        end
+    progressUnit_since_version(::AbstractTensorHeader) = begin
+            UInt16(0)
+        end
+    progressUnit_since_version(::Type{<:AbstractTensorHeader}) = begin
+            UInt16(0)
+        end
+    progressUnit_in_acting_version(m::AbstractTensorHeader) = begin
+            sbe_acting_version(m) >= UInt16(0)
+        end
+    progressUnit_encoding_offset(::AbstractTensorHeader) = begin
+            Int(6)
+        end
+    progressUnit_encoding_offset(::Type{<:AbstractTensorHeader}) = begin
+            Int(6)
+        end
+    progressUnit_encoding_length(::AbstractTensorHeader) = begin
+            Int(1)
+        end
+    progressUnit_encoding_length(::Type{<:AbstractTensorHeader}) = begin
+            Int(1)
+        end
+    progressUnit_null_value(::AbstractTensorHeader) = begin
+            UInt8(255)
+        end
+    progressUnit_null_value(::Type{<:AbstractTensorHeader}) = begin
+            UInt8(255)
+        end
+    progressUnit_min_value(::AbstractTensorHeader) = begin
+            UInt8(0)
+        end
+    progressUnit_min_value(::Type{<:AbstractTensorHeader}) = begin
+            UInt8(0)
+        end
+    progressUnit_max_value(::AbstractTensorHeader) = begin
+            UInt8(254)
+        end
+    progressUnit_max_value(::Type{<:AbstractTensorHeader}) = begin
+            UInt8(254)
+        end
+end
+begin
+    function progressUnit_meta_attribute(::AbstractTensorHeader, meta_attribute)
+        meta_attribute === :presence && return Symbol("required")
+        meta_attribute === :semanticType && return Symbol("")
+        return Symbol("")
+    end
+    function progressUnit_meta_attribute(::Type{<:AbstractTensorHeader}, meta_attribute)
+        meta_attribute === :presence && return Symbol("required")
+        meta_attribute === :semanticType && return Symbol("")
+        return Symbol("")
+    end
+end
+begin
+    @inline function progressUnit(m::Decoder, ::Type{Integer})
+            return decode_value(UInt8, m.buffer, m.offset + 6)
+        end
+    @inline function progressUnit(m::Decoder)
+            raw = decode_value(UInt8, m.buffer, m.offset + 6)
+            return ProgressUnit.SbeEnum(raw)
+        end
+    @inline function progressUnit!(m::Encoder, value::ProgressUnit.SbeEnum)
+            encode_value(UInt8, m.buffer, m.offset + 6, UInt8(value))
+        end
+    export progressUnit, progressUnit!
+end
+begin
+    progressStrideBytes_id(::AbstractTensorHeader) = begin
+            UInt16(7)
+        end
+    progressStrideBytes_id(::Type{<:AbstractTensorHeader}) = begin
+            UInt16(7)
+        end
+    progressStrideBytes_since_version(::AbstractTensorHeader) = begin
+            UInt16(0)
+        end
+    progressStrideBytes_since_version(::Type{<:AbstractTensorHeader}) = begin
+            UInt16(0)
+        end
+    progressStrideBytes_in_acting_version(m::AbstractTensorHeader) = begin
+            sbe_acting_version(m) >= UInt16(0)
+        end
+    progressStrideBytes_encoding_offset(::AbstractTensorHeader) = begin
+            Int(7)
+        end
+    progressStrideBytes_encoding_offset(::Type{<:AbstractTensorHeader}) = begin
+            Int(7)
+        end
+    progressStrideBytes_encoding_length(::AbstractTensorHeader) = begin
+            Int(4)
+        end
+    progressStrideBytes_encoding_length(::Type{<:AbstractTensorHeader}) = begin
+            Int(4)
+        end
+    progressStrideBytes_null_value(::AbstractTensorHeader) = begin
+            UInt32(4294967295)
+        end
+    progressStrideBytes_null_value(::Type{<:AbstractTensorHeader}) = begin
+            UInt32(4294967295)
+        end
+    progressStrideBytes_min_value(::AbstractTensorHeader) = begin
+            UInt32(0)
+        end
+    progressStrideBytes_min_value(::Type{<:AbstractTensorHeader}) = begin
+            UInt32(0)
+        end
+    progressStrideBytes_max_value(::AbstractTensorHeader) = begin
+            UInt32(4294967294)
+        end
+    progressStrideBytes_max_value(::Type{<:AbstractTensorHeader}) = begin
+            UInt32(4294967294)
+        end
+end
+begin
+    function progressStrideBytes_meta_attribute(::AbstractTensorHeader, meta_attribute)
+        meta_attribute === :presence && return Symbol("required")
+        meta_attribute === :semanticType && return Symbol("")
+        return Symbol("")
+    end
+    function progressStrideBytes_meta_attribute(::Type{<:AbstractTensorHeader}, meta_attribute)
+        meta_attribute === :presence && return Symbol("required")
+        meta_attribute === :semanticType && return Symbol("")
+        return Symbol("")
+    end
+end
+begin
+    @inline function progressStrideBytes(m::Decoder)
+            return decode_value(UInt32, m.buffer, m.offset + 7)
+        end
+    @inline progressStrideBytes!(m::Encoder, val) = begin
+                encode_value(UInt32, m.buffer, m.offset + 7, val)
+            end
+    export progressStrideBytes, progressStrideBytes!
+end
+begin
+    dims_id(::AbstractTensorHeader) = begin
+            UInt16(8)
+        end
+    dims_id(::Type{<:AbstractTensorHeader}) = begin
+            UInt16(8)
+        end
+    dims_since_version(::AbstractTensorHeader) = begin
+            UInt16(0)
+        end
+    dims_since_version(::Type{<:AbstractTensorHeader}) = begin
+            UInt16(0)
+        end
+    dims_in_acting_version(m::AbstractTensorHeader) = begin
+            sbe_acting_version(m) >= UInt16(0)
+        end
+    dims_encoding_offset(::AbstractTensorHeader) = begin
+            Int(11)
+        end
+    dims_encoding_offset(::Type{<:AbstractTensorHeader}) = begin
+            Int(11)
+        end
+    dims_encoding_length(::AbstractTensorHeader) = begin
+            Int(32)
+        end
+    dims_encoding_length(::Type{<:AbstractTensorHeader}) = begin
+            Int(32)
+        end
+    dims_null_value(::AbstractTensorHeader) = begin
+            Int32(-2147483648)
+        end
+    dims_null_value(::Type{<:AbstractTensorHeader}) = begin
+            Int32(-2147483648)
+        end
+    dims_min_value(::AbstractTensorHeader) = begin
+            Int32(-2147483647)
+        end
+    dims_min_value(::Type{<:AbstractTensorHeader}) = begin
+            Int32(-2147483647)
+        end
+    dims_max_value(::AbstractTensorHeader) = begin
+            Int32(2147483647)
+        end
+    dims_max_value(::Type{<:AbstractTensorHeader}) = begin
+            Int32(2147483647)
+        end
+end
+begin
+    function dims_meta_attribute(::AbstractTensorHeader, meta_attribute)
+        meta_attribute === :presence && return Symbol("required")
+        meta_attribute === :semanticType && return Symbol("")
+        return Symbol("")
+    end
+    function dims_meta_attribute(::Type{<:AbstractTensorHeader}, meta_attribute)
+        meta_attribute === :presence && return Symbol("required")
+        meta_attribute === :semanticType && return Symbol("")
+        return Symbol("")
+    end
+end
+begin
+    @inline function dims(m::Decoder)
+            return decode_array(Int32, m.buffer, m.offset + 11, 8)
+        end
+    @inline function dims(m::Decoder, ::Type{NTuple{N, T}}) where {N, T <: Real}
+            N == 8 || throw(ArgumentError("Expected NTuple{$(array_len),<:Real}"))
+            x = decode_array(Int32, m.buffer, m.offset + 11, 8)
+            return ntuple((i->begin
+                            x[i]
+                        end), Val(N))
+        end
+    @inline function dims!(m::Encoder)
+            return encode_array(Int32, m.buffer, m.offset + 11, 8)
+        end
+    @inline function dims!(m::Encoder, val)
+            copyto!(dims!(m), val)
+        end
+    @inline function dims!(m::Encoder, val::NTuple{N, T}) where {N, T <: Real}
+            N == 8 || throw(ArgumentError("Expected NTuple{$(array_len),<:Real}"))
+            dest = dims!(m)
+            @inbounds for i = 1:8
+                    dest[i] = val[i]
+                end
+        end
+    export dims, dims!
+end
+begin
+    strides_id(::AbstractTensorHeader) = begin
+            UInt16(9)
+        end
+    strides_id(::Type{<:AbstractTensorHeader}) = begin
+            UInt16(9)
+        end
+    strides_since_version(::AbstractTensorHeader) = begin
+            UInt16(0)
+        end
+    strides_since_version(::Type{<:AbstractTensorHeader}) = begin
+            UInt16(0)
+        end
+    strides_in_acting_version(m::AbstractTensorHeader) = begin
+            sbe_acting_version(m) >= UInt16(0)
+        end
+    strides_encoding_offset(::AbstractTensorHeader) = begin
+            Int(43)
+        end
+    strides_encoding_offset(::Type{<:AbstractTensorHeader}) = begin
+            Int(43)
+        end
+    strides_encoding_length(::AbstractTensorHeader) = begin
+            Int(32)
+        end
+    strides_encoding_length(::Type{<:AbstractTensorHeader}) = begin
+            Int(32)
+        end
+    strides_null_value(::AbstractTensorHeader) = begin
+            Int32(-2147483648)
+        end
+    strides_null_value(::Type{<:AbstractTensorHeader}) = begin
+            Int32(-2147483648)
+        end
+    strides_min_value(::AbstractTensorHeader) = begin
+            Int32(-2147483647)
+        end
+    strides_min_value(::Type{<:AbstractTensorHeader}) = begin
+            Int32(-2147483647)
+        end
+    strides_max_value(::AbstractTensorHeader) = begin
+            Int32(2147483647)
+        end
+    strides_max_value(::Type{<:AbstractTensorHeader}) = begin
+            Int32(2147483647)
+        end
+end
+begin
+    function strides_meta_attribute(::AbstractTensorHeader, meta_attribute)
+        meta_attribute === :presence && return Symbol("required")
+        meta_attribute === :semanticType && return Symbol("")
+        return Symbol("")
+    end
+    function strides_meta_attribute(::Type{<:AbstractTensorHeader}, meta_attribute)
+        meta_attribute === :presence && return Symbol("required")
+        meta_attribute === :semanticType && return Symbol("")
+        return Symbol("")
+    end
+end
+begin
+    @inline function strides(m::Decoder)
+            return decode_array(Int32, m.buffer, m.offset + 43, 8)
+        end
+    @inline function strides(m::Decoder, ::Type{NTuple{N, T}}) where {N, T <: Real}
+            N == 8 || throw(ArgumentError("Expected NTuple{$(array_len),<:Real}"))
+            x = decode_array(Int32, m.buffer, m.offset + 43, 8)
+            return ntuple((i->begin
+                            x[i]
+                        end), Val(N))
+        end
+    @inline function strides!(m::Encoder)
+            return encode_array(Int32, m.buffer, m.offset + 43, 8)
+        end
+    @inline function strides!(m::Encoder, val)
+            copyto!(strides!(m), val)
+        end
+    @inline function strides!(m::Encoder, val::NTuple{N, T}) where {N, T <: Real}
+            N == 8 || throw(ArgumentError("Expected NTuple{$(array_len),<:Real}"))
+            dest = strides!(m)
+            @inbounds for i = 1:8
+                    dest[i] = val[i]
+                end
+        end
+    export strides, strides!
+end
+begin
+    pad_id(::AbstractTensorHeader) = begin
+            UInt16(10)
+        end
+    pad_id(::Type{<:AbstractTensorHeader}) = begin
+            UInt16(10)
+        end
+    pad_since_version(::AbstractTensorHeader) = begin
+            UInt16(0)
+        end
+    pad_since_version(::Type{<:AbstractTensorHeader}) = begin
+            UInt16(0)
+        end
+    pad_in_acting_version(m::AbstractTensorHeader) = begin
+            sbe_acting_version(m) >= UInt16(0)
+        end
+    pad_encoding_offset(::AbstractTensorHeader) = begin
+            Int(75)
+        end
+    pad_encoding_offset(::Type{<:AbstractTensorHeader}) = begin
+            Int(75)
+        end
+    pad_encoding_length(::AbstractTensorHeader) = begin
+            Int(1)
+        end
+    pad_encoding_length(::Type{<:AbstractTensorHeader}) = begin
+            Int(1)
+        end
+    pad_null_value(::AbstractTensorHeader) = begin
+            UInt8(255)
+        end
+    pad_null_value(::Type{<:AbstractTensorHeader}) = begin
+            UInt8(255)
+        end
+    pad_min_value(::AbstractTensorHeader) = begin
+            UInt8(0)
+        end
+    pad_min_value(::Type{<:AbstractTensorHeader}) = begin
+            UInt8(0)
+        end
+    pad_max_value(::AbstractTensorHeader) = begin
+            UInt8(254)
+        end
+    pad_max_value(::Type{<:AbstractTensorHeader}) = begin
+            UInt8(254)
+        end
+end
+begin
+    function pad_meta_attribute(::AbstractTensorHeader, meta_attribute)
+        meta_attribute === :presence && return Symbol("required")
+        meta_attribute === :semanticType && return Symbol("")
+        return Symbol("")
+    end
+    function pad_meta_attribute(::Type{<:AbstractTensorHeader}, meta_attribute)
+        meta_attribute === :presence && return Symbol("required")
+        meta_attribute === :semanticType && return Symbol("")
+        return Symbol("")
+    end
+end
+begin
+    @inline function pad(m::Decoder)
+            return decode_value(UInt8, m.buffer, m.offset + 75)
+        end
+    @inline pad!(m::Encoder, val) = begin
+                encode_value(UInt8, m.buffer, m.offset + 75, val)
+            end
+    export pad, pad!
+end
+@inline function sbe_decoded_length(m::AbstractTensorHeader)
+        skipper = Decoder(typeof(sbe_buffer(m)))
+        skipper.position_ptr = PositionPointer()
+        wrap!(skipper, sbe_buffer(m), sbe_offset(m), sbe_acting_block_length(m), sbe_acting_version(m))
+        sbe_skip!(skipper)
+        return sbe_encoded_length(skipper)
+    end
+@inline function sbe_skip!(m::Decoder)
+        sbe_rewind!(m)
+        return
+        return
+    end
+end
 module DataSourceMeta
 export AbstractDataSourceMeta, Decoder, Encoder
 using SBE: AbstractSbeMessage, PositionPointer, to_string
@@ -2545,6 +3446,7 @@ import SBE: sbe_encoded_length, sbe_decoded_length, sbe_semantic_type
 abstract type AbstractShmPoolAnnounce{T} <: AbstractSbeMessage{T} end
 using ..MessageHeader
 using StringViews: StringView
+using ..ClockDomain
 begin
     import SBE: encode_value_le, decode_value_le, encode_array_le, decode_array_le
     const encode_value = encode_value_le
@@ -2956,11 +3858,83 @@ begin
     export announceTimestampNs, announceTimestampNs!
 end
 begin
-    layoutVersion_id(::AbstractShmPoolAnnounce) = begin
+    announceClockDomain_id(::AbstractShmPoolAnnounce) = begin
             UInt16(5)
         end
-    layoutVersion_id(::Type{<:AbstractShmPoolAnnounce}) = begin
+    announceClockDomain_id(::Type{<:AbstractShmPoolAnnounce}) = begin
             UInt16(5)
+        end
+    announceClockDomain_since_version(::AbstractShmPoolAnnounce) = begin
+            UInt16(0)
+        end
+    announceClockDomain_since_version(::Type{<:AbstractShmPoolAnnounce}) = begin
+            UInt16(0)
+        end
+    announceClockDomain_in_acting_version(m::AbstractShmPoolAnnounce) = begin
+            sbe_acting_version(m) >= UInt16(0)
+        end
+    announceClockDomain_encoding_offset(::AbstractShmPoolAnnounce) = begin
+            Int(24)
+        end
+    announceClockDomain_encoding_offset(::Type{<:AbstractShmPoolAnnounce}) = begin
+            Int(24)
+        end
+    announceClockDomain_encoding_length(::AbstractShmPoolAnnounce) = begin
+            Int(1)
+        end
+    announceClockDomain_encoding_length(::Type{<:AbstractShmPoolAnnounce}) = begin
+            Int(1)
+        end
+    announceClockDomain_null_value(::AbstractShmPoolAnnounce) = begin
+            UInt8(255)
+        end
+    announceClockDomain_null_value(::Type{<:AbstractShmPoolAnnounce}) = begin
+            UInt8(255)
+        end
+    announceClockDomain_min_value(::AbstractShmPoolAnnounce) = begin
+            UInt8(0)
+        end
+    announceClockDomain_min_value(::Type{<:AbstractShmPoolAnnounce}) = begin
+            UInt8(0)
+        end
+    announceClockDomain_max_value(::AbstractShmPoolAnnounce) = begin
+            UInt8(254)
+        end
+    announceClockDomain_max_value(::Type{<:AbstractShmPoolAnnounce}) = begin
+            UInt8(254)
+        end
+end
+begin
+    function announceClockDomain_meta_attribute(::AbstractShmPoolAnnounce, meta_attribute)
+        meta_attribute === :presence && return Symbol("required")
+        meta_attribute === :semanticType && return Symbol("")
+        return Symbol("")
+    end
+    function announceClockDomain_meta_attribute(::Type{<:AbstractShmPoolAnnounce}, meta_attribute)
+        meta_attribute === :presence && return Symbol("required")
+        meta_attribute === :semanticType && return Symbol("")
+        return Symbol("")
+    end
+end
+begin
+    @inline function announceClockDomain(m::Decoder, ::Type{Integer})
+            return decode_value(UInt8, m.buffer, m.offset + 24)
+        end
+    @inline function announceClockDomain(m::Decoder)
+            raw = decode_value(UInt8, m.buffer, m.offset + 24)
+            return ClockDomain.SbeEnum(raw)
+        end
+    @inline function announceClockDomain!(m::Encoder, value::ClockDomain.SbeEnum)
+            encode_value(UInt8, m.buffer, m.offset + 24, UInt8(value))
+        end
+    export announceClockDomain, announceClockDomain!
+end
+begin
+    layoutVersion_id(::AbstractShmPoolAnnounce) = begin
+            UInt16(6)
+        end
+    layoutVersion_id(::Type{<:AbstractShmPoolAnnounce}) = begin
+            UInt16(6)
         end
     layoutVersion_since_version(::AbstractShmPoolAnnounce) = begin
             UInt16(0)
@@ -2972,10 +3946,10 @@ begin
             sbe_acting_version(m) >= UInt16(0)
         end
     layoutVersion_encoding_offset(::AbstractShmPoolAnnounce) = begin
-            Int(24)
+            Int(25)
         end
     layoutVersion_encoding_offset(::Type{<:AbstractShmPoolAnnounce}) = begin
-            Int(24)
+            Int(25)
         end
     layoutVersion_encoding_length(::AbstractShmPoolAnnounce) = begin
             Int(4)
@@ -3016,19 +3990,19 @@ begin
 end
 begin
     @inline function layoutVersion(m::Decoder)
-            return decode_value(UInt32, m.buffer, m.offset + 24)
+            return decode_value(UInt32, m.buffer, m.offset + 25)
         end
     @inline layoutVersion!(m::Encoder, val) = begin
-                encode_value(UInt32, m.buffer, m.offset + 24, val)
+                encode_value(UInt32, m.buffer, m.offset + 25, val)
             end
     export layoutVersion, layoutVersion!
 end
 begin
     headerNslots_id(::AbstractShmPoolAnnounce) = begin
-            UInt16(6)
+            UInt16(7)
         end
     headerNslots_id(::Type{<:AbstractShmPoolAnnounce}) = begin
-            UInt16(6)
+            UInt16(7)
         end
     headerNslots_since_version(::AbstractShmPoolAnnounce) = begin
             UInt16(0)
@@ -3040,10 +4014,10 @@ begin
             sbe_acting_version(m) >= UInt16(0)
         end
     headerNslots_encoding_offset(::AbstractShmPoolAnnounce) = begin
-            Int(28)
+            Int(29)
         end
     headerNslots_encoding_offset(::Type{<:AbstractShmPoolAnnounce}) = begin
-            Int(28)
+            Int(29)
         end
     headerNslots_encoding_length(::AbstractShmPoolAnnounce) = begin
             Int(4)
@@ -3084,19 +4058,19 @@ begin
 end
 begin
     @inline function headerNslots(m::Decoder)
-            return decode_value(UInt32, m.buffer, m.offset + 28)
+            return decode_value(UInt32, m.buffer, m.offset + 29)
         end
     @inline headerNslots!(m::Encoder, val) = begin
-                encode_value(UInt32, m.buffer, m.offset + 28, val)
+                encode_value(UInt32, m.buffer, m.offset + 29, val)
             end
     export headerNslots, headerNslots!
 end
 begin
     headerSlotBytes_id(::AbstractShmPoolAnnounce) = begin
-            UInt16(7)
+            UInt16(8)
         end
     headerSlotBytes_id(::Type{<:AbstractShmPoolAnnounce}) = begin
-            UInt16(7)
+            UInt16(8)
         end
     headerSlotBytes_since_version(::AbstractShmPoolAnnounce) = begin
             UInt16(0)
@@ -3108,10 +4082,10 @@ begin
             sbe_acting_version(m) >= UInt16(0)
         end
     headerSlotBytes_encoding_offset(::AbstractShmPoolAnnounce) = begin
-            Int(32)
+            Int(33)
         end
     headerSlotBytes_encoding_offset(::Type{<:AbstractShmPoolAnnounce}) = begin
-            Int(32)
+            Int(33)
         end
     headerSlotBytes_encoding_length(::AbstractShmPoolAnnounce) = begin
             Int(2)
@@ -3152,80 +4126,12 @@ begin
 end
 begin
     @inline function headerSlotBytes(m::Decoder)
-            return decode_value(UInt16, m.buffer, m.offset + 32)
+            return decode_value(UInt16, m.buffer, m.offset + 33)
         end
     @inline headerSlotBytes!(m::Encoder, val) = begin
-                encode_value(UInt16, m.buffer, m.offset + 32, val)
+                encode_value(UInt16, m.buffer, m.offset + 33, val)
             end
     export headerSlotBytes, headerSlotBytes!
-end
-begin
-    maxDims_id(::AbstractShmPoolAnnounce) = begin
-            UInt16(8)
-        end
-    maxDims_id(::Type{<:AbstractShmPoolAnnounce}) = begin
-            UInt16(8)
-        end
-    maxDims_since_version(::AbstractShmPoolAnnounce) = begin
-            UInt16(0)
-        end
-    maxDims_since_version(::Type{<:AbstractShmPoolAnnounce}) = begin
-            UInt16(0)
-        end
-    maxDims_in_acting_version(m::AbstractShmPoolAnnounce) = begin
-            sbe_acting_version(m) >= UInt16(0)
-        end
-    maxDims_encoding_offset(::AbstractShmPoolAnnounce) = begin
-            Int(34)
-        end
-    maxDims_encoding_offset(::Type{<:AbstractShmPoolAnnounce}) = begin
-            Int(34)
-        end
-    maxDims_encoding_length(::AbstractShmPoolAnnounce) = begin
-            Int(1)
-        end
-    maxDims_encoding_length(::Type{<:AbstractShmPoolAnnounce}) = begin
-            Int(1)
-        end
-    maxDims_null_value(::AbstractShmPoolAnnounce) = begin
-            UInt8(255)
-        end
-    maxDims_null_value(::Type{<:AbstractShmPoolAnnounce}) = begin
-            UInt8(255)
-        end
-    maxDims_min_value(::AbstractShmPoolAnnounce) = begin
-            UInt8(0)
-        end
-    maxDims_min_value(::Type{<:AbstractShmPoolAnnounce}) = begin
-            UInt8(0)
-        end
-    maxDims_max_value(::AbstractShmPoolAnnounce) = begin
-            UInt8(254)
-        end
-    maxDims_max_value(::Type{<:AbstractShmPoolAnnounce}) = begin
-            UInt8(254)
-        end
-end
-begin
-    function maxDims_meta_attribute(::AbstractShmPoolAnnounce, meta_attribute)
-        meta_attribute === :presence && return Symbol("required")
-        meta_attribute === :semanticType && return Symbol("")
-        return Symbol("")
-    end
-    function maxDims_meta_attribute(::Type{<:AbstractShmPoolAnnounce}, meta_attribute)
-        meta_attribute === :presence && return Symbol("required")
-        meta_attribute === :semanticType && return Symbol("")
-        return Symbol("")
-    end
-end
-begin
-    @inline function maxDims(m::Decoder)
-            return decode_value(UInt8, m.buffer, m.offset + 34)
-        end
-    @inline maxDims!(m::Encoder, val) = begin
-                encode_value(UInt8, m.buffer, m.offset + 34, val)
-            end
-    export maxDims, maxDims!
 end
 module PayloadPools
 using SBE: AbstractSbeGroup, PositionPointer, to_string
@@ -4501,11 +5407,11 @@ end
 @inline function wrap!(m::Encoder{T}, buffer::T, offset::Integer) where T
         m.buffer = buffer
         m.offset = Int64(offset)
-        m.position_ptr[] = m.offset + UInt16(37)
+        m.position_ptr[] = m.offset + UInt16(33)
         return m
     end
 @inline function wrap_and_apply_header!(m::Encoder, buffer::AbstractArray, offset::Integer = 0; header = MessageHeader.Encoder(buffer, offset))
-        MessageHeader.blockLength!(header, UInt16(37))
+        MessageHeader.blockLength!(header, UInt16(33))
         MessageHeader.templateId!(header, UInt16(11))
         MessageHeader.schemaId!(header, UInt16(900))
         MessageHeader.version!(header, UInt16(1))
@@ -4527,10 +5433,10 @@ sbe_position!(m::AbstractFrameProgress, position) = begin
         m.position_ptr[] = position
     end
 sbe_block_length(::AbstractFrameProgress) = begin
-        UInt16(37)
+        UInt16(33)
     end
 sbe_block_length(::Type{<:AbstractFrameProgress}) = begin
-        UInt16(37)
+        UInt16(33)
     end
 sbe_template_id(::AbstractFrameProgress) = begin
         UInt16(11)
@@ -4557,7 +5463,7 @@ sbe_acting_block_length(m::Decoder) = begin
         m.acting_block_length
     end
 sbe_acting_block_length(::Encoder) = begin
-        UInt16(37)
+        UInt16(33)
     end
 sbe_acting_version(m::Decoder) = begin
         m.acting_version
@@ -4985,74 +5891,6 @@ begin
             encode_value(UInt8, m.buffer, m.offset + 32, UInt8(value))
         end
     export state, state!
-end
-begin
-    rowsFilled_id(::AbstractFrameProgress) = begin
-            UInt16(7)
-        end
-    rowsFilled_id(::Type{<:AbstractFrameProgress}) = begin
-            UInt16(7)
-        end
-    rowsFilled_since_version(::AbstractFrameProgress) = begin
-            UInt16(0)
-        end
-    rowsFilled_since_version(::Type{<:AbstractFrameProgress}) = begin
-            UInt16(0)
-        end
-    rowsFilled_in_acting_version(m::AbstractFrameProgress) = begin
-            sbe_acting_version(m) >= UInt16(0)
-        end
-    rowsFilled_encoding_offset(::AbstractFrameProgress) = begin
-            Int(33)
-        end
-    rowsFilled_encoding_offset(::Type{<:AbstractFrameProgress}) = begin
-            Int(33)
-        end
-    rowsFilled_encoding_length(::AbstractFrameProgress) = begin
-            Int(4)
-        end
-    rowsFilled_encoding_length(::Type{<:AbstractFrameProgress}) = begin
-            Int(4)
-        end
-    rowsFilled_null_value(::AbstractFrameProgress) = begin
-            UInt32(4294967295)
-        end
-    rowsFilled_null_value(::Type{<:AbstractFrameProgress}) = begin
-            UInt32(4294967295)
-        end
-    rowsFilled_min_value(::AbstractFrameProgress) = begin
-            UInt32(0)
-        end
-    rowsFilled_min_value(::Type{<:AbstractFrameProgress}) = begin
-            UInt32(0)
-        end
-    rowsFilled_max_value(::AbstractFrameProgress) = begin
-            UInt32(4294967294)
-        end
-    rowsFilled_max_value(::Type{<:AbstractFrameProgress}) = begin
-            UInt32(4294967294)
-        end
-end
-begin
-    function rowsFilled_meta_attribute(::AbstractFrameProgress, meta_attribute)
-        meta_attribute === :presence && return Symbol("optional")
-        meta_attribute === :semanticType && return Symbol("")
-        return Symbol("")
-    end
-    function rowsFilled_meta_attribute(::Type{<:AbstractFrameProgress}, meta_attribute)
-        meta_attribute === :presence && return Symbol("optional")
-        meta_attribute === :semanticType && return Symbol("")
-        return Symbol("")
-    end
-end
-begin
-    @inline function rowsFilled(m::Decoder)
-            return decode_value(UInt32, m.buffer, m.offset + 33)
-        end
-    @inline rowsFilled!(m::Encoder, val) = begin
-                encode_value(UInt32, m.buffer, m.offset + 33, val)
-            end
-    export rowsFilled, rowsFilled!
 end
 @inline function sbe_decoded_length(m::AbstractFrameProgress)
         skipper = Decoder(typeof(sbe_buffer(m)))
@@ -5982,12 +6820,12 @@ begin
 end
 begin
     function descriptorStreamId_meta_attribute(::AbstractConsumerConfig, meta_attribute)
-        meta_attribute === :presence && return Symbol("optional")
+        meta_attribute === :presence && return Symbol("required")
         meta_attribute === :semanticType && return Symbol("")
         return Symbol("")
     end
     function descriptorStreamId_meta_attribute(::Type{<:AbstractConsumerConfig}, meta_attribute)
-        meta_attribute === :presence && return Symbol("optional")
+        meta_attribute === :presence && return Symbol("required")
         meta_attribute === :semanticType && return Symbol("")
         return Symbol("")
     end
@@ -6050,12 +6888,12 @@ begin
 end
 begin
     function controlStreamId_meta_attribute(::AbstractConsumerConfig, meta_attribute)
-        meta_attribute === :presence && return Symbol("optional")
+        meta_attribute === :presence && return Symbol("required")
         meta_attribute === :semanticType && return Symbol("")
         return Symbol("")
     end
     function controlStreamId_meta_attribute(::Type{<:AbstractConsumerConfig}, meta_attribute)
-        meta_attribute === :presence && return Symbol("optional")
+        meta_attribute === :presence && return Symbol("required")
         meta_attribute === :semanticType && return Symbol("")
         return Symbol("")
     end
@@ -6482,18 +7320,16 @@ end
         return
     end
 end
-module TensorSlotHeader
-export AbstractTensorSlotHeader, Decoder, Encoder
+module SlotHeader
+export AbstractSlotHeader, Decoder, Encoder
 using SBE: AbstractSbeMessage, PositionPointer, to_string
 import SBE: sbe_buffer, sbe_offset, sbe_position_ptr, sbe_position, sbe_position!
 import SBE: sbe_block_length, sbe_template_id, sbe_schema_id, sbe_schema_version
 import SBE: sbe_acting_block_length, sbe_acting_version, sbe_rewind!
 import SBE: sbe_encoded_length, sbe_decoded_length, sbe_semantic_type
-abstract type AbstractTensorSlotHeader{T} <: AbstractSbeMessage{T} end
+abstract type AbstractSlotHeader{T} <: AbstractSbeMessage{T} end
 using ..MessageHeader
 using StringViews: StringView
-using ..Dtype
-using ..MajorOrder
 begin
     import SBE: encode_value_le, decode_value_le, encode_array_le, decode_array_le
     const encode_value = encode_value_le
@@ -6510,7 +7346,7 @@ end
             end
         return view(a, 1:len)
     end
-mutable struct Decoder{T <: AbstractArray{UInt8}} <: AbstractTensorSlotHeader{T}
+mutable struct Decoder{T <: AbstractArray{UInt8}} <: AbstractSlotHeader{T}
     buffer::T
     offset::Int64
     position_ptr::PositionPointer
@@ -6525,7 +7361,7 @@ mutable struct Decoder{T <: AbstractArray{UInt8}} <: AbstractTensorSlotHeader{T}
         return obj
     end
 end
-mutable struct Encoder{T <: AbstractArray{UInt8}} <: AbstractTensorSlotHeader{T}
+mutable struct Encoder{T <: AbstractArray{UInt8}} <: AbstractSlotHeader{T}
     buffer::T
     offset::Int64
     position_ptr::PositionPointer
@@ -6559,63 +7395,63 @@ end
 @inline function wrap!(m::Encoder{T}, buffer::T, offset::Integer) where T
         m.buffer = buffer
         m.offset = Int64(offset)
-        m.position_ptr[] = m.offset + UInt16(256)
+        m.position_ptr[] = m.offset + UInt16(60)
         return m
     end
 @inline function wrap_and_apply_header!(m::Encoder, buffer::AbstractArray, offset::Integer = 0; header = MessageHeader.Encoder(buffer, offset))
-        MessageHeader.blockLength!(header, UInt16(256))
+        MessageHeader.blockLength!(header, UInt16(60))
         MessageHeader.templateId!(header, UInt16(51))
         MessageHeader.schemaId!(header, UInt16(900))
         MessageHeader.version!(header, UInt16(1))
         return wrap!(m, buffer, offset + sbe_encoded_length(header))
     end
-sbe_buffer(m::AbstractTensorSlotHeader) = begin
+sbe_buffer(m::AbstractSlotHeader) = begin
         m.buffer
     end
-sbe_offset(m::AbstractTensorSlotHeader) = begin
+sbe_offset(m::AbstractSlotHeader) = begin
         m.offset
     end
-sbe_position_ptr(m::AbstractTensorSlotHeader) = begin
+sbe_position_ptr(m::AbstractSlotHeader) = begin
         m.position_ptr
     end
-sbe_position(m::AbstractTensorSlotHeader) = begin
+sbe_position(m::AbstractSlotHeader) = begin
         m.position_ptr[]
     end
-sbe_position!(m::AbstractTensorSlotHeader, position) = begin
+sbe_position!(m::AbstractSlotHeader, position) = begin
         m.position_ptr[] = position
     end
-sbe_block_length(::AbstractTensorSlotHeader) = begin
-        UInt16(256)
+sbe_block_length(::AbstractSlotHeader) = begin
+        UInt16(60)
     end
-sbe_block_length(::Type{<:AbstractTensorSlotHeader}) = begin
-        UInt16(256)
+sbe_block_length(::Type{<:AbstractSlotHeader}) = begin
+        UInt16(60)
     end
-sbe_template_id(::AbstractTensorSlotHeader) = begin
+sbe_template_id(::AbstractSlotHeader) = begin
         UInt16(51)
     end
-sbe_template_id(::Type{<:AbstractTensorSlotHeader}) = begin
+sbe_template_id(::Type{<:AbstractSlotHeader}) = begin
         UInt16(51)
     end
-sbe_schema_id(::AbstractTensorSlotHeader) = begin
+sbe_schema_id(::AbstractSlotHeader) = begin
         UInt16(900)
     end
-sbe_schema_id(::Type{<:AbstractTensorSlotHeader}) = begin
+sbe_schema_id(::Type{<:AbstractSlotHeader}) = begin
         UInt16(900)
     end
-sbe_schema_version(::AbstractTensorSlotHeader) = begin
+sbe_schema_version(::AbstractSlotHeader) = begin
         UInt16(1)
     end
-sbe_schema_version(::Type{<:AbstractTensorSlotHeader}) = begin
+sbe_schema_version(::Type{<:AbstractSlotHeader}) = begin
         UInt16(1)
     end
-sbe_semantic_type(::AbstractTensorSlotHeader) = begin
+sbe_semantic_type(::AbstractSlotHeader) = begin
         ""
     end
 sbe_acting_block_length(m::Decoder) = begin
         m.acting_block_length
     end
 sbe_acting_block_length(::Encoder) = begin
-        UInt16(256)
+        UInt16(60)
     end
 sbe_acting_version(m::Decoder) = begin
         m.acting_version
@@ -6623,69 +7459,69 @@ sbe_acting_version(m::Decoder) = begin
 sbe_acting_version(::Encoder) = begin
         UInt16(1)
     end
-sbe_rewind!(m::AbstractTensorSlotHeader) = begin
+sbe_rewind!(m::AbstractSlotHeader) = begin
         sbe_position!(m, m.offset + sbe_acting_block_length(m))
     end
-sbe_encoded_length(m::AbstractTensorSlotHeader) = begin
+sbe_encoded_length(m::AbstractSlotHeader) = begin
         sbe_position(m) - m.offset
     end
-Base.sizeof(m::AbstractTensorSlotHeader) = begin
+Base.sizeof(m::AbstractSlotHeader) = begin
         sbe_encoded_length(m)
     end
 begin
-    seqCommit_id(::AbstractTensorSlotHeader) = begin
+    seqCommit_id(::AbstractSlotHeader) = begin
             UInt16(1)
         end
-    seqCommit_id(::Type{<:AbstractTensorSlotHeader}) = begin
+    seqCommit_id(::Type{<:AbstractSlotHeader}) = begin
             UInt16(1)
         end
-    seqCommit_since_version(::AbstractTensorSlotHeader) = begin
+    seqCommit_since_version(::AbstractSlotHeader) = begin
             UInt16(0)
         end
-    seqCommit_since_version(::Type{<:AbstractTensorSlotHeader}) = begin
+    seqCommit_since_version(::Type{<:AbstractSlotHeader}) = begin
             UInt16(0)
         end
-    seqCommit_in_acting_version(m::AbstractTensorSlotHeader) = begin
+    seqCommit_in_acting_version(m::AbstractSlotHeader) = begin
             sbe_acting_version(m) >= UInt16(0)
         end
-    seqCommit_encoding_offset(::AbstractTensorSlotHeader) = begin
+    seqCommit_encoding_offset(::AbstractSlotHeader) = begin
             Int(0)
         end
-    seqCommit_encoding_offset(::Type{<:AbstractTensorSlotHeader}) = begin
+    seqCommit_encoding_offset(::Type{<:AbstractSlotHeader}) = begin
             Int(0)
         end
-    seqCommit_encoding_length(::AbstractTensorSlotHeader) = begin
+    seqCommit_encoding_length(::AbstractSlotHeader) = begin
             Int(8)
         end
-    seqCommit_encoding_length(::Type{<:AbstractTensorSlotHeader}) = begin
+    seqCommit_encoding_length(::Type{<:AbstractSlotHeader}) = begin
             Int(8)
         end
-    seqCommit_null_value(::AbstractTensorSlotHeader) = begin
+    seqCommit_null_value(::AbstractSlotHeader) = begin
             UInt64(18446744073709551615)
         end
-    seqCommit_null_value(::Type{<:AbstractTensorSlotHeader}) = begin
+    seqCommit_null_value(::Type{<:AbstractSlotHeader}) = begin
             UInt64(18446744073709551615)
         end
-    seqCommit_min_value(::AbstractTensorSlotHeader) = begin
+    seqCommit_min_value(::AbstractSlotHeader) = begin
             UInt64(0)
         end
-    seqCommit_min_value(::Type{<:AbstractTensorSlotHeader}) = begin
+    seqCommit_min_value(::Type{<:AbstractSlotHeader}) = begin
             UInt64(0)
         end
-    seqCommit_max_value(::AbstractTensorSlotHeader) = begin
+    seqCommit_max_value(::AbstractSlotHeader) = begin
             UInt64(18446744073709551614)
         end
-    seqCommit_max_value(::Type{<:AbstractTensorSlotHeader}) = begin
+    seqCommit_max_value(::Type{<:AbstractSlotHeader}) = begin
             UInt64(18446744073709551614)
         end
 end
 begin
-    function seqCommit_meta_attribute(::AbstractTensorSlotHeader, meta_attribute)
+    function seqCommit_meta_attribute(::AbstractSlotHeader, meta_attribute)
         meta_attribute === :presence && return Symbol("required")
         meta_attribute === :semanticType && return Symbol("")
         return Symbol("")
     end
-    function seqCommit_meta_attribute(::Type{<:AbstractTensorSlotHeader}, meta_attribute)
+    function seqCommit_meta_attribute(::Type{<:AbstractSlotHeader}, meta_attribute)
         meta_attribute === :presence && return Symbol("required")
         meta_attribute === :semanticType && return Symbol("")
         return Symbol("")
@@ -6701,59 +7537,59 @@ begin
     export seqCommit, seqCommit!
 end
 begin
-    valuesLenBytes_id(::AbstractTensorSlotHeader) = begin
+    valuesLenBytes_id(::AbstractSlotHeader) = begin
             UInt16(2)
         end
-    valuesLenBytes_id(::Type{<:AbstractTensorSlotHeader}) = begin
+    valuesLenBytes_id(::Type{<:AbstractSlotHeader}) = begin
             UInt16(2)
         end
-    valuesLenBytes_since_version(::AbstractTensorSlotHeader) = begin
+    valuesLenBytes_since_version(::AbstractSlotHeader) = begin
             UInt16(0)
         end
-    valuesLenBytes_since_version(::Type{<:AbstractTensorSlotHeader}) = begin
+    valuesLenBytes_since_version(::Type{<:AbstractSlotHeader}) = begin
             UInt16(0)
         end
-    valuesLenBytes_in_acting_version(m::AbstractTensorSlotHeader) = begin
+    valuesLenBytes_in_acting_version(m::AbstractSlotHeader) = begin
             sbe_acting_version(m) >= UInt16(0)
         end
-    valuesLenBytes_encoding_offset(::AbstractTensorSlotHeader) = begin
+    valuesLenBytes_encoding_offset(::AbstractSlotHeader) = begin
             Int(8)
         end
-    valuesLenBytes_encoding_offset(::Type{<:AbstractTensorSlotHeader}) = begin
+    valuesLenBytes_encoding_offset(::Type{<:AbstractSlotHeader}) = begin
             Int(8)
         end
-    valuesLenBytes_encoding_length(::AbstractTensorSlotHeader) = begin
+    valuesLenBytes_encoding_length(::AbstractSlotHeader) = begin
             Int(4)
         end
-    valuesLenBytes_encoding_length(::Type{<:AbstractTensorSlotHeader}) = begin
+    valuesLenBytes_encoding_length(::Type{<:AbstractSlotHeader}) = begin
             Int(4)
         end
-    valuesLenBytes_null_value(::AbstractTensorSlotHeader) = begin
+    valuesLenBytes_null_value(::AbstractSlotHeader) = begin
             UInt32(4294967295)
         end
-    valuesLenBytes_null_value(::Type{<:AbstractTensorSlotHeader}) = begin
+    valuesLenBytes_null_value(::Type{<:AbstractSlotHeader}) = begin
             UInt32(4294967295)
         end
-    valuesLenBytes_min_value(::AbstractTensorSlotHeader) = begin
+    valuesLenBytes_min_value(::AbstractSlotHeader) = begin
             UInt32(0)
         end
-    valuesLenBytes_min_value(::Type{<:AbstractTensorSlotHeader}) = begin
+    valuesLenBytes_min_value(::Type{<:AbstractSlotHeader}) = begin
             UInt32(0)
         end
-    valuesLenBytes_max_value(::AbstractTensorSlotHeader) = begin
+    valuesLenBytes_max_value(::AbstractSlotHeader) = begin
             UInt32(4294967294)
         end
-    valuesLenBytes_max_value(::Type{<:AbstractTensorSlotHeader}) = begin
+    valuesLenBytes_max_value(::Type{<:AbstractSlotHeader}) = begin
             UInt32(4294967294)
         end
 end
 begin
-    function valuesLenBytes_meta_attribute(::AbstractTensorSlotHeader, meta_attribute)
+    function valuesLenBytes_meta_attribute(::AbstractSlotHeader, meta_attribute)
         meta_attribute === :presence && return Symbol("required")
         meta_attribute === :semanticType && return Symbol("")
         return Symbol("")
     end
-    function valuesLenBytes_meta_attribute(::Type{<:AbstractTensorSlotHeader}, meta_attribute)
+    function valuesLenBytes_meta_attribute(::Type{<:AbstractSlotHeader}, meta_attribute)
         meta_attribute === :presence && return Symbol("required")
         meta_attribute === :semanticType && return Symbol("")
         return Symbol("")
@@ -6769,59 +7605,59 @@ begin
     export valuesLenBytes, valuesLenBytes!
 end
 begin
-    payloadSlot_id(::AbstractTensorSlotHeader) = begin
+    payloadSlot_id(::AbstractSlotHeader) = begin
             UInt16(3)
         end
-    payloadSlot_id(::Type{<:AbstractTensorSlotHeader}) = begin
+    payloadSlot_id(::Type{<:AbstractSlotHeader}) = begin
             UInt16(3)
         end
-    payloadSlot_since_version(::AbstractTensorSlotHeader) = begin
+    payloadSlot_since_version(::AbstractSlotHeader) = begin
             UInt16(0)
         end
-    payloadSlot_since_version(::Type{<:AbstractTensorSlotHeader}) = begin
+    payloadSlot_since_version(::Type{<:AbstractSlotHeader}) = begin
             UInt16(0)
         end
-    payloadSlot_in_acting_version(m::AbstractTensorSlotHeader) = begin
+    payloadSlot_in_acting_version(m::AbstractSlotHeader) = begin
             sbe_acting_version(m) >= UInt16(0)
         end
-    payloadSlot_encoding_offset(::AbstractTensorSlotHeader) = begin
+    payloadSlot_encoding_offset(::AbstractSlotHeader) = begin
             Int(12)
         end
-    payloadSlot_encoding_offset(::Type{<:AbstractTensorSlotHeader}) = begin
+    payloadSlot_encoding_offset(::Type{<:AbstractSlotHeader}) = begin
             Int(12)
         end
-    payloadSlot_encoding_length(::AbstractTensorSlotHeader) = begin
+    payloadSlot_encoding_length(::AbstractSlotHeader) = begin
             Int(4)
         end
-    payloadSlot_encoding_length(::Type{<:AbstractTensorSlotHeader}) = begin
+    payloadSlot_encoding_length(::Type{<:AbstractSlotHeader}) = begin
             Int(4)
         end
-    payloadSlot_null_value(::AbstractTensorSlotHeader) = begin
+    payloadSlot_null_value(::AbstractSlotHeader) = begin
             UInt32(4294967295)
         end
-    payloadSlot_null_value(::Type{<:AbstractTensorSlotHeader}) = begin
+    payloadSlot_null_value(::Type{<:AbstractSlotHeader}) = begin
             UInt32(4294967295)
         end
-    payloadSlot_min_value(::AbstractTensorSlotHeader) = begin
+    payloadSlot_min_value(::AbstractSlotHeader) = begin
             UInt32(0)
         end
-    payloadSlot_min_value(::Type{<:AbstractTensorSlotHeader}) = begin
+    payloadSlot_min_value(::Type{<:AbstractSlotHeader}) = begin
             UInt32(0)
         end
-    payloadSlot_max_value(::AbstractTensorSlotHeader) = begin
+    payloadSlot_max_value(::AbstractSlotHeader) = begin
             UInt32(4294967294)
         end
-    payloadSlot_max_value(::Type{<:AbstractTensorSlotHeader}) = begin
+    payloadSlot_max_value(::Type{<:AbstractSlotHeader}) = begin
             UInt32(4294967294)
         end
 end
 begin
-    function payloadSlot_meta_attribute(::AbstractTensorSlotHeader, meta_attribute)
+    function payloadSlot_meta_attribute(::AbstractSlotHeader, meta_attribute)
         meta_attribute === :presence && return Symbol("required")
         meta_attribute === :semanticType && return Symbol("")
         return Symbol("")
     end
-    function payloadSlot_meta_attribute(::Type{<:AbstractTensorSlotHeader}, meta_attribute)
+    function payloadSlot_meta_attribute(::Type{<:AbstractSlotHeader}, meta_attribute)
         meta_attribute === :presence && return Symbol("required")
         meta_attribute === :semanticType && return Symbol("")
         return Symbol("")
@@ -6837,59 +7673,59 @@ begin
     export payloadSlot, payloadSlot!
 end
 begin
-    poolId_id(::AbstractTensorSlotHeader) = begin
+    poolId_id(::AbstractSlotHeader) = begin
             UInt16(4)
         end
-    poolId_id(::Type{<:AbstractTensorSlotHeader}) = begin
+    poolId_id(::Type{<:AbstractSlotHeader}) = begin
             UInt16(4)
         end
-    poolId_since_version(::AbstractTensorSlotHeader) = begin
+    poolId_since_version(::AbstractSlotHeader) = begin
             UInt16(0)
         end
-    poolId_since_version(::Type{<:AbstractTensorSlotHeader}) = begin
+    poolId_since_version(::Type{<:AbstractSlotHeader}) = begin
             UInt16(0)
         end
-    poolId_in_acting_version(m::AbstractTensorSlotHeader) = begin
+    poolId_in_acting_version(m::AbstractSlotHeader) = begin
             sbe_acting_version(m) >= UInt16(0)
         end
-    poolId_encoding_offset(::AbstractTensorSlotHeader) = begin
+    poolId_encoding_offset(::AbstractSlotHeader) = begin
             Int(16)
         end
-    poolId_encoding_offset(::Type{<:AbstractTensorSlotHeader}) = begin
+    poolId_encoding_offset(::Type{<:AbstractSlotHeader}) = begin
             Int(16)
         end
-    poolId_encoding_length(::AbstractTensorSlotHeader) = begin
+    poolId_encoding_length(::AbstractSlotHeader) = begin
             Int(2)
         end
-    poolId_encoding_length(::Type{<:AbstractTensorSlotHeader}) = begin
+    poolId_encoding_length(::Type{<:AbstractSlotHeader}) = begin
             Int(2)
         end
-    poolId_null_value(::AbstractTensorSlotHeader) = begin
+    poolId_null_value(::AbstractSlotHeader) = begin
             UInt16(65535)
         end
-    poolId_null_value(::Type{<:AbstractTensorSlotHeader}) = begin
+    poolId_null_value(::Type{<:AbstractSlotHeader}) = begin
             UInt16(65535)
         end
-    poolId_min_value(::AbstractTensorSlotHeader) = begin
+    poolId_min_value(::AbstractSlotHeader) = begin
             UInt16(0)
         end
-    poolId_min_value(::Type{<:AbstractTensorSlotHeader}) = begin
+    poolId_min_value(::Type{<:AbstractSlotHeader}) = begin
             UInt16(0)
         end
-    poolId_max_value(::AbstractTensorSlotHeader) = begin
+    poolId_max_value(::AbstractSlotHeader) = begin
             UInt16(65534)
         end
-    poolId_max_value(::Type{<:AbstractTensorSlotHeader}) = begin
+    poolId_max_value(::Type{<:AbstractSlotHeader}) = begin
             UInt16(65534)
         end
 end
 begin
-    function poolId_meta_attribute(::AbstractTensorSlotHeader, meta_attribute)
+    function poolId_meta_attribute(::AbstractSlotHeader, meta_attribute)
         meta_attribute === :presence && return Symbol("required")
         meta_attribute === :semanticType && return Symbol("")
         return Symbol("")
     end
-    function poolId_meta_attribute(::Type{<:AbstractTensorSlotHeader}, meta_attribute)
+    function poolId_meta_attribute(::Type{<:AbstractSlotHeader}, meta_attribute)
         meta_attribute === :presence && return Symbol("required")
         meta_attribute === :semanticType && return Symbol("")
         return Symbol("")
@@ -6905,407 +7741,59 @@ begin
     export poolId, poolId!
 end
 begin
-    dtype_id(::AbstractTensorSlotHeader) = begin
+    payloadOffset_id(::AbstractSlotHeader) = begin
             UInt16(5)
         end
-    dtype_id(::Type{<:AbstractTensorSlotHeader}) = begin
+    payloadOffset_id(::Type{<:AbstractSlotHeader}) = begin
             UInt16(5)
         end
-    dtype_since_version(::AbstractTensorSlotHeader) = begin
+    payloadOffset_since_version(::AbstractSlotHeader) = begin
             UInt16(0)
         end
-    dtype_since_version(::Type{<:AbstractTensorSlotHeader}) = begin
+    payloadOffset_since_version(::Type{<:AbstractSlotHeader}) = begin
             UInt16(0)
         end
-    dtype_in_acting_version(m::AbstractTensorSlotHeader) = begin
+    payloadOffset_in_acting_version(m::AbstractSlotHeader) = begin
             sbe_acting_version(m) >= UInt16(0)
         end
-    dtype_encoding_offset(::AbstractTensorSlotHeader) = begin
+    payloadOffset_encoding_offset(::AbstractSlotHeader) = begin
             Int(18)
         end
-    dtype_encoding_offset(::Type{<:AbstractTensorSlotHeader}) = begin
+    payloadOffset_encoding_offset(::Type{<:AbstractSlotHeader}) = begin
             Int(18)
         end
-    dtype_encoding_length(::AbstractTensorSlotHeader) = begin
-            Int(2)
-        end
-    dtype_encoding_length(::Type{<:AbstractTensorSlotHeader}) = begin
-            Int(2)
-        end
-    dtype_null_value(::AbstractTensorSlotHeader) = begin
-            Int16(-32768)
-        end
-    dtype_null_value(::Type{<:AbstractTensorSlotHeader}) = begin
-            Int16(-32768)
-        end
-    dtype_min_value(::AbstractTensorSlotHeader) = begin
-            Int16(-32767)
-        end
-    dtype_min_value(::Type{<:AbstractTensorSlotHeader}) = begin
-            Int16(-32767)
-        end
-    dtype_max_value(::AbstractTensorSlotHeader) = begin
-            Int16(32767)
-        end
-    dtype_max_value(::Type{<:AbstractTensorSlotHeader}) = begin
-            Int16(32767)
-        end
-end
-begin
-    function dtype_meta_attribute(::AbstractTensorSlotHeader, meta_attribute)
-        meta_attribute === :presence && return Symbol("required")
-        meta_attribute === :semanticType && return Symbol("")
-        return Symbol("")
-    end
-    function dtype_meta_attribute(::Type{<:AbstractTensorSlotHeader}, meta_attribute)
-        meta_attribute === :presence && return Symbol("required")
-        meta_attribute === :semanticType && return Symbol("")
-        return Symbol("")
-    end
-end
-begin
-    @inline function dtype(m::Decoder, ::Type{Integer})
-            return decode_value(Int16, m.buffer, m.offset + 18)
-        end
-    @inline function dtype(m::Decoder)
-            raw = decode_value(Int16, m.buffer, m.offset + 18)
-            return Dtype.SbeEnum(raw)
-        end
-    @inline function dtype!(m::Encoder, value::Dtype.SbeEnum)
-            encode_value(Int16, m.buffer, m.offset + 18, Int16(value))
-        end
-    export dtype, dtype!
-end
-begin
-    majorOrder_id(::AbstractTensorSlotHeader) = begin
-            UInt16(6)
-        end
-    majorOrder_id(::Type{<:AbstractTensorSlotHeader}) = begin
-            UInt16(6)
-        end
-    majorOrder_since_version(::AbstractTensorSlotHeader) = begin
-            UInt16(0)
-        end
-    majorOrder_since_version(::Type{<:AbstractTensorSlotHeader}) = begin
-            UInt16(0)
-        end
-    majorOrder_in_acting_version(m::AbstractTensorSlotHeader) = begin
-            sbe_acting_version(m) >= UInt16(0)
-        end
-    majorOrder_encoding_offset(::AbstractTensorSlotHeader) = begin
-            Int(20)
-        end
-    majorOrder_encoding_offset(::Type{<:AbstractTensorSlotHeader}) = begin
-            Int(20)
-        end
-    majorOrder_encoding_length(::AbstractTensorSlotHeader) = begin
-            Int(2)
-        end
-    majorOrder_encoding_length(::Type{<:AbstractTensorSlotHeader}) = begin
-            Int(2)
-        end
-    majorOrder_null_value(::AbstractTensorSlotHeader) = begin
-            Int16(-32768)
-        end
-    majorOrder_null_value(::Type{<:AbstractTensorSlotHeader}) = begin
-            Int16(-32768)
-        end
-    majorOrder_min_value(::AbstractTensorSlotHeader) = begin
-            Int16(-32767)
-        end
-    majorOrder_min_value(::Type{<:AbstractTensorSlotHeader}) = begin
-            Int16(-32767)
-        end
-    majorOrder_max_value(::AbstractTensorSlotHeader) = begin
-            Int16(32767)
-        end
-    majorOrder_max_value(::Type{<:AbstractTensorSlotHeader}) = begin
-            Int16(32767)
-        end
-end
-begin
-    function majorOrder_meta_attribute(::AbstractTensorSlotHeader, meta_attribute)
-        meta_attribute === :presence && return Symbol("required")
-        meta_attribute === :semanticType && return Symbol("")
-        return Symbol("")
-    end
-    function majorOrder_meta_attribute(::Type{<:AbstractTensorSlotHeader}, meta_attribute)
-        meta_attribute === :presence && return Symbol("required")
-        meta_attribute === :semanticType && return Symbol("")
-        return Symbol("")
-    end
-end
-begin
-    @inline function majorOrder(m::Decoder, ::Type{Integer})
-            return decode_value(Int16, m.buffer, m.offset + 20)
-        end
-    @inline function majorOrder(m::Decoder)
-            raw = decode_value(Int16, m.buffer, m.offset + 20)
-            return MajorOrder.SbeEnum(raw)
-        end
-    @inline function majorOrder!(m::Encoder, value::MajorOrder.SbeEnum)
-            encode_value(Int16, m.buffer, m.offset + 20, Int16(value))
-        end
-    export majorOrder, majorOrder!
-end
-begin
-    ndims_id(::AbstractTensorSlotHeader) = begin
-            UInt16(7)
-        end
-    ndims_id(::Type{<:AbstractTensorSlotHeader}) = begin
-            UInt16(7)
-        end
-    ndims_since_version(::AbstractTensorSlotHeader) = begin
-            UInt16(0)
-        end
-    ndims_since_version(::Type{<:AbstractTensorSlotHeader}) = begin
-            UInt16(0)
-        end
-    ndims_in_acting_version(m::AbstractTensorSlotHeader) = begin
-            sbe_acting_version(m) >= UInt16(0)
-        end
-    ndims_encoding_offset(::AbstractTensorSlotHeader) = begin
-            Int(22)
-        end
-    ndims_encoding_offset(::Type{<:AbstractTensorSlotHeader}) = begin
-            Int(22)
-        end
-    ndims_encoding_length(::AbstractTensorSlotHeader) = begin
-            Int(1)
-        end
-    ndims_encoding_length(::Type{<:AbstractTensorSlotHeader}) = begin
-            Int(1)
-        end
-    ndims_null_value(::AbstractTensorSlotHeader) = begin
-            UInt8(255)
-        end
-    ndims_null_value(::Type{<:AbstractTensorSlotHeader}) = begin
-            UInt8(255)
-        end
-    ndims_min_value(::AbstractTensorSlotHeader) = begin
-            UInt8(0)
-        end
-    ndims_min_value(::Type{<:AbstractTensorSlotHeader}) = begin
-            UInt8(0)
-        end
-    ndims_max_value(::AbstractTensorSlotHeader) = begin
-            UInt8(254)
-        end
-    ndims_max_value(::Type{<:AbstractTensorSlotHeader}) = begin
-            UInt8(254)
-        end
-end
-begin
-    function ndims_meta_attribute(::AbstractTensorSlotHeader, meta_attribute)
-        meta_attribute === :presence && return Symbol("required")
-        meta_attribute === :semanticType && return Symbol("")
-        return Symbol("")
-    end
-    function ndims_meta_attribute(::Type{<:AbstractTensorSlotHeader}, meta_attribute)
-        meta_attribute === :presence && return Symbol("required")
-        meta_attribute === :semanticType && return Symbol("")
-        return Symbol("")
-    end
-end
-begin
-    @inline function ndims(m::Decoder)
-            return decode_value(UInt8, m.buffer, m.offset + 22)
-        end
-    @inline ndims!(m::Encoder, val) = begin
-                encode_value(UInt8, m.buffer, m.offset + 22, val)
-            end
-    export ndims, ndims!
-end
-begin
-    maxDims_id(::AbstractTensorSlotHeader) = begin
-            UInt16(8)
-        end
-    maxDims_id(::Type{<:AbstractTensorSlotHeader}) = begin
-            UInt16(8)
-        end
-    maxDims_since_version(::AbstractTensorSlotHeader) = begin
-            UInt16(0)
-        end
-    maxDims_since_version(::Type{<:AbstractTensorSlotHeader}) = begin
-            UInt16(0)
-        end
-    maxDims_in_acting_version(m::AbstractTensorSlotHeader) = begin
-            sbe_acting_version(m) >= UInt16(0)
-        end
-    maxDims_encoding_offset(::AbstractTensorSlotHeader) = begin
-            Int(23)
-        end
-    maxDims_encoding_offset(::Type{<:AbstractTensorSlotHeader}) = begin
-            Int(23)
-        end
-    maxDims_encoding_length(::AbstractTensorSlotHeader) = begin
-            Int(0)
-        end
-    maxDims_encoding_length(::Type{<:AbstractTensorSlotHeader}) = begin
-            Int(0)
-        end
-    maxDims_null_value(::AbstractTensorSlotHeader) = begin
-            UInt8(255)
-        end
-    maxDims_null_value(::Type{<:AbstractTensorSlotHeader}) = begin
-            UInt8(255)
-        end
-    maxDims_min_value(::AbstractTensorSlotHeader) = begin
-            UInt8(0)
-        end
-    maxDims_min_value(::Type{<:AbstractTensorSlotHeader}) = begin
-            UInt8(0)
-        end
-    maxDims_max_value(::AbstractTensorSlotHeader) = begin
-            UInt8(254)
-        end
-    maxDims_max_value(::Type{<:AbstractTensorSlotHeader}) = begin
-            UInt8(254)
-        end
-end
-begin
-    function maxDims_meta_attribute(::AbstractTensorSlotHeader, meta_attribute)
-        meta_attribute === :presence && return Symbol("required")
-        meta_attribute === :semanticType && return Symbol("")
-        return Symbol("")
-    end
-    function maxDims_meta_attribute(::Type{<:AbstractTensorSlotHeader}, meta_attribute)
-        meta_attribute === :presence && return Symbol("required")
-        meta_attribute === :semanticType && return Symbol("")
-        return Symbol("")
-    end
-end
-begin
-    @inline maxDims(::Decoder) = begin
-                UInt8(8)
-            end
-    @inline maxDims(::Type{<:Decoder}) = begin
-                UInt8(8)
-            end
-    export maxDims
-end
-begin
-    padAlign_id(::AbstractTensorSlotHeader) = begin
-            UInt16(9)
-        end
-    padAlign_id(::Type{<:AbstractTensorSlotHeader}) = begin
-            UInt16(9)
-        end
-    padAlign_since_version(::AbstractTensorSlotHeader) = begin
-            UInt16(0)
-        end
-    padAlign_since_version(::Type{<:AbstractTensorSlotHeader}) = begin
-            UInt16(0)
-        end
-    padAlign_in_acting_version(m::AbstractTensorSlotHeader) = begin
-            sbe_acting_version(m) >= UInt16(0)
-        end
-    padAlign_encoding_offset(::AbstractTensorSlotHeader) = begin
-            Int(23)
-        end
-    padAlign_encoding_offset(::Type{<:AbstractTensorSlotHeader}) = begin
-            Int(23)
-        end
-    padAlign_encoding_length(::AbstractTensorSlotHeader) = begin
-            Int(1)
-        end
-    padAlign_encoding_length(::Type{<:AbstractTensorSlotHeader}) = begin
-            Int(1)
-        end
-    padAlign_null_value(::AbstractTensorSlotHeader) = begin
-            UInt8(255)
-        end
-    padAlign_null_value(::Type{<:AbstractTensorSlotHeader}) = begin
-            UInt8(255)
-        end
-    padAlign_min_value(::AbstractTensorSlotHeader) = begin
-            UInt8(0)
-        end
-    padAlign_min_value(::Type{<:AbstractTensorSlotHeader}) = begin
-            UInt8(0)
-        end
-    padAlign_max_value(::AbstractTensorSlotHeader) = begin
-            UInt8(254)
-        end
-    padAlign_max_value(::Type{<:AbstractTensorSlotHeader}) = begin
-            UInt8(254)
-        end
-end
-begin
-    function padAlign_meta_attribute(::AbstractTensorSlotHeader, meta_attribute)
-        meta_attribute === :presence && return Symbol("required")
-        meta_attribute === :semanticType && return Symbol("")
-        return Symbol("")
-    end
-    function padAlign_meta_attribute(::Type{<:AbstractTensorSlotHeader}, meta_attribute)
-        meta_attribute === :presence && return Symbol("required")
-        meta_attribute === :semanticType && return Symbol("")
-        return Symbol("")
-    end
-end
-begin
-    @inline function padAlign(m::Decoder)
-            return decode_value(UInt8, m.buffer, m.offset + 23)
-        end
-    @inline padAlign!(m::Encoder, val) = begin
-                encode_value(UInt8, m.buffer, m.offset + 23, val)
-            end
-    export padAlign, padAlign!
-end
-begin
-    payloadOffset_id(::AbstractTensorSlotHeader) = begin
-            UInt16(10)
-        end
-    payloadOffset_id(::Type{<:AbstractTensorSlotHeader}) = begin
-            UInt16(10)
-        end
-    payloadOffset_since_version(::AbstractTensorSlotHeader) = begin
-            UInt16(0)
-        end
-    payloadOffset_since_version(::Type{<:AbstractTensorSlotHeader}) = begin
-            UInt16(0)
-        end
-    payloadOffset_in_acting_version(m::AbstractTensorSlotHeader) = begin
-            sbe_acting_version(m) >= UInt16(0)
-        end
-    payloadOffset_encoding_offset(::AbstractTensorSlotHeader) = begin
-            Int(24)
-        end
-    payloadOffset_encoding_offset(::Type{<:AbstractTensorSlotHeader}) = begin
-            Int(24)
-        end
-    payloadOffset_encoding_length(::AbstractTensorSlotHeader) = begin
+    payloadOffset_encoding_length(::AbstractSlotHeader) = begin
             Int(4)
         end
-    payloadOffset_encoding_length(::Type{<:AbstractTensorSlotHeader}) = begin
+    payloadOffset_encoding_length(::Type{<:AbstractSlotHeader}) = begin
             Int(4)
         end
-    payloadOffset_null_value(::AbstractTensorSlotHeader) = begin
+    payloadOffset_null_value(::AbstractSlotHeader) = begin
             UInt32(4294967295)
         end
-    payloadOffset_null_value(::Type{<:AbstractTensorSlotHeader}) = begin
+    payloadOffset_null_value(::Type{<:AbstractSlotHeader}) = begin
             UInt32(4294967295)
         end
-    payloadOffset_min_value(::AbstractTensorSlotHeader) = begin
+    payloadOffset_min_value(::AbstractSlotHeader) = begin
             UInt32(0)
         end
-    payloadOffset_min_value(::Type{<:AbstractTensorSlotHeader}) = begin
+    payloadOffset_min_value(::Type{<:AbstractSlotHeader}) = begin
             UInt32(0)
         end
-    payloadOffset_max_value(::AbstractTensorSlotHeader) = begin
+    payloadOffset_max_value(::AbstractSlotHeader) = begin
             UInt32(4294967294)
         end
-    payloadOffset_max_value(::Type{<:AbstractTensorSlotHeader}) = begin
+    payloadOffset_max_value(::Type{<:AbstractSlotHeader}) = begin
             UInt32(4294967294)
         end
 end
 begin
-    function payloadOffset_meta_attribute(::AbstractTensorSlotHeader, meta_attribute)
+    function payloadOffset_meta_attribute(::AbstractSlotHeader, meta_attribute)
         meta_attribute === :presence && return Symbol("required")
         meta_attribute === :semanticType && return Symbol("")
         return Symbol("")
     end
-    function payloadOffset_meta_attribute(::Type{<:AbstractTensorSlotHeader}, meta_attribute)
+    function payloadOffset_meta_attribute(::Type{<:AbstractSlotHeader}, meta_attribute)
         meta_attribute === :presence && return Symbol("required")
         meta_attribute === :semanticType && return Symbol("")
         return Symbol("")
@@ -7313,67 +7801,67 @@ begin
 end
 begin
     @inline function payloadOffset(m::Decoder)
-            return decode_value(UInt32, m.buffer, m.offset + 24)
+            return decode_value(UInt32, m.buffer, m.offset + 18)
         end
     @inline payloadOffset!(m::Encoder, val) = begin
-                encode_value(UInt32, m.buffer, m.offset + 24, val)
+                encode_value(UInt32, m.buffer, m.offset + 18, val)
             end
     export payloadOffset, payloadOffset!
 end
 begin
-    timestampNs_id(::AbstractTensorSlotHeader) = begin
-            UInt16(11)
+    timestampNs_id(::AbstractSlotHeader) = begin
+            UInt16(6)
         end
-    timestampNs_id(::Type{<:AbstractTensorSlotHeader}) = begin
-            UInt16(11)
+    timestampNs_id(::Type{<:AbstractSlotHeader}) = begin
+            UInt16(6)
         end
-    timestampNs_since_version(::AbstractTensorSlotHeader) = begin
+    timestampNs_since_version(::AbstractSlotHeader) = begin
             UInt16(0)
         end
-    timestampNs_since_version(::Type{<:AbstractTensorSlotHeader}) = begin
+    timestampNs_since_version(::Type{<:AbstractSlotHeader}) = begin
             UInt16(0)
         end
-    timestampNs_in_acting_version(m::AbstractTensorSlotHeader) = begin
+    timestampNs_in_acting_version(m::AbstractSlotHeader) = begin
             sbe_acting_version(m) >= UInt16(0)
         end
-    timestampNs_encoding_offset(::AbstractTensorSlotHeader) = begin
-            Int(28)
+    timestampNs_encoding_offset(::AbstractSlotHeader) = begin
+            Int(22)
         end
-    timestampNs_encoding_offset(::Type{<:AbstractTensorSlotHeader}) = begin
-            Int(28)
+    timestampNs_encoding_offset(::Type{<:AbstractSlotHeader}) = begin
+            Int(22)
         end
-    timestampNs_encoding_length(::AbstractTensorSlotHeader) = begin
+    timestampNs_encoding_length(::AbstractSlotHeader) = begin
             Int(8)
         end
-    timestampNs_encoding_length(::Type{<:AbstractTensorSlotHeader}) = begin
+    timestampNs_encoding_length(::Type{<:AbstractSlotHeader}) = begin
             Int(8)
         end
-    timestampNs_null_value(::AbstractTensorSlotHeader) = begin
+    timestampNs_null_value(::AbstractSlotHeader) = begin
             UInt64(18446744073709551615)
         end
-    timestampNs_null_value(::Type{<:AbstractTensorSlotHeader}) = begin
+    timestampNs_null_value(::Type{<:AbstractSlotHeader}) = begin
             UInt64(18446744073709551615)
         end
-    timestampNs_min_value(::AbstractTensorSlotHeader) = begin
+    timestampNs_min_value(::AbstractSlotHeader) = begin
             UInt64(0)
         end
-    timestampNs_min_value(::Type{<:AbstractTensorSlotHeader}) = begin
+    timestampNs_min_value(::Type{<:AbstractSlotHeader}) = begin
             UInt64(0)
         end
-    timestampNs_max_value(::AbstractTensorSlotHeader) = begin
+    timestampNs_max_value(::AbstractSlotHeader) = begin
             UInt64(18446744073709551614)
         end
-    timestampNs_max_value(::Type{<:AbstractTensorSlotHeader}) = begin
+    timestampNs_max_value(::Type{<:AbstractSlotHeader}) = begin
             UInt64(18446744073709551614)
         end
 end
 begin
-    function timestampNs_meta_attribute(::AbstractTensorSlotHeader, meta_attribute)
+    function timestampNs_meta_attribute(::AbstractSlotHeader, meta_attribute)
         meta_attribute === :presence && return Symbol("required")
         meta_attribute === :semanticType && return Symbol("")
         return Symbol("")
     end
-    function timestampNs_meta_attribute(::Type{<:AbstractTensorSlotHeader}, meta_attribute)
+    function timestampNs_meta_attribute(::Type{<:AbstractSlotHeader}, meta_attribute)
         meta_attribute === :presence && return Symbol("required")
         meta_attribute === :semanticType && return Symbol("")
         return Symbol("")
@@ -7381,67 +7869,67 @@ begin
 end
 begin
     @inline function timestampNs(m::Decoder)
-            return decode_value(UInt64, m.buffer, m.offset + 28)
+            return decode_value(UInt64, m.buffer, m.offset + 22)
         end
     @inline timestampNs!(m::Encoder, val) = begin
-                encode_value(UInt64, m.buffer, m.offset + 28, val)
+                encode_value(UInt64, m.buffer, m.offset + 22, val)
             end
     export timestampNs, timestampNs!
 end
 begin
-    metaVersion_id(::AbstractTensorSlotHeader) = begin
-            UInt16(12)
+    metaVersion_id(::AbstractSlotHeader) = begin
+            UInt16(7)
         end
-    metaVersion_id(::Type{<:AbstractTensorSlotHeader}) = begin
-            UInt16(12)
+    metaVersion_id(::Type{<:AbstractSlotHeader}) = begin
+            UInt16(7)
         end
-    metaVersion_since_version(::AbstractTensorSlotHeader) = begin
+    metaVersion_since_version(::AbstractSlotHeader) = begin
             UInt16(0)
         end
-    metaVersion_since_version(::Type{<:AbstractTensorSlotHeader}) = begin
+    metaVersion_since_version(::Type{<:AbstractSlotHeader}) = begin
             UInt16(0)
         end
-    metaVersion_in_acting_version(m::AbstractTensorSlotHeader) = begin
+    metaVersion_in_acting_version(m::AbstractSlotHeader) = begin
             sbe_acting_version(m) >= UInt16(0)
         end
-    metaVersion_encoding_offset(::AbstractTensorSlotHeader) = begin
-            Int(36)
+    metaVersion_encoding_offset(::AbstractSlotHeader) = begin
+            Int(30)
         end
-    metaVersion_encoding_offset(::Type{<:AbstractTensorSlotHeader}) = begin
-            Int(36)
+    metaVersion_encoding_offset(::Type{<:AbstractSlotHeader}) = begin
+            Int(30)
         end
-    metaVersion_encoding_length(::AbstractTensorSlotHeader) = begin
+    metaVersion_encoding_length(::AbstractSlotHeader) = begin
             Int(4)
         end
-    metaVersion_encoding_length(::Type{<:AbstractTensorSlotHeader}) = begin
+    metaVersion_encoding_length(::Type{<:AbstractSlotHeader}) = begin
             Int(4)
         end
-    metaVersion_null_value(::AbstractTensorSlotHeader) = begin
+    metaVersion_null_value(::AbstractSlotHeader) = begin
             UInt32(4294967295)
         end
-    metaVersion_null_value(::Type{<:AbstractTensorSlotHeader}) = begin
+    metaVersion_null_value(::Type{<:AbstractSlotHeader}) = begin
             UInt32(4294967295)
         end
-    metaVersion_min_value(::AbstractTensorSlotHeader) = begin
+    metaVersion_min_value(::AbstractSlotHeader) = begin
             UInt32(0)
         end
-    metaVersion_min_value(::Type{<:AbstractTensorSlotHeader}) = begin
+    metaVersion_min_value(::Type{<:AbstractSlotHeader}) = begin
             UInt32(0)
         end
-    metaVersion_max_value(::AbstractTensorSlotHeader) = begin
+    metaVersion_max_value(::AbstractSlotHeader) = begin
             UInt32(4294967294)
         end
-    metaVersion_max_value(::Type{<:AbstractTensorSlotHeader}) = begin
+    metaVersion_max_value(::Type{<:AbstractSlotHeader}) = begin
             UInt32(4294967294)
         end
 end
 begin
-    function metaVersion_meta_attribute(::AbstractTensorSlotHeader, meta_attribute)
+    function metaVersion_meta_attribute(::AbstractSlotHeader, meta_attribute)
         meta_attribute === :presence && return Symbol("required")
         meta_attribute === :semanticType && return Symbol("")
         return Symbol("")
     end
-    function metaVersion_meta_attribute(::Type{<:AbstractTensorSlotHeader}, meta_attribute)
+    function metaVersion_meta_attribute(::Type{<:AbstractSlotHeader}, meta_attribute)
         meta_attribute === :presence && return Symbol("required")
         meta_attribute === :semanticType && return Symbol("")
         return Symbol("")
@@ -7449,269 +7937,206 @@ begin
 end
 begin
     @inline function metaVersion(m::Decoder)
-            return decode_value(UInt32, m.buffer, m.offset + 36)
+            return decode_value(UInt32, m.buffer, m.offset + 30)
         end
     @inline metaVersion!(m::Encoder, val) = begin
-                encode_value(UInt32, m.buffer, m.offset + 36, val)
+                encode_value(UInt32, m.buffer, m.offset + 30, val)
             end
     export metaVersion, metaVersion!
 end
 begin
-    dims_id(::AbstractTensorSlotHeader) = begin
-            UInt16(13)
+    pad_id(::AbstractSlotHeader) = begin
+            UInt16(8)
         end
-    dims_id(::Type{<:AbstractTensorSlotHeader}) = begin
-            UInt16(13)
+    pad_id(::Type{<:AbstractSlotHeader}) = begin
+            UInt16(8)
         end
-    dims_since_version(::AbstractTensorSlotHeader) = begin
+    pad_since_version(::AbstractSlotHeader) = begin
             UInt16(0)
         end
-    dims_since_version(::Type{<:AbstractTensorSlotHeader}) = begin
+    pad_since_version(::Type{<:AbstractSlotHeader}) = begin
             UInt16(0)
         end
-    dims_in_acting_version(m::AbstractTensorSlotHeader) = begin
+    pad_in_acting_version(m::AbstractSlotHeader) = begin
             sbe_acting_version(m) >= UInt16(0)
         end
-    dims_encoding_offset(::AbstractTensorSlotHeader) = begin
-            Int(40)
+    pad_encoding_offset(::AbstractSlotHeader) = begin
+            Int(34)
         end
-    dims_encoding_offset(::Type{<:AbstractTensorSlotHeader}) = begin
-            Int(40)
+    pad_encoding_offset(::Type{<:AbstractSlotHeader}) = begin
+            Int(34)
         end
-    dims_encoding_length(::AbstractTensorSlotHeader) = begin
-            Int(32)
+    pad_encoding_length(::AbstractSlotHeader) = begin
+            Int(1)
         end
-    dims_encoding_length(::Type{<:AbstractTensorSlotHeader}) = begin
-            Int(32)
+    pad_encoding_length(::Type{<:AbstractSlotHeader}) = begin
+            Int(1)
         end
-    dims_null_value(::AbstractTensorSlotHeader) = begin
-            Int32(-2147483648)
-        end
-    dims_null_value(::Type{<:AbstractTensorSlotHeader}) = begin
-            Int32(-2147483648)
-        end
-    dims_min_value(::AbstractTensorSlotHeader) = begin
-            Int32(-2147483647)
-        end
-    dims_min_value(::Type{<:AbstractTensorSlotHeader}) = begin
-            Int32(-2147483647)
-        end
-    dims_max_value(::AbstractTensorSlotHeader) = begin
-            Int32(2147483647)
-        end
-    dims_max_value(::Type{<:AbstractTensorSlotHeader}) = begin
-            Int32(2147483647)
-        end
-end
-begin
-    function dims_meta_attribute(::AbstractTensorSlotHeader, meta_attribute)
-        meta_attribute === :presence && return Symbol("required")
-        meta_attribute === :semanticType && return Symbol("")
-        return Symbol("")
-    end
-    function dims_meta_attribute(::Type{<:AbstractTensorSlotHeader}, meta_attribute)
-        meta_attribute === :presence && return Symbol("required")
-        meta_attribute === :semanticType && return Symbol("")
-        return Symbol("")
-    end
-end
-begin
-    @inline function dims(m::Decoder)
-            return decode_array(Int32, m.buffer, m.offset + 40, 8)
-        end
-    @inline function dims(m::Decoder, ::Type{NTuple{N, T}}) where {N, T <: Real}
-            N == 8 || throw(ArgumentError("Expected NTuple{$(array_len),<:Real}"))
-            x = decode_array(Int32, m.buffer, m.offset + 40, 8)
-            return ntuple((i->begin
-                            x[i]
-                        end), Val(N))
-        end
-    @inline function dims!(m::Encoder)
-            return encode_array(Int32, m.buffer, m.offset + 40, 8)
-        end
-    @inline function dims!(m::Encoder, val)
-            copyto!(dims!(m), val)
-        end
-    @inline function dims!(m::Encoder, val::NTuple{N, T}) where {N, T <: Real}
-            N == 8 || throw(ArgumentError("Expected NTuple{$(array_len),<:Real}"))
-            dest = dims!(m)
-            @inbounds for i = 1:8
-                    dest[i] = val[i]
-                end
-        end
-    export dims, dims!
-end
-begin
-    strides_id(::AbstractTensorSlotHeader) = begin
-            UInt16(14)
-        end
-    strides_id(::Type{<:AbstractTensorSlotHeader}) = begin
-            UInt16(14)
-        end
-    strides_since_version(::AbstractTensorSlotHeader) = begin
-            UInt16(0)
-        end
-    strides_since_version(::Type{<:AbstractTensorSlotHeader}) = begin
-            UInt16(0)
-        end
-    strides_in_acting_version(m::AbstractTensorSlotHeader) = begin
-            sbe_acting_version(m) >= UInt16(0)
-        end
-    strides_encoding_offset(::AbstractTensorSlotHeader) = begin
-            Int(72)
-        end
-    strides_encoding_offset(::Type{<:AbstractTensorSlotHeader}) = begin
-            Int(72)
-        end
-    strides_encoding_length(::AbstractTensorSlotHeader) = begin
-            Int(32)
-        end
-    strides_encoding_length(::Type{<:AbstractTensorSlotHeader}) = begin
-            Int(32)
-        end
-    strides_null_value(::AbstractTensorSlotHeader) = begin
-            Int32(-2147483648)
-        end
-    strides_null_value(::Type{<:AbstractTensorSlotHeader}) = begin
-            Int32(-2147483648)
-        end
-    strides_min_value(::AbstractTensorSlotHeader) = begin
-            Int32(-2147483647)
-        end
-    strides_min_value(::Type{<:AbstractTensorSlotHeader}) = begin
-            Int32(-2147483647)
-        end
-    strides_max_value(::AbstractTensorSlotHeader) = begin
-            Int32(2147483647)
-        end
-    strides_max_value(::Type{<:AbstractTensorSlotHeader}) = begin
-            Int32(2147483647)
-        end
-end
-begin
-    function strides_meta_attribute(::AbstractTensorSlotHeader, meta_attribute)
-        meta_attribute === :presence && return Symbol("required")
-        meta_attribute === :semanticType && return Symbol("")
-        return Symbol("")
-    end
-    function strides_meta_attribute(::Type{<:AbstractTensorSlotHeader}, meta_attribute)
-        meta_attribute === :presence && return Symbol("required")
-        meta_attribute === :semanticType && return Symbol("")
-        return Symbol("")
-    end
-end
-begin
-    @inline function strides(m::Decoder)
-            return decode_array(Int32, m.buffer, m.offset + 72, 8)
-        end
-    @inline function strides(m::Decoder, ::Type{NTuple{N, T}}) where {N, T <: Real}
-            N == 8 || throw(ArgumentError("Expected NTuple{$(array_len),<:Real}"))
-            x = decode_array(Int32, m.buffer, m.offset + 72, 8)
-            return ntuple((i->begin
-                            x[i]
-                        end), Val(N))
-        end
-    @inline function strides!(m::Encoder)
-            return encode_array(Int32, m.buffer, m.offset + 72, 8)
-        end
-    @inline function strides!(m::Encoder, val)
-            copyto!(strides!(m), val)
-        end
-    @inline function strides!(m::Encoder, val::NTuple{N, T}) where {N, T <: Real}
-            N == 8 || throw(ArgumentError("Expected NTuple{$(array_len),<:Real}"))
-            dest = strides!(m)
-            @inbounds for i = 1:8
-                    dest[i] = val[i]
-                end
-        end
-    export strides, strides!
-end
-begin
-    padding_id(::AbstractTensorSlotHeader) = begin
-            UInt16(15)
-        end
-    padding_id(::Type{<:AbstractTensorSlotHeader}) = begin
-            UInt16(15)
-        end
-    padding_since_version(::AbstractTensorSlotHeader) = begin
-            UInt16(0)
-        end
-    padding_since_version(::Type{<:AbstractTensorSlotHeader}) = begin
-            UInt16(0)
-        end
-    padding_in_acting_version(m::AbstractTensorSlotHeader) = begin
-            sbe_acting_version(m) >= UInt16(0)
-        end
-    padding_encoding_offset(::AbstractTensorSlotHeader) = begin
-            Int(104)
-        end
-    padding_encoding_offset(::Type{<:AbstractTensorSlotHeader}) = begin
-            Int(104)
-        end
-    padding_encoding_length(::AbstractTensorSlotHeader) = begin
-            Int(152)
-        end
-    padding_encoding_length(::Type{<:AbstractTensorSlotHeader}) = begin
-            Int(152)
-        end
-    padding_null_value(::AbstractTensorSlotHeader) = begin
+    pad_null_value(::AbstractSlotHeader) = begin
             UInt8(255)
         end
-    padding_null_value(::Type{<:AbstractTensorSlotHeader}) = begin
+    pad_null_value(::Type{<:AbstractSlotHeader}) = begin
             UInt8(255)
         end
-    padding_min_value(::AbstractTensorSlotHeader) = begin
+    pad_min_value(::AbstractSlotHeader) = begin
             UInt8(0)
         end
-    padding_min_value(::Type{<:AbstractTensorSlotHeader}) = begin
+    pad_min_value(::Type{<:AbstractSlotHeader}) = begin
             UInt8(0)
         end
-    padding_max_value(::AbstractTensorSlotHeader) = begin
+    pad_max_value(::AbstractSlotHeader) = begin
             UInt8(254)
         end
-    padding_max_value(::Type{<:AbstractTensorSlotHeader}) = begin
+    pad_max_value(::Type{<:AbstractSlotHeader}) = begin
             UInt8(254)
         end
 end
 begin
-    function padding_meta_attribute(::AbstractTensorSlotHeader, meta_attribute)
+    function pad_meta_attribute(::AbstractSlotHeader, meta_attribute)
         meta_attribute === :presence && return Symbol("required")
         meta_attribute === :semanticType && return Symbol("")
         return Symbol("")
     end
-    function padding_meta_attribute(::Type{<:AbstractTensorSlotHeader}, meta_attribute)
+    function pad_meta_attribute(::Type{<:AbstractSlotHeader}, meta_attribute)
         meta_attribute === :presence && return Symbol("required")
         meta_attribute === :semanticType && return Symbol("")
         return Symbol("")
     end
 end
 begin
-    @inline function padding(m::Decoder)
-            return decode_array(UInt8, m.buffer, m.offset + 104, 152)
+    @inline function pad(m::Decoder)
+            return decode_value(UInt8, m.buffer, m.offset + 34)
         end
-    @inline function padding(m::Decoder, ::Type{NTuple{N, T}}) where {N, T <: Real}
-            N == 152 || throw(ArgumentError("Expected NTuple{$(array_len),<:Real}"))
-            x = decode_array(UInt8, m.buffer, m.offset + 104, 152)
+    @inline pad!(m::Encoder, val) = begin
+                encode_value(UInt8, m.buffer, m.offset + 34, val)
+            end
+    export pad, pad!
+end
+begin
+    function headerBytes_meta_attribute(::AbstractSlotHeader, meta_attribute)
+        meta_attribute === :presence && return Symbol("required")
+        meta_attribute === :semanticType && return Symbol("")
+        return Symbol("")
+    end
+    function headerBytes_meta_attribute(::Type{<:AbstractSlotHeader}, meta_attribute)
+        meta_attribute === :presence && return Symbol("required")
+        meta_attribute === :semanticType && return Symbol("")
+        return Symbol("")
+    end
+end
+begin
+    const headerBytes_id = UInt16(9)
+    const headerBytes_since_version = UInt16(0)
+    const headerBytes_header_length = 4
+    headerBytes_in_acting_version(m::AbstractSlotHeader) = begin
+            sbe_acting_version(m) >= UInt16(0)
+        end
+end
+begin
+    @inline function headerBytes_length(m::AbstractSlotHeader)
+            return decode_value(UInt32, m.buffer, sbe_position(m))
+        end
+end
+begin
+    @inline function headerBytes_length!(m::Encoder, n)
+            @boundscheck n > 1073741824 && throw(ArgumentError("length exceeds schema limit"))
+            @boundscheck checkbounds(m.buffer, sbe_position(m) + 4 + n)
+            return encode_value(UInt32, m.buffer, sbe_position(m), UInt32(n))
+        end
+end
+begin
+    @inline function skip_headerBytes!(m::Decoder)
+            len = headerBytes_length(m)
+            pos = sbe_position(m) + 4
+            sbe_position!(m, pos + len)
+            return len
+        end
+end
+begin
+    @inline function headerBytes(m::Decoder)
+            len = headerBytes_length(m)
+            pos = sbe_position(m) + 4
+            sbe_position!(m, pos + len)
+            return view(m.buffer, pos + 1:pos + len)
+        end
+end
+begin
+    @inline function headerBytes_buffer!(m::Encoder, len)
+            headerBytes_length!(m, len)
+            pos = sbe_position(m) + 4
+            sbe_position!(m, pos + len)
+            return view(m.buffer, pos + 1:pos + len)
+        end
+end
+begin
+    @inline function headerBytes!(m::Encoder, src::AbstractArray)
+            len = sizeof(eltype(src)) * Base.length(src)
+            headerBytes_length!(m, len)
+            pos = sbe_position(m) + 4
+            sbe_position!(m, pos + len)
+            dest = view(m.buffer, pos + 1:pos + len)
+            copyto!(dest, reinterpret(UInt8, src))
+        end
+end
+begin
+    @inline function headerBytes!(m::Encoder, src::NTuple)
+            len = sizeof(src)
+            headerBytes_length!(m, len)
+            pos = sbe_position(m) + 4
+            sbe_position!(m, pos + len)
+            dest = view(m.buffer, pos + 1:pos + len)
+            copyto!(dest, reinterpret(NTuple{len, UInt8}, src))
+        end
+end
+begin
+    @inline function headerBytes!(m::Encoder, src::AbstractString)
+            len = sizeof(src)
+            headerBytes_length!(m, len)
+            pos = sbe_position(m) + 4
+            sbe_position!(m, pos + len)
+            dest = view(m.buffer, pos + 1:pos + len)
+            copyto!(dest, codeunits(src))
+        end
+end
+begin
+    @inline headerBytes!(m::Encoder, src::Symbol) = begin
+                headerBytes!(m, to_string(src))
+            end
+    @inline headerBytes!(m::Encoder, src::Real) = begin
+                headerBytes!(m, Tuple(src))
+            end
+    @inline headerBytes!(m::Encoder, ::Nothing) = begin
+                headerBytes_buffer!(m, 0)
+            end
+end
+begin
+    @inline function headerBytes(m::Decoder, ::Type{String})
+            return String(StringView(rstrip_nul(headerBytes(m))))
+        end
+    @inline function headerBytes(m::Decoder, ::Type{T}) where T <: AbstractString
+            return StringView(rstrip_nul(headerBytes(m)))
+        end
+    @inline function headerBytes(m::Decoder, ::Type{T}) where T <: Symbol
+            return Symbol(headerBytes(m, StringView))
+        end
+    @inline function headerBytes(m::Decoder, ::Type{T}) where T <: Real
+            return (reinterpret(T, headerBytes(m)))[]
+        end
+    @inline function headerBytes(m::Decoder, ::Type{AbstractArray{T}}) where T <: Real
+            return reinterpret(T, headerBytes(m))
+        end
+    @inline function headerBytes(m::Decoder, ::Type{NTuple{N, T}}) where {N, T <: Real}
+            x = reinterpret(T, headerBytes(m))
             return ntuple((i->begin
                             x[i]
                         end), Val(N))
         end
-    @inline function padding!(m::Encoder)
-            return encode_array(UInt8, m.buffer, m.offset + 104, 152)
+    @inline function headerBytes(m::Decoder, ::Type{T}) where T <: Nothing
+            skip_headerBytes!(m)
+            return nothing
         end
-    @inline function padding!(m::Encoder, val)
-            copyto!(padding!(m), val)
-        end
-    @inline function padding!(m::Encoder, val::NTuple{N, T}) where {N, T <: Real}
-            N == 152 || throw(ArgumentError("Expected NTuple{$(array_len),<:Real}"))
-            dest = padding!(m)
-            @inbounds for i = 1:152
-                    dest[i] = val[i]
-                end
-        end
-    export padding, padding!
 end
-@inline function sbe_decoded_length(m::AbstractTensorSlotHeader)
+@inline function sbe_decoded_length(m::AbstractSlotHeader)
         skipper = Decoder(typeof(sbe_buffer(m)))
         skipper.position_ptr = PositionPointer()
         wrap!(skipper, sbe_buffer(m), sbe_offset(m), sbe_acting_block_length(m), sbe_acting_version(m))
@@ -7720,7 +8145,9 @@ end
     end
 @inline function sbe_skip!(m::Decoder)
         sbe_rewind!(m)
-        return
+        begin
+            skip_headerBytes!(m)
+        end
         return
     end
 end
@@ -10866,12 +11293,12 @@ begin
 end
 begin
     function descriptorStreamId_meta_attribute(::AbstractConsumerHello, meta_attribute)
-        meta_attribute === :presence && return Symbol("optional")
+        meta_attribute === :presence && return Symbol("required")
         meta_attribute === :semanticType && return Symbol("")
         return Symbol("")
     end
     function descriptorStreamId_meta_attribute(::Type{<:AbstractConsumerHello}, meta_attribute)
-        meta_attribute === :presence && return Symbol("optional")
+        meta_attribute === :presence && return Symbol("required")
         meta_attribute === :semanticType && return Symbol("")
         return Symbol("")
     end
@@ -10934,12 +11361,12 @@ begin
 end
 begin
     function controlStreamId_meta_attribute(::AbstractConsumerHello, meta_attribute)
-        meta_attribute === :presence && return Symbol("optional")
+        meta_attribute === :presence && return Symbol("required")
         meta_attribute === :semanticType && return Symbol("")
         return Symbol("")
     end
     function controlStreamId_meta_attribute(::Type{<:AbstractConsumerHello}, meta_attribute)
-        meta_attribute === :presence && return Symbol("optional")
+        meta_attribute === :presence && return Symbol("required")
         meta_attribute === :semanticType && return Symbol("")
         return Symbol("")
     end

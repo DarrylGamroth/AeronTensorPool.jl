@@ -237,11 +237,11 @@ end
                     ConsumerHello.progressRowsDelta!(consumer_state.runtime.hello_encoder, typemax(UInt32))
                     ConsumerHello.descriptorStreamId!(
                         consumer_state.runtime.hello_encoder,
-                        ConsumerHello.descriptorStreamId_null_value(ConsumerHello.Encoder),
+                        UInt32(0),
                     )
                     ConsumerHello.controlStreamId!(
                         consumer_state.runtime.hello_encoder,
-                        ConsumerHello.controlStreamId_null_value(ConsumerHello.Encoder),
+                        UInt32(0),
                     )
                     ConsumerHello.descriptorChannel!(consumer_state.runtime.hello_encoder, "aeron:ipc")
                     ConsumerHello.controlChannel!(consumer_state.runtime.hello_encoder, "aeron:ipc")

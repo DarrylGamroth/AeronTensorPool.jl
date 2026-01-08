@@ -57,41 +57,41 @@ function wrap_superblock!(m::ShmRegionSuperblock.Decoder, buffer::AbstractVector
 end
 
 """
-Wrap a tensor slot header encoder over a buffer without an SBE message header.
+Wrap a slot header encoder over a buffer without an SBE message header.
 
 Arguments:
-- `m`: tensor slot header encoder.
+- `m`: slot header encoder.
 - `buffer`: header mmap buffer.
 - `offset`: byte offset within `buffer`.
 
 Returns:
 - The wrapped encoder `m`.
 """
-function wrap_tensor_header!(m::TensorSlotHeaderMsg.Encoder, buffer::AbstractVector{UInt8}, offset::Integer)
+function wrap_slot_header!(m::SlotHeaderMsg.Encoder, buffer::AbstractVector{UInt8}, offset::Integer)
     @boundscheck length(buffer) >= offset + HEADER_SLOT_BYTES || throw(ArgumentError("buffer too small for header slot"))
-    TensorSlotHeaderMsg.wrap!(m, buffer, offset)
+    SlotHeaderMsg.wrap!(m, buffer, offset)
     return m
 end
 
 """
-Wrap a tensor slot header decoder over a buffer without an SBE message header.
+Wrap a slot header decoder over a buffer without an SBE message header.
 
 Arguments:
-- `m`: tensor slot header decoder.
+- `m`: slot header decoder.
 - `buffer`: header mmap buffer.
 - `offset`: byte offset within `buffer`.
 
 Returns:
 - The wrapped decoder `m`.
 """
-function wrap_tensor_header!(m::TensorSlotHeaderMsg.Decoder, buffer::AbstractVector{UInt8}, offset::Integer)
+function wrap_slot_header!(m::SlotHeaderMsg.Decoder, buffer::AbstractVector{UInt8}, offset::Integer)
     @boundscheck length(buffer) >= offset + HEADER_SLOT_BYTES || throw(ArgumentError("buffer too small for header slot"))
-    TensorSlotHeaderMsg.wrap!(
+    SlotHeaderMsg.wrap!(
         m,
         buffer,
         offset,
-        TensorSlotHeaderMsg.sbe_block_length(TensorSlotHeaderMsg.Decoder),
-        TensorSlotHeaderMsg.sbe_schema_version(TensorSlotHeaderMsg.Decoder),
+        SlotHeaderMsg.sbe_block_length(SlotHeaderMsg.Decoder),
+        SlotHeaderMsg.sbe_schema_version(SlotHeaderMsg.Decoder),
     )
     return m
 end
@@ -187,10 +187,11 @@ function validate_superblock_fields(
 end
 
 """
-Write tensor slot header fields to an encoder, padding dims/strides to MAX_DIMS.
+Write slot + tensor header fields into an encoder, padding dims/strides to MAX_DIMS.
 
 Arguments:
-- `m`: tensor slot header encoder.
+- `slot`: slot header encoder.
+- `tensor`: tensor header encoder (used for embedded headerBytes).
 - `timestamp_ns`: timestamp for the frame.
 - `meta_version`: metadata schema version.
 - `values_len_bytes`: payload length in bytes.
@@ -200,14 +201,17 @@ Arguments:
 - `dtype`: element type enum.
 - `major_order`: major order enum.
 - `ndims`: number of dimensions.
+- `progress_unit`: progress unit enum.
+- `progress_stride_bytes`: bytes between adjacent rows/columns when progress is enabled.
 - `dims`: dimension sizes (length >= `ndims`).
 - `strides`: stride sizes (length >= `ndims`).
 
 Returns:
 - `nothing`.
 """
-function write_tensor_slot_header!(
-    m::TensorSlotHeaderMsg.Encoder,
+function write_slot_header!(
+    slot::SlotHeaderMsg.Encoder,
+    tensor::TensorHeaderMsg.Encoder,
     timestamp_ns::UInt64,
     meta_version::UInt32,
     values_len_bytes::UInt32,
@@ -217,30 +221,46 @@ function write_tensor_slot_header!(
     dtype::Dtype.SbeEnum,
     major_order::MajorOrder.SbeEnum,
     ndims::UInt8,
+    progress_unit::ProgressUnit.SbeEnum,
+    progress_stride_bytes::UInt32,
     dims::AbstractVector{Int32},
     strides::AbstractVector{Int32},
 )
-    ndims <= MAX_DIMS || throw(ArgumentError("ndims exceeds MAX_DIMS"))
-    length(dims) >= ndims || throw(ArgumentError("dims length must cover ndims"))
-    length(strides) >= ndims || throw(ArgumentError("strides length must cover ndims"))
+    SlotHeaderMsg.sbe_position!(
+        slot,
+        SlotHeaderMsg.sbe_offset(slot) + SlotHeaderMsg.sbe_block_length(SlotHeaderMsg.Decoder),
+    )
+    @boundscheck begin
+        ndims <= MAX_DIMS || throw(ArgumentError("ndims exceeds MAX_DIMS"))
+        length(dims) >= ndims || throw(ArgumentError("dims length must cover ndims"))
+        length(strides) >= ndims || throw(ArgumentError("strides length must cover ndims"))
+    end
 
-    TensorSlotHeaderMsg.timestampNs!(m, timestamp_ns)
-    TensorSlotHeaderMsg.metaVersion!(m, meta_version)
-    TensorSlotHeaderMsg.valuesLenBytes!(m, values_len_bytes)
-    TensorSlotHeaderMsg.payloadSlot!(m, payload_slot)
-    TensorSlotHeaderMsg.payloadOffset!(m, payload_offset)
-    TensorSlotHeaderMsg.poolId!(m, pool_id)
-    TensorSlotHeaderMsg.dtype!(m, dtype)
-    TensorSlotHeaderMsg.majorOrder!(m, major_order)
-    TensorSlotHeaderMsg.ndims!(m, ndims)
-    TensorSlotHeaderMsg.padAlign!(m, UInt8(0))
+    SlotHeaderMsg.timestampNs!(slot, timestamp_ns)
+    SlotHeaderMsg.metaVersion!(slot, meta_version)
+    SlotHeaderMsg.valuesLenBytes!(slot, values_len_bytes)
+    SlotHeaderMsg.payloadSlot!(slot, payload_slot)
+    SlotHeaderMsg.payloadOffset!(slot, payload_offset)
+    SlotHeaderMsg.poolId!(slot, pool_id)
 
-    dims_view = TensorSlotHeaderMsg.dims!(m)
+    SlotHeaderMsg.headerBytes_length!(slot, TENSOR_HEADER_LEN)
+    header_pos = SlotHeaderMsg.sbe_position(slot) + SlotHeaderMsg.headerBytes_header_length
+    SlotHeaderMsg.sbe_position!(slot, header_pos + TENSOR_HEADER_LEN)
+    header_buf = SlotHeaderMsg.sbe_buffer(slot)
+    TensorHeaderMsg.wrap_and_apply_header!(tensor, header_buf, header_pos)
+    TensorHeaderMsg.dtype!(tensor, dtype)
+    TensorHeaderMsg.majorOrder!(tensor, major_order)
+    TensorHeaderMsg.ndims!(tensor, ndims)
+    TensorHeaderMsg.padAlign!(tensor, UInt8(0))
+    TensorHeaderMsg.progressUnit!(tensor, progress_unit)
+    TensorHeaderMsg.progressStrideBytes!(tensor, progress_stride_bytes)
+
+    dims_view = TensorHeaderMsg.dims!(tensor)
     for i in 1:MAX_DIMS
         dims_view[i] = i <= ndims ? dims[i] : Int32(0)
     end
 
-    strides_view = TensorSlotHeaderMsg.strides!(m)
+    strides_view = TensorHeaderMsg.strides!(tensor)
     for i in 1:MAX_DIMS
         strides_view[i] = i <= ndims ? strides[i] : Int32(0)
     end
@@ -248,7 +268,7 @@ function write_tensor_slot_header!(
 end
 
 """
-Keyword-based wrapper for `write_tensor_slot_header!`.
+Keyword-based wrapper for `write_slot_header!`.
 
 Arguments:
 - Same as the positional variant, passed by keyword.
@@ -256,8 +276,9 @@ Arguments:
 Returns:
 - `nothing`.
 """
-function write_tensor_slot_header!(
-    m::TensorSlotHeaderMsg.Encoder;
+function write_slot_header!(
+    slot::SlotHeaderMsg.Encoder,
+    tensor::TensorHeaderMsg.Encoder;
     timestamp_ns::UInt64,
     meta_version::UInt32,
     values_len_bytes::UInt32,
@@ -267,11 +288,14 @@ function write_tensor_slot_header!(
     dtype::Dtype.SbeEnum,
     major_order::MajorOrder.SbeEnum,
     ndims::UInt8,
+    progress_unit::ProgressUnit.SbeEnum,
+    progress_stride_bytes::UInt32,
     dims::AbstractVector{Int32},
     strides::AbstractVector{Int32},
 )
-    return write_tensor_slot_header!(
-        m,
+    return write_slot_header!(
+        slot,
+        tensor,
         timestamp_ns,
         meta_version,
         values_len_bytes,
@@ -281,73 +305,82 @@ function write_tensor_slot_header!(
         dtype,
         major_order,
         ndims,
+        progress_unit,
+        progress_stride_bytes,
         dims,
         strides,
     )
 end
 
 """
-Decode a tensor slot header into a `TensorSlotHeader` struct.
+Decode a slot header into a `SlotHeader` struct.
 
 Arguments:
-- `m`: tensor slot header decoder.
+- `slot`: slot header decoder.
+- `tensor`: tensor header decoder (reused; wrapped over headerBytes).
+- `buffer`: header mmap buffer.
+- `header_pos`: byte offset of embedded TensorHeader header.
 
 Returns:
-- `TensorSlotHeader` with decoded values.
+- `SlotHeader` with decoded values.
 """
-function read_tensor_slot_header(m::TensorSlotHeaderMsg.Decoder)
-    buf = TensorSlotHeaderMsg.sbe_buffer(m)
-    base = TensorSlotHeaderMsg.sbe_offset(m)
-    dims_offset = TensorSlotHeaderMsg.dims_encoding_offset(m)
-    strides_offset = TensorSlotHeaderMsg.strides_encoding_offset(m)
-    elem_bytes = Int(sizeof(Int32))
-    dims = ntuple(Val(MAX_DIMS)) do i
-        @inbounds TensorSlotHeaderMsg.decode_value(
-            Int32,
-            buf,
-            base + dims_offset + (i - 1) * elem_bytes,
-        )
-    end
-    strides = ntuple(Val(MAX_DIMS)) do i
-        @inbounds TensorSlotHeaderMsg.decode_value(
-            Int32,
-            buf,
-            base + strides_offset + (i - 1) * elem_bytes,
-        )
-    end
-    return TensorSlotHeader(
-        TensorSlotHeaderMsg.seqCommit(m),
-        TensorSlotHeaderMsg.timestampNs(m),
-        TensorSlotHeaderMsg.metaVersion(m),
-        TensorSlotHeaderMsg.valuesLenBytes(m),
-        TensorSlotHeaderMsg.payloadSlot(m),
-        TensorSlotHeaderMsg.payloadOffset(m),
-        TensorSlotHeaderMsg.poolId(m),
-        TensorSlotHeaderMsg.dtype(m),
-        TensorSlotHeaderMsg.majorOrder(m),
-        TensorSlotHeaderMsg.ndims(m),
-        TensorSlotHeaderMsg.padAlign(m),
+function read_slot_header(
+    slot::SlotHeaderMsg.Decoder,
+    tensor::TensorHeaderMsg.Decoder,
+    buffer::AbstractVector{UInt8},
+    header_pos::Integer,
+)
+    TensorHeaderMsg.wrap!(tensor, buffer, header_pos; header = MessageHeader.Decoder(buffer, header_pos))
+
+    dims = TensorHeaderMsg.dims(tensor, NTuple{MAX_DIMS, Int32})
+    strides = TensorHeaderMsg.strides(tensor, NTuple{MAX_DIMS, Int32})
+    tensor_fields = TensorHeader(
+        TensorHeaderMsg.dtype(tensor),
+        TensorHeaderMsg.majorOrder(tensor),
+        TensorHeaderMsg.ndims(tensor),
+        TensorHeaderMsg.padAlign(tensor),
+        TensorHeaderMsg.progressUnit(tensor),
+        TensorHeaderMsg.progressStrideBytes(tensor),
         dims,
         strides,
+    )
+    return SlotHeader(
+        SlotHeaderMsg.seqCommit(slot),
+        SlotHeaderMsg.timestampNs(slot),
+        SlotHeaderMsg.metaVersion(slot),
+        SlotHeaderMsg.valuesLenBytes(slot),
+        SlotHeaderMsg.payloadSlot(slot),
+        SlotHeaderMsg.payloadOffset(slot),
+        SlotHeaderMsg.poolId(slot),
+        tensor_fields,
     )
 end
 
 """
-Try to decode a tensor slot header without throwing.
+Try to decode a slot header without throwing.
 
 Arguments:
-- `m`: tensor slot header decoder.
+- `slot`: slot header decoder.
+- `tensor`: tensor header decoder (reused; wrapped over headerBytes).
 
 Returns:
-- `TensorSlotHeader` on success, `nothing` if the buffer is too short.
+- `SlotHeader` on success, `nothing` if the buffer is too short or invalid.
 """
-function try_read_tensor_slot_header(m::TensorSlotHeaderMsg.Decoder)
-    buf = TensorSlotHeaderMsg.sbe_buffer(m)
-    base = TensorSlotHeaderMsg.sbe_offset(m)
-    dims_offset = TensorSlotHeaderMsg.dims_encoding_offset(m)
-    strides_offset = TensorSlotHeaderMsg.strides_encoding_offset(m)
-    elem_bytes = Int(sizeof(Int32))
-    last = max(dims_offset, strides_offset) + MAX_DIMS * elem_bytes
-    base >= 0 && base + last <= length(buf) || return nothing
-    return read_tensor_slot_header(m)
+function try_read_slot_header(slot::SlotHeaderMsg.Decoder, tensor::TensorHeaderMsg.Decoder)
+    len = SlotHeaderMsg.headerBytes_length(slot)
+    len == TENSOR_HEADER_LEN || return nothing
+    header_pos = SlotHeaderMsg.sbe_position(slot) + SlotHeaderMsg.headerBytes_header_length
+    buffer = SlotHeaderMsg.sbe_buffer(slot)
+    header_pos >= 0 && header_pos + len <= length(buffer) || return nothing
+
+    header = MessageHeader.Decoder(buffer, header_pos)
+    MessageHeader.templateId(header) == TensorHeaderMsg.sbe_template_id(TensorHeaderMsg.Decoder) ||
+        return nothing
+    MessageHeader.schemaId(header) == TensorHeaderMsg.sbe_schema_id(TensorHeaderMsg.Decoder) ||
+        return nothing
+    MessageHeader.blockLength(header) == TensorHeaderMsg.sbe_block_length(TensorHeaderMsg.Decoder) ||
+        return nothing
+    MessageHeader.version(header) == TensorHeaderMsg.sbe_schema_version(TensorHeaderMsg.Decoder) ||
+        return nothing
+    return read_slot_header(slot, tensor, buffer, header_pos)
 end

@@ -59,7 +59,7 @@ The driver responds with `ShmAttachResponse` containing the pool URIs, `epoch`, 
    - Compute `header_index = seq & (nslots - 1)`.
    - Choose the smallest pool with `stride_bytes >= payload_length`.
    - Write payload to the pool slot.
-   - Write header fields in `TensorSlotHeader256`.
+   - Write header fields in `SlotHeader` and embedded `TensorHeader`.
    - Commit `commit_word` and publish `FrameDescriptor`.
 
 ## Processor Flow (per pipeline stage)

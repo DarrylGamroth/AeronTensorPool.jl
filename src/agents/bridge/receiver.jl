@@ -47,7 +47,7 @@ function init_bridge_receiver(
         false,
     )
 
-    source_info = BridgeSourceInfo(UInt32(0), UInt64(0), UInt32(0), UInt8(0), Dict{UInt16, UInt32}())
+    source_info = BridgeSourceInfo(UInt32(0), UInt64(0), UInt32(0), Dict{UInt16, UInt32}())
 
     dest_metadata_stream_id = ifelse(
         mapping.metadata_stream_id == 0,
@@ -97,7 +97,8 @@ function init_bridge_receiver(
         FrameProgress.Decoder(UnsafeArrays.UnsafeArray{UInt8, 1}),
         BridgeFrameChunk.Decoder(UnsafeArrays.UnsafeArray{UInt8, 1}),
         ShmPoolAnnounce.Decoder(UnsafeArrays.UnsafeArray{UInt8, 1}),
-        TensorSlotHeaderMsg.Decoder(FixedSizeVectorDefault{UInt8}),
+        SlotHeaderMsg.Decoder(FixedSizeVectorDefault{UInt8}),
+        TensorHeaderMsg.Decoder(FixedSizeVectorDefault{UInt8}),
         FixedSizeVectorDefault{Int32}(undef, MAX_DIMS),
         FixedSizeVectorDefault{Int32}(undef, MAX_DIMS),
         false,
@@ -129,7 +130,7 @@ Returns:
 """
 function bridge_rematerialize!(
     state::BridgeReceiverState,
-    header::TensorSlotHeader,
+    header::SlotHeader,
     payload::AbstractVector{UInt8},
 )
     producer_state = state.producer_state
@@ -156,27 +157,30 @@ function bridge_rematerialize!(
 
     copyto!(payload_mmap, payload_offset + 1, payload, 1, payload_len)
 
-    wrap_tensor_header!(producer_state.runtime.header_encoder, producer_state.mappings.header_mmap, header_offset)
+    wrap_slot_header!(producer_state.runtime.slot_encoder, producer_state.mappings.header_mmap, header_offset)
     dims = state.scratch_dims
     strides = state.scratch_strides
     fill!(dims, Int32(0))
     fill!(strides, Int32(0))
-    ndims = Int(header.ndims)
+    ndims = Int(header.tensor.ndims)
     for i in 1:ndims
-        dims[i] = header.dims[i]
-        strides[i] = header.strides[i]
+        dims[i] = header.tensor.dims[i]
+        strides[i] = header.tensor.strides[i]
     end
-    write_tensor_slot_header!(
-        producer_state.runtime.header_encoder,
+    @inbounds write_slot_header!(
+        producer_state.runtime.slot_encoder,
+        producer_state.runtime.tensor_encoder,
         header.timestamp_ns,
         header.meta_version,
         UInt32(payload_len),
         payload_slot,
         UInt32(0),
         pool_id,
-        header.dtype,
-        header.major_order,
-        header.ndims,
+        header.tensor.dtype,
+        header.tensor.major_order,
+        header.tensor.ndims,
+        header.tensor.progress_unit,
+        header.tensor.progress_stride_bytes,
         dims,
         strides,
     )
@@ -216,7 +220,7 @@ Returns:
 """
 function bridge_commit_claim!(
     state::BridgeReceiverState,
-    header::TensorSlotHeader,
+    header::SlotHeader,
     claim::SlotClaim,
 )
     producer_state = state.producer_state
@@ -230,27 +234,30 @@ function bridge_commit_claim!(
     header_offset = header_slot_offset(claim.header_index)
     commit_ptr = header_commit_ptr_from_offset(producer_state.mappings.header_mmap, header_offset)
 
-    wrap_tensor_header!(producer_state.runtime.header_encoder, producer_state.mappings.header_mmap, header_offset)
+    wrap_slot_header!(producer_state.runtime.slot_encoder, producer_state.mappings.header_mmap, header_offset)
     dims = state.scratch_dims
     strides = state.scratch_strides
     fill!(dims, Int32(0))
     fill!(strides, Int32(0))
-    ndims = Int(header.ndims)
+    ndims = Int(header.tensor.ndims)
     for i in 1:ndims
-        dims[i] = header.dims[i]
-        strides[i] = header.strides[i]
+        dims[i] = header.tensor.dims[i]
+        strides[i] = header.tensor.strides[i]
     end
-    write_tensor_slot_header!(
-        producer_state.runtime.header_encoder,
+    @inbounds write_slot_header!(
+        producer_state.runtime.slot_encoder,
+        producer_state.runtime.tensor_encoder,
         header.timestamp_ns,
         header.meta_version,
         UInt32(payload_len),
         claim.payload_slot,
         UInt32(0),
         claim.pool_id,
-        header.dtype,
-        header.major_order,
-        header.ndims,
+        header.tensor.dtype,
+        header.tensor.major_order,
+        header.tensor.ndims,
+        header.tensor.progress_unit,
+        header.tensor.progress_stride_bytes,
         dims,
         strides,
     )
@@ -292,7 +299,6 @@ function bridge_apply_source_announce!(state::BridgeReceiverState, msg::ShmPoolA
     state.source_info.stream_id = ShmPoolAnnounce.streamId(msg)
     state.source_info.epoch = ShmPoolAnnounce.epoch(msg)
     state.source_info.layout_version = ShmPoolAnnounce.layoutVersion(msg)
-    state.source_info.max_dims = ShmPoolAnnounce.maxDims(msg)
     empty!(state.source_info.pool_stride_bytes)
     pools = ShmPoolAnnounce.payloadPools(msg)
     for pool in pools
@@ -407,11 +413,12 @@ function bridge_receive_chunk!(
         producer_state === nothing && return bridge_drop_chunk!(state)
         producer_driver_active(producer_state) || return bridge_drop_chunk!(state)
 
-        wrap_tensor_header!(state.header_decoder, state.assembly.header_bytes, 0)
-        header = read_tensor_slot_header(state.header_decoder)
+        wrap_slot_header!(state.slot_decoder, state.assembly.header_bytes, 0)
+        header = try_read_slot_header(state.slot_decoder, state.tensor_decoder)
+        header === nothing && return bridge_drop_chunk!(state)
         seqlock_is_committed(header.seq_commit) || return bridge_drop_chunk!(state)
         seqlock_sequence(header.seq_commit) == state.assembly.seq || return bridge_drop_chunk!(state)
-        header.ndims <= state.source_info.max_dims || return bridge_drop_chunk!(state)
+        header.tensor.ndims <= UInt8(MAX_DIMS) || return bridge_drop_chunk!(state)
         UInt32(header.values_len_bytes) == payload_length || return bridge_drop_chunk!(state)
         source_stride = get(state.source_info.pool_stride_bytes, header.pool_id, UInt32(0))
         source_stride == 0 && return bridge_drop_chunk!(state)
@@ -425,6 +432,7 @@ function bridge_receive_chunk!(
         producer_state.seq = state.assembly.seq
 
         claim = try_claim_slot!(producer_state, pool.pool_id)
+        claim === nothing && return bridge_drop_chunk!(state)
         payload_length <= claim.stride_bytes || return bridge_drop_chunk!(state)
         state.assembly.slot_claim = claim
         state.assembly.claim_ready = true
@@ -444,12 +452,13 @@ function bridge_receive_chunk!(
         return false
     end
 
-    wrap_tensor_header!(state.header_decoder, state.assembly.header_bytes, 0)
-    header = read_tensor_slot_header(state.header_decoder)
+    wrap_slot_header!(state.slot_decoder, state.assembly.header_bytes, 0)
+    header = try_read_slot_header(state.slot_decoder, state.tensor_decoder)
+    header === nothing && return false
 
     seqlock_is_committed(header.seq_commit) || return bridge_drop_chunk!(state)
     seqlock_sequence(header.seq_commit) == state.assembly.seq || return bridge_drop_chunk!(state)
-    header.ndims <= state.source_info.max_dims || return bridge_drop_chunk!(state)
+    header.tensor.ndims <= UInt8(MAX_DIMS) || return bridge_drop_chunk!(state)
     UInt32(header.values_len_bytes) == payload_length || return bridge_drop_chunk!(state)
     source_stride = get(state.source_info.pool_stride_bytes, header.pool_id, UInt32(0))
     source_stride == 0 && return bridge_drop_chunk!(state)

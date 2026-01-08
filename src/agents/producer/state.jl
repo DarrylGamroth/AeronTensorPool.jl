@@ -15,7 +15,8 @@ mutable struct ProducerRuntime
     announce_buf::FixedSizeVectorDefault{UInt8}
     qos_buf::FixedSizeVectorDefault{UInt8}
     superblock_encoder::ShmRegionSuperblock.Encoder{Vector{UInt8}}
-    header_encoder::TensorSlotHeaderMsg.Encoder{Vector{UInt8}}
+    slot_encoder::SlotHeaderMsg.Encoder{Vector{UInt8}}
+    tensor_encoder::TensorHeaderMsg.Encoder{Vector{UInt8}}
     descriptor_encoder::FrameDescriptor.Encoder{UnsafeArrays.UnsafeArray{UInt8, 1}}
     progress_encoder::FrameProgress.Encoder{UnsafeArrays.UnsafeArray{UInt8, 1}}
     announce_encoder::ShmPoolAnnounce.Encoder{UnsafeArrays.UnsafeArray{UInt8, 1}}

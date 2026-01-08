@@ -99,9 +99,9 @@ function apply_per_consumer_channels!(
     cfg.max_rate_hz = max_rate_hz
     cfg.mode = Mode.RATE_LIMITED
     cfg.requested_descriptor_channel = channel
-    cfg.requested_descriptor_stream_id = UInt32(0)
+    cfg.requested_descriptor_stream_id = descriptor_stream_id
     cfg.requested_control_channel = channel
-    cfg.requested_control_stream_id = UInt32(0)
+    cfg.requested_control_stream_id = control_stream_id
     return nothing
 end
 

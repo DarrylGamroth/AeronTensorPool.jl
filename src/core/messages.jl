@@ -4,6 +4,8 @@ const MajorOrder = ShmTensorpoolControl.MajorOrder
 const MessageHeader = ShmTensorpoolControl.MessageHeader
 const FrameDescriptor = ShmTensorpoolControl.FrameDescriptor
 const FrameProgress = ShmTensorpoolControl.FrameProgress
+const ProgressUnit = ShmTensorpoolControl.ProgressUnit
+const ClockDomain = ShmTensorpoolControl.ClockDomain
 const ConsumerConfigMsg = ShmTensorpoolControl.ConsumerConfig
 const ConsumerHello = ShmTensorpoolControl.ConsumerHello
 const QosConsumer = ShmTensorpoolControl.QosConsumer
@@ -11,11 +13,12 @@ const Mode = ShmTensorpoolControl.Mode
 const QosProducer = ShmTensorpoolControl.QosProducer
 const ShmPoolAnnounce = ShmTensorpoolControl.ShmPoolAnnounce
 const ShmRegionSuperblock = ShmTensorpoolControl.ShmRegionSuperblock
-const TensorSlotHeaderMsg = ShmTensorpoolControl.TensorSlotHeader
+const SlotHeaderMsg = ShmTensorpoolControl.SlotHeader
+const TensorHeaderMsg = ShmTensorpoolControl.TensorHeader
 const DataSourceAnnounce = ShmTensorpoolControl.DataSourceAnnounce
 const DataSourceMeta = ShmTensorpoolControl.DataSourceMeta
 
-const MAX_DIMS::Int = Int(TensorSlotHeaderMsg.maxDims(TensorSlotHeaderMsg.Decoder))
+const MAX_DIMS::Int = Int(TensorHeaderMsg.maxDims(TensorHeaderMsg.Decoder))
 
 const DriverMessageHeader = ShmTensorpoolDriver.MessageHeader
 const DriverHugepagesPolicy = ShmTensorpoolDriver.HugepagesPolicy
@@ -62,6 +65,9 @@ const CONSUMER_HELLO_LEN = MESSAGE_HEADER_LEN +
     Int(ConsumerHello.sbe_block_length(ConsumerHello.Decoder)) +
     Int(ConsumerHello.descriptorChannel_header_length) +
     Int(ConsumerHello.controlChannel_header_length)
+const SLOT_HEADER_BLOCK_LEN = Int(SlotHeaderMsg.sbe_block_length(SlotHeaderMsg.Decoder))
+const TENSOR_HEADER_LEN =
+    MESSAGE_HEADER_LEN + Int(TensorHeaderMsg.sbe_block_length(TensorHeaderMsg.Decoder))
 
 const TEMPLATE_FRAME_DESCRIPTOR = FrameDescriptor.sbe_template_id(FrameDescriptor.Decoder)
 const TEMPLATE_FRAME_PROGRESS = FrameProgress.sbe_template_id(FrameProgress.Decoder)

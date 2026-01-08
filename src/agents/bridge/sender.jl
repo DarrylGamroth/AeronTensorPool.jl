@@ -70,7 +70,8 @@ function init_bridge_sender(
         Aeron.BufferClaim(),
         DataSourceAnnounce.Encoder(UnsafeArrays.UnsafeArray{UInt8, 1}),
         DataSourceMeta.Encoder(UnsafeArrays.UnsafeArray{UInt8, 1}),
-        TensorSlotHeaderMsg.Decoder(Vector{UInt8}),
+        SlotHeaderMsg.Decoder(Vector{UInt8}),
+        TensorHeaderMsg.Decoder(Vector{UInt8}),
         FixedSizeVectorDefault{Int32}(undef, MAX_DIMS),
         FixedSizeVectorDefault{Int32}(undef, MAX_DIMS),
         UInt64(0),
@@ -121,8 +122,9 @@ function bridge_send_frame!(state::BridgeSenderState, desc::FrameDescriptor.Deco
     seqlock_is_committed(first) || return false
 
     header_offset + HEADER_SLOT_BYTES <= length(header_mmap_vec) || return false
-    wrap_tensor_header!(state.header_decoder, header_mmap_vec, header_offset)
-    header = read_tensor_slot_header(state.header_decoder)
+    wrap_slot_header!(state.slot_decoder, header_mmap_vec, header_offset)
+    header = try_read_slot_header(state.slot_decoder, state.tensor_decoder)
+    header === nothing && return false
 
     second = seqlock_read_end(commit_ptr)
     if first != second || !seqlock_is_committed(second)

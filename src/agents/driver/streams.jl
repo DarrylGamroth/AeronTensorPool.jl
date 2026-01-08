@@ -206,7 +206,7 @@ function ensure_shm_file!(state::DriverState, path::AbstractString, size::Int, m
     if ispath(path) && !isfile(path)
         throw(ArgumentError("SHM path must be a regular file"))
     end
-    open(path, "w+") do io
+    Shm.open_shm_nofollow(path, Shm.SHM_O_RDWR | Shm.SHM_O_CREAT) do io
         truncate(io, size)
     end
     isfile(path) || throw(ArgumentError("SHM path not a regular file"))

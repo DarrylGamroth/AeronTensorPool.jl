@@ -20,12 +20,14 @@
     @test @allocated(write_superblock!(sb_enc, sb_fields)) == 0
 
     hdr_buf = Vector{UInt8}(undef, HEADER_SLOT_BYTES)
-    hdr_enc = TensorSlotHeaderMsg.Encoder(Vector{UInt8})
-    wrap_tensor_header!(hdr_enc, hdr_buf, 0)
+    slot_enc = SlotHeaderMsg.Encoder(Vector{UInt8})
+    tensor_enc = TensorHeaderMsg.Encoder(Vector{UInt8})
+    wrap_slot_header!(slot_enc, hdr_buf, 0)
     dims = [Int32(1), Int32(2), Int32(3), Int32(4), Int32(0), Int32(0), Int32(0), Int32(0)]
     strides = [Int32(4), Int32(8), Int32(16), Int32(32), Int32(0), Int32(0), Int32(0), Int32(0)]
-    write_tensor_slot_header!(
-        hdr_enc,
+    write_slot_header!(
+        slot_enc,
+        tensor_enc,
         UInt64(2),
         UInt32(3),
         UInt32(64),
@@ -35,11 +37,14 @@
         Dtype.UINT8,
         MajorOrder.ROW,
         UInt8(4),
+        AeronTensorPool.ProgressUnit.NONE,
+        UInt32(0),
         dims,
         strides,
     )
-    @test @allocated(write_tensor_slot_header!(
-        hdr_enc,
+    @test @allocated(write_slot_header!(
+        slot_enc,
+        tensor_enc,
         UInt64(2),
         UInt32(3),
         UInt32(64),
@@ -49,13 +54,16 @@
         Dtype.UINT8,
         MajorOrder.ROW,
         UInt8(4),
+        AeronTensorPool.ProgressUnit.NONE,
+        UInt32(0),
         dims,
         strides,
     )) == 0
 
-    hdr_dec = TensorSlotHeaderMsg.Decoder(Vector{UInt8})
-    wrap_tensor_header!(hdr_dec, hdr_buf, 0)
-    @test @allocated(read_tensor_slot_header(hdr_dec)) == 0
+    slot_dec = SlotHeaderMsg.Decoder(Vector{UInt8})
+    tensor_dec = TensorHeaderMsg.Decoder(Vector{UInt8})
+    wrap_slot_header!(slot_dec, hdr_buf, 0)
+    @test @allocated(AeronTensorPool.try_read_slot_header(slot_dec, tensor_dec)) == 0
 
     desc_buf = Vector{UInt8}(undef, 128)
     desc_enc = FrameDescriptor.Encoder(Vector{UInt8})

@@ -68,7 +68,6 @@
         )
             state = Consumer.init_consumer(consumer_cfg; client = client)
             fallback_state = nothing
-            maxdims_state = nothing
             try
                     function build_announce(epoch::UInt64, header_region_uri::String, pool_region_uri::String)
                         buf = Vector{UInt8}(undef, 2048)
@@ -78,10 +77,10 @@
                         AeronTensorPool.ShmPoolAnnounce.producerId!(enc, UInt32(7))
                         AeronTensorPool.ShmPoolAnnounce.epoch!(enc, epoch)
                         AeronTensorPool.ShmPoolAnnounce.announceTimestampNs!(enc, UInt64(time_ns()))
+                        AeronTensorPool.ShmPoolAnnounce.announceClockDomain!(enc, AeronTensorPool.ClockDomain.MONOTONIC)
                         AeronTensorPool.ShmPoolAnnounce.layoutVersion!(enc, layout_version)
                         AeronTensorPool.ShmPoolAnnounce.headerNslots!(enc, nslots)
                         AeronTensorPool.ShmPoolAnnounce.headerSlotBytes!(enc, UInt16(HEADER_SLOT_BYTES))
-                        AeronTensorPool.ShmPoolAnnounce.maxDims!(enc, UInt8(MAX_DIMS))
                         pools = AeronTensorPool.ShmPoolAnnounce.payloadPools!(enc, 1)
                         pool = AeronTensorPool.ShmPoolAnnounce.PayloadPools.next!(pools)
                         AeronTensorPool.ShmPoolAnnounce.PayloadPools.poolId!(pool, UInt16(1))
@@ -218,47 +217,7 @@
                     @test fallback_state.config.use_shm == false
                     @test fallback_state.mappings.header_mmap === nothing
 
-                    maxdims_cfg = ConsumerConfig(
-                        Aeron.MediaDriver.aeron_dir(driver),
-                        "aeron:ipc",
-                        Int32(12032),
-                        Int32(12031),
-                        Int32(12033),
-                        stream_id,
-                        UInt32(54),
-                        layout_version,
-                        UInt8(MAX_DIMS - 1),
-                        Mode.STREAM,
-                        UInt32(256),
-                        true,
-                        true,
-                        false,
-                        UInt16(0),
-                        "aeron:udp?endpoint=127.0.0.1:14001",
-                        "",
-                        String[],
-                        false,
-                        UInt32(250),
-                        UInt32(65536),
-                        UInt32(0),
-                        UInt64(1_000_000_000),
-                        UInt64(1_000_000_000),
-                        UInt64(3_000_000_000),
-                        "",
-                    UInt32(0),
-                    "",
-                    UInt32(0),
-                        false,
-                )
-                    maxdims_state = Consumer.init_consumer(maxdims_cfg; client = client)
-                    (_, announce_dec_good) = build_announce(epoch2, header_uri2, pool_uri2)
-                    @test Consumer.handle_shm_pool_announce!(maxdims_state, announce_dec_good)
-                    @test maxdims_state.config.use_shm == false
-                    @test maxdims_state.mappings.header_mmap === nothing
             finally
-                if maxdims_state !== nothing
-                    close_consumer_state!(maxdims_state)
-                end
                 if fallback_state !== nothing
                     close_consumer_state!(fallback_state)
                 end

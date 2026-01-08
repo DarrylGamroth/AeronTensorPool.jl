@@ -43,23 +43,23 @@ end
 """
 Validate decoded strides against element size and payload length.
 """
-function validate_strides!(state::ConsumerState, header::TensorSlotHeader, elem_size::Int64)
-    ndims = Int(header.ndims)
+function validate_strides!(state::ConsumerState, tensor::TensorHeader, elem_size::Int64)
+    ndims = Int(tensor.ndims)
     ndims == 0 && return true
 
     for i in 1:ndims
-        dim = header.dims[i]
+        dim = tensor.dims[i]
         dim < 0 && return false
         state.runtime.scratch_dims[i] = Int64(dim)
     end
 
     for i in 1:ndims
-        stride = header.strides[i]
+        stride = tensor.strides[i]
         stride < 0 && return false
         state.runtime.scratch_strides[i] = Int64(stride)
     end
 
-    if header.major_order == MajorOrder.ROW
+    if tensor.major_order == MajorOrder.ROW
         if state.runtime.scratch_strides[ndims] == 0
             state.runtime.scratch_strides[ndims] = elem_size
         elseif state.runtime.scratch_strides[ndims] < elem_size
@@ -72,8 +72,8 @@ function validate_strides!(state::ConsumerState, header::TensorSlotHeader, elem_
             end
             state.runtime.scratch_strides[i] < required && return false
         end
-        return true
-    elseif header.major_order == MajorOrder.COLUMN
+        return progress_stride_ok!(state, tensor)
+    elseif tensor.major_order == MajorOrder.COLUMN
         if state.runtime.scratch_strides[1] == 0
             state.runtime.scratch_strides[1] = elem_size
         elseif state.runtime.scratch_strides[1] < elem_size
@@ -86,10 +86,22 @@ function validate_strides!(state::ConsumerState, header::TensorSlotHeader, elem_
             end
             state.runtime.scratch_strides[i] < required && return false
         end
-        return true
+        return progress_stride_ok!(state, tensor)
     end
 
     return false
+end
+
+function progress_stride_ok!(state::ConsumerState, tensor::TensorHeader)
+    unit = tensor.progress_unit
+    unit == ProgressUnit.NONE && return true
+    idx = unit == ProgressUnit.ROWS ? 1 : unit == ProgressUnit.COLUMNS ? 2 : 0
+    idx == 0 && return false
+    ndims = Int(tensor.ndims)
+    ndims < idx && return false
+    expected = UInt32(state.runtime.scratch_strides[idx])
+    expected == 0 && return false
+    return expected == tensor.progress_stride_bytes
 end
 
 """
@@ -148,8 +160,8 @@ function try_read_frame!(
         return false
     end
 
-    wrap_tensor_header!(state.runtime.header_decoder, header_mmap, header_offset)
-    header = try_read_tensor_slot_header(state.runtime.header_decoder)
+    wrap_slot_header!(state.runtime.slot_decoder, header_mmap, header_offset)
+    header = try_read_slot_header(state.runtime.slot_decoder, state.runtime.tensor_decoder)
     if header === nothing
         state.metrics.drops_late += 1
         state.metrics.drops_header_invalid += 1
@@ -204,20 +216,20 @@ function try_read_frame!(
         return false
     end
 
-    if !valid_dtype(header.dtype) || !valid_major_order(header.major_order)
+    if !valid_dtype(header.tensor.dtype) || !valid_major_order(header.tensor.major_order)
         state.metrics.drops_late += 1
         state.metrics.drops_header_invalid += 1
-        @tp_debug "try_read_frame drop" reason = :dtype_or_order_invalid dtype = header.dtype major_order =
-            header.major_order
+        @tp_debug "try_read_frame drop" reason = :dtype_or_order_invalid dtype = header.tensor.dtype major_order =
+            header.tensor.major_order
         return false
     end
 
-    elem_size = dtype_size_bytes(header.dtype)
-    if elem_size == 0 || header.ndims == 0 || header.ndims > state.config.max_dims ||
-       !validate_strides!(state, header, elem_size)
+    elem_size = dtype_size_bytes(header.tensor.dtype)
+    if elem_size == 0 || header.tensor.ndims == 0 || header.tensor.ndims > UInt8(MAX_DIMS) ||
+       !validate_strides!(state, header.tensor, elem_size)
         state.metrics.drops_late += 1
         state.metrics.drops_header_invalid += 1
-        @tp_debug "try_read_frame drop" reason = :stride_invalid elem_size header_ndims = header.ndims
+        @tp_debug "try_read_frame drop" reason = :stride_invalid elem_size header_ndims = header.tensor.ndims
         return false
     end
 

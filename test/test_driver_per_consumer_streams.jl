@@ -86,8 +86,8 @@ using Test
             ConsumerHello.progressIntervalUs!(hello_encoder, typemax(UInt32))
             ConsumerHello.progressBytesDelta!(hello_encoder, typemax(UInt32))
             ConsumerHello.progressRowsDelta!(hello_encoder, typemax(UInt32))
-            ConsumerHello.descriptorStreamId!(hello_encoder, UInt32(0))
-            ConsumerHello.controlStreamId!(hello_encoder, UInt32(0))
+            ConsumerHello.descriptorStreamId!(hello_encoder, UInt32(1))
+            ConsumerHello.controlStreamId!(hello_encoder, UInt32(2))
             ConsumerHello.descriptorChannel!(hello_encoder, "aeron:ipc")
             ConsumerHello.controlChannel!(hello_encoder, "aeron:ipc")
         end
@@ -211,8 +211,8 @@ end
             ConsumerHello.progressIntervalUs!(hello_encoder, typemax(UInt32))
             ConsumerHello.progressBytesDelta!(hello_encoder, typemax(UInt32))
             ConsumerHello.progressRowsDelta!(hello_encoder, typemax(UInt32))
-            ConsumerHello.descriptorStreamId!(hello_encoder, UInt32(0))
-            ConsumerHello.controlStreamId!(hello_encoder, UInt32(0))
+            ConsumerHello.descriptorStreamId!(hello_encoder, UInt32(1))
+            ConsumerHello.controlStreamId!(hello_encoder, UInt32(2))
             ConsumerHello.descriptorChannel!(hello_encoder, "aeron:ipc")
             ConsumerHello.controlChannel!(hello_encoder, "aeron:ipc")
         end
@@ -240,8 +240,8 @@ end
             assigned[]
         end
         @test got_config == true
-        @test assigned_descriptor[] == ConsumerConfigMsg.descriptorStreamId_null_value(ConsumerConfigMsg.Decoder)
-        @test assigned_control[] == ConsumerConfigMsg.controlStreamId_null_value(ConsumerConfigMsg.Decoder)
+        @test assigned_descriptor[] == UInt32(0)
+        @test assigned_control[] == UInt32(0)
 
         close_driver_state!(driver_state)
         close(pub)

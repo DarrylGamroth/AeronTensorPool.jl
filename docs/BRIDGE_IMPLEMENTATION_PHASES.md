@@ -64,7 +64,7 @@ Status: completed.
   - Only forward metadata when enabled (already partially enforced by presence of metadata pub).
 - Ensure ShmPoolAnnounce forwarding:
   - Stream ID rewrite to `dest_stream_id`.
-  - Preserve epoch/layout/max_dims.
+  - Preserve epoch/layout and use MAX_DIMS from the schema constant.
   - Forward payload pool entries unchanged except stream ID.
 - Verify header/payload chunking:
   - Enforce headerBytes presence only on first chunk.
@@ -76,7 +76,7 @@ Status: completed.
 ### Phase 3: Receiver Compliance + Robustness
 - Apply forwarded ShmPoolAnnounce for validation:
   - Validate payload pool stride/pool IDs before rematerialization.
-  - Enforce `max_dims` and `layout_version` checks per spec.
+  - Enforce `layout_version` checks per spec; MAX_DIMS is fixed by the schema constant.
 - FrameProgress forwarding on receiver:
   - Rewrite `stream_id` to `dest_stream_id`.
   - Validate or remap `headerIndex` to local mapping; drop if mismatched per spec.

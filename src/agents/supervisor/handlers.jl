@@ -316,15 +316,11 @@ function emit_consumer_config!(
             ConsumerConfigMsg.mode!(st.runtime.config_encoder, mode)
             ConsumerConfigMsg.descriptorStreamId!(
                 st.runtime.config_encoder,
-                descriptor_stream_id != 0 ?
-                descriptor_stream_id :
-                ConsumerConfigMsg.descriptorStreamId_null_value(ConsumerConfigMsg.Encoder),
+                descriptor_stream_id != 0 ? descriptor_stream_id : UInt32(0),
             )
             ConsumerConfigMsg.controlStreamId!(
                 st.runtime.config_encoder,
-                control_stream_id != 0 ?
-                control_stream_id :
-                ConsumerConfigMsg.controlStreamId_null_value(ConsumerConfigMsg.Encoder),
+                control_stream_id != 0 ? control_stream_id : UInt32(0),
             )
             ConsumerConfigMsg.payloadFallbackUri!(st.runtime.config_encoder, payload_fallback_uri)
             if isempty(descriptor_channel)

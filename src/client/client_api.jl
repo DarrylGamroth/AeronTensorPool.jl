@@ -216,16 +216,14 @@ end
 
 """
 Convenience wrapper for claiming a slot via a ProducerHandle.
+
+Returns `SlotClaim` on success, or `nothing` if no claim could be made.
 """
 function try_claim_slot!(
     handle::ProducerHandle,
-    values_len::Int,
-    shape::AbstractVector{Int32},
-    strides::AbstractVector{Int32},
-    dtype::Dtype.SbeEnum,
-    meta_version::UInt32,
+    pool_id::UInt16,
 )
-    return try_claim_slot!(handle.producer_agent.state, values_len, shape, strides, dtype, meta_version)
+    return try_claim_slot!(handle.producer_agent.state, pool_id)
 end
 
 """

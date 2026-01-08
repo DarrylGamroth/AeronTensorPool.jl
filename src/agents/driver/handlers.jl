@@ -145,10 +145,14 @@ function handle_consumer_hello!(state::DriverState, msg::ConsumerHello.Decoder)
     descriptor_null = ConsumerHello.descriptorStreamId_null_value(ConsumerHello.Decoder)
     control_null = ConsumerHello.controlStreamId_null_value(ConsumerHello.Decoder)
 
-    descriptor_request = !isempty(descriptor_channel) && descriptor_stream_id == 0
-    control_request = !isempty(control_channel) && control_stream_id == 0
-    invalid_descriptor_request = !isempty(descriptor_channel) && descriptor_stream_id == descriptor_null
-    invalid_control_request = !isempty(control_channel) && control_stream_id == control_null
+    invalid_descriptor_request =
+        !isempty(descriptor_channel) && (descriptor_stream_id == 0 || descriptor_stream_id == descriptor_null)
+    invalid_control_request =
+        !isempty(control_channel) && (control_stream_id == 0 || control_stream_id == control_null)
+    descriptor_request =
+        !invalid_descriptor_request && !isempty(descriptor_channel) && descriptor_stream_id != 0
+    control_request =
+        !invalid_control_request && !isempty(control_channel) && control_stream_id != 0
 
     if !descriptor_request && !control_request && !invalid_descriptor_request && !invalid_control_request
         return false

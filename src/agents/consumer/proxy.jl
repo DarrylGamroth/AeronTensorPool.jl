@@ -34,8 +34,15 @@ function emit_consumer_hello!(state::ConsumerState)
         state.assigned_control_stream_id :
         state.config.requested_control_stream_id
 
-    descriptor_requested = !isempty(requested_descriptor_channel)
-    control_requested = !isempty(requested_control_channel)
+    if !isempty(requested_descriptor_channel) && requested_descriptor_stream_id == 0
+        return false
+    end
+    if !isempty(requested_control_channel) && requested_control_stream_id == 0
+        return false
+    end
+
+    descriptor_requested = !isempty(requested_descriptor_channel) && requested_descriptor_stream_id != 0
+    control_requested = !isempty(requested_control_channel) && requested_control_stream_id != 0
 
     msg_len = MESSAGE_HEADER_LEN +
         Int(ConsumerHello.sbe_block_length(ConsumerHello.Decoder)) +
@@ -84,14 +91,11 @@ function emit_consumer_hello!(state::ConsumerState)
             end
             ConsumerHello.descriptorStreamId!(
                 st.runtime.hello_encoder,
-                descriptor_requested ?
-                requested_descriptor_stream_id :
-                ConsumerHello.descriptorStreamId_null_value(ConsumerHello.Encoder),
+                descriptor_requested ? requested_descriptor_stream_id : UInt32(0),
             )
             ConsumerHello.controlStreamId!(
                 st.runtime.hello_encoder,
-                control_requested ? requested_control_stream_id :
-                ConsumerHello.controlStreamId_null_value(ConsumerHello.Encoder),
+                control_requested ? requested_control_stream_id : UInt32(0),
             )
         end
     end

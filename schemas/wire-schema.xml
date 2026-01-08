@@ -53,6 +53,12 @@
       <validValue name="COMPLETE">3</validValue>
     </enum>
 
+    <enum name="ProgressUnit" encodingType="uint8">
+      <validValue name="NONE">0</validValue>
+      <validValue name="ROWS">1</validValue>
+      <validValue name="COLUMNS">2</validValue>
+    </enum>
+
     <enum name="ResponseCode" encodingType="int32">
       <validValue name="OK">0</validValue>
       <validValue name="UNSUPPORTED">1</validValue>

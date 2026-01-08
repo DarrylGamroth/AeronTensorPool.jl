@@ -10,9 +10,23 @@ Returns:
 header_slot_offset(index::Integer) = SUPERBLOCK_SIZE + Int(index) * HEADER_SLOT_BYTES
 
 """
+Decoded tensor header fields for consumer-side validation.
+"""
+struct TensorHeader
+    dtype::Dtype.SbeEnum
+    major_order::MajorOrder.SbeEnum
+    ndims::UInt8
+    pad_align::UInt8
+    progress_unit::ProgressUnit.SbeEnum
+    progress_stride_bytes::UInt32
+    dims::NTuple{MAX_DIMS, Int32}
+    strides::NTuple{MAX_DIMS, Int32}
+end
+
+"""
 Decoded slot header fields for consumer-side validation.
 """
-struct TensorSlotHeader
+struct SlotHeader
     seq_commit::UInt64
     timestamp_ns::UInt64
     meta_version::UInt32
@@ -20,12 +34,7 @@ struct TensorSlotHeader
     payload_slot::UInt32
     payload_offset::UInt32
     pool_id::UInt16
-    dtype::Dtype.SbeEnum
-    major_order::MajorOrder.SbeEnum
-    ndims::UInt8
-    pad_align::UInt8
-    dims::NTuple{MAX_DIMS, Int32}
-    strides::NTuple{MAX_DIMS, Int32}
+    tensor::TensorHeader
 end
 
 """

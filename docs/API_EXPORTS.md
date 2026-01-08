@@ -12,7 +12,7 @@ This is the Phase 0 export inventory for AeronTensorPool. Public exports are def
 - DriverAgent, DriverState
 - BridgeAgent, BridgeConfig, BridgeMapping, BridgeSourceInfo, BridgeAssembledFrame, BridgeSenderState, BridgeReceiverState
 - ConsumerHello, FrameDescriptor, FrameProgress, MessageHeader, DriverMessageHeader, QosProducer, QosConsumer
-- ShmRegionSuperblock, ShmUri, SuperblockFields, TensorSlotHeader256, TensorSlotHeader, PayloadView, ConsumerFrameView, Mode
+- ShmRegionSuperblock, ShmUri, SuperblockFields, SlotHeader, TensorHeader, PayloadView, ConsumerFrameView, Mode
 - ShmAttachRequest, ShmAttachResponse, ShmDetachRequest, ShmDetachResponse, ShmLeaseKeepalive
 - ShmDriverShutdown, ShmLeaseRevoked, ShmDriverShutdownRequest
 - FixedString, DriverPool, AttachResponse, DetachResponse, LeaseRevoked, DriverShutdown
@@ -32,12 +32,12 @@ This is the Phase 0 export inventory for AeronTensorPool. Public exports are def
 - handle_consumer_hello!, handle_shm_pool_announce!
 - mmap_shm, parse_shm_uri, validate_uri, validate_stride, validate_superblock_fields
 - offer_frame!, try_claim_slot!, commit_slot!, with_claimed_slot!
-- read_superblock, read_tensor_slot_header, write_superblock!, write_tensor_slot_header!
+- read_superblock, read_slot_header, write_superblock!, write_slot_header!
 - refresh_activity_timestamps!, reset_mappings!, select_pool
 - try_read_frame!
 - apply_consumer_config!
 - canonical_epoch_dir, canonical_header_uri, canonical_pool_uri, canonical_shm_paths
-- wrap_superblock!, wrap_tensor_header!
+- wrap_superblock!, wrap_slot_header!
 - make_control_assembler, make_descriptor_assembler, make_qos_assembler
 - poll_control!, poll_descriptor!, poll_qos!, poll_driver_control!
 - view (FixedString)

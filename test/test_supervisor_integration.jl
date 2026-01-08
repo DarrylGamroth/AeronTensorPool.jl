@@ -30,10 +30,10 @@
             AeronTensorPool.ShmPoolAnnounce.producerId!(announce_enc, UInt32(11))
             AeronTensorPool.ShmPoolAnnounce.epoch!(announce_enc, UInt64(3))
             AeronTensorPool.ShmPoolAnnounce.announceTimestampNs!(announce_enc, UInt64(time_ns()))
+            AeronTensorPool.ShmPoolAnnounce.announceClockDomain!(announce_enc, AeronTensorPool.ClockDomain.MONOTONIC)
             AeronTensorPool.ShmPoolAnnounce.layoutVersion!(announce_enc, UInt32(1))
             AeronTensorPool.ShmPoolAnnounce.headerNslots!(announce_enc, UInt32(8))
             AeronTensorPool.ShmPoolAnnounce.headerSlotBytes!(announce_enc, UInt16(HEADER_SLOT_BYTES))
-            AeronTensorPool.ShmPoolAnnounce.maxDims!(announce_enc, UInt8(MAX_DIMS))
             pools = AeronTensorPool.ShmPoolAnnounce.payloadPools!(announce_enc, 1)
             pool = AeronTensorPool.ShmPoolAnnounce.PayloadPools.next!(pools)
             AeronTensorPool.ShmPoolAnnounce.PayloadPools.poolId!(pool, UInt16(1))
@@ -61,11 +61,11 @@
         ConsumerHello.expectedLayoutVersion!(hello_enc, UInt32(1))
         ConsumerHello.descriptorStreamId!(
             hello_enc,
-            ConsumerHello.descriptorStreamId_null_value(ConsumerHello.Encoder),
+            UInt32(0),
         )
         ConsumerHello.controlStreamId!(
             hello_enc,
-            ConsumerHello.controlStreamId_null_value(ConsumerHello.Encoder),
+            UInt32(0),
         )
         ConsumerHello.descriptorChannel_length!(hello_enc, 0)
         ConsumerHello.controlChannel_length!(hello_enc, 0)

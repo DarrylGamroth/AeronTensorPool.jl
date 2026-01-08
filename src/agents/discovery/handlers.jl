@@ -101,7 +101,7 @@ function update_entry_from_announce!(
     entry.layout_version = ShmPoolAnnounce.layoutVersion(msg)
     entry.header_nslots = ShmPoolAnnounce.headerNslots(msg)
     entry.header_slot_bytes = ShmPoolAnnounce.headerSlotBytes(msg)
-    entry.max_dims = ShmPoolAnnounce.maxDims(msg)
+    entry.max_dims = UInt8(MAX_DIMS)
 
     pool_count = 0
     pools = ShmPoolAnnounce.payloadPools(msg)

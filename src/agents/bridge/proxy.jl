@@ -24,10 +24,10 @@ function bridge_forward_announce!(state::BridgeSenderState, msg::ShmPoolAnnounce
             ShmPoolAnnounce.producerId!(st.announce_encoder, ShmPoolAnnounce.producerId(msg))
             ShmPoolAnnounce.epoch!(st.announce_encoder, ShmPoolAnnounce.epoch(msg))
             ShmPoolAnnounce.announceTimestampNs!(st.announce_encoder, ShmPoolAnnounce.announceTimestampNs(msg))
+            ShmPoolAnnounce.announceClockDomain!(st.announce_encoder, ShmPoolAnnounce.announceClockDomain(msg))
             ShmPoolAnnounce.layoutVersion!(st.announce_encoder, ShmPoolAnnounce.layoutVersion(msg))
             ShmPoolAnnounce.headerNslots!(st.announce_encoder, ShmPoolAnnounce.headerNslots(msg))
             ShmPoolAnnounce.headerSlotBytes!(st.announce_encoder, ShmPoolAnnounce.headerSlotBytes(msg))
-            ShmPoolAnnounce.maxDims!(st.announce_encoder, ShmPoolAnnounce.maxDims(msg))
             pools_group = ShmPoolAnnounce.payloadPools!(st.announce_encoder, payload_count)
             for pool in payloads
                 entry = ShmPoolAnnounce.PayloadPools.next!(pools_group)
@@ -252,7 +252,6 @@ function bridge_forward_progress!(state::BridgeSenderState, msg::FrameProgress.D
         FrameProgress.headerIndex!(state.progress_encoder, FrameProgress.headerIndex(msg))
         FrameProgress.payloadBytesFilled!(state.progress_encoder, FrameProgress.payloadBytesFilled(msg))
         FrameProgress.state!(state.progress_encoder, FrameProgress.state(msg))
-        FrameProgress.rowsFilled!(state.progress_encoder, FrameProgress.rowsFilled(msg))
     end
     sent || return false
     state.metrics.control_forwarded += 1
@@ -348,7 +347,6 @@ function bridge_publish_progress!(state::BridgeReceiverState, msg::FrameProgress
         FrameProgress.headerIndex!(state.progress_encoder, local_header_index)
         FrameProgress.payloadBytesFilled!(state.progress_encoder, FrameProgress.payloadBytesFilled(msg))
         FrameProgress.state!(state.progress_encoder, FrameProgress.state(msg))
-        FrameProgress.rowsFilled!(state.progress_encoder, FrameProgress.rowsFilled(msg))
     end
     sent || return false
     state.metrics.control_forwarded += 1

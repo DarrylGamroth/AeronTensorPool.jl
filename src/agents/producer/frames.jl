@@ -84,9 +84,10 @@ function offer_frame!(
 
     copyto!(payload_mmap, payload_offset + 1, payload_data, 1, values_len)
 
-    wrap_tensor_header!(state.runtime.header_encoder, state.mappings.header_mmap, header_offset)
-    write_tensor_slot_header!(
-        state.runtime.header_encoder,
+    wrap_slot_header!(state.runtime.slot_encoder, state.mappings.header_mmap, header_offset)
+    @inbounds write_slot_header!(
+        state.runtime.slot_encoder,
+        state.runtime.tensor_encoder,
         UInt64(Clocks.time_nanos(state.clock)),
         meta_version,
         UInt32(values_len),
@@ -96,6 +97,8 @@ function offer_frame!(
         dtype,
         MajorOrder.ROW,
         UInt8(length(shape)),
+        ProgressUnit.NONE,
+        UInt32(0),
         shape,
         strides,
     )
@@ -182,6 +185,25 @@ function payload_slot_ptr(state::ProducerState, pool_id::UInt16, slot::UInt32)
 end
 
 """
+Try to return a pointer to a payload slot for a producer pool.
+
+Arguments:
+- `state`: producer state.
+- `pool_id`: payload pool identifier.
+- `slot`: 0-based payload slot index.
+
+Returns:
+- Tuple `(Ptr{UInt8}, Int)` pointing to the slot and stride size, or `nothing` if invalid.
+"""
+function try_payload_slot_ptr(state::ProducerState, pool_id::UInt16, slot::UInt32)
+    pool = payload_pool_config(state, pool_id)
+    pool === nothing && return nothing
+    slot < pool.nslots || return nothing
+    payload_mmap = state.mappings.payload_mmaps[pool.pool_id]
+    return Shm.payload_slot_ptr(payload_mmap, pool.stride_bytes, slot)
+end
+
+"""
 Return a view into a producer payload slot.
 
 Arguments:
@@ -215,26 +237,28 @@ Arguments:
 - `pool_id`: payload pool to claim from.
 
 Returns:
-- `SlotClaim` containing slot identifiers, payload pointer, and stride size.
+- `SlotClaim` containing slot identifiers, payload pointer, and stride size, or `nothing` if the claim fails.
 
 Notes:
 - Marks the slot as WRITING via seqlock before returning the pointer.
 """
 function try_claim_slot!(state::ProducerState, pool_id::UInt16)
-    producer_driver_active(state) || error("driver lease inactive")
+    producer_driver_active(state) || return nothing
     pool = payload_pool_config(state, pool_id)
-    pool === nothing && error("Unknown pool_id: $pool_id")
+    pool === nothing && return nothing
 
     seq = state.seq
     header_index = next_header_index(state)
     payload_slot = header_index
-    payload_slot < pool.nslots || error("Slot out of range: $payload_slot")
+    payload_slot < pool.nslots || return nothing
 
     header_offset = header_slot_offset(header_index)
     commit_ptr = header_commit_ptr_from_offset(state.mappings.header_mmap, header_offset)
     seqlock_begin_write!(commit_ptr, seq)
 
-    ptr, stride_bytes = payload_slot_ptr(state, pool_id, payload_slot)
+    ptr_stride = try_payload_slot_ptr(state, pool_id, payload_slot)
+    ptr_stride === nothing && return nothing
+    ptr, stride_bytes = ptr_stride
     state.seq += 1
 
     return SlotClaim(seq, ptr, stride_bytes, header_index, payload_slot, pool_id)
@@ -267,6 +291,7 @@ function with_claimed_slot!(
     meta_version::UInt32,
 )
     claim = try_claim_slot!(state, pool_id)
+    claim === nothing && return false
     fill_fn(claim)
     return commit_slot!(state, claim, values_len, shape, strides, dtype, meta_version)
 end
@@ -337,9 +362,10 @@ function commit_slot!(
     header_offset = header_slot_offset(claim.header_index)
     commit_ptr = header_commit_ptr_from_offset(state.mappings.header_mmap, header_offset)
 
-    wrap_tensor_header!(state.runtime.header_encoder, state.mappings.header_mmap, header_offset)
-    write_tensor_slot_header!(
-        state.runtime.header_encoder,
+    wrap_slot_header!(state.runtime.slot_encoder, state.mappings.header_mmap, header_offset)
+    @inbounds write_slot_header!(
+        state.runtime.slot_encoder,
+        state.runtime.tensor_encoder,
         UInt64(Clocks.time_nanos(state.clock)),
         meta_version,
         UInt32(values_len),
@@ -349,6 +375,8 @@ function commit_slot!(
         dtype,
         MajorOrder.ROW,
         UInt8(length(shape)),
+        ProgressUnit.NONE,
+        UInt32(0),
         shape,
         strides,
     )

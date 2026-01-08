@@ -100,10 +100,10 @@
             AeronTensorPool.ShmPoolAnnounce.producerId!(announce_enc, UInt32(7))
             AeronTensorPool.ShmPoolAnnounce.epoch!(announce_enc, epoch)
             AeronTensorPool.ShmPoolAnnounce.announceTimestampNs!(announce_enc, UInt64(time_ns()))
+            AeronTensorPool.ShmPoolAnnounce.announceClockDomain!(announce_enc, AeronTensorPool.ClockDomain.MONOTONIC)
             AeronTensorPool.ShmPoolAnnounce.layoutVersion!(announce_enc, layout_version)
             AeronTensorPool.ShmPoolAnnounce.headerNslots!(announce_enc, nslots)
             AeronTensorPool.ShmPoolAnnounce.headerSlotBytes!(announce_enc, UInt16(HEADER_SLOT_BYTES))
-            AeronTensorPool.ShmPoolAnnounce.maxDims!(announce_enc, UInt8(MAX_DIMS))
             pools = AeronTensorPool.ShmPoolAnnounce.payloadPools!(announce_enc, 1)
             pool = AeronTensorPool.ShmPoolAnnounce.PayloadPools.next!(pools)
             AeronTensorPool.ShmPoolAnnounce.PayloadPools.poolId!(pool, UInt16(1))
@@ -130,10 +130,12 @@
             FrameDescriptor.wrap!(desc_dec, desc_buf, 0; header = desc_header)
 
             header_offset = header_slot_offset(UInt32(0))
-            hdr_enc = TensorSlotHeaderMsg.Encoder(Vector{UInt8})
-            wrap_tensor_header!(hdr_enc, header_mmap, header_offset)
-            write_tensor_slot_header!(
-                hdr_enc,
+            slot_enc = SlotHeaderMsg.Encoder(Vector{UInt8})
+            tensor_enc = TensorHeaderMsg.Encoder(Vector{UInt8})
+            wrap_slot_header!(slot_enc, header_mmap, header_offset)
+            write_slot_header!(
+                slot_enc,
+                tensor_enc,
                 UInt64(0),
                 UInt32(0),
                 UInt32(16),
@@ -143,6 +145,8 @@
                 Dtype.UINT8,
                 MajorOrder.ROW,
                 UInt8(1),
+                AeronTensorPool.ProgressUnit.NONE,
+                UInt32(0),
                 vcat(Int32(16), zeros(Int32, MAX_DIMS - 1)),
                 vcat(Int32(0), zeros(Int32, MAX_DIMS - 1)),
             )
@@ -157,8 +161,9 @@
             @test Consumer.try_read_frame!(state, desc_dec) == false
             state.mappings.last_commit_words[1] = UInt64(0)
 
-            write_tensor_slot_header!(
-                hdr_enc,
+            write_slot_header!(
+                slot_enc,
+                tensor_enc,
                 UInt64(2),
                 UInt32(0),
                 UInt32(1),
@@ -168,14 +173,17 @@
                 Dtype.UINT8,
                 MajorOrder.ROW,
                 UInt8(1),
+                AeronTensorPool.ProgressUnit.NONE,
+                UInt32(0),
                 vcat(Int32(16), zeros(Int32, MAX_DIMS - 1)),
                 vcat(Int32(0), zeros(Int32, MAX_DIMS - 1)),
             )
             seqlock_commit_write!(commit_ptr, UInt64(1))
             @test Consumer.try_read_frame!(state, desc_dec) == false
 
-            write_tensor_slot_header!(
-                hdr_enc,
+            write_slot_header!(
+                slot_enc,
+                tensor_enc,
                 UInt64(1),
                 UInt32(0),
                 UInt32(1),
@@ -185,6 +193,8 @@
                 Dtype.UINT8,
                 MajorOrder.ROW,
                 UInt8(1),
+                AeronTensorPool.ProgressUnit.NONE,
+                UInt32(0),
                 vcat(Int32(16), zeros(Int32, MAX_DIMS - 1)),
                 vcat(Int32(0), zeros(Int32, MAX_DIMS - 1)),
             )

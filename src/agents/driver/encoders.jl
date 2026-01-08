@@ -248,15 +248,11 @@ function emit_driver_consumer_config!(
             ConsumerConfigMsg.mode!(st.runtime.config_encoder, Mode.STREAM)
             ConsumerConfigMsg.descriptorStreamId!(
                 st.runtime.config_encoder,
-                descriptor_stream_id != 0 ?
-                descriptor_stream_id :
-                ConsumerConfigMsg.descriptorStreamId_null_value(ConsumerConfigMsg.Encoder),
+                descriptor_stream_id != 0 ? descriptor_stream_id : UInt32(0),
             )
             ConsumerConfigMsg.controlStreamId!(
                 st.runtime.config_encoder,
-                control_stream_id != 0 ?
-                control_stream_id :
-                ConsumerConfigMsg.controlStreamId_null_value(ConsumerConfigMsg.Encoder),
+                control_stream_id != 0 ? control_stream_id : UInt32(0),
             )
             ConsumerConfigMsg.payloadFallbackUri!(st.runtime.config_encoder, "")
             if isempty(descriptor_channel)
@@ -312,10 +308,10 @@ function emit_driver_announce!(state::DriverState, stream_state::DriverStreamSta
             ShmPoolAnnounce.producerId!(st.runtime.announce_encoder, producer_id)
             ShmPoolAnnounce.epoch!(st.runtime.announce_encoder, stream_state.epoch)
             ShmPoolAnnounce.announceTimestampNs!(st.runtime.announce_encoder, now_ns)
+            ShmPoolAnnounce.announceClockDomain!(st.runtime.announce_encoder, ClockDomain.MONOTONIC)
             ShmPoolAnnounce.layoutVersion!(st.runtime.announce_encoder, UInt32(1))
             ShmPoolAnnounce.headerNslots!(st.runtime.announce_encoder, stream_state.profile.header_nslots)
             ShmPoolAnnounce.headerSlotBytes!(st.runtime.announce_encoder, UInt16(HEADER_SLOT_BYTES))
-            ShmPoolAnnounce.maxDims!(st.runtime.announce_encoder, stream_state.profile.max_dims)
 
             pools_group = ShmPoolAnnounce.payloadPools!(st.runtime.announce_encoder, payload_count)
             for pool in stream_state.profile.payload_pools

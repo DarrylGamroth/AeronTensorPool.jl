@@ -1,10 +1,12 @@
 @testset "Allocation load checks" begin
     hdr_buf = Vector{UInt8}(undef, HEADER_SLOT_BYTES)
-    hdr_enc = TensorSlotHeaderMsg.Encoder(Vector{UInt8})
-    wrap_tensor_header!(hdr_enc, hdr_buf, 0)
+    slot_enc = SlotHeaderMsg.Encoder(Vector{UInt8})
+    tensor_enc = TensorHeaderMsg.Encoder(Vector{UInt8})
+    wrap_slot_header!(slot_enc, hdr_buf, 0)
 
-    hdr_dec = TensorSlotHeaderMsg.Decoder(Vector{UInt8})
-    wrap_tensor_header!(hdr_dec, hdr_buf, 0)
+    slot_dec = SlotHeaderMsg.Decoder(Vector{UInt8})
+    tensor_dec = TensorHeaderMsg.Decoder(Vector{UInt8})
+    wrap_slot_header!(slot_dec, hdr_buf, 0)
 
     dims = Vector{Int32}(undef, MAX_DIMS)
     strides = Vector{Int32}(undef, MAX_DIMS)
@@ -15,8 +17,9 @@
 
     function write_loop!(enc, dims_vec, strides_vec, iters::Int)
         for i in 1:iters
-            write_tensor_slot_header!(
+            write_slot_header!(
                 enc,
+                tensor_enc,
                 UInt64(2),
                 UInt32(3),
                 UInt32(64),
@@ -26,6 +29,8 @@
                 Dtype.UINT8,
                 MajorOrder.ROW,
                 UInt8(4),
+                AeronTensorPool.ProgressUnit.NONE,
+                UInt32(0),
                 dims_vec,
                 strides_vec,
             )
@@ -35,13 +40,14 @@
 
     function read_loop!(dec, iters::Int)
         for _ in 1:iters
-            read_tensor_slot_header(dec)
+            AeronTensorPool.try_read_slot_header(dec, tensor_dec)
         end
         return nothing
     end
 
-    write_tensor_slot_header!(
-        hdr_enc,
+    write_slot_header!(
+        slot_enc,
+        tensor_enc,
         UInt64(2),
         UInt32(3),
         UInt32(64),
@@ -51,12 +57,14 @@
         Dtype.UINT8,
         MajorOrder.ROW,
         UInt8(4),
+        AeronTensorPool.ProgressUnit.NONE,
+        UInt32(0),
         dims,
         strides,
     )
 
-    @test @allocated(write_loop!(hdr_enc, dims, strides, 10_000)) == 0
-    @test @allocated(read_loop!(hdr_dec, 10_000)) == 0
+    @test @allocated(write_loop!(slot_enc, dims, strides, 10_000)) == 0
+    @test @allocated(read_loop!(slot_dec, 10_000)) == 0
 
     desc_buf = Vector{UInt8}(undef, 128)
     desc_enc = FrameDescriptor.Encoder(Vector{UInt8})

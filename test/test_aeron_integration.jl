@@ -62,11 +62,11 @@ using UnsafeArrays
             ConsumerConfigMsg.mode!(enc, Mode.STREAM)
             ConsumerConfigMsg.descriptorStreamId!(
                 enc,
-                ConsumerConfigMsg.descriptorStreamId_null_value(ConsumerConfigMsg.Encoder),
+                UInt32(0),
             )
             ConsumerConfigMsg.controlStreamId!(
                 enc,
-                ConsumerConfigMsg.controlStreamId_null_value(ConsumerConfigMsg.Encoder),
+                UInt32(0),
             )
             ConsumerConfigMsg.payloadFallbackUri_length!(enc, 0)
             ConsumerConfigMsg.descriptorChannel_length!(enc, 0)

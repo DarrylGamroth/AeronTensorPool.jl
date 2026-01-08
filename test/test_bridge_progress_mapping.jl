@@ -69,7 +69,6 @@
             FrameProgress.frameId!(enc, UInt64(5))
             FrameProgress.payloadBytesFilled!(enc, UInt64(100))
             FrameProgress.state!(enc, AeronTensorPool.ShmTensorpoolControl.FrameProgressState.COMPLETE)
-            FrameProgress.rowsFilled!(enc, UInt32(0))
 
             local_index = UInt32(UInt64(5) & (UInt64(producer.config.nslots) - 1))
             FrameProgress.headerIndex!(enc, local_index + UInt32(1))

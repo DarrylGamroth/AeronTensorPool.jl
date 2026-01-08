@@ -38,33 +38,23 @@
             ok_strides = (Int32(0), Int32(0), Int32(0), Int32(0), Int32(0), Int32(0), Int32(0), Int32(0))
             bad_strides = (Int32(4), Int32(2), Int32(0), Int32(0), Int32(0), Int32(0), Int32(0), Int32(0))
 
-            header_ok = TensorSlotHeader(
-                UInt64(0),
-                UInt64(1),
-                UInt32(0),
-                UInt32(1),
-                UInt32(16),
-                UInt32(0),
-                UInt16(1),
+            header_ok = TensorHeader(
                 Dtype.FLOAT32,
                 MajorOrder.ROW,
                 UInt8(2),
                 UInt8(0),
+                AeronTensorPool.ProgressUnit.NONE,
+                UInt32(0),
                 dims,
                 ok_strides,
             )
-            header_bad = TensorSlotHeader(
-                UInt64(0),
-                UInt64(1),
-                UInt32(0),
-                UInt32(1),
-                UInt32(16),
-                UInt32(0),
-                UInt16(1),
+            header_bad = TensorHeader(
                 Dtype.FLOAT32,
                 MajorOrder.ROW,
                 UInt8(2),
                 UInt8(0),
+                AeronTensorPool.ProgressUnit.NONE,
+                UInt32(0),
                 dims,
                 bad_strides,
             )

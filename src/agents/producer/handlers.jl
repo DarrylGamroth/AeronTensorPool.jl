@@ -194,18 +194,13 @@ function update_consumer_streams!(state::ProducerState, msg::ConsumerHello.Decod
         control_stream_id != 0 && control_stream_id != control_null
     descriptor_channel_provided = !isempty(descriptor_channel)
     control_channel_provided = !isempty(control_channel)
-    descriptor_deferred = descriptor_channel_provided && descriptor_stream_id == 0
-    control_deferred = control_channel_provided && control_stream_id == 0
     descriptor_requested = descriptor_channel_provided && descriptor_stream_id_provided
     control_requested = control_channel_provided && control_stream_id_provided
-    invalid_descriptor_request =
-        descriptor_channel_provided != descriptor_stream_id_provided && !descriptor_deferred
-    invalid_control_request =
-        control_channel_provided != control_stream_id_provided && !control_deferred
+    invalid_descriptor_request = descriptor_channel_provided && !descriptor_stream_id_provided
+    invalid_control_request = control_channel_provided && !control_stream_id_provided
 
     if !descriptor_requested && !control_requested &&
-       !invalid_descriptor_request && !invalid_control_request &&
-       !descriptor_deferred && !control_deferred
+       !invalid_descriptor_request && !invalid_control_request
         return false
     end
 

@@ -84,10 +84,10 @@ function emit_announce!(state::ProducerState)
             ShmPoolAnnounce.producerId!(st.runtime.announce_encoder, st.config.producer_id)
             ShmPoolAnnounce.epoch!(st.runtime.announce_encoder, st.epoch)
             ShmPoolAnnounce.announceTimestampNs!(st.runtime.announce_encoder, now_ns)
+            ShmPoolAnnounce.announceClockDomain!(st.runtime.announce_encoder, ClockDomain.MONOTONIC)
             ShmPoolAnnounce.layoutVersion!(st.runtime.announce_encoder, st.config.layout_version)
             ShmPoolAnnounce.headerNslots!(st.runtime.announce_encoder, st.config.nslots)
             ShmPoolAnnounce.headerSlotBytes!(st.runtime.announce_encoder, UInt16(HEADER_SLOT_BYTES))
-            ShmPoolAnnounce.maxDims!(st.runtime.announce_encoder, st.config.max_dims)
 
             pools_group = ShmPoolAnnounce.payloadPools!(st.runtime.announce_encoder, payload_count)
             for pool in st.config.payload_pools
@@ -181,15 +181,11 @@ function emit_consumer_config!(
             ConsumerConfigMsg.mode!(st.runtime.config_encoder, mode)
             ConsumerConfigMsg.descriptorStreamId!(
                 st.runtime.config_encoder,
-                descriptor_stream_id != 0 ?
-                descriptor_stream_id :
-                ConsumerConfigMsg.descriptorStreamId_null_value(ConsumerConfigMsg.Encoder),
+                descriptor_stream_id != 0 ? descriptor_stream_id : UInt32(0),
             )
             ConsumerConfigMsg.controlStreamId!(
                 st.runtime.config_encoder,
-                control_stream_id != 0 ?
-                control_stream_id :
-                ConsumerConfigMsg.controlStreamId_null_value(ConsumerConfigMsg.Encoder),
+                control_stream_id != 0 ? control_stream_id : UInt32(0),
             )
             ConsumerConfigMsg.payloadFallbackUri!(st.runtime.config_encoder, payload_fallback_uri)
             if isempty(descriptor_channel)

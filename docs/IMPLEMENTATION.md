@@ -13,7 +13,7 @@ For a combined wire + driver overview, see `docs/IMPLEMENTATION_GUIDE.md`.
 
 ## 2. Code Generation (SBE)
 - Source schema: SHM_Tensor_Pool_Wire_Spec_v1.1.md §16 (also extracted to wire-schema.xml). MAX_DIMS is 8; if you change it, update the schema and regenerate.
-- Generate control-plane codecs and SHM composites (TensorSlotHeader, ShmRegionSuperblock) directly with SBE.jl (no java tool required).
+- Generate control-plane codecs and SHM composites (SlotHeader, TensorHeader, ShmRegionSuperblock) directly with SBE.jl (no java tool required).
 - Enums use SBE numeric bodies (see Spiders schema style); if you edit enum values, keep the body text numeric and regenerate.
 - Julia codegen example (adjust paths):
   - Inline load: `modname = @load_schema "wire-schema.xml"` then `using .` to access types; suitable for tooling/tests.
@@ -194,7 +194,7 @@ end
 
 ## 13. Julia fast path guidance
 - Keep hot paths allocation-free and type-stable: preallocate buffers for decoded headers and reuse; avoid VarData/VarAscii decoding in the frame loop.
-- Use concrete structs for TensorSlotHeader/Superblock views; avoid Any/Union in critical paths.
+- Use concrete structs for SlotHeader/TensorHeader/Superblock views; avoid Any/Union in critical paths.
 - Ensure seq_commit loads/stores use acquire/release semantics; prefer `Base.llvmcall`/atomic wrappers only if needed—otherwise rely on SBE.jl’s generated accessors when they are type-stable.
 - For progress/descriptor handling, stage work in small immutable structs to keep inference intact; avoid closures/allocating iterators in the poll loop.
 - Pin frequently accessed buffers and avoid String allocations for URIs in the hot path; parse URIs once at startup.
@@ -306,8 +306,8 @@ profile = "raw_profile"
 - Bridge benchmark (single-thread): `julia --project scripts/run_benchmarks.jl --bridge --duration 5 --config config/defaults.toml`.
 - Bridge benchmark (AgentRunners, requires `JULIA_NUM_THREADS>=2`): `JULIA_NUM_THREADS=2 julia --project scripts/run_benchmarks.jl --bridge-runners --duration 5 --config config/defaults.toml`.
 - Results should include publish/consume rates and allocation behavior under load.
-- Map config → SBE messages: producer fills ShmPoolAnnounce from TOML/env (uris, nslots, stride_bytes); max_dims comes from the compiled schema constant.
-- Consumers refuse SHM if announce values differ from compiled schema (max_dims/layout_version) or backend validation fails.
+- Map config → SBE messages: producer fills ShmPoolAnnounce from TOML/env (uris, nslots, stride_bytes, announce_clock_domain); MAX_DIMS comes from the compiled schema constant.
+- Consumers refuse SHM if announce values differ from compiled schema (layout_version) or backend validation fails.
 
 ## 16a. Agent execution model (AgentRunner vs Invoker)
 - Default: use an AgentRunner-style loop that owns the agent task and calls `*_do_work!` with a single `now_ns` per duty cycle.

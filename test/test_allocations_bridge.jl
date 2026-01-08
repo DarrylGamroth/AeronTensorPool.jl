@@ -169,7 +169,7 @@
             AeronTensorPool.ShmPoolAnnounce.layoutVersion!(announce_enc, UInt32(1))
             AeronTensorPool.ShmPoolAnnounce.headerNslots!(announce_enc, UInt32(8))
             AeronTensorPool.ShmPoolAnnounce.headerSlotBytes!(announce_enc, UInt16(AeronTensorPool.HEADER_SLOT_BYTES))
-            AeronTensorPool.ShmPoolAnnounce.maxDims!(announce_enc, UInt8(MAX_DIMS))
+            AeronTensorPool.ShmPoolAnnounce.announceClockDomain!(announce_enc, AeronTensorPool.ClockDomain.MONOTONIC)
             pools = AeronTensorPool.ShmPoolAnnounce.payloadPools!(announce_enc, 1)
             entry = AeronTensorPool.ShmPoolAnnounce.PayloadPools.next!(pools)
             AeronTensorPool.ShmPoolAnnounce.PayloadPools.poolId!(entry, UInt16(1))
@@ -182,13 +182,15 @@
             Bridge.bridge_apply_source_announce!(receiver, announce_dec)
 
             header_buf = Vector{UInt8}(undef, AeronTensorPool.HEADER_SLOT_BYTES)
-            header_enc = AeronTensorPool.TensorSlotHeaderMsg.Encoder(Vector{UInt8})
-            AeronTensorPool.TensorSlotHeaderMsg.wrap!(header_enc, header_buf, 0)
-            AeronTensorPool.TensorSlotHeaderMsg.seqCommit!(header_enc, UInt64(0))
+            slot_enc = AeronTensorPool.SlotHeaderMsg.Encoder(Vector{UInt8})
+            tensor_enc = AeronTensorPool.TensorHeaderMsg.Encoder(Vector{UInt8})
+            AeronTensorPool.SlotHeaderMsg.wrap!(slot_enc, header_buf, 0)
+            AeronTensorPool.SlotHeaderMsg.seqCommit!(slot_enc, UInt64(0))
             dims = Int32[4]
             strides = Int32[1]
-            write_tensor_slot_header!(
-                header_enc,
+            write_slot_header!(
+                slot_enc,
+                tensor_enc,
                 UInt64(time_ns()),
                 UInt32(0),
                 UInt32(length(payload)),
@@ -198,6 +200,8 @@
                 Dtype.UINT8,
                 AeronTensorPool.MajorOrder.ROW,
                 UInt8(1),
+                AeronTensorPool.ProgressUnit.NONE,
+                UInt32(0),
                 dims,
                 strides,
             )

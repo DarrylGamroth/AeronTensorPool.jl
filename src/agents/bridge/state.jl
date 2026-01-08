@@ -5,7 +5,6 @@ mutable struct BridgeSourceInfo
     stream_id::UInt32
     epoch::UInt64
     layout_version::UInt32
-    max_dims::UInt8
     pool_stride_bytes::Dict{UInt16, UInt32}
 end
 
@@ -142,7 +141,8 @@ mutable struct BridgeSenderState
     metadata_claim::Aeron.BufferClaim
     metadata_announce_encoder::DataSourceAnnounce.Encoder{UnsafeArrays.UnsafeArray{UInt8, 1}}
     metadata_meta_encoder::DataSourceMeta.Encoder{UnsafeArrays.UnsafeArray{UInt8, 1}}
-    header_decoder::TensorSlotHeaderMsg.Decoder{Vector{UInt8}}
+    slot_decoder::SlotHeaderMsg.Decoder{Vector{UInt8}}
+    tensor_decoder::TensorHeaderMsg.Decoder{Vector{UInt8}}
     scratch_dims::FixedSizeVectorDefault{Int32}
     scratch_strides::FixedSizeVectorDefault{Int32}
     last_announce_epoch::UInt64
@@ -195,7 +195,8 @@ mutable struct BridgeReceiverState{ClockT}
     progress_decoder::FrameProgress.Decoder{UnsafeArrays.UnsafeArray{UInt8, 1}}
     chunk_decoder::BridgeFrameChunk.Decoder{UnsafeArrays.UnsafeArray{UInt8, 1}}
     announce_decoder::ShmPoolAnnounce.Decoder{UnsafeArrays.UnsafeArray{UInt8, 1}}
-    header_decoder::TensorSlotHeaderMsg.Decoder{FixedSizeVectorDefault{UInt8}}
+    slot_decoder::SlotHeaderMsg.Decoder{FixedSizeVectorDefault{UInt8}}
+    tensor_decoder::TensorHeaderMsg.Decoder{FixedSizeVectorDefault{UInt8}}
     scratch_dims::FixedSizeVectorDefault{Int32}
     scratch_strides::FixedSizeVectorDefault{Int32}
     have_announce::Bool
