@@ -14,7 +14,10 @@ using Clocks
 using UnsafeArrays
 import ..Agents.Producer: offer_frame!, try_claim_slot!, commit_slot!, with_claimed_slot!
 
-include("client_api.jl")
+include("context.jl")
+include("handles.jl")
+include("discovery.jl")
+include("attach.jl")
 include("qos_monitor.jl")
 
 export DriverClientState,
