@@ -1,0 +1,10 @@
+[interop]
+# Optional overrides for interop scripts. When omitted, values are derived from
+# the driver config.
+control_channel = "aeron:ipc?term-length=4m"
+control_stream_id = 15000
+descriptor_channel = "aeron:ipc?term-length=4m"
+descriptor_stream_id = 1100
+stream_id = 1
+# aeron_dir = "/dev/shm/aeron"
+# payload_stride_bytes = 1048576
