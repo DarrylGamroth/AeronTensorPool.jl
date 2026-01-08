@@ -82,15 +82,7 @@ function offer_frame!(
     commit_ptr = header_commit_ptr_from_offset(state.mappings.header_mmap, header_offset)
     seqlock_begin_write!(commit_ptr, seq)
 
-    if payload_data isa StridedVector{UInt8}
-        unsafe_copyto!(
-            pointer(payload_mmap, payload_offset + 1),
-            pointer(payload_data),
-            values_len,
-        )
-    else
-        copyto!(payload_mmap, payload_offset + 1, payload_data, 1, values_len)
-    end
+    copyto!(payload_mmap, payload_offset + 1, payload_data, 1, values_len)
 
     wrap_slot_header!(state.runtime.slot_encoder, state.mappings.header_mmap, header_offset)
     @inbounds write_slot_header!(
