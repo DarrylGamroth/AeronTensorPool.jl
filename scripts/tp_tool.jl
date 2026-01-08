@@ -27,7 +27,37 @@ function usage()
     println("  julia --project scripts/tp_tool.jl discovery-query <aeron_dir> <request_channel> <request_stream_id> <response_channel> <response_stream_id> [stream_id] [producer_id] [data_source_id] [data_source_name] [tags_csv] [timeout_ms]")
     println("  julia --project scripts/tp_tool.jl bridge-status <aeron_dir> [filter]")
     println("  julia --project scripts/tp_tool.jl discover <aeron_dir> <request_channel> <request_stream_id> <response_channel> <response_stream_id> [stream_id] [producer_id] [data_source_id] [data_source_name] [tags_csv] [timeout_ms]")
+    println()
+    println("Env overrides (when args omitted):")
+    println("  TP_AERON_DIR, TP_AERON_URI, TP_CHANNEL, TP_STREAM_ID")
+    println("  TP_CONTROL_CHANNEL, TP_CONTROL_STREAM_ID")
+    println("  TP_METADATA_CHANNEL, TP_METADATA_STREAM_ID")
+    println("  TP_QOS_CHANNEL, TP_QOS_STREAM_ID")
+    println("  TP_DISCOVERY_REQUEST_CHANNEL, TP_DISCOVERY_REQUEST_STREAM_ID")
+    println("  TP_DISCOVERY_RESPONSE_CHANNEL, TP_DISCOVERY_RESPONSE_STREAM_ID")
+    println("  TP_CLIENT_ID, TP_ROLE, TP_STREAM_ID, TP_LEASE_ID")
+    println("  TP_SHM_URI")
     exit(1)
+end
+
+function env_string(key::String)
+    val = get(ENV, key, "")
+    return isempty(val) ? nothing : val
+end
+
+function env_parse(key::String, parser)
+    val = get(ENV, key, "")
+    isempty(val) && return nothing
+    return parser(val)
+end
+
+function arg_or_env(args::Vector{String}, idx::Int, envkey::String, parser = identity)
+    if length(args) >= idx
+        return parser(args[idx])
+    end
+    val = env_parse(envkey, parser)
+    val === nothing && usage()
+    return val
 end
 
 function parse_bool(val::String)
@@ -286,10 +316,10 @@ function tp_tool_main(args::Vector{String})
     cmd = args[1]
 
     if cmd == "validate-uri"
-        uri = args[2]
+        uri = arg_or_env(args, 2, "TP_SHM_URI", identity)
         println(validate_uri(uri))
     elseif cmd == "read-superblock"
-        uri = args[2]
+        uri = arg_or_env(args, 2, "TP_SHM_URI", identity)
         buf = mmap_shm(uri, SUPERBLOCK_SIZE)
         decoder = ShmRegionSuperblock.Decoder(Vector{UInt8})
         wrap_superblock!(decoder, buf)
@@ -308,7 +338,7 @@ function tp_tool_main(args::Vector{String})
         println("activity_timestamp_ns=$(fields.activity_timestamp_ns)")
     elseif cmd == "read-header"
         length(args) >= 3 || usage()
-        uri = args[2]
+        uri = arg_or_env(args, 2, "TP_SHM_URI", identity)
         index = parse(Int, args[3])
         index >= 0 || error("index must be >= 0")
         size = SUPERBLOCK_SIZE + HEADER_SLOT_BYTES * (index + 1)
@@ -332,7 +362,7 @@ function tp_tool_main(args::Vector{String})
         println("ndims=$(header.tensor.ndims)")
     elseif cmd == "shm-validate"
         length(args) >= 9 || usage()
-        uri = args[2]
+        uri = arg_or_env(args, 2, "TP_SHM_URI", identity)
         expected_layout_version = parse(UInt32, args[3])
         expected_epoch = parse(UInt64, args[4])
         expected_stream_id = parse(UInt32, args[5])
@@ -356,7 +386,7 @@ function tp_tool_main(args::Vector{String})
         )
         println(ok)
     elseif cmd == "shm-summary"
-        uri = args[2]
+        uri = arg_or_env(args, 2, "TP_SHM_URI", identity)
         buf = mmap_shm(uri, SUPERBLOCK_SIZE)
         decoder = ShmRegionSuperblock.Decoder(Vector{UInt8})
         wrap_superblock!(decoder, buf)
@@ -378,15 +408,14 @@ function tp_tool_main(args::Vector{String})
             println("file_size=$(stat(path).size)")
         end
     elseif cmd == "send-consumer-config"
-        length(args) >= 8 || usage()
-        aeron_dir = args[2]
-        aeron_uri = args[3]
-        control_stream = parse(Int32, args[4])
-        stream_id = parse(UInt32, args[5])
-        consumer_id = parse(UInt32, args[6])
-        use_shm = parse_bool(args[7])
-        mode = parse_mode(args[8])
-        payload_fallback_uri = length(args) >= 9 ? args[9] : ""
+        aeron_dir = arg_or_env(args, 2, "TP_AERON_DIR", identity)
+        aeron_uri = arg_or_env(args, 3, "TP_AERON_URI", identity)
+        control_stream = arg_or_env(args, 4, "TP_CONTROL_STREAM_ID", val -> parse(Int32, val))
+        stream_id = arg_or_env(args, 5, "TP_STREAM_ID", val -> parse(UInt32, val))
+        consumer_id = arg_or_env(args, 6, "TP_CLIENT_ID", val -> parse(UInt32, val))
+        use_shm = arg_or_env(args, 7, "TP_USE_SHM", parse_bool)
+        mode = arg_or_env(args, 8, "TP_MODE", parse_mode)
+        payload_fallback_uri = length(args) >= 9 ? args[9] : get(ENV, "TP_PAYLOAD_FALLBACK_URI", "")
 
         ctx = Aeron.Context()
         Aeron.aeron_dir!(ctx, aeron_dir)
@@ -413,13 +442,12 @@ function tp_tool_main(args::Vector{String})
         close(pub)
         close(client)
     elseif cmd == "driver-attach"
-        length(args) >= 7 || usage()
-        aeron_dir = args[2]
-        control_channel = args[3]
-        control_stream = parse(Int32, args[4])
-        client_id = parse(UInt32, args[5])
-        role = parse_role(args[6])
-        stream_id = parse(UInt32, args[7])
+        aeron_dir = arg_or_env(args, 2, "TP_AERON_DIR", identity)
+        control_channel = arg_or_env(args, 3, "TP_CONTROL_CHANNEL", identity)
+        control_stream = arg_or_env(args, 4, "TP_CONTROL_STREAM_ID", val -> parse(Int32, val))
+        client_id = arg_or_env(args, 5, "TP_CLIENT_ID", val -> parse(UInt32, val))
+        role = arg_or_env(args, 6, "TP_ROLE", parse_role)
+        stream_id = arg_or_env(args, 7, "TP_STREAM_ID", val -> parse(UInt32, val))
         publish_mode = length(args) >= 8 ? parse_publish_mode(args[8]) : DriverPublishMode.REQUIRE_EXISTING
         expected_layout_version = length(args) >= 9 ? parse(UInt32, args[9]) : UInt32(0)
         require_hugepages = length(args) >= 10 ? parse_hugepages_policy(args[10]) : DriverHugepagesPolicy.UNSPECIFIED
@@ -454,14 +482,13 @@ function tp_tool_main(args::Vector{String})
             println("error_message=$(resp.error_message)")
         end
     elseif cmd == "driver-detach"
-        length(args) >= 8 || usage()
-        aeron_dir = args[2]
-        control_channel = args[3]
-        control_stream = parse(Int32, args[4])
-        client_id = parse(UInt32, args[5])
-        role = parse_role(args[6])
-        stream_id = parse(UInt32, args[7])
-        lease_id = parse(UInt64, args[8])
+        aeron_dir = arg_or_env(args, 2, "TP_AERON_DIR", identity)
+        control_channel = arg_or_env(args, 3, "TP_CONTROL_CHANNEL", identity)
+        control_stream = arg_or_env(args, 4, "TP_CONTROL_STREAM_ID", val -> parse(Int32, val))
+        client_id = arg_or_env(args, 5, "TP_CLIENT_ID", val -> parse(UInt32, val))
+        role = arg_or_env(args, 6, "TP_ROLE", parse_role)
+        stream_id = arg_or_env(args, 7, "TP_STREAM_ID", val -> parse(UInt32, val))
+        lease_id = arg_or_env(args, 8, "TP_LEASE_ID", val -> parse(UInt64, val))
         timeout_ms = length(args) >= 9 ? parse(Int, args[9]) : 5000
 
         with_driver_client(aeron_dir, control_channel, control_stream, client_id, role) do client
@@ -482,14 +509,13 @@ function tp_tool_main(args::Vector{String})
             println("error_message=$(resp.error_message)")
         end
     elseif cmd == "driver-keepalive"
-        length(args) >= 8 || usage()
-        aeron_dir = args[2]
-        control_channel = args[3]
-        control_stream = parse(Int32, args[4])
-        client_id = parse(UInt32, args[5])
-        role = parse_role(args[6])
-        stream_id = parse(UInt32, args[7])
-        lease_id = parse(UInt64, args[8])
+        aeron_dir = arg_or_env(args, 2, "TP_AERON_DIR", identity)
+        control_channel = arg_or_env(args, 3, "TP_CONTROL_CHANNEL", identity)
+        control_stream = arg_or_env(args, 4, "TP_CONTROL_STREAM_ID", val -> parse(Int32, val))
+        client_id = arg_or_env(args, 5, "TP_CLIENT_ID", val -> parse(UInt32, val))
+        role = arg_or_env(args, 6, "TP_ROLE", parse_role)
+        stream_id = arg_or_env(args, 7, "TP_STREAM_ID", val -> parse(UInt32, val))
+        lease_id = arg_or_env(args, 8, "TP_LEASE_ID", val -> parse(UInt64, val))
 
         with_driver_client(aeron_dir, control_channel, control_stream, client_id, role) do client
             sent = send_keepalive!(
@@ -518,8 +544,7 @@ function tp_tool_main(args::Vector{String})
         state = find_driver_or_error(instance_id)
         print_driver_streams(state)
     elseif cmd == "driver-counters"
-        length(args) >= 2 || usage()
-        aeron_dir = args[2]
+        aeron_dir = arg_or_env(args, 2, "TP_AERON_DIR", identity)
         filter = length(args) >= 3 ? args[3] : "Name=Driver"
         print_counters(aeron_dir; filter = filter)
     elseif cmd == "driver-config-validate"
@@ -566,10 +591,9 @@ function tp_tool_main(args::Vector{String})
             println("stream=$(name) stream_id=$(stream.stream_id) profile=$(stream.profile)")
         end
     elseif cmd == "announce-listen"
-        length(args) >= 4 || usage()
-        aeron_dir = args[2]
-        channel = args[3]
-        stream_id = parse(Int32, args[4])
+        aeron_dir = arg_or_env(args, 2, "TP_AERON_DIR", identity)
+        channel = arg_or_env(args, 3, "TP_CHANNEL", identity)
+        stream_id = arg_or_env(args, 4, "TP_STREAM_ID", val -> parse(Int32, val))
         duration_s = length(args) >= 5 ? parse(Float64, args[5]) : 5.0
         ctx = Aeron.Context()
         Aeron.aeron_dir!(ctx, aeron_dir)
@@ -607,10 +631,9 @@ function tp_tool_main(args::Vector{String})
         close(client)
         close(ctx)
     elseif cmd == "control-listen"
-        length(args) >= 4 || usage()
-        aeron_dir = args[2]
-        channel = args[3]
-        stream_id = parse(Int32, args[4])
+        aeron_dir = arg_or_env(args, 2, "TP_AERON_DIR", identity)
+        channel = arg_or_env(args, 3, "TP_CONTROL_CHANNEL", identity)
+        stream_id = arg_or_env(args, 4, "TP_CONTROL_STREAM_ID", val -> parse(Int32, val))
         duration_s = length(args) >= 5 ? parse(Float64, args[5]) : 5.0
         ctx = Aeron.Context()
         Aeron.aeron_dir!(ctx, aeron_dir)
@@ -678,10 +701,9 @@ function tp_tool_main(args::Vector{String})
         close(client)
         close(ctx)
     elseif cmd == "metadata-listen"
-        length(args) >= 4 || usage()
-        aeron_dir = args[2]
-        channel = args[3]
-        stream_id = parse(Int32, args[4])
+        aeron_dir = arg_or_env(args, 2, "TP_AERON_DIR", identity)
+        channel = arg_or_env(args, 3, "TP_METADATA_CHANNEL", identity)
+        stream_id = arg_or_env(args, 4, "TP_METADATA_STREAM_ID", val -> parse(Int32, val))
         duration_s = length(args) >= 5 ? parse(Float64, args[5]) : 5.0
         ctx = Aeron.Context()
         Aeron.aeron_dir!(ctx, aeron_dir)
@@ -704,10 +726,9 @@ function tp_tool_main(args::Vector{String})
         close(client)
         close(ctx)
     elseif cmd == "metadata-dump"
-        length(args) >= 4 || usage()
-        aeron_dir = args[2]
-        channel = args[3]
-        stream_id = parse(UInt32, args[4])
+        aeron_dir = arg_or_env(args, 2, "TP_AERON_DIR", identity)
+        channel = arg_or_env(args, 3, "TP_METADATA_CHANNEL", identity)
+        stream_id = arg_or_env(args, 4, "TP_METADATA_STREAM_ID", val -> parse(UInt32, val))
         timeout_ms = length(args) >= 5 ? parse(Int, args[5]) : 5000
         ctx = Aeron.Context()
         Aeron.aeron_dir!(ctx, aeron_dir)
@@ -727,10 +748,9 @@ function tp_tool_main(args::Vector{String})
         close(client)
         close(ctx)
     elseif cmd == "qos-listen"
-        length(args) >= 4 || usage()
-        aeron_dir = args[2]
-        channel = args[3]
-        stream_id = parse(Int32, args[4])
+        aeron_dir = arg_or_env(args, 2, "TP_AERON_DIR", identity)
+        channel = arg_or_env(args, 3, "TP_QOS_CHANNEL", identity)
+        stream_id = arg_or_env(args, 4, "TP_QOS_STREAM_ID", val -> parse(Int32, val))
         duration_s = length(args) >= 5 ? parse(Float64, args[5]) : 5.0
         ctx = Aeron.Context()
         Aeron.aeron_dir!(ctx, aeron_dir)
@@ -751,12 +771,11 @@ function tp_tool_main(args::Vector{String})
         close(client)
         close(ctx)
     elseif cmd == "discovery-list"
-        length(args) >= 6 || usage()
-        aeron_dir = args[2]
-        request_channel = args[3]
-        request_stream_id = parse(Int32, args[4])
-        response_channel = args[5]
-        response_stream_id = parse(UInt32, args[6])
+        aeron_dir = arg_or_env(args, 2, "TP_AERON_DIR", identity)
+        request_channel = arg_or_env(args, 3, "TP_DISCOVERY_REQUEST_CHANNEL", identity)
+        request_stream_id = arg_or_env(args, 4, "TP_DISCOVERY_REQUEST_STREAM_ID", val -> parse(Int32, val))
+        response_channel = arg_or_env(args, 5, "TP_DISCOVERY_RESPONSE_CHANNEL", identity)
+        response_stream_id = arg_or_env(args, 6, "TP_DISCOVERY_RESPONSE_STREAM_ID", val -> parse(UInt32, val))
         timeout_ms = length(args) >= 7 ? parse(Int, args[7]) : 5000
         client_id = UInt32(getpid())
 
@@ -796,12 +815,11 @@ function tp_tool_main(args::Vector{String})
             end
         end
     elseif cmd == "discover" || cmd == "discovery-query"
-        length(args) >= 6 || usage()
-        aeron_dir = args[2]
-        request_channel = args[3]
-        request_stream_id = parse(Int32, args[4])
-        response_channel = args[5]
-        response_stream_id = parse(UInt32, args[6])
+        aeron_dir = arg_or_env(args, 2, "TP_AERON_DIR", identity)
+        request_channel = arg_or_env(args, 3, "TP_DISCOVERY_REQUEST_CHANNEL", identity)
+        request_stream_id = arg_or_env(args, 4, "TP_DISCOVERY_REQUEST_STREAM_ID", val -> parse(Int32, val))
+        response_channel = arg_or_env(args, 5, "TP_DISCOVERY_RESPONSE_CHANNEL", identity)
+        response_stream_id = arg_or_env(args, 6, "TP_DISCOVERY_RESPONSE_STREAM_ID", val -> parse(UInt32, val))
         stream_id = length(args) >= 7 ? parse(UInt32, args[7]) : nothing
         producer_id = length(args) >= 8 ? parse(UInt32, args[8]) : nothing
         data_source_id = length(args) >= 9 ? parse(UInt64, args[9]) : nothing
