@@ -10,7 +10,7 @@ High-performance shared-memory tensor pool with Aeron control-plane and SBE code
 - SHM header ring + payload pools with seqlock commit protocol.
 - Aeron control plane for announce, QoS, attach/detach, and metadata.
 - Type-stable, low-allocation hot paths after initialization.
-- Driver/client model with producer, consumer, supervisor, and bridge roles.
+- Driver/client model with producer, consumer, supervisor, and optional bridge/discovery/rate-limiter roles.
 
 ## Install
 
@@ -49,7 +49,10 @@ state = init_consumer(cfg)
 
 - Wire spec: `docs/SHM_Tensor_Pool_Wire_Spec_v1.1.md`
 - Driver model: `docs/SHM_Driver_Model_Spec_v1.0.md`
-- Implementation notes: `docs/IMPLEMENTATION.md`
+- Bridge spec: `docs/SHM_Aeron_UDP_Bridge_Spec_v1.0.md`
+- Discovery spec: `docs/SHM_Discovery_Service_Spec_v_1.0.md`
+- Rate limiter spec: `docs/SHM_RateLimiter_Spec_v1.0.md`
+- Implementation guides: `docs/IMPLEMENTATION.md`, `docs/IMPLEMENTATION_GUIDE.md`
 
 ## Tests
 

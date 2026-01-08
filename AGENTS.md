@@ -8,7 +8,9 @@ match the current code layout in `src/` and the wire/driver specs in `docs/`.
 - Wire spec: `docs/SHM_Tensor_Pool_Wire_Spec_v1.1.md`
 - Driver model spec: `docs/SHM_Driver_Model_Spec_v1.0.md`
 - Bridge spec: `docs/SHM_Aeron_UDP_Bridge_Spec_v1.0.md`
-- Implementation guide: `docs/IMPLEMENTATION.md`
+- Discovery spec: `docs/SHM_Discovery_Service_Spec_v_1.0.md`
+- Rate limiter spec: `docs/SHM_RateLimiter_Spec_v1.0.md`
+- Implementation guides: `docs/IMPLEMENTATION.md`, `docs/IMPLEMENTATION_GUIDE.md`
 
 ## Design constraints
 - Steady-state must be type-stable and zero-allocation after initialization.
@@ -24,15 +26,19 @@ match the current code layout in `src/` and the wire/driver specs in `docs/`.
 - Hsm.jl: driver state machine (used for driver lifecycle/lease tracking)
 
 ## Repository layout (current)
+- `src/aeron/`: Aeron helpers (try_claim, assemblers, counters)
 - `src/control/`: control-plane primitives (proxies, pollers, shared runtime)
 - `src/client/`: driver client API (attach/keepalive/detach polling)
+- `src/config/`: TOML/env config loading and path resolution
+- `src/timers/`: polled timers and timer sets
 - `src/agents/driver/`: driver implementation (streams/leases/encoders/handlers)
 - `src/agents/producer/`: producer agent
 - `src/agents/consumer/`: consumer agent
 - `src/agents/supervisor/`: supervisor agent
 - `src/agents/bridge/`: bridge agent (UDP/IP payload forwarding)
-- `src/agents/decimator/`: decimator agent
+- `src/agents/discovery/`: discovery provider + registry agents
 - `src/shm/`: SHM mapping, seqlock, superblock, slot helpers
+- `src/discovery/`: discovery client/types/validation
 - `src/core/`: shared types/constants/messages/errors
 
 ## Agent roles (v1.1)
@@ -66,8 +72,20 @@ match the current code layout in `src/` and the wire/driver specs in `docs/`.
 - Publishes: `BridgeFrameChunk`, forwarded control/QoS/metadata (if enabled).
 - Subscribes: `FrameDescriptor`, `ShmPoolAnnounce`, control/QoS/metadata as configured.
 
-### Decimator (optional)
-- Applies decimation ratio to descriptors and republishes.
+### Discovery Provider (optional)
+- Advisory inventory for available streams; does not grant attach authority.
+- Publishes: `DiscoveryResponse`.
+- Subscribes: `ShmPoolAnnounce`, metadata (as configured), `DiscoveryRequest`.
+
+### Discovery Registry (optional)
+- Aggregates multiple driver endpoints and serves discovery requests.
+- Publishes: `DiscoveryResponse`.
+- Subscribes: `ShmPoolAnnounce`, metadata, `DiscoveryRequest`.
+
+### RateLimiter (optional)
+- Consumes a source stream, rate-limits, re-materializes into local SHM, republishes on a destination stream.
+- Publishes: `FrameDescriptor`, optional `FrameProgress`, forwarded metadata/QoS (if enabled).
+- Subscribes: `FrameDescriptor`, `FrameProgress`, QoS/metadata as configured.
 
 ## Agent file structure (current)
 Each agent follows the same organization for readability:
@@ -77,11 +95,13 @@ Each agent follows the same organization for readability:
 - `lifecycle.jl`: attach/remap/driver lifecycle handling
 - `work.jl`: `*_do_work!` loop and timer polling
 - `frames.jl`/`mapping.jl`/`proxy.jl` where applicable
+- Bridge adds `assembly.jl` and `adapters.jl` for payload forwarding
 
 ## Control-plane API
 - Use `with_claimed_buffer!` for Aeron publishes.
 - `src/control/` houses proxies, pollers, and `ControlPlaneRuntime`.
 - `src/client/driver_client.jl` provides `DriverClientState` + helper pollers.
+- `src/discovery/discovery_client.jl` provides discovery request/response helpers.
 
 ## SHM utilities
 - `src/shm/seqlock.jl`: seqlock read/write helpers
@@ -97,14 +117,16 @@ Each agent follows the same organization for readability:
 ## Scripts
 - `scripts/run_role.jl`: run a single role with a config
 - `scripts/run_all.sh` / `scripts/run_all_driver.sh`: multi-role local runs
+- `scripts/run_driver.jl`: run the driver from a config
 - `scripts/run_driver_smoke.jl`, `scripts/run_system_smoke.jl`: smoke tests
 - `scripts/run_benchmarks.jl`: benchmark runner
+- `scripts/run_tests.jl` / `scripts/run_tests.sh`: test runners
 - `scripts/tp_tool.jl`: control-plane CLI helpers
 
 ## Codegen
 - Regenerate SBE codecs with `julia --project -e 'using Pkg; Pkg.build("AeronTensorPool")'`.
 
 ## Notes
-- Bridge/decimator are optional; current focus is wire-level correctness and zero-allocation hot paths.
+- Bridge, discovery, and rate limiter are optional; current focus is wire-level correctness and zero-allocation hot paths.
 - Driver and client are both implemented in Julia; the driver is expected to remain in Julia even if
   a C client is added later.
