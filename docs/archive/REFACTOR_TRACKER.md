@@ -17,7 +17,7 @@ This tracker lists refactor candidates identified during project review. Items a
 ## Top-Level Module Layout (Step 2)
 - Consolidate per-role includes into submodules or role-level entrypoints.
   - Rationale: `src/AeronTensorPool.jl` include list is long and flat.
-  - Scope: create `agents/producer/producer.jl` (includes state/handlers/logic), same for consumer/supervisor/driver/bridge/decimator.
+  - Scope: create `agents/producer/producer.jl` (includes state/handlers/logic), same for consumer/supervisor/driver/bridge.
   - Risk: low; mostly include order changes.
   - Status: done.
 

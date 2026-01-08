@@ -18,7 +18,7 @@ The package is in strong shape: core wire spec flows (producer/consumer/driver/s
 - Rate limiter (spec mentions): exists as a separate spec, but current integration tests/examples do not appear to exercise it.
 - Supervisor role: appears implemented, but external user-facing workflow/examples may be minimal.
 - Driver failure modes beyond timeouts and shutdown notice: may be in tests but worth re-validating against latest driver spec sections.
-- Bridge/decimator optional agents: bridge implemented; decimator removed earlier (check spec references if still mentioned).
+- Bridge optional agents: bridge implemented; ensure spec references remain aligned.
 
 ### Recommendation
 Add a checklist in the specs (or a single status table) that maps each MUST/SHOULD to a code/test reference. This would remove ambiguity about optional items and ensure spec conformance stays visible over time.
@@ -92,4 +92,3 @@ Add a checklist in the specs (or a single status table) that maps each MUST/SHOU
 3. Document log enablement and QoS/metadata ownership semantics in Client API.  
 4. Expand CLI tooling for runtime inspection (leases, QoS, discovery, metadata).  
 5. Keep archived docs marked as historical to avoid confusion with current terminology.  
-
