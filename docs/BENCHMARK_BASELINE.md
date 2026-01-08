@@ -67,7 +67,7 @@ liveness_timeout_ns = 5000000000
 liveness_check_interval_ns = 1000000000
 EOF
 
-julia --project -e 'include("bench/system_bench.jl"); run_system_bench("/tmp/tp_system_bench.toml", 10.0; payload_bytes=655360)'
+julia --project scripts/run_benchmarks.jl --system --duration 10 --payload-bytes 655360 --config /tmp/tp_system_bench.toml
 ```
 
 Results:
@@ -83,7 +83,7 @@ Results:
 
 Command:
 ```bash
-julia --project -e 'include("bench/system_bench.jl"); run_system_bench("config/defaults.toml", 1.0; payload_bytes=655360, warmup_s=0.2, alloc_breakdown=true, fixed_iters=256, do_yield=true)'
+julia --project scripts/run_benchmarks.jl --system --duration 1 --payload-bytes 655360 --config config/defaults.toml --warmup 0.2 --alloc-breakdown --fixed-iters 256
 ```
 
 Results:
