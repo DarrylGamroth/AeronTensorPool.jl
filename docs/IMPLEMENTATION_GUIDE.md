@@ -117,6 +117,31 @@ Subscriptions:
 - Use FragmentAssembler per subscription.
 - Decode SBE messages in-place and reuse decoders.
 
+### QoS Monitoring (Optional)
+
+Use the QoS monitor to subscribe to the QoS stream and maintain last-seen snapshots.
+
+```julia
+using AeronTensorPool
+using Aeron
+
+Aeron.Context() do ctx
+    Aeron.Client(ctx) do client
+        consumer_cfg = load_consumer_config("config/defaults.toml")
+        monitor = QosMonitor(consumer_cfg; client = client)
+
+        poll_qos!(monitor)
+
+        prod = producer_qos(monitor, UInt32(1))
+        cons = consumer_qos(monitor, UInt32(1))
+        prod === nothing || @info "QosProducer" current_seq=prod.current_seq
+        cons === nothing || @info "QosConsumer" drops_late=cons.drops_late
+
+        close(monitor)
+    end
+end
+```
+
 ## 7. Timers and Work Loops
 
 Use polled timers to manage periodic work:
