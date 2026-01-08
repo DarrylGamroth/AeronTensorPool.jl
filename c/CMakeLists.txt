@@ -6,6 +6,7 @@ set(CMAKE_C_STANDARD_REQUIRED ON)
 
 option(TP_BUILD_EXAMPLES "Build C client examples" ON)
 option(TP_BUILD_TESTS "Build C client tests" OFF)
+option(TP_BUILD_INTEGRATION_TESTS "Build C client integration tests" OFF)
 option(TP_USE_BUNDLED_AERON "Use vendored Aeron C client" ON)
 
 if (TP_USE_BUNDLED_AERON)
@@ -50,4 +51,10 @@ if (TP_BUILD_TESTS)
     add_executable(tp_superblock_test tests/tp_superblock_test.c)
     target_link_libraries(tp_superblock_test PRIVATE tensorpool_client)
     add_test(NAME tp_superblock_test COMMAND tp_superblock_test)
+endif ()
+
+if (TP_BUILD_INTEGRATION_TESTS)
+    add_executable(tp_integration_smoke tests/tp_integration_smoke.c)
+    target_link_libraries(tp_integration_smoke PRIVATE tensorpool_client)
+    add_test(NAME tp_integration_smoke COMMAND tp_integration_smoke)
 endif ()

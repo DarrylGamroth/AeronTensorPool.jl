@@ -118,7 +118,7 @@ Status: complete.
 ### Phase 3: Tests + tooling
 - Integration tests against Julia driver.
 - Example C producer/consumer programs.
-Status: in progress (CMake + example program added; unit test for superblock validation added; integration tests pending).
+Status: complete (CMake + example program, unit test for superblock validation, and an optional integration smoke test).
 
 Optional features (deferred from v1):
 - QoS monitor.
