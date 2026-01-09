@@ -203,32 +203,36 @@ int tp_qos_monitor_poll(tp_qos_monitor_t *monitor, int fragment_limit)
         (size_t)fragment_limit);
 }
 
-bool tp_qos_monitor_get_producer(tp_qos_monitor_t *monitor, uint32_t producer_id, tp_qos_producer_snapshot_t *out)
+bool tp_qos_monitor_get_producer(const tp_qos_monitor_t *monitor, uint32_t producer_id, tp_qos_producer_snapshot_t *out)
 {
     if (monitor == NULL || out == NULL)
     {
         return false;
     }
-    tp_qos_producer_snapshot_t *snap = tp_find_producer(monitor, producer_id);
-    if (snap == NULL)
+    for (uint32_t i = 0; i < monitor->producer_count; i++)
     {
-        return false;
+        if (monitor->producers[i].producer_id == producer_id)
+        {
+            *out = monitor->producers[i];
+            return true;
+        }
     }
-    *out = *snap;
-    return true;
+    return false;
 }
 
-bool tp_qos_monitor_get_consumer(tp_qos_monitor_t *monitor, uint32_t consumer_id, tp_qos_consumer_snapshot_t *out)
+bool tp_qos_monitor_get_consumer(const tp_qos_monitor_t *monitor, uint32_t consumer_id, tp_qos_consumer_snapshot_t *out)
 {
     if (monitor == NULL || out == NULL)
     {
         return false;
     }
-    tp_qos_consumer_snapshot_t *snap = tp_find_consumer(monitor, consumer_id);
-    if (snap == NULL)
+    for (uint32_t i = 0; i < monitor->consumer_count; i++)
     {
-        return false;
+        if (monitor->consumers[i].consumer_id == consumer_id)
+        {
+            *out = monitor->consumers[i];
+            return true;
+        }
     }
-    *out = *snap;
-    return true;
+    return false;
 }

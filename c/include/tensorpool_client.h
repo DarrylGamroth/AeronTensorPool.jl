@@ -76,24 +76,24 @@ tp_err_t tp_consumer_send_qos(
     uint64_t last_seq_seen,
     uint64_t drops_gap,
     uint64_t drops_late);
-bool tp_consumer_get_progress(tp_consumer_t *consumer, uint64_t *frame_id, uint64_t *bytes_filled, uint8_t *state);
+bool tp_consumer_get_progress(const tp_consumer_t *consumer, uint64_t *frame_id, uint64_t *bytes_filled, uint8_t *state);
 
 void tp_producer_close(tp_producer_t *producer);
 void tp_consumer_close(tp_consumer_t *consumer);
 
-bool tp_producer_is_connected(tp_producer_t *producer);
-bool tp_consumer_is_connected(tp_consumer_t *consumer);
+bool tp_producer_is_connected(const tp_producer_t *producer);
+bool tp_consumer_is_connected(const tp_consumer_t *consumer);
 
 tp_err_t tp_qos_monitor_init(tp_client_t *client, const char *channel, int32_t stream_id, tp_qos_monitor_t **monitor);
 void tp_qos_monitor_close(tp_qos_monitor_t *monitor);
 int tp_qos_monitor_poll(tp_qos_monitor_t *monitor, int fragment_limit);
-bool tp_qos_monitor_get_producer(tp_qos_monitor_t *monitor, uint32_t producer_id, tp_qos_producer_snapshot_t *out);
-bool tp_qos_monitor_get_consumer(tp_qos_monitor_t *monitor, uint32_t consumer_id, tp_qos_consumer_snapshot_t *out);
+bool tp_qos_monitor_get_producer(const tp_qos_monitor_t *monitor, uint32_t producer_id, tp_qos_producer_snapshot_t *out);
+bool tp_qos_monitor_get_consumer(const tp_qos_monitor_t *monitor, uint32_t consumer_id, tp_qos_consumer_snapshot_t *out);
 
 tp_err_t tp_metadata_cache_init(tp_client_t *client, const char *channel, int32_t stream_id, tp_metadata_cache_t **cache);
 void tp_metadata_cache_close(tp_metadata_cache_t *cache);
 int tp_metadata_cache_poll(tp_metadata_cache_t *cache, int fragment_limit);
-bool tp_metadata_cache_get(tp_metadata_cache_t *cache, uint32_t stream_id, tp_metadata_entry_t *out);
+bool tp_metadata_cache_get(const tp_metadata_cache_t *cache, uint32_t stream_id, tp_metadata_entry_t *out);
 
 tp_err_t tp_discovery_client_init(
     tp_client_t *client,
@@ -114,7 +114,7 @@ tp_err_t tp_discovery_send_request(
     uint32_t tag_count,
     uint64_t *request_id);
 bool tp_discovery_get_response(
-    tp_discovery_client_t *discovery,
+    const tp_discovery_client_t *discovery,
     uint64_t request_id,
     tp_discovery_entry_t *entries,
     uint32_t *entry_count,

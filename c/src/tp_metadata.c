@@ -27,6 +27,18 @@ static tp_metadata_entry_t *tp_find_metadata_entry(tp_metadata_cache_t *cache, u
     return NULL;
 }
 
+static const tp_metadata_entry_t *tp_find_metadata_entry_const(const tp_metadata_cache_t *cache, uint32_t stream_id)
+{
+    for (uint32_t i = 0; i < cache->entry_count; i++)
+    {
+        if (cache->entries[i].stream_id == stream_id)
+        {
+            return &cache->entries[i];
+        }
+    }
+    return NULL;
+}
+
 static tp_metadata_entry_t *tp_get_metadata_entry(tp_metadata_cache_t *cache, uint32_t stream_id)
 {
     tp_metadata_entry_t *entry = tp_find_metadata_entry(cache, stream_id);
@@ -246,13 +258,13 @@ int tp_metadata_cache_poll(tp_metadata_cache_t *cache, int fragment_limit)
         (size_t)fragment_limit);
 }
 
-bool tp_metadata_cache_get(tp_metadata_cache_t *cache, uint32_t stream_id, tp_metadata_entry_t *out)
+bool tp_metadata_cache_get(const tp_metadata_cache_t *cache, uint32_t stream_id, tp_metadata_entry_t *out)
 {
     if (cache == NULL || out == NULL)
     {
         return false;
     }
-    tp_metadata_entry_t *entry = tp_find_metadata_entry(cache, stream_id);
+    const tp_metadata_entry_t *entry = tp_find_metadata_entry_const(cache, stream_id);
     if (entry == NULL)
     {
         return false;

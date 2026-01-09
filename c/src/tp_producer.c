@@ -564,7 +564,7 @@ void tp_producer_close(tp_producer_t *producer)
     free(producer);
 }
 
-bool tp_producer_is_connected(tp_producer_t *producer)
+bool tp_producer_is_connected(const tp_producer_t *producer)
 {
     if (producer == NULL || producer->pub_descriptor == NULL)
     {

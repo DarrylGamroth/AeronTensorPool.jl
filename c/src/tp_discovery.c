@@ -373,7 +373,7 @@ tp_err_t tp_discovery_send_request(
 }
 
 bool tp_discovery_get_response(
-    tp_discovery_client_t *discovery,
+    const tp_discovery_client_t *discovery,
     uint64_t request_id,
     tp_discovery_entry_t *entries,
     uint32_t *entry_count,

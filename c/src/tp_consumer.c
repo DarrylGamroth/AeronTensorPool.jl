@@ -1100,7 +1100,7 @@ tp_err_t tp_consumer_send_qos(
     return TP_OK;
 }
 
-bool tp_consumer_get_progress(tp_consumer_t *consumer, uint64_t *frame_id, uint64_t *bytes_filled, uint8_t *state)
+bool tp_consumer_get_progress(const tp_consumer_t *consumer, uint64_t *frame_id, uint64_t *bytes_filled, uint8_t *state)
 {
     if (consumer == NULL || frame_id == NULL || bytes_filled == NULL || state == NULL)
     {
@@ -1154,7 +1154,7 @@ void tp_consumer_close(tp_consumer_t *consumer)
     free(consumer);
 }
 
-bool tp_consumer_is_connected(tp_consumer_t *consumer)
+bool tp_consumer_is_connected(const tp_consumer_t *consumer)
 {
     if (consumer == NULL || consumer->sub_descriptor == NULL)
     {

@@ -74,7 +74,7 @@ tp_tensor_header_t;
 
 typedef struct tp_frame_view_stct
 {
-    uint8_t *payload;
+    const uint8_t *payload;
     uint32_t payload_len;
     uint64_t seq_commit;
     uint64_t timestamp_ns;
