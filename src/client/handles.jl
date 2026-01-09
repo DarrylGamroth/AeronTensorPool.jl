@@ -17,6 +17,15 @@ mutable struct ProducerHandle
 end
 
 """
+Connection status for producer publications.
+"""
+struct ProducerConnections
+    descriptor_connected::Bool
+    control_connected::Bool
+    qos_connected::Bool
+end
+
+"""
 Return the underlying agent for a handle.
 """
 handle_agent(handle::ConsumerHandle) = handle.consumer_agent
@@ -27,6 +36,18 @@ Return the underlying agent state for a handle.
 """
 handle_state(handle::ConsumerHandle) = handle.consumer_agent.state
 handle_state(handle::ProducerHandle) = handle.producer_agent.state
+
+"""
+Return current Aeron connection status for producer publications.
+"""
+function producer_connections(handle::ProducerHandle)
+    state = handle.producer_agent.state
+    return ProducerConnections(
+        Aeron.is_connected(state.runtime.pub_descriptor),
+        Aeron.is_connected(state.runtime.control.pub_control),
+        Aeron.is_connected(state.runtime.pub_qos),
+    )
+end
 
 """
 Close a ConsumerHandle and its resources.
