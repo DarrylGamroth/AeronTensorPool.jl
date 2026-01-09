@@ -20,6 +20,7 @@ tp_err_t tp_context_init(tp_context_t **ctx)
     tmp->descriptor_stream_id = 1100;
     tmp->client_id = (uint32_t)getpid();
     tmp->use_invoker = false;
+    tmp->attach_timeout_ns = 5000000000ULL;
     *ctx = tmp;
     return TP_OK;
 }
@@ -106,5 +107,15 @@ tp_err_t tp_context_set_use_invoker(tp_context_t *ctx, bool value)
         return TP_ERR_ARG;
     }
     ctx->use_invoker = value;
+    return TP_OK;
+}
+
+tp_err_t tp_context_set_attach_timeout_ns(tp_context_t *ctx, uint64_t timeout_ns)
+{
+    if (ctx == NULL)
+    {
+        return TP_ERR_ARG;
+    }
+    ctx->attach_timeout_ns = timeout_ns;
     return TP_OK;
 }

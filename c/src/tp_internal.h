@@ -41,6 +41,7 @@ typedef struct tp_context_stct
     int32_t descriptor_stream_id;
     uint32_t client_id;
     bool use_invoker;
+    uint64_t attach_timeout_ns;
 }
 tp_context_t;
 

@@ -97,6 +97,8 @@ int main(int argc, char **argv)
     }
     tp_context_set_client_id(ctx_prod, base_client_id);
     tp_context_set_client_id(ctx_cons, base_client_id + 1);
+    tp_context_set_attach_timeout_ns(ctx_prod, attach_timeout_ns);
+    tp_context_set_attach_timeout_ns(ctx_cons, attach_timeout_ns);
 
     if (tp_client_connect(ctx_prod, &client_prod) != TP_OK)
     {

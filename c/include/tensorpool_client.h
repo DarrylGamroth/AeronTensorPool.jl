@@ -25,6 +25,7 @@ tp_err_t tp_context_set_descriptor_channel(tp_context_t *ctx, const char *channe
 tp_err_t tp_context_set_descriptor_stream_id(tp_context_t *ctx, int32_t stream_id);
 tp_err_t tp_context_set_client_id(tp_context_t *ctx, uint32_t client_id);
 tp_err_t tp_context_set_use_invoker(tp_context_t *ctx, bool value);
+tp_err_t tp_context_set_attach_timeout_ns(tp_context_t *ctx, uint64_t timeout_ns);
 
 tp_err_t tp_client_connect(tp_context_t *ctx, tp_client_t **client);
 void tp_client_close(tp_client_t *client);
