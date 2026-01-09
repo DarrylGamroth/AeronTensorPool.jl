@@ -47,7 +47,7 @@ static void encode_slot_header_empty(
     shm_tensorpool_control_tensorHeader_set_progressStrideBytes(&tensor, 0);
     int32_t dims[TP_MAX_DIMS] = {0};
     int32_t strides[TP_MAX_DIMS] = {0};
-    dims[0] = 1;
+    dims[0] = 0;
     strides[0] = 1;
     shm_tensorpool_control_tensorHeader_put_dims(&tensor, (const char *)dims);
     shm_tensorpool_control_tensorHeader_put_strides(&tensor, (const char *)strides);

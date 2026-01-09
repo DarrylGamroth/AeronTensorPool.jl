@@ -444,11 +444,12 @@ static bool tp_validate_strides(
     {
         for (uint32_t i = 0; i + 1 < ndims; i++)
         {
-            if (dims[i + 1] <= 0)
+            if (dims[i + 1] < 0)
             {
                 return false;
             }
-            if (strides[i] < strides[i + 1] * dims[i + 1])
+            int32_t span = dims[i + 1] > 0 ? dims[i + 1] : 1;
+            if (strides[i] < strides[i + 1] * span)
             {
                 return false;
             }
@@ -458,11 +459,12 @@ static bool tp_validate_strides(
     {
         for (uint32_t i = 1; i < ndims; i++)
         {
-            if (dims[i - 1] <= 0)
+            if (dims[i - 1] < 0)
             {
                 return false;
             }
-            if (strides[i] < strides[i - 1] * dims[i - 1])
+            int32_t span = dims[i - 1] > 0 ? dims[i - 1] : 1;
+            if (strides[i] < strides[i - 1] * span)
             {
                 return false;
             }
@@ -493,7 +495,7 @@ static bool tp_validate_tensor_layout(
     bool any_zero = false;
     for (uint32_t i = 0; i < ndims; i++)
     {
-        if (dims[i] <= 0)
+        if (dims[i] < 0)
         {
             return false;
         }
