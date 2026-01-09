@@ -167,6 +167,7 @@ function gc_stream_epochs!(
         delete!(stream_state.epoch_start_ns, ep)
         removed += 1
     end
+    removed > 0 && @tp_info "epoch GC removed directories" stream_id=stream_state.stream_id removed keep min_keep_epoch
     return removed
 end
 
@@ -205,6 +206,7 @@ function gc_orphan_epochs_for_stream!(
         rm(path; recursive = true, force = true)
         removed += 1
     end
+    removed > 0 && @tp_info "epoch GC removed orphan directories" stream_id removed keep min_keep_epoch
     return removed
 end
 
