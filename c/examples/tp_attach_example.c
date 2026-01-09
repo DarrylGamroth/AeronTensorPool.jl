@@ -12,6 +12,8 @@ int main(int argc, char **argv)
     }
 
     uint32_t stream_id = (uint32_t)strtoul(argv[1], NULL, 10);
+    const char *env = getenv("TP_ATTACH_TIMEOUT_MS");
+    uint64_t attach_timeout_ns = env ? (uint64_t)strtoull(env, NULL, 10) * 1000000ULL : 5000000000ULL;
     tp_context_t *ctx = NULL;
     tp_client_t *client = NULL;
     tp_producer_t *producer = NULL;
@@ -36,7 +38,7 @@ int main(int argc, char **argv)
     {
         tp_context_set_descriptor_channel(ctx, descriptor_channel);
     }
-    const char *env = getenv("TP_CONTROL_STREAM_ID");
+    env = getenv("TP_CONTROL_STREAM_ID");
     if (env && env[0] != '\0')
     {
         tp_context_set_control_stream_id(ctx, (uint32_t)strtoul(env, NULL, 10));
@@ -46,6 +48,7 @@ int main(int argc, char **argv)
     {
         tp_context_set_descriptor_stream_id(ctx, (uint32_t)strtoul(env, NULL, 10));
     }
+    tp_context_set_attach_timeout_ns(ctx, attach_timeout_ns);
     if (tp_client_connect(ctx, &client) != TP_OK)
     {
         fprintf(stderr, "client connect failed\n");
