@@ -71,6 +71,8 @@ Clients attach to a stream by issuing a ShmAttachRequest to the driver and recei
 
 The driver MAY create new SHM regions on demand when `publishMode=EXISTING_OR_CREATE`; otherwise, it MUST return an error if the stream does not already exist or is not provisioned for the requested role.
 
+Clients SHOULD apply an attach timeout; if no response is received within the configured window, clients SHOULD retry with backoff.
+
 `correlationId` is client-supplied; the driver MUST echo it unchanged in `ShmAttachResponse`.
 
 For `code=OK`, the response MUST include: `leaseId`, `streamId`, `epoch`, `layoutVersion`, `headerNslots`, `headerSlotBytes`, `maxDims`, `headerRegionUri`, and a complete `payloadPools` group with each pool's `regionUri`, `poolId`, `poolNslots`, and `strideBytes`. `headerSlotBytes` is fixed at `256` by the Wire Specification, and `maxDims` is fixed by the schema constant (v1.1: `8`).
