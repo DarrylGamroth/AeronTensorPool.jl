@@ -52,6 +52,10 @@ tp_err_t tp_wait_attach(tp_client_t *client, int64_t correlation_id, tp_attach_r
         tp_client_do_work(client);
         if (client->driver.last_attach_correlation == correlation_id)
         {
+            if (!client->driver.last_attach_valid)
+            {
+                return TP_ERR_PROTOCOL;
+            }
             *out = client->driver.last_attach;
             return TP_OK;
         }

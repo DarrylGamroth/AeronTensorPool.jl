@@ -26,6 +26,8 @@ tp_err_t tp_context_set_control_channel(tp_context_t *ctx, const char *channel);
 tp_err_t tp_context_set_control_stream_id(tp_context_t *ctx, int32_t stream_id);
 tp_err_t tp_context_set_descriptor_channel(tp_context_t *ctx, const char *channel);
 tp_err_t tp_context_set_descriptor_stream_id(tp_context_t *ctx, int32_t stream_id);
+tp_err_t tp_context_set_qos_channel(tp_context_t *ctx, const char *channel);
+tp_err_t tp_context_set_qos_stream_id(tp_context_t *ctx, int32_t stream_id);
 tp_err_t tp_context_set_client_id(tp_context_t *ctx, uint32_t client_id);
 tp_err_t tp_context_set_use_invoker(tp_context_t *ctx, bool value);
 tp_err_t tp_context_set_attach_timeout_ns(tp_context_t *ctx, uint64_t timeout_ns);
@@ -55,9 +57,16 @@ tp_err_t tp_producer_commit_slot(
     uint32_t values_len,
     const tp_tensor_header_t *tensor,
     uint32_t meta_version);
+tp_err_t tp_producer_send_qos(tp_producer_t *producer, uint64_t current_seq, uint64_t watermark);
 
 tp_err_t tp_consumer_poll(tp_consumer_t *consumer, int fragment_limit);
 tp_err_t tp_consumer_try_read_frame(tp_consumer_t *consumer, tp_frame_view_t *view);
+tp_err_t tp_consumer_send_qos(
+    tp_consumer_t *consumer,
+    uint8_t mode,
+    uint64_t last_seq_seen,
+    uint64_t drops_gap,
+    uint64_t drops_late);
 
 void tp_producer_close(tp_producer_t *producer);
 void tp_consumer_close(tp_consumer_t *consumer);

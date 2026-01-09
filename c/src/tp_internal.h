@@ -22,6 +22,7 @@
 #include "shm_tensorpool_driver/shmDetachResponse.h"
 #include "shm_tensorpool_driver/shmLeaseKeepalive.h"
 #include "shm_tensorpool_driver/shmLeaseRevoked.h"
+#include "shm_tensorpool_driver/shmDriverShutdown.h"
 
 #include "shm_tensorpool_control/messageHeader.h"
 #include "shm_tensorpool_control/shmRegionSuperblock.h"
@@ -32,6 +33,8 @@
 #include "shm_tensorpool_control/qosConsumer.h"
 #include "shm_tensorpool_control/dataSourceAnnounce.h"
 #include "shm_tensorpool_control/dataSourceMeta.h"
+#include "shm_tensorpool_control/consumerHello.h"
+#include "shm_tensorpool_control/consumerConfig.h"
 
 #include "shm_tensorpool_discovery/messageHeader.h"
 #include "shm_tensorpool_discovery/discoveryRequest.h"
@@ -48,6 +51,8 @@ typedef struct tp_context_stct
     int32_t control_stream_id;
     char descriptor_channel[TP_URI_MAX];
     int32_t descriptor_stream_id;
+    char qos_channel[TP_URI_MAX];
+    int32_t qos_stream_id;
     uint32_t client_id;
     bool use_invoker;
     uint64_t attach_timeout_ns;
@@ -62,8 +67,15 @@ typedef struct tp_driver_client_stct
     tp_attach_response_t last_attach;
     int64_t last_attach_correlation;
     int64_t pending_attach_correlation;
+    bool last_attach_valid;
     int32_t last_detach_code;
     int64_t last_detach_correlation;
+    bool shutdown;
+    uint8_t shutdown_reason;
+    uint64_t revoked_lease_id;
+    uint32_t revoked_stream_id;
+    uint8_t revoked_role;
+    uint8_t revoked_reason;
 }
 tp_driver_client_t;
 
@@ -136,6 +148,7 @@ typedef struct tp_producer_stct
 {
     tp_client_t *client;
     aeron_publication_t *pub_descriptor;
+    aeron_publication_t *pub_qos;
     uint64_t lease_id;
     uint32_t stream_id;
     uint64_t epoch;
@@ -146,6 +159,7 @@ typedef struct tp_producer_stct
     tp_pool_mapping_t pools[TP_MAX_POOLS];
     uint32_t pool_count;
     uint64_t seq;
+    bool revoked;
 }
 tp_producer_t;
 
@@ -154,6 +168,14 @@ typedef struct tp_consumer_stct
     tp_client_t *client;
     aeron_subscription_t *sub_descriptor;
     aeron_fragment_assembler_t *descriptor_assembler;
+    aeron_publication_t *pub_control;
+    aeron_subscription_t *sub_control;
+    aeron_fragment_assembler_t *control_assembler;
+    aeron_publication_t *pub_qos;
+    char descriptor_channel[TP_URI_MAX];
+    int32_t descriptor_stream_id;
+    char control_channel[TP_URI_MAX];
+    int32_t control_stream_id;
     uint64_t lease_id;
     uint32_t stream_id;
     uint64_t epoch;
@@ -164,9 +186,11 @@ typedef struct tp_consumer_stct
     tp_pool_mapping_t pools[TP_MAX_POOLS];
     uint32_t pool_count;
     uint64_t last_seq;
+    uint64_t last_epoch;
     uint32_t last_header_index;
     uint32_t last_meta_version;
     bool has_descriptor;
+    bool revoked;
 }
 tp_consumer_t;
 
@@ -181,9 +205,12 @@ int tp_add_publication(aeron_t *client, const char *channel, int32_t stream_id, 
 int tp_add_subscription(aeron_t *client, const char *channel, int32_t stream_id, aeron_subscription_t **sub);
 tp_err_t tp_send_attach_request(tp_client_t *client, uint32_t stream_id, uint8_t role, uint8_t publish_mode);
 tp_err_t tp_wait_attach(tp_client_t *client, int64_t correlation_id, tp_attach_response_t *out);
+tp_err_t tp_validate_attach_response(const tp_attach_response_t *resp);
 
 tp_err_t tp_shm_map(const char *uri, size_t size, bool write, tp_shm_mapping_t *mapping);
 void tp_shm_unmap(tp_shm_mapping_t *mapping);
+tp_err_t tp_shm_validate_uri(const char *uri, bool *require_hugepages);
+tp_err_t tp_validate_stride_bytes(uint32_t stride_bytes, bool require_hugepages);
 tp_err_t tp_shm_validate_superblock(
     const tp_shm_mapping_t *mapping,
     uint32_t expected_layout_version,

@@ -87,6 +87,18 @@ if (TP_BUILD_TESTS)
         ${CMAKE_CURRENT_SOURCE_DIR}/src
         ${CMAKE_CURRENT_SOURCE_DIR}/vendor/aeron)
     add_test(NAME tp_discovery_test COMMAND tp_discovery_test)
+    add_executable(tp_shm_uri_test tests/tp_shm_uri_test.c)
+    target_link_libraries(tp_shm_uri_test PRIVATE tensorpool_client)
+    target_include_directories(tp_shm_uri_test PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/src
+        ${CMAKE_CURRENT_SOURCE_DIR}/vendor/aeron)
+    add_test(NAME tp_shm_uri_test COMMAND tp_shm_uri_test)
+    add_executable(tp_attach_validate_test tests/tp_attach_validate_test.c)
+    target_link_libraries(tp_attach_validate_test PRIVATE tensorpool_client)
+    target_include_directories(tp_attach_validate_test PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/src
+        ${CMAKE_CURRENT_SOURCE_DIR}/vendor/aeron)
+    add_test(NAME tp_attach_validate_test COMMAND tp_attach_validate_test)
 endif ()
 
 if (TP_BUILD_INTEGRATION_TESTS)

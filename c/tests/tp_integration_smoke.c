@@ -220,6 +220,106 @@ int main(int argc, char **argv)
         }
     }
 
+    for (int attempt = 0; attempt < 3 && consumer->epoch != producer->epoch; attempt++)
+    {
+        if (debug)
+        {
+            fprintf(stderr,
+                "epoch mismatch (producer=%llu consumer=%llu), reattaching consumer\n",
+                (unsigned long long)producer->epoch,
+                (unsigned long long)consumer->epoch);
+        }
+        tp_consumer_close(consumer);
+        consumer = NULL;
+
+        tp_client_close(client_cons);
+        tp_context_close(ctx_cons);
+        ctx_cons = NULL;
+        client_cons = NULL;
+
+        if (tp_context_init(&ctx_cons) != TP_OK)
+        {
+            fprintf(stderr, "consumer context init failed\n");
+            tp_producer_close(producer);
+            tp_client_close(client_prod);
+            tp_context_close(ctx_prod);
+            return 1;
+        }
+        if (aeron_dir && aeron_dir[0] != '\0')
+        {
+            tp_context_set_aeron_dir(ctx_cons, aeron_dir);
+        }
+        if (control_channel && control_channel[0] != '\0')
+        {
+            tp_context_set_control_channel(ctx_cons, control_channel);
+        }
+        if (control_stream && control_stream[0] != '\0')
+        {
+            tp_context_set_control_stream_id(ctx_cons, (int32_t)strtol(control_stream, NULL, 10));
+        }
+        if (descriptor_channel && descriptor_channel[0] != '\0')
+        {
+            tp_context_set_descriptor_channel(ctx_cons, descriptor_channel);
+        }
+        if (descriptor_stream && descriptor_stream[0] != '\0')
+        {
+            tp_context_set_descriptor_stream_id(ctx_cons, (int32_t)strtol(descriptor_stream, NULL, 10));
+        }
+        tp_context_set_client_id(ctx_cons, base_client_id + 2 + attempt);
+        tp_context_set_attach_timeout_ns(ctx_cons, attach_timeout_ns);
+
+        if (tp_client_connect(ctx_cons, &client_cons) != TP_OK)
+        {
+            fprintf(stderr, "consumer client connect failed\n");
+            tp_context_close(ctx_cons);
+            tp_producer_close(producer);
+            tp_client_close(client_prod);
+            tp_context_close(ctx_prod);
+            return 1;
+        }
+        if (!wait_for_driver_connect(client_cons, attach_timeout_ns))
+        {
+            fprintf(stderr, "consumer driver control not connected\n");
+            tp_client_close(client_cons);
+            tp_context_close(ctx_cons);
+            tp_producer_close(producer);
+            tp_client_close(client_prod);
+            tp_context_close(ctx_prod);
+            return 1;
+        }
+
+        if (tp_attach_consumer(client_cons, stream_id, &consumer) != TP_OK)
+        {
+            fprintf(stderr, "reattach consumer failed\n");
+            tp_producer_close(producer);
+            tp_client_close(client_prod);
+            if (client_cons != NULL)
+            {
+                tp_client_close(client_cons);
+            }
+            tp_context_close(ctx_prod);
+            if (ctx_cons != NULL)
+            {
+                tp_context_close(ctx_cons);
+            }
+            return 1;
+        }
+    }
+    if (consumer->epoch != producer->epoch)
+    {
+        fprintf(stderr,
+            "epoch mismatch persists (producer=%llu consumer=%llu)\n",
+            (unsigned long long)producer->epoch,
+            (unsigned long long)consumer->epoch);
+        tp_consumer_close(consumer);
+        tp_producer_close(producer);
+        tp_client_close(client_prod);
+        tp_client_close(client_cons);
+        tp_context_close(ctx_prod);
+        tp_context_close(ctx_cons);
+        return 1;
+    }
+
     uint8_t payload[16];
     for (uint32_t i = 0; i < sizeof(payload); i++)
     {
@@ -228,8 +328,8 @@ int main(int argc, char **argv)
 
     tp_tensor_header_t tensor;
     memset(&tensor, 0, sizeof(tensor));
-    tensor.dtype = 1;
-    tensor.major_order = 0;
+    tensor.dtype = (uint8_t)shm_tensorpool_control_dtype_UINT8;
+    tensor.major_order = (uint8_t)shm_tensorpool_control_majorOrder_ROW;
     tensor.ndims = 1;
     tensor.dims[0] = (int32_t)sizeof(payload);
     tensor.strides[0] = 1;

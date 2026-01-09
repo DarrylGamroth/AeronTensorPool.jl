@@ -1,6 +1,11 @@
 #include "tp_internal.h"
 #include <stdio.h>
 
+static bool tp_is_power_of_two(uint32_t value)
+{
+    return value != 0 && (value & (value - 1)) == 0;
+}
+
 static tp_err_t tp_init_producer_from_attach(tp_client_t *client, const tp_attach_response_t *resp, tp_producer_t **out)
 {
     tp_producer_t *producer = (tp_producer_t *)calloc(1, sizeof(tp_producer_t));
@@ -16,6 +21,23 @@ static tp_err_t tp_init_producer_from_attach(tp_client_t *client, const tp_attac
     producer->header_nslots = resp->header_nslots;
     producer->header_slot_bytes = resp->header_slot_bytes;
     producer->pool_count = resp->pool_count;
+    if (!tp_is_power_of_two(resp->header_nslots))
+    {
+        tp_producer_close(producer);
+        return TP_ERR_PROTOCOL;
+    }
+
+    bool require_hugepages = false;
+    if (tp_shm_validate_uri(resp->header_uri, &require_hugepages) != TP_OK)
+    {
+        tp_producer_close(producer);
+        return TP_ERR_PROTOCOL;
+    }
+    if (require_hugepages)
+    {
+        tp_producer_close(producer);
+        return TP_ERR_UNSUPPORTED;
+    }
 
     size_t header_size = TP_SUPERBLOCK_SIZE + (size_t)resp->header_nslots * resp->header_slot_bytes;
     if (tp_shm_map(resp->header_uri, header_size, true, &producer->header) != TP_OK)
@@ -40,6 +62,17 @@ static tp_err_t tp_init_producer_from_attach(tp_client_t *client, const tp_attac
 
     for (uint32_t i = 0; i < resp->pool_count; i++)
     {
+        require_hugepages = false;
+        if (tp_shm_validate_uri(resp->pools[i].uri, &require_hugepages) != TP_OK)
+        {
+            tp_producer_close(producer);
+            return TP_ERR_PROTOCOL;
+        }
+        if (tp_validate_stride_bytes(resp->pools[i].stride_bytes, require_hugepages) != TP_OK)
+        {
+            tp_producer_close(producer);
+            return TP_ERR_PROTOCOL;
+        }
         producer->pools[i].pool_id = resp->pools[i].pool_id;
         producer->pools[i].nslots = resp->pools[i].nslots;
         producer->pools[i].stride_bytes = resp->pools[i].stride_bytes;
@@ -69,6 +102,14 @@ static tp_err_t tp_init_producer_from_attach(tp_client_t *client, const tp_attac
     {
         tp_producer_close(producer);
         return TP_ERR_AERON;
+    }
+    if (client->context->qos_channel[0] != '\0' && client->context->qos_stream_id != 0)
+    {
+        if (tp_add_publication(client->aeron, client->context->qos_channel, client->context->qos_stream_id, &producer->pub_qos) < 0)
+        {
+            tp_producer_close(producer);
+            return TP_ERR_AERON;
+        }
     }
 
     *out = producer;
@@ -110,6 +151,10 @@ tp_err_t tp_attach_producer(tp_client_t *client, uint32_t stream_id, tp_producer
         }
         return TP_ERR_PROTOCOL;
     }
+    if (resp.stream_id != stream_id)
+    {
+        return TP_ERR_PROTOCOL;
+    }
     return tp_init_producer_from_attach(client, &resp, producer);
 }
 
@@ -146,6 +191,16 @@ tp_err_t tp_producer_try_claim_slot(tp_producer_t *producer, uint16_t pool_id, t
     if (producer == NULL || claim == NULL)
     {
         return TP_ERR_ARG;
+    }
+    if (producer->revoked || producer->client->driver.shutdown)
+    {
+        return TP_ERR_PROTOCOL;
+    }
+    if (producer->client->driver.revoked_lease_id == producer->lease_id &&
+        producer->client->driver.revoked_role == shm_tensorpool_driver_role_PRODUCER)
+    {
+        producer->revoked = true;
+        return TP_ERR_PROTOCOL;
     }
     tp_pool_mapping_t *pool = tp_find_pool(producer, pool_id);
     if (pool == NULL)
@@ -328,6 +383,16 @@ tp_err_t tp_producer_commit_slot(
     {
         return TP_ERR_ARG;
     }
+    if (producer->revoked || producer->client->driver.shutdown)
+    {
+        return TP_ERR_PROTOCOL;
+    }
+    if (producer->client->driver.revoked_lease_id == producer->lease_id &&
+        producer->client->driver.revoked_role == shm_tensorpool_driver_role_PRODUCER)
+    {
+        producer->revoked = true;
+        return TP_ERR_PROTOCOL;
+    }
     if (values_len > claim->stride_bytes)
     {
         return TP_ERR_ARG;
@@ -354,6 +419,16 @@ tp_err_t tp_producer_offer_frame(
     {
         return TP_ERR_ARG;
     }
+    if (producer->revoked || producer->client->driver.shutdown)
+    {
+        return TP_ERR_PROTOCOL;
+    }
+    if (producer->client->driver.revoked_lease_id == producer->lease_id &&
+        producer->client->driver.revoked_role == shm_tensorpool_driver_role_PRODUCER)
+    {
+        producer->revoked = true;
+        return TP_ERR_PROTOCOL;
+    }
     tp_pool_mapping_t *pool = tp_select_pool(producer, values_len);
     if (pool == NULL)
     {
@@ -369,6 +444,39 @@ tp_err_t tp_producer_offer_frame(
     return tp_producer_commit_slot(producer, &claim, values_len, tensor, meta_version);
 }
 
+tp_err_t tp_producer_send_qos(tp_producer_t *producer, uint64_t current_seq, uint64_t watermark)
+{
+    if (producer == NULL || producer->pub_qos == NULL)
+    {
+        return TP_ERR_ARG;
+    }
+    aeron_buffer_claim_t claim_buf;
+    uint64_t msg_len = shm_tensorpool_control_messageHeader_encoded_length() +
+        shm_tensorpool_control_qosProducer_sbe_block_length();
+    int64_t position = aeron_publication_try_claim(producer->pub_qos, msg_len, &claim_buf);
+    if (position < 0)
+    {
+        return TP_ERR_AERON;
+    }
+
+    struct shm_tensorpool_control_messageHeader hdr;
+    struct shm_tensorpool_control_qosProducer msg;
+    shm_tensorpool_control_qosProducer_wrap_and_apply_header(
+        &msg,
+        (char *)claim_buf.data,
+        0,
+        msg_len,
+        &hdr);
+    shm_tensorpool_control_qosProducer_set_streamId(&msg, producer->stream_id);
+    shm_tensorpool_control_qosProducer_set_producerId(&msg, producer->client->context->client_id);
+    shm_tensorpool_control_qosProducer_set_epoch(&msg, producer->epoch);
+    shm_tensorpool_control_qosProducer_set_currentSeq(&msg, current_seq);
+    shm_tensorpool_control_qosProducer_set_watermark(&msg, watermark);
+
+    aeron_buffer_claim_commit(&claim_buf);
+    return TP_OK;
+}
+
 void tp_producer_close(tp_producer_t *producer)
 {
     if (producer == NULL)
@@ -378,6 +486,10 @@ void tp_producer_close(tp_producer_t *producer)
     if (producer->pub_descriptor)
     {
         aeron_publication_close(producer->pub_descriptor, NULL, NULL);
+    }
+    if (producer->pub_qos)
+    {
+        aeron_publication_close(producer->pub_qos, NULL, NULL);
     }
     tp_shm_unmap(&producer->header);
     for (uint32_t i = 0; i < producer->pool_count; i++)
