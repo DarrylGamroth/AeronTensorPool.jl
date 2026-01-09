@@ -139,7 +139,7 @@ function read_epoch_superblock(path::AbstractString)
     catch
         return nothing
     end
-    dec = ShmRegionSuperblock.Decoder(buf)
+    dec = ShmRegionSuperblock.Decoder(Vector{UInt8})
     wrap_superblock!(dec, buf, 0)
     try
         return read_superblock(dec)
@@ -151,7 +151,7 @@ end
 function pid_alive(pid::UInt64)
     pid == 0 && return false
     Sys.isunix() || return false
-    res = Libc.kill(Cint(pid), 0)
+    res = ccall(:kill, Cint, (Cint, Cint), Cint(pid), Cint(0))
     res == 0 && return true
     return Libc.errno() == Libc.EPERM
 end

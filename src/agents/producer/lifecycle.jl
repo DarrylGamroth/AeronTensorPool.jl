@@ -35,7 +35,7 @@ function handle_driver_events!(state::ProducerState, now_ns::UInt64)
     dc === nothing && return 0
     work_count = 0
 
-    if dc.revoked || dc.shutdown
+    if dc.revoked || dc.shutdown || dc.lease_id == 0
         state.driver_active = false
     end
 
@@ -54,11 +54,10 @@ function handle_driver_events!(state::ProducerState, now_ns::UInt64)
     end
 
     if state.pending_attach_id != 0
-        attach = dc.poller.last_attach
-        if attach !== nothing && attach.correlation_id == state.pending_attach_id
+        attach = Control.poll_attach!(dc, state.pending_attach_id, now_ns)
+        if attach !== nothing
             state.pending_attach_id = Int64(0)
             if attach.code == DriverResponseCode.OK
-                apply_attach!(dc, attach)
                 state.driver_active = remap_producer_from_attach!(state, attach)
                 state.driver_active || (dc.lease_id = UInt64(0))
             else

@@ -35,7 +35,7 @@ epoch_gc_min_age_ns = 1
 
 [profiles.camera]
 header_nslots = 8
-payload_pools = [ { pool_id = 1, stride_bytes = 1024 } ]
+payload_pools = [ { pool_id = 1, stride_bytes = 4096 } ]
 
 [streams.cam1]
 stream_id = 10000
@@ -44,7 +44,7 @@ profile = \"camera\"
             end
 
             cfg = load_driver_config(config_path)
-            state = Driver.init_driver(cfg; client = client)
+            state = AeronTensorPool.Driver.init_driver(cfg; client = client)
             try
                 now_ns = UInt64(time_ns())
                 root = joinpath(base_dir, "stream-10000", "driver-gc")
@@ -102,7 +102,7 @@ profile = \"camera\"
                     write(io, buf)
                 end
 
-                removed = Driver.gc_orphan_epochs_for_stream!(state, UInt32(10000), now_ns)
+                removed = AeronTensorPool.Driver.gc_orphan_epochs_for_stream!(state, UInt32(10000), now_ns)
                 @test removed == 1
                 @test !isdir(epoch1)
                 @test isdir(epoch2)

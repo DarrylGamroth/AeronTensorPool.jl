@@ -43,7 +43,7 @@ For a combined wire + driver overview, see `docs/IMPLEMENTATION_GUIDE.md`.
 - slot mapping v1.1: payload_slot = header_index; pool nslots == header nslots
 - driver prefault/zero on create: configurable via `policies.prefault_shm` (default: true)
 - driver mlock on create: configurable via `policies.mlock_shm` (default: false; fatal if enabled and mlock fails)
-- epoch GC: configurable via `policies.epoch_gc_enabled` / `policies.epoch_gc_keep` / `policies.epoch_gc_min_age_ns`
+- epoch GC: configurable via `policies.epoch_gc_enabled` / `policies.epoch_gc_keep` / `policies.epoch_gc_min_age_ns`; only delete epochs whose superblock `activity_timestamp_ns` is stale and whose producer PID is no longer alive
 - client mlock: when enabled, each producer/consumer process SHOULD mlock its own SHM mappings (mlock is per-process)
 
 ## 4. Producer Flow (spec §15.19)
@@ -60,10 +60,13 @@ Implementation notes:
 ## 5. Consumer Flow (spec §15.19)
 1) Validate epoch from FrameDescriptor; compute header_index
 2) Read seq_commit (acquire); if LSB=0 → DROP
-3) Read header + payload
+3) Read header + payload; validate SlotHeader.headerBytes length and embedded TensorHeader message header (templateId/schemaId/blockLength/version)
 4) Re-read seq_commit (acquire); if changed/LSB=0 → DROP
 5) Accept only if seq_commit stable/LSB=1 AND (seq_commit >> 1) == FrameDescriptor.seq
 6) Track drops_gap (seq gaps) and drops_late (seqlock/identity failures)
+
+Implementation notes:
+- `values_len_bytes` may be zero; consumers MUST accept empty payloads and return an empty payload view.
 
 ## 6. Epoch and Mapping (spec §15.21)
 - States: UNMAPPED → MAPPED(epoch). Remap on epoch change or validation failure; drop in-flight frames.
@@ -97,6 +100,7 @@ Implementation notes:
 - Emit FrameProgress only if any subscriber supports_progress=true.
 - Defaults: interval 250 µs, bytes delta 64 KiB, rows delta unset.
 - FrameProgress is advisory; FrameDescriptor remains canonical availability signal.
+- Consumers MUST validate FrameProgress against the current slot header: header_index range, seq/commit match, embedded headerBytes validity, and `payload_bytes_filled` ≤ `values_len_bytes`; progress MUST be monotonic per header_index.
 
 ## 9. QoS and Metrics
 - drops_gap: sequence gaps detected from FrameDescriptor.
