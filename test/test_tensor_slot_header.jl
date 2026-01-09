@@ -48,4 +48,12 @@
     @test read_hdr.tensor.progress_stride_bytes == 0
     @test read_hdr.tensor.dims[1:4] == (Int32(4), Int32(5), Int32(6), Int32(7))
     @test read_hdr.tensor.strides[1:4] == (Int32(1), Int32(4), Int32(20), Int32(120))
+
+    header_pos = SlotHeaderMsg.sbe_block_length(SlotHeaderMsg.Decoder) +
+        SlotHeaderMsg.headerBytes_header_length
+    buffer_bad = copy(buffer)
+    bad_header = MessageHeader.Encoder(buffer_bad, header_pos)
+    MessageHeader.schemaId!(bad_header, UInt16(999))
+    wrap_slot_header!(slot_dec, buffer_bad, 0)
+    @test AeronTensorPool.try_read_slot_header(slot_dec, tensor_dec) === nothing
 end

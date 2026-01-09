@@ -47,6 +47,8 @@ mutable struct ConsumerMappings
     mapped_nslots::UInt32
     mapped_pid::UInt64
     last_commit_words::Vector{UInt64}
+    progress_last_frame::Vector{UInt64}
+    progress_last_bytes::Vector{UInt64}
 end
 
 """

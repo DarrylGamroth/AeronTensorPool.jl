@@ -52,6 +52,7 @@ function make_control_assembler(state::ConsumerState)
             apply_consumer_config!(st, st.runtime.config_decoder)
         elseif template_id == TEMPLATE_FRAME_PROGRESS
             FrameProgress.wrap!(st.runtime.progress_decoder, buffer, 0; header = header)
+            handle_frame_progress!(st, st.runtime.progress_decoder)
         end
         nothing
     end
@@ -75,10 +76,56 @@ function make_progress_assembler(state::ConsumerState)
         end
         if MessageHeader.templateId(header) == TEMPLATE_FRAME_PROGRESS
             FrameProgress.wrap!(st.runtime.progress_decoder, buffer, 0; header = header)
+            handle_frame_progress!(st, st.runtime.progress_decoder)
         end
         nothing
     end
     return Aeron.FragmentAssembler(handler)
+end
+
+"""
+Validate a FrameProgress message against the current SHM header.
+
+Returns `true` if progress is accepted, `false` if it is dropped.
+"""
+function handle_frame_progress!(state::ConsumerState, msg::FrameProgress.Decoder)
+    state.config.supports_progress || return false
+    header_mmap = state.mappings.header_mmap
+    header_mmap === nothing && return false
+
+    header_index = FrameProgress.headerIndex(msg)
+    header_index >= state.mappings.mapped_nslots && return false
+
+    header_offset = header_slot_offset(header_index)
+    commit_ptr = header_commit_ptr_from_offset(header_mmap, header_offset)
+    first = seqlock_read_begin(commit_ptr)
+    seqlock_is_committed(first) || return false
+
+    wrap_slot_header!(state.runtime.slot_decoder, header_mmap, header_offset)
+    header = try_read_slot_header(state.runtime.slot_decoder, state.runtime.tensor_decoder)
+    header === nothing && return false
+
+    second = seqlock_read_end(commit_ptr)
+    if first != second || !seqlock_is_committed(second)
+        return false
+    end
+    header.seq_commit == second || return false
+    seqlock_sequence(second) == FrameProgress.frameId(msg) || return false
+
+    payload_bytes = FrameProgress.payloadBytesFilled(msg)
+    UInt64(header.values_len_bytes) >= payload_bytes || return false
+    progress_stride_ok!(state, header.tensor) || return false
+
+    idx = Int(header_index) + 1
+    last_frame = state.mappings.progress_last_frame[idx]
+    if last_frame != FrameProgress.frameId(msg)
+        state.mappings.progress_last_frame[idx] = FrameProgress.frameId(msg)
+        state.mappings.progress_last_bytes[idx] = UInt64(0)
+    end
+    last = state.mappings.progress_last_bytes[idx]
+    payload_bytes < last && return false
+    state.mappings.progress_last_bytes[idx] = payload_bytes
+    return true
 end
 
 """

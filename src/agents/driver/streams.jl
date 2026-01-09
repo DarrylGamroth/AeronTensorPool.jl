@@ -129,6 +129,33 @@ function epoch_dir_age_ns(path::AbstractString, now_ns::UInt64, epoch_start_ns::
     return now_ns > mtime_ns ? now_ns - mtime_ns : UInt64(0)
 end
 
+function read_epoch_superblock(path::AbstractString)
+    isfile(path) || return nothing
+    buf = Vector{UInt8}(undef, SUPERBLOCK_SIZE)
+    try
+        open(path, "r") do io
+            read!(io, buf)
+        end
+    catch
+        return nothing
+    end
+    dec = ShmRegionSuperblock.Decoder(buf)
+    wrap_superblock!(dec, buf, 0)
+    try
+        return read_superblock(dec)
+    catch
+        return nothing
+    end
+end
+
+function pid_alive(pid::UInt64)
+    pid == 0 && return false
+    Sys.isunix() || return false
+    res = Libc.kill(Cint(pid), 0)
+    res == 0 && return true
+    return Libc.errno() == Libc.EPERM
+end
+
 function gc_stream_epochs!(
     state::DriverState,
     stream_state::DriverStreamState,
@@ -162,7 +189,14 @@ function gc_stream_epochs!(
         path = joinpath(root_dir, "epoch-$(ep)")
         path_allowed(path, state.config.shm.allowed_base_dirs) || continue
         age_ns = epoch_dir_age_ns(path, now_ns, get(stream_state.epoch_start_ns, ep, nothing))
-        age_ns < effective_min_age && continue
+        header_path = joinpath(path, "header.ring")
+        fields = read_epoch_superblock(header_path)
+        activity_ns = fields === nothing ? UInt64(0) : fields.activity_timestamp_ns
+        activity_age = activity_ns == 0 ? age_ns : (now_ns > activity_ns ? now_ns - activity_ns : UInt64(0))
+        activity_age < effective_min_age && continue
+        if fields !== nothing && pid_alive(fields.pid)
+            continue
+        end
         rm(path; recursive = true, force = true)
         delete!(stream_state.epoch_start_ns, ep)
         removed += 1
@@ -202,7 +236,14 @@ function gc_orphan_epochs_for_stream!(
         path = joinpath(root_dir, "epoch-$(ep)")
         path_allowed(path, state.config.shm.allowed_base_dirs) || continue
         age_ns = epoch_dir_age_ns(path, now_ns, nothing)
-        age_ns < effective_min_age && continue
+        header_path = joinpath(path, "header.ring")
+        fields = read_epoch_superblock(header_path)
+        activity_ns = fields === nothing ? UInt64(0) : fields.activity_timestamp_ns
+        activity_age = activity_ns == 0 ? age_ns : (now_ns > activity_ns ? now_ns - activity_ns : UInt64(0))
+        activity_age < effective_min_age && continue
+        if fields !== nothing && pid_alive(fields.pid)
+            continue
+        end
         rm(path; recursive = true, force = true)
         removed += 1
     end

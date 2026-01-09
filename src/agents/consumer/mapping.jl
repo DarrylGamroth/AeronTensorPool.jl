@@ -106,6 +106,8 @@ function map_from_announce!(state::ConsumerState, msg::ShmPoolAnnounce.Decoder)
     state.mappings.mapped_nslots = header_nslots
     state.mappings.mapped_pid = header_fields.pid
     state.mappings.last_commit_words = fill(UInt64(0), Int(header_nslots))
+    state.mappings.progress_last_frame = fill(UInt64(0), Int(header_nslots))
+    state.mappings.progress_last_bytes = fill(UInt64(0), Int(header_nslots))
     state.mappings.mapped_epoch = ShmPoolAnnounce.epoch(msg)
     state.metrics.last_seq_seen = UInt64(0)
     state.metrics.seen_any = false
@@ -224,6 +226,8 @@ function map_from_attach_response!(state::ConsumerState, attach::AttachResponse)
     state.mappings.mapped_nslots = header_nslots
     state.mappings.mapped_pid = header_fields.pid
     state.mappings.last_commit_words = fill(UInt64(0), Int(header_nslots))
+    state.mappings.progress_last_frame = fill(UInt64(0), Int(header_nslots))
+    state.mappings.progress_last_bytes = fill(UInt64(0), Int(header_nslots))
     state.mappings.mapped_epoch = attach.epoch
     state.metrics.last_seq_seen = UInt64(0)
     state.metrics.seen_any = false
@@ -312,6 +316,8 @@ function reset_mappings!(state::ConsumerState)
     state.mappings.mapped_nslots = UInt32(0)
     state.mappings.mapped_pid = UInt64(0)
     empty!(state.mappings.last_commit_words)
+    empty!(state.mappings.progress_last_frame)
+    empty!(state.mappings.progress_last_bytes)
     state.mappings.mapped_epoch = UInt64(0)
     state.metrics.last_seq_seen = UInt64(0)
     state.metrics.seen_any = false

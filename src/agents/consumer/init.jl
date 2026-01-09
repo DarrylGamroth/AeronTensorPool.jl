@@ -79,6 +79,8 @@ function init_consumer(config::ConsumerConfig; client::Aeron.Client)
         UInt32(0),
         UInt64(0),
         UInt64[],
+        UInt64[],
+        UInt64[],
     )
     metrics = ConsumerMetrics(
         UInt64(0),

@@ -19,8 +19,9 @@ The driver is the sole authority for SHM lifecycle and epoch management; clients
 An epoch directory is eligible for deletion only if **all** are true:
 
 - No active lease (producer or consumer) references that epoch.
-- Epoch is stale relative to announce freshness:
-  - `now_ns - announce_timestamp_ns > 3 × announce_period_ns` (default).
+- Superblock `activity_timestamp_ns` is stale relative to the GC freshness window:
+  - `now_ns - activity_timestamp_ns > epoch_gc_min_age_ns` (default: `3 × announce_period_ns`).
+- The superblock PID is no longer active on the OS (dead process).
 
 ## When GC Runs
 

@@ -201,6 +201,14 @@ function try_read_frame!(
         return false
     end
 
+    if header.payload_slot >= state.mappings.mapped_nslots
+        state.metrics.drops_late += 1
+        state.metrics.drops_payload_invalid += 1
+        @tp_debug "try_read_frame drop" reason = :payload_slot_out_of_range payload_slot = header.payload_slot mapped_nslots =
+            state.mappings.mapped_nslots
+        return false
+    end
+
     if header.payload_slot != header_index
         state.metrics.drops_late += 1
         state.metrics.drops_header_invalid += 1
