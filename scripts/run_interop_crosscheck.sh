@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-config_path="${1:-docs/examples/driver_integration_example.toml}"
+config_path="${1:-docs/examples/driver_interop_example.toml}"
 build_dir="${2:-c/build}"
 interop_path="${3:-}"
 count="${4:-10}"
@@ -19,6 +19,9 @@ cleanup() {
   wait || true
   if [[ -n "${TP_INTEROP_AERON_DIR:-}" ]]; then
     rm -rf "$TP_INTEROP_AERON_DIR" || true
+  fi
+  if [[ -n "${READY_FILE:-}" ]]; then
+    rm -f "$READY_FILE" || true
   fi
 }
 
@@ -39,6 +42,13 @@ fi
 eval "$(scripts/interop_env.sh "$config_path" "$interop_path")"
 
 example_env=()
+export TP_PATTERN=interop
+export TP_FAIL_ON_MISMATCH=1
+export TP_PRODUCER_TIMEOUT_MS="$((timeout_s * 1000))"
+export TP_WAIT_CONNECT="${TP_WAIT_CONNECT:-1}"
+export TP_CONNECT_TIMEOUT_MS="${TP_CONNECT_TIMEOUT_MS:-$((timeout_s * 1000))}"
+READY_FILE="$(mktemp /tmp/tp-consumer-ready-XXXXXX)"
+export TP_READY_FILE="$READY_FILE"
 if [[ "$verbose" == "1" ]]; then
   example_env+=(TP_EXAMPLE_VERBOSE=1 TP_EXAMPLE_LOG_EVERY=1)
   export TP_LOG=1
@@ -77,6 +87,10 @@ fi
 echo "C producer -> Julia consumer"
 env "${example_env[@]}" timeout "${timeout_s}s" julia --project scripts/example_consumer.jl "$config_path" config/defaults.toml "$count" &
 CONS_PID=$!
+for _ in $(seq 1 "$driver_ready_retries"); do
+  [[ -f "$READY_FILE" ]] && break
+  sleep 1
+done
 sleep 1
 
 TP_COUNT="$count" timeout "${timeout_s}s" "${build_dir}/tp_producer_example"

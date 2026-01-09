@@ -15,6 +15,47 @@ static uint64_t now_ns(void)
     return (uint64_t)ts.tv_sec * 1000000000ULL + (uint64_t)ts.tv_nsec;
 }
 
+static bool wait_for_descriptor_connect(tp_client_t *client, tp_producer_t *producer, uint64_t timeout_ns)
+{
+    const uint64_t deadline = now_ns() + timeout_ns;
+    while (now_ns() < deadline)
+    {
+        tp_client_do_work(client);
+        if (tp_producer_is_connected(producer))
+        {
+            return true;
+        }
+        usleep(1000);
+    }
+    return false;
+}
+
+static void fill_interop_pattern(uint8_t *payload, uint32_t len, uint64_t seq)
+{
+    if (payload == NULL || len == 0)
+    {
+        return;
+    }
+    for (uint32_t i = 0; i < len && i < 8; i++)
+    {
+        payload[i] = (uint8_t)((seq >> (8 * i)) & 0xff);
+    }
+    uint64_t inv = ~seq;
+    for (uint32_t i = 0; i < len && i < 8; i++)
+    {
+        uint32_t idx = 8 + i;
+        if (idx >= len)
+        {
+            break;
+        }
+        payload[idx] = (uint8_t)((inv >> (8 * i)) & 0xff);
+    }
+    for (uint32_t i = 16; i < len; i++)
+    {
+        payload[i] = (uint8_t)((seq + i) & 0xff);
+    }
+}
+
 int main(int argc, char **argv)
 {
     (void)argc;
@@ -32,10 +73,18 @@ int main(int argc, char **argv)
     uint64_t attach_timeout_ns = env ? (uint64_t)strtoull(env, NULL, 10) * 1000000ULL : 5000000000ULL;
     env = getenv("TP_QOS_INTERVAL_MS");
     uint64_t qos_interval_ns = env ? (uint64_t)strtoull(env, NULL, 10) * 1000000ULL : 0;
+    env = getenv("TP_PRODUCER_TIMEOUT_MS");
+    uint64_t producer_timeout_ns = env ? (uint64_t)strtoull(env, NULL, 10) * 1000000ULL : 5000000000ULL;
+    env = getenv("TP_CONNECT_TIMEOUT_MS");
+    uint64_t connect_timeout_ns = env ? (uint64_t)strtoull(env, NULL, 10) * 1000000ULL : 5000000000ULL;
+    env = getenv("TP_WAIT_CONNECT");
+    const bool wait_connect = env != NULL && env[0] != '\0' && strcmp(env, "0") != 0;
 
     tp_context_t *ctx = NULL;
     tp_client_t *client = NULL;
     tp_producer_t *producer = NULL;
+    const char *pattern_env = getenv("TP_PATTERN");
+    const bool use_interop_pattern = (pattern_env != NULL && strcmp(pattern_env, "interop") == 0);
 
     if (tp_context_init(&ctx) != TP_OK)
     {
@@ -109,6 +158,15 @@ int main(int argc, char **argv)
         return 1;
     }
 
+    if (wait_connect && !wait_for_descriptor_connect(client, producer, connect_timeout_ns))
+    {
+        fprintf(stderr, "producer descriptor not connected\n");
+        tp_producer_close(producer);
+        tp_client_close(client);
+        tp_context_close(ctx);
+        return 1;
+    }
+
     if (metadata_channel && metadata_channel[0] != '\0' && metadata_stream_env && metadata_stream_env[0] != '\0')
     {
         tp_metadata_attribute_t attrs[1];
@@ -149,7 +207,7 @@ int main(int argc, char **argv)
     tp_tensor_header_t tensor;
     memset(&tensor, 0, sizeof(tensor));
     tensor.dtype = 1;
-    tensor.major_order = 0;
+    tensor.major_order = 1;
     tensor.ndims = 1;
     tensor.dims[0] = (int32_t)payload_bytes;
     tensor.strides[0] = 1;
@@ -159,7 +217,7 @@ int main(int argc, char **argv)
         usleep(send_delay_ms * 1000);
     }
 
-    uint64_t deadline = now_ns() + 5000000000ULL;
+    uint64_t deadline = now_ns() + producer_timeout_ns;
     const char *debug_conn_env = getenv("TP_DEBUG_CONN");
     const bool debug_conn = debug_conn_env != NULL && debug_conn_env[0] != '\0';
     uint32_t sent = 0;
@@ -169,6 +227,11 @@ int main(int argc, char **argv)
     {
         tp_client_do_work(client);
         tp_producer_poll(producer);
+        if (!tp_producer_is_connected(producer))
+        {
+            usleep(1000);
+            continue;
+        }
         if (debug_conn && sent == 0 && (now_ns() % 1000000000ULL) < 1000000ULL)
         {
             bool connected = tp_producer_is_connected(producer);
@@ -179,6 +242,10 @@ int main(int argc, char **argv)
         if (claim_err != TP_OK)
         {
             continue;
+        }
+        if (use_interop_pattern)
+        {
+            fill_interop_pattern(payload, payload_bytes, claim.seq);
         }
         memcpy(claim.ptr, payload, payload_bytes);
         uint32_t meta_version = 0;

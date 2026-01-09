@@ -206,7 +206,7 @@ end-to-end smoke checks.
 ### Export interop env (shared between C and Julia)
 
 ```bash
-eval "$(scripts/interop_env.sh docs/examples/driver_integration_example.toml docs/examples/interop_env_example.toml)"
+eval "$(scripts/interop_env.sh docs/examples/driver_interop_example.toml docs/examples/interop_env_example.toml)"
 ```
 
 ### C integration smoke (attach + claim + commit + read)
@@ -218,7 +218,7 @@ scripts/run_c_integration_smoke.sh docs/examples/driver_integration_example.toml
 ### Interop sweep (driver + C smoke + Julia consumer/producer)
 
 ```bash
-scripts/run_interop_all.sh docs/examples/driver_integration_example.toml c/build
+scripts/run_interop_all.sh docs/examples/driver_interop_example.toml c/build
 ```
 
 Defaults:
@@ -233,9 +233,13 @@ variables are set before running `tp_producer_example` / `tp_consumer_example`:
 - `TP_METADATA_CHANNEL`, `TP_METADATA_STREAM_ID` to enable metadata publish/consume
 - `TP_QOS_CHANNEL`, `TP_QOS_STREAM_ID` to enable QoS publications
 - `TP_QOS_INTERVAL_MS` to control periodic QoS/keepalive cadence
+- `TP_PATTERN=interop` to enable the interop payload pattern and validation
+- `TP_FAIL_ON_MISMATCH=1` to fail fast on payload mismatches (Julia consumer example)
 
 Metadata versions are auto‑incremented by the producer; use
 `tp_producer_metadata_version()` to fetch the current value for frame headers.
+
+Julia examples also honor `TP_PATTERN=interop` for the same payload pattern and validation.
 
 ### Additional C examples
 
@@ -286,13 +290,13 @@ scripts/run_c_integration_tests.sh docs/examples/driver_integration_example.toml
 ### Cross-check C ↔ Julia (C producer → Julia consumer, Julia producer → C consumer)
 
 ```bash
-scripts/run_interop_crosscheck.sh docs/examples/driver_integration_example.toml c/build
+scripts/run_interop_crosscheck.sh docs/examples/driver_interop_example.toml c/build
 ```
 
 ### Inspect endpoints and live attach response
 
 ```bash
-scripts/interop_print_endpoints.sh docs/examples/driver_integration_example.toml docs/examples/interop_env_example.toml
+scripts/interop_print_endpoints.sh docs/examples/driver_interop_example.toml docs/examples/interop_env_example.toml
 ```
 
 ### Decode raw control-plane messages

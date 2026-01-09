@@ -11,6 +11,7 @@ mutable struct AppProducerAgent
     payload::Vector{UInt8}
     shape::Vector{Int32}
     strides::Vector{Int32}
+    pattern::Symbol
     sent::Int
     last_send_ns::UInt64
     send_interval_ns::UInt64
@@ -46,7 +47,12 @@ function Agent.do_work(agent::AppProducerAgent)
         return 0
     end
     if agent.max_count == 0 || agent.sent < agent.max_count
-        fill!(agent.payload, UInt8(agent.sent % 256))
+        seq = AeronTensorPool.handle_state(agent.handle).seq
+        if agent.pattern === :interop
+            fill_interop_pattern!(agent.payload, seq)
+        else
+            fill!(agent.payload, UInt8(seq % UInt64(256)))
+        end
         sent = AeronTensorPool.offer_frame!(
             agent.handle,
             agent.payload,
@@ -70,7 +76,24 @@ end
 
 function usage()
     println("Usage: julia --project scripts/example_producer.jl [driver_config] [producer_config] [count] [payload_bytes]")
-    println("Env: TP_EXAMPLE_VERBOSE=1, TP_EXAMPLE_LOG_EVERY=100")
+    println("Env: TP_EXAMPLE_VERBOSE=1, TP_EXAMPLE_LOG_EVERY=100, TP_PATTERN=interop")
+end
+
+function fill_interop_pattern!(payload::AbstractVector{UInt8}, seq::UInt64)
+    len = length(payload)
+    if len > 0
+        for i in 0:min(len - 1, 7)
+            @inbounds payload[i + 1] = UInt8((seq >> (8 * i)) & 0xff)
+        end
+        inv = ~seq
+        for i in 0:min(len - 9, 7)
+            @inbounds payload[9 + i] = UInt8((inv >> (8 * i)) & 0xff)
+        end
+        for i in 16:(len - 1)
+            @inbounds payload[i + 1] = UInt8((seq + UInt64(i)) & 0xff)
+        end
+    end
+    return nothing
 end
 
 function agent_error_handler(agent, err)
@@ -132,8 +155,10 @@ function run_producer(driver_cfg_path::String, producer_cfg_path::String, count:
     core_id = haskey(ENV, "AGENT_TASK_CORE") ? parse(Int, ENV["AGENT_TASK_CORE"]) : nothing
     verbose = get(ENV, "TP_EXAMPLE_VERBOSE", "0") == "1"
     log_every = parse(Int, get(ENV, "TP_EXAMPLE_LOG_EVERY", verbose ? "100" : "0"))
+    pattern = get(ENV, "TP_PATTERN", "") == "interop" ? :interop : :simple
 
-    ctx = TensorPoolContext(driver_cfg.endpoints)
+    aeron_dir = get(ENV, "AERON_DIR", driver_cfg.endpoints.aeron_dir)
+    ctx = TensorPoolContext(driver_cfg.endpoints; aeron_dir = aeron_dir)
     tp_client = connect(ctx)
     try
         qos_monitor = QosMonitor(producer_cfg; client = tp_client.aeron_client)
@@ -176,6 +201,7 @@ function run_producer(driver_cfg_path::String, producer_cfg_path::String, count:
             payload,
             shape,
             strides,
+            pattern,
             0,
             UInt64(0),
             UInt64(10_000_000),

@@ -57,6 +57,12 @@ control_stream_id = Int(override("control_stream_id", cfg.endpoints.control_stre
 stream_id = Int(override("stream_id", first_stream_id(cfg)))
 descriptor_channel = String(override("descriptor_channel", ""))
 descriptor_stream_id = Int(override("descriptor_stream_id", 0))
+if isempty(descriptor_channel)
+    descriptor_channel = control_channel
+end
+if descriptor_stream_id == 0
+    descriptor_stream_id = 1100
+end
 consumer_descriptor_channel = String(override("consumer_descriptor_channel", ""))
 consumer_descriptor_stream_id = Int(override("consumer_descriptor_stream_id", 0))
 consumer_control_channel = String(override("consumer_control_channel", ""))

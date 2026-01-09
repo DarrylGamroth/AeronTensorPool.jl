@@ -23,6 +23,9 @@ mutable struct AppConsumerAgent
     last_meta_version::UInt32
     validate_limit::Int
     validated::Int
+    pattern::Symbol
+    fail_on_mismatch::Bool
+    ready_file::String
     ready::Bool
     log_every::Int
     verbose::Bool
@@ -37,13 +40,22 @@ end
 function (hook::AppConsumerOnFrame)(state::ConsumerState, frame::ConsumerFrameView)
     app = hook.app_ref[]
     seq = seqlock_sequence(frame.header.seq_commit)
-    expected = UInt8(seq % UInt64(256))
     payload = Consumer.payload_view(frame.payload)
     if app.validated < app.validate_limit
         app.validated += 1
-        if !check_pattern(payload, expected)
-            actual = isempty(payload) ? UInt8(0) : @inbounds payload[1]
-            @warn "payload mismatch" seq expected actual
+        if app.pattern === :interop
+            if !check_interop_pattern(payload, seq)
+                actual = isempty(payload) ? UInt8(0) : @inbounds payload[1]
+                app.fail_on_mismatch && error("payload mismatch seq=$(seq) expected=interop actual=$(actual)")
+                @warn "payload mismatch" seq expected = "interop" actual
+            end
+        else
+            expected = UInt8(seq % UInt64(256))
+            if !check_pattern(payload, expected)
+                actual = isempty(payload) ? UInt8(0) : @inbounds payload[1]
+                app.fail_on_mismatch && error("payload mismatch seq=$(seq) expected=$(expected) actual=$(actual)")
+                @warn "payload mismatch" seq expected actual
+            end
         end
     end
     app.seen += 1
@@ -56,6 +68,11 @@ end
 
 function Agent.on_start(agent::AppConsumerAgent)
     agent.ready = true
+    if !isempty(agent.ready_file)
+        open(agent.ready_file, "w") do io
+            write(io, "ready\n")
+        end
+    end
     @info "AppConsumerAgent started"
     return nothing
 end
@@ -76,8 +93,10 @@ function Agent.do_work(agent::AppConsumerAgent)
         @info "Consumer descriptor connected" connected = desc_connected
         if metrics.drops_late != agent.last_drops_late ||
            metrics.drops_header_invalid != agent.last_drops_header_invalid
-            @info "Consumer metrics" frames_ok = metrics.frames_ok drops_late = metrics.drops_late drops_header_invalid =
-                metrics.drops_header_invalid
+            @info "Consumer metrics" frames_ok = metrics.frames_ok drops_late = metrics.drops_late drops_odd =
+                metrics.drops_odd drops_changed = metrics.drops_changed drops_frame_id_mismatch =
+                metrics.drops_frame_id_mismatch drops_header_invalid = metrics.drops_header_invalid
+                drops_payload_invalid = metrics.drops_payload_invalid
             agent.last_drops_late = metrics.drops_late
             agent.last_drops_header_invalid = metrics.drops_header_invalid
         end
@@ -114,7 +133,7 @@ end
 
 function usage()
     println("Usage: julia --project scripts/example_consumer.jl [driver_config] [consumer_config] [count]")
-    println("Env: TP_EXAMPLE_VERBOSE=1, TP_EXAMPLE_LOG_EVERY=100")
+    println("Env: TP_EXAMPLE_VERBOSE=1, TP_EXAMPLE_LOG_EVERY=100, TP_PATTERN=interop, TP_FAIL_ON_MISMATCH=1")
 end
 
 function agent_error_handler(agent, err)
@@ -130,6 +149,25 @@ end
 function check_pattern(payload::AbstractVector{UInt8}, expected::UInt8)
     isempty(payload) && return false
     @inbounds return payload[1] == expected
+end
+
+function check_interop_pattern(payload::AbstractVector{UInt8}, seq::UInt64)
+    len = length(payload)
+    len == 0 && return false
+    for i in 0:min(len - 1, 7)
+        @inbounds expected = UInt8((seq >> (8 * i)) & 0xff)
+        @inbounds payload[i + 1] == expected || return false
+    end
+    inv = ~seq
+    for i in 0:min(len - 9, 7)
+        @inbounds expected = UInt8((inv >> (8 * i)) & 0xff)
+        @inbounds payload[9 + i] == expected || return false
+    end
+    for i in 16:(len - 1)
+        @inbounds expected = UInt8((seq + UInt64(i)) & 0xff)
+        @inbounds payload[i + 1] == expected || return false
+    end
+    return true
 end
 
 function run_consumer(driver_cfg_path::String, consumer_cfg_path::String, count::Int)
@@ -158,9 +196,14 @@ function run_consumer(driver_cfg_path::String, consumer_cfg_path::String, count:
     core_id = haskey(ENV, "AGENT_TASK_CORE") ? parse(Int, ENV["AGENT_TASK_CORE"]) : nothing
     verbose = get(ENV, "TP_EXAMPLE_VERBOSE", "0") == "1"
     log_every = parse(Int, get(ENV, "TP_EXAMPLE_LOG_EVERY", verbose ? "100" : "0"))
+    pattern = get(ENV, "TP_PATTERN", "") == "interop" ? :interop : :simple
+    fail_on_mismatch = get(ENV, "TP_FAIL_ON_MISMATCH", "0") == "1"
+    ready_file = get(ENV, "TP_READY_FILE", "")
 
+    aeron_dir = get(ENV, "AERON_DIR", driver_cfg.endpoints.aeron_dir)
     ctx = TensorPoolContext(
         driver_cfg.endpoints;
+        aeron_dir = aeron_dir,
         discovery_channel = discovery_channel,
         discovery_stream_id = discovery_stream_id,
     )
@@ -198,6 +241,9 @@ function run_consumer(driver_cfg_path::String, consumer_cfg_path::String, count:
             UInt32(0),
             10,
             0,
+            pattern,
+            fail_on_mismatch,
+            ready_file,
             false,
             log_every,
             verbose,

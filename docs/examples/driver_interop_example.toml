@@ -1,0 +1,32 @@
+[driver]
+instance_id = "driver-interop"
+aeron_dir = ""
+control_channel = "aeron:ipc?term-length=4m"
+control_stream_id = 1000
+announce_channel = "aeron:ipc?term-length=4m"
+announce_stream_id = 1001
+qos_channel = "aeron:ipc?term-length=4m"
+qos_stream_id = 1200
+
+[shm]
+base_dir = "/dev/shm"
+require_hugepages = false
+page_size_bytes = 4096
+permissions_mode = "660"
+
+[policies]
+allow_dynamic_streams = false
+default_profile = "interop"
+announce_period_ms = 1000
+lease_keepalive_interval_ms = 1000
+lease_expiry_grace_intervals = 3
+
+[profiles.interop]
+header_nslots = 8
+payload_pools = [
+  { pool_id = 1, stride_bytes = 65536 }
+]
+
+[streams.interop]
+stream_id = 10000
+profile = "interop"

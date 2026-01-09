@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-config_path="${1:-docs/examples/driver_integration_example.toml}"
+config_path="${1:-docs/examples/driver_interop_example.toml}"
 build_dir="${2:-c/build}"
 interop_path="${3:-}"
 count="${4:-10}"
@@ -38,6 +38,11 @@ fi
 eval "$(scripts/interop_env.sh "$config_path" "$interop_path")"
 
 example_env=()
+export TP_PATTERN=interop
+export TP_FAIL_ON_MISMATCH=1
+export TP_PRODUCER_TIMEOUT_MS="$((timeout_s * 1000))"
+export TP_WAIT_CONNECT="${TP_WAIT_CONNECT:-1}"
+export TP_CONNECT_TIMEOUT_MS="${TP_CONNECT_TIMEOUT_MS:-$((timeout_s * 1000))}"
 if [[ "$verbose" == "1" ]]; then
   example_env+=(TP_EXAMPLE_VERBOSE=1 TP_EXAMPLE_LOG_EVERY=1)
   export TP_LOG=1

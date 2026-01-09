@@ -15,6 +15,45 @@ static uint64_t now_ns(void)
     return (uint64_t)ts.tv_sec * 1000000000ULL + (uint64_t)ts.tv_nsec;
 }
 
+static bool check_interop_pattern(const uint8_t *payload, uint32_t len, uint64_t seq)
+{
+    if (payload == NULL || len == 0)
+    {
+        return false;
+    }
+    for (uint32_t i = 0; i < len && i < 8; i++)
+    {
+        uint8_t expected = (uint8_t)((seq >> (8 * i)) & 0xff);
+        if (payload[i] != expected)
+        {
+            return false;
+        }
+    }
+    uint64_t inv = ~seq;
+    for (uint32_t i = 0; i < len && i < 8; i++)
+    {
+        uint32_t idx = 8 + i;
+        if (idx >= len)
+        {
+            break;
+        }
+        uint8_t expected = (uint8_t)((inv >> (8 * i)) & 0xff);
+        if (payload[idx] != expected)
+        {
+            return false;
+        }
+    }
+    for (uint32_t i = 16; i < len; i++)
+    {
+        uint8_t expected = (uint8_t)((seq + i) & 0xff);
+        if (payload[i] != expected)
+        {
+            return false;
+        }
+    }
+    return true;
+}
+
 int main(int argc, char **argv)
 {
     (void)argc;
@@ -34,6 +73,9 @@ int main(int argc, char **argv)
     tp_consumer_t *consumer = NULL;
     tp_metadata_cache_t *metadata_cache = NULL;
     uint32_t last_meta_version = 0;
+    const char *pattern_env = getenv("TP_PATTERN");
+    const bool validate_pattern = (pattern_env != NULL && strcmp(pattern_env, "interop") == 0) ||
+        (getenv("TP_VALIDATE_PATTERN") != NULL);
 
     if (tp_context_init(&ctx) != TP_OK)
     {
@@ -137,6 +179,17 @@ int main(int argc, char **argv)
         tp_err_t read_err = tp_consumer_try_read_frame(consumer, &view);
         if (read_err == TP_OK)
         {
+            if (validate_pattern)
+            {
+                uint64_t seq = view.seq_commit >> 1;
+                if (!check_interop_pattern(view.payload, view.payload_len, seq))
+                {
+                    fprintf(stderr, "payload mismatch (seq=%llu len=%u)\n",
+                        (unsigned long long)seq,
+                        view.payload_len);
+                    break;
+                }
+            }
             received++;
         }
         else if (read_err != TP_ERR_TIMEOUT)
