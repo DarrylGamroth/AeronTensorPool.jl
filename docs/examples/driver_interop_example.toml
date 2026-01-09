@@ -20,6 +20,9 @@ default_profile = "interop"
 announce_period_ms = 1000
 lease_keepalive_interval_ms = 1000
 lease_expiry_grace_intervals = 3
+epoch_gc_enabled = true
+epoch_gc_keep = 2
+epoch_gc_min_age_ns = 3000000000
 
 [profiles.interop]
 header_nslots = 8
