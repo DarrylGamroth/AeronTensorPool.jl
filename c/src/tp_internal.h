@@ -49,8 +49,10 @@
 typedef struct tp_context_stct
 {
     uint64_t attach_timeout_ns;
+    uint64_t detach_timeout_ns;
     uint64_t qos_interval_ns;
     uint64_t lease_keepalive_interval_ns;
+    uint64_t announce_freshness_ns;
     uint64_t consumer_max_rate_hz;
     uint32_t client_id;
     int32_t control_stream_id;

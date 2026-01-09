@@ -217,7 +217,7 @@ tp_err_t tp_qos_monitor_get_producer(const tp_qos_monitor_t *monitor, uint32_t p
             return TP_OK;
         }
     }
-    return TP_ERR_TIMEOUT;
+    return TP_ERR_NOT_FOUND;
 }
 
 tp_err_t tp_qos_monitor_get_consumer(const tp_qos_monitor_t *monitor, uint32_t consumer_id, tp_qos_consumer_snapshot_t *out)
@@ -234,5 +234,5 @@ tp_err_t tp_qos_monitor_get_consumer(const tp_qos_monitor_t *monitor, uint32_t c
             return TP_OK;
         }
     }
-    return TP_ERR_TIMEOUT;
+    return TP_ERR_NOT_FOUND;
 }

@@ -1,8 +1,6 @@
 #include "tp_internal.h"
 #include <stdio.h>
 
-static const uint64_t TP_ANNOUNCE_FRESHNESS_NS = 3000000000ULL;
-
 tp_err_t tp_consumer_send_qos(
     tp_consumer_t *consumer,
     uint8_t mode,
@@ -237,7 +235,12 @@ static void tp_consumer_control_handler(void *clientd, const uint8_t *buffer, si
         if (now_ns > announce_ts)
         {
             uint64_t delta = now_ns - announce_ts;
-            if (delta > TP_ANNOUNCE_FRESHNESS_NS)
+            uint64_t freshness_ns = 3000000000ULL;
+            if (consumer->client != NULL && consumer->client->context != NULL)
+            {
+                freshness_ns = consumer->client->context->announce_freshness_ns;
+            }
+            if (delta > freshness_ns)
             {
                 return;
             }

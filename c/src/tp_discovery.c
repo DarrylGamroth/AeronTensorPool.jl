@@ -387,7 +387,7 @@ tp_err_t tp_discovery_get_response(
     }
     if (discovery->last_request_id != request_id)
     {
-        return TP_ERR_TIMEOUT;
+        return TP_ERR_NOT_FOUND;
     }
     *status = discovery->last_status;
     if (error_message != NULL && error_len > 0)

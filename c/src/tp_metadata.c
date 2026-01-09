@@ -267,7 +267,7 @@ tp_err_t tp_metadata_cache_get(const tp_metadata_cache_t *cache, uint32_t stream
     const tp_metadata_entry_t *entry = tp_find_metadata_entry_const(cache, stream_id);
     if (entry == NULL)
     {
-        return TP_ERR_TIMEOUT;
+        return TP_ERR_NOT_FOUND;
     }
     *out = *entry;
     return TP_OK;

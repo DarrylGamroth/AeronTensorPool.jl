@@ -16,7 +16,8 @@ typedef enum tp_err_enum
     TP_ERR_IO = -6,
     TP_ERR_NOMEM = -7,
     TP_ERR_UNSUPPORTED = -8,
-    TP_ERR_BUSY = -9
+    TP_ERR_BUSY = -9,
+    TP_ERR_NOT_FOUND = -10
 }
 tp_err_t;
 

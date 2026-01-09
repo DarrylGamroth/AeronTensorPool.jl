@@ -55,7 +55,8 @@ tp_err_t tp_detach(tp_client_t *client, uint64_t lease_id, uint32_t stream_id, u
         return err;
     }
 
-    const uint64_t deadline = tp_now_ns() + 5000000000ULL;
+    uint64_t timeout_ns = client->context ? client->context->detach_timeout_ns : 5000000000ULL;
+    const uint64_t deadline = tp_now_ns() + timeout_ns;
     while ((tp_now_ns() < deadline))
     {
         tp_client_do_work(client);
@@ -64,5 +65,9 @@ tp_err_t tp_detach(tp_client_t *client, uint64_t lease_id, uint32_t stream_id, u
             return client->driver.last_detach_code == shm_tensorpool_driver_responseCode_OK ? TP_OK : TP_ERR_PROTOCOL;
         }
     }
+    client->driver.pending_detach_correlation = 0;
+    client->driver.pending_detach_lease_id = 0;
+    client->driver.pending_detach_stream_id = 0;
+    client->driver.pending_detach_role = 0;
     return TP_ERR_TIMEOUT;
 }

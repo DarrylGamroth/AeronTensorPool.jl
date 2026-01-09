@@ -105,6 +105,12 @@ if (TP_BUILD_TESTS)
         ${CMAKE_CURRENT_SOURCE_DIR}/src
         ${CMAKE_CURRENT_SOURCE_DIR}/vendor/aeron)
     add_test(NAME tp_control_progress_test COMMAND tp_control_progress_test)
+    add_executable(tp_getters_not_found_test tests/tp_getters_not_found_test.c)
+    target_link_libraries(tp_getters_not_found_test PRIVATE tensorpool_client)
+    target_include_directories(tp_getters_not_found_test PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/src
+        ${CMAKE_CURRENT_SOURCE_DIR}/vendor/aeron)
+    add_test(NAME tp_getters_not_found_test COMMAND tp_getters_not_found_test)
 endif ()
 
 if (TP_BUILD_INTEGRATION_TESTS)

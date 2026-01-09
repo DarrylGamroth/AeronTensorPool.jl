@@ -56,6 +56,13 @@ int main(void)
     consumer.stream_id = 10;
     consumer.epoch = 42;
     consumer.header_nslots = 8;
+    tp_context_t context;
+    memset(&context, 0, sizeof(context));
+    context.announce_freshness_ns = 3000000000ULL;
+    tp_client_t client;
+    memset(&client, 0, sizeof(client));
+    client.context = &context;
+    consumer.client = &client;
 
     uint8_t buffer[512];
 
@@ -116,6 +123,24 @@ int main(void)
         consumer.epoch,
         announce_ts,
         shm_tensorpool_control_clockDomain_MONOTONIC);
+    tp_consumer_handle_control_buffer(&consumer, buffer, announce_len);
+    assert(consumer.last_announce_timestamp_ns == announce_ts);
+
+    consumer.last_announce_timestamp_ns = 0;
+    context.announce_freshness_ns = 1;
+    announce_ts = tp_now_ns() - 5;
+    memset(buffer, 0, sizeof(buffer));
+    announce_len = encode_announce(
+        buffer,
+        sizeof(buffer),
+        consumer.stream_id,
+        consumer.epoch,
+        announce_ts,
+        shm_tensorpool_control_clockDomain_MONOTONIC);
+    tp_consumer_handle_control_buffer(&consumer, buffer, announce_len);
+    assert(consumer.last_announce_timestamp_ns == 0);
+
+    context.announce_freshness_ns = 1000000000ULL;
     tp_consumer_handle_control_buffer(&consumer, buffer, announce_len);
     assert(consumer.last_announce_timestamp_ns == announce_ts);
 

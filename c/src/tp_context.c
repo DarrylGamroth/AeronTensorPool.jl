@@ -23,8 +23,10 @@ tp_err_t tp_context_init(tp_context_t **ctx)
     tmp->client_id = (uint32_t)getpid();
     tmp->use_invoker = false;
     tmp->attach_timeout_ns = 5000000000ULL;
+    tmp->detach_timeout_ns = 5000000000ULL;
     tmp->qos_interval_ns = 1000000000ULL;
     tmp->lease_keepalive_interval_ns = 1000000000ULL;
+    tmp->announce_freshness_ns = 3000000000ULL;
     tmp->consumer_mode = shm_tensorpool_control_mode_STREAM;
     tmp->consumer_max_rate_hz = shm_tensorpool_control_consumerHello_maxRateHz_null_value();
     tmp->consumer_descriptor_channel[0] = '\0';
@@ -156,6 +158,26 @@ tp_err_t tp_context_set_qos_interval_ns(tp_context_t *ctx, uint64_t interval_ns)
         return TP_ERR_ARG;
     }
     ctx->qos_interval_ns = interval_ns;
+    return TP_OK;
+}
+
+tp_err_t tp_context_set_detach_timeout_ns(tp_context_t *ctx, uint64_t timeout_ns)
+{
+    if (ctx == NULL)
+    {
+        return TP_ERR_ARG;
+    }
+    ctx->detach_timeout_ns = timeout_ns;
+    return TP_OK;
+}
+
+tp_err_t tp_context_set_announce_freshness_ns(tp_context_t *ctx, uint64_t freshness_ns)
+{
+    if (ctx == NULL)
+    {
+        return TP_ERR_ARG;
+    }
+    ctx->announce_freshness_ns = freshness_ns;
     return TP_OK;
 }
 
