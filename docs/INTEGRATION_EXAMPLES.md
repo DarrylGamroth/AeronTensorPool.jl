@@ -175,6 +175,29 @@ use the same attach flow as the example producer, but replace the generator loop
 - `scripts/example_reattach.jl`: detach/reattach flow.
 - `scripts/example_invoker.jl`: invoker-mode client loop.
 
+### Embedded Aeron client (Julia)
+
+The Julia client API supports reusing an existing `Aeron.Client` in-process:
+
+```julia
+using Aeron
+using AeronTensorPool
+
+ctx = Aeron.Context()
+Aeron.use_conductor_agent_invoker!(ctx, true)
+client = Aeron.Client(ctx)
+
+driver_cfg = load_driver_config("docs/examples/driver_integration_example.toml")
+tp_ctx = TensorPoolContext(driver_cfg.endpoints)
+tp_client = connect(tp_ctx; aeron_client = client)
+
+# Use tp_client with attach_producer / attach_consumer here.
+close(tp_client)  # does not close Aeron client when injected
+
+close(client)
+close(ctx)
+```
+
 ## C ↔ Julia Interop Helpers
 
 These scripts align the C client env vars with a driver config and provide
