@@ -38,7 +38,7 @@ function Agent.do_work(agent::AppProducerAgent)
     state = AeronTensorPool.handle_state(agent.handle)
     if !producer_connected(agent.handle)
         if now_ns - agent.last_connect_log_ns > 1_000_000_000
-            conn = producer_connections(agent.handle)
+            conn = AeronTensorPool.producer_connections(agent.handle)
             @info "Waiting for producer publications to connect" descriptor_connected = conn.descriptor_connected control_connected =
                 conn.control_connected qos_connected = conn.qos_connected
             agent.last_connect_log_ns = now_ns
@@ -184,7 +184,7 @@ function run_producer(driver_cfg_path::String, producer_cfg_path::String, count:
             handle.driver_client.stream_id
         @info "Producer attach complete" stream_id = state.config.stream_id control_stream_id = state.config.control_stream_id descriptor_stream_id =
             state.config.descriptor_stream_id
-        conn = producer_connections(handle)
+        conn = AeronTensorPool.producer_connections(handle)
         @info "Producer Aeron connections" descriptor_connected = conn.descriptor_connected control_connected =
             conn.control_connected qos_connected = conn.qos_connected
         announce_data_source!(

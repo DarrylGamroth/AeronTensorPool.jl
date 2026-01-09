@@ -83,7 +83,7 @@ function Agent.do_work(agent::AppConsumerAgent)
     now_ns = UInt64(time_ns())
     if !consumer_connected(agent.handle)
         if agent.verbose && now_ns - agent.last_log_ns > 1_000_000_000
-            conn = consumer_connections(agent.handle)
+            conn = AeronTensorPool.consumer_connections(agent.handle)
             @info "Waiting for consumer subscriptions to connect" descriptor_connected = conn.descriptor_connected control_connected =
                 conn.control_connected qos_connected = conn.qos_connected
             agent.last_log_ns = now_ns
@@ -98,7 +98,7 @@ function Agent.do_work(agent::AppConsumerAgent)
     end
     if agent.verbose && now_ns - agent.last_log_ns > 1_000_000_000
         @info "Consumer frame state" last_frame = agent.last_frame seen = agent.seen
-        conn = consumer_connections(agent.handle)
+        conn = AeronTensorPool.consumer_connections(agent.handle)
         @info "Consumer subscriptions connected" descriptor_connected = conn.descriptor_connected control_connected =
             conn.control_connected qos_connected = conn.qos_connected
         if metrics.drops_late != agent.last_drops_late ||
