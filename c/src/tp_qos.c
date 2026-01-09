@@ -110,6 +110,10 @@ static void tp_qos_handle_buffer(tp_qos_monitor_t *monitor, const uint8_t *buffe
     {
         return;
     }
+    if (shm_tensorpool_control_messageHeader_version(&hdr) > shm_tensorpool_control_messageHeader_sbe_schema_version())
+    {
+        return;
+    }
     uint16_t schema_id = shm_tensorpool_control_messageHeader_schemaId(&hdr);
     if (schema_id != shm_tensorpool_control_qosProducer_sbe_schema_id())
     {

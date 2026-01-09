@@ -153,6 +153,10 @@ static void tp_metadata_handle_buffer(tp_metadata_cache_t *cache, const uint8_t 
     {
         return;
     }
+    if (shm_tensorpool_control_messageHeader_version(&hdr) > shm_tensorpool_control_messageHeader_sbe_schema_version())
+    {
+        return;
+    }
     uint16_t schema_id = shm_tensorpool_control_messageHeader_schemaId(&hdr);
     if (schema_id != shm_tensorpool_control_dataSourceAnnounce_sbe_schema_id())
     {

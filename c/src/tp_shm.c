@@ -136,6 +136,16 @@ tp_err_t tp_shm_map(const char *uri, size_t size, bool write, tp_shm_mapping_t *
         return TP_ERR_UNSUPPORTED;
     }
 
+    struct stat st_path;
+    if (lstat(path_buf, &st_path) != 0)
+    {
+        return TP_ERR_IO;
+    }
+    if (S_ISLNK(st_path.st_mode))
+    {
+        return TP_ERR_PROTOCOL;
+    }
+
     int flags = write ? O_RDWR : O_RDONLY;
 #ifdef O_NOFOLLOW
     flags |= O_NOFOLLOW;
@@ -158,12 +168,6 @@ tp_err_t tp_shm_map(const char *uri, size_t size, bool write, tp_shm_mapping_t *
         return TP_ERR_PROTOCOL;
     }
 
-    struct stat st_path;
-    if (stat(path_buf, &st_path) != 0)
-    {
-        close(fd);
-        return TP_ERR_IO;
-    }
     if (st_fd.st_ino != st_path.st_ino || st_fd.st_dev != st_path.st_dev)
     {
         close(fd);

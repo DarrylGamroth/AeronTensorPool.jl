@@ -157,6 +157,10 @@ static void tp_discovery_handle_buffer(tp_discovery_client_t *client, const uint
     {
         return;
     }
+    if (shm_tensorpool_discovery_messageHeader_version(&hdr) > shm_tensorpool_discovery_messageHeader_sbe_schema_version())
+    {
+        return;
+    }
     uint16_t schema_id = shm_tensorpool_discovery_messageHeader_schemaId(&hdr);
     if (schema_id != shm_tensorpool_discovery_discoveryResponse_sbe_schema_id())
     {
