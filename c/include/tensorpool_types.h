@@ -33,25 +33,25 @@ typedef struct tp_attach_response_stct
 {
     int64_t correlation_id;
     int32_t code;
-    uint64_t lease_id;
     uint32_t stream_id;
+    uint64_t lease_id;
     uint64_t epoch;
+    uint64_t lease_expiry_ns;
     uint32_t layout_version;
     uint32_t header_nslots;
     uint16_t header_slot_bytes;
     uint8_t max_dims;
-    uint64_t lease_expiry_ns;
-    char header_uri[TP_URI_MAX];
-    char error_message[TP_URI_MAX];
     uint32_t pool_count;
     tp_pool_desc_t pools[TP_MAX_POOLS];
+    char header_uri[TP_URI_MAX];
+    char error_message[TP_URI_MAX];
 }
 tp_attach_response_t;
 
 typedef struct tp_slot_claim_stct
 {
-    uint64_t seq;
     uint8_t *ptr;
+    uint64_t seq;
     uint32_t stride_bytes;
     uint32_t header_index;
     uint32_t payload_slot;
@@ -74,6 +74,8 @@ tp_tensor_header_t;
 
 typedef struct tp_frame_view_stct
 {
+    uint8_t *payload;
+    uint32_t payload_len;
     uint64_t seq_commit;
     uint64_t timestamp_ns;
     uint32_t values_len_bytes;
@@ -82,39 +84,37 @@ typedef struct tp_frame_view_stct
     uint32_t payload_offset;
     uint32_t meta_version;
     tp_tensor_header_t tensor;
-    uint8_t *payload;
-    uint32_t payload_len;
 }
 tp_frame_view_t;
 
 typedef struct tp_qos_producer_snapshot_stct
 {
-    uint32_t stream_id;
-    uint32_t producer_id;
     uint64_t epoch;
     uint64_t current_seq;
     uint64_t watermark;
+    uint32_t stream_id;
+    uint32_t producer_id;
 }
 tp_qos_producer_snapshot_t;
 
 typedef struct tp_qos_consumer_snapshot_stct
 {
-    uint32_t stream_id;
-    uint32_t consumer_id;
     uint64_t epoch;
-    uint8_t mode;
     uint64_t last_seq_seen;
     uint64_t drops_gap;
     uint64_t drops_late;
+    uint32_t stream_id;
+    uint32_t consumer_id;
+    uint8_t mode;
 }
 tp_qos_consumer_snapshot_t;
 
 typedef struct tp_metadata_attribute_stct
 {
+    uint32_t value_len;
     char key[TP_METADATA_TEXT_MAX];
     char mime_type[TP_METADATA_TEXT_MAX];
     uint8_t value[TP_METADATA_VALUE_MAX];
-    uint32_t value_len;
 }
 tp_metadata_attribute_t;
 
@@ -125,9 +125,9 @@ typedef struct tp_metadata_entry_stct
     uint64_t epoch;
     uint32_t meta_version;
     uint64_t timestamp_ns;
+    uint32_t attr_count;
     char name[TP_METADATA_TEXT_MAX];
     char summary[TP_METADATA_TEXT_MAX];
-    uint32_t attr_count;
     tp_metadata_attribute_t attrs[TP_MAX_METADATA_ATTRS];
 }
 tp_metadata_entry_t;
@@ -152,14 +152,14 @@ typedef struct tp_discovery_entry_stct
     uint8_t max_dims;
     uint32_t data_source_id;
     uint32_t driver_control_stream_id;
-    char header_region_uri[TP_URI_MAX];
-    char data_source_name[TP_METADATA_TEXT_MAX];
-    char driver_instance_id[TP_METADATA_TEXT_MAX];
-    char driver_control_channel[TP_URI_MAX];
     uint32_t pool_count;
     tp_discovery_pool_entry_t pools[TP_MAX_POOLS];
     uint32_t tag_count;
     char tags[TP_MAX_TAGS][TP_TAG_MAX];
+    char header_region_uri[TP_URI_MAX];
+    char data_source_name[TP_METADATA_TEXT_MAX];
+    char driver_instance_id[TP_METADATA_TEXT_MAX];
+    char driver_control_channel[TP_URI_MAX];
 }
 tp_discovery_entry_t;
 

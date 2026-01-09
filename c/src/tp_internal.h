@@ -48,24 +48,24 @@
 
 typedef struct tp_context_stct
 {
-    char aeron_dir[TP_URI_MAX];
-    char control_channel[TP_URI_MAX];
-    int32_t control_stream_id;
-    char descriptor_channel[TP_URI_MAX];
-    int32_t descriptor_stream_id;
-    char qos_channel[TP_URI_MAX];
-    int32_t qos_stream_id;
-    uint32_t client_id;
-    bool use_invoker;
     uint64_t attach_timeout_ns;
     uint64_t qos_interval_ns;
     uint64_t lease_keepalive_interval_ns;
-    uint8_t consumer_mode;
     uint64_t consumer_max_rate_hz;
-    char consumer_descriptor_channel[TP_URI_MAX];
+    uint32_t client_id;
+    int32_t control_stream_id;
+    int32_t descriptor_stream_id;
+    int32_t qos_stream_id;
     int32_t consumer_descriptor_stream_id;
-    char consumer_control_channel[TP_URI_MAX];
     int32_t consumer_control_stream_id;
+    uint8_t consumer_mode;
+    bool use_invoker;
+    char aeron_dir[TP_URI_MAX];
+    char control_channel[TP_URI_MAX];
+    char descriptor_channel[TP_URI_MAX];
+    char qos_channel[TP_URI_MAX];
+    char consumer_descriptor_channel[TP_URI_MAX];
+    char consumer_control_channel[TP_URI_MAX];
 }
 tp_context_t;
 
@@ -75,24 +75,24 @@ typedef struct tp_driver_client_stct
     aeron_subscription_t *sub;
     aeron_fragment_assembler_t *assembler;
     tp_attach_response_t last_attach;
+    uint64_t pending_detach_lease_id;
+    uint64_t last_detach_lease_id;
+    uint64_t revoked_lease_id;
     int64_t last_attach_correlation;
     int64_t pending_attach_correlation;
-    bool last_attach_valid;
-    int32_t last_detach_code;
     int64_t last_detach_correlation;
     int64_t pending_detach_correlation;
-    uint64_t pending_detach_lease_id;
     uint32_t pending_detach_stream_id;
-    uint8_t pending_detach_role;
-    uint64_t last_detach_lease_id;
     uint32_t last_detach_stream_id;
-    uint8_t last_detach_role;
-    bool shutdown;
-    uint8_t shutdown_reason;
-    uint64_t revoked_lease_id;
     uint32_t revoked_stream_id;
+    int32_t last_detach_code;
+    uint8_t pending_detach_role;
+    uint8_t last_detach_role;
     uint8_t revoked_role;
     uint8_t revoked_reason;
+    uint8_t shutdown_reason;
+    bool last_attach_valid;
+    bool shutdown;
 }
 tp_driver_client_t;
 
@@ -111,10 +111,10 @@ typedef struct tp_qos_monitor_stct
     tp_client_t *client;
     aeron_subscription_t *sub;
     aeron_fragment_assembler_t *assembler;
-    tp_qos_producer_snapshot_t producers[TP_MAX_QOS_ENTRIES];
     uint32_t producer_count;
-    tp_qos_consumer_snapshot_t consumers[TP_MAX_QOS_ENTRIES];
     uint32_t consumer_count;
+    tp_qos_producer_snapshot_t producers[TP_MAX_QOS_ENTRIES];
+    tp_qos_consumer_snapshot_t consumers[TP_MAX_QOS_ENTRIES];
 }
 tp_qos_monitor_t;
 
@@ -123,8 +123,8 @@ typedef struct tp_metadata_cache_stct
     tp_client_t *client;
     aeron_subscription_t *sub;
     aeron_fragment_assembler_t *assembler;
-    tp_metadata_entry_t entries[TP_MAX_METADATA_ENTRIES];
     uint32_t entry_count;
+    tp_metadata_entry_t entries[TP_MAX_METADATA_ENTRIES];
 }
 tp_metadata_cache_t;
 
@@ -135,13 +135,13 @@ typedef struct tp_discovery_client_stct
     aeron_subscription_t *sub;
     aeron_fragment_assembler_t *assembler;
     uint64_t next_request_id;
-    char response_channel[TP_URI_MAX];
-    int32_t response_stream_id;
     uint64_t last_request_id;
     int32_t last_status;
+    int32_t response_stream_id;
+    uint32_t entry_count;
+    char response_channel[TP_URI_MAX];
     char last_error[TP_URI_MAX];
     tp_discovery_entry_t entries[TP_MAX_DISCOVERY_ENTRIES];
-    uint32_t entry_count;
 }
 tp_discovery_client_t;
 
@@ -167,18 +167,18 @@ typedef struct tp_producer_stct
     aeron_publication_t *pub_descriptor;
     aeron_publication_t *pub_qos;
     uint64_t lease_id;
-    uint32_t stream_id;
     uint64_t epoch;
-    uint32_t layout_version;
-    tp_shm_mapping_t header;
-    uint32_t header_nslots;
-    uint16_t header_slot_bytes;
-    tp_pool_mapping_t pools[TP_MAX_POOLS];
-    uint32_t pool_count;
     uint64_t seq;
     uint64_t last_qos_ns;
     uint64_t last_keepalive_ns;
+    uint32_t stream_id;
+    uint32_t layout_version;
+    uint32_t header_nslots;
+    uint32_t pool_count;
+    uint16_t header_slot_bytes;
     bool revoked;
+    tp_shm_mapping_t header;
+    tp_pool_mapping_t pools[TP_MAX_POOLS];
 }
 tp_producer_t;
 
@@ -191,37 +191,37 @@ typedef struct tp_consumer_stct
     aeron_subscription_t *sub_control;
     aeron_fragment_assembler_t *control_assembler;
     aeron_publication_t *pub_qos;
-    char descriptor_channel[TP_URI_MAX];
-    int32_t descriptor_stream_id;
-    char control_channel[TP_URI_MAX];
-    int32_t control_stream_id;
-    uint64_t join_time_ns;
-    uint64_t last_announce_timestamp_ns;
-    uint8_t last_announce_clock_domain;
     uint64_t last_progress_frame_id;
-    uint32_t last_progress_header_index;
     uint64_t last_progress_bytes;
-    uint8_t last_progress_state;
-    bool has_progress;
     uint64_t last_qos_ns;
     uint64_t last_keepalive_ns;
     uint64_t drops_gap;
     uint64_t drops_late;
     uint64_t lease_id;
-    uint32_t stream_id;
     uint64_t epoch;
-    uint32_t layout_version;
-    tp_shm_mapping_t header;
-    uint32_t header_nslots;
-    uint16_t header_slot_bytes;
-    tp_pool_mapping_t pools[TP_MAX_POOLS];
-    uint32_t pool_count;
+    uint64_t join_time_ns;
+    uint64_t last_announce_timestamp_ns;
     uint64_t last_seq;
     uint64_t last_epoch;
+    uint32_t stream_id;
+    uint32_t layout_version;
+    uint32_t header_nslots;
+    uint32_t pool_count;
     uint32_t last_header_index;
     uint32_t last_meta_version;
+    uint32_t last_progress_header_index;
+    int32_t descriptor_stream_id;
+    int32_t control_stream_id;
+    uint16_t header_slot_bytes;
+    uint8_t last_announce_clock_domain;
+    uint8_t last_progress_state;
     bool has_descriptor;
     bool revoked;
+    bool has_progress;
+    char descriptor_channel[TP_URI_MAX];
+    char control_channel[TP_URI_MAX];
+    tp_shm_mapping_t header;
+    tp_pool_mapping_t pools[TP_MAX_POOLS];
 }
 tp_consumer_t;
 
