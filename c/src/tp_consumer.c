@@ -177,13 +177,13 @@ static void tp_consumer_control_handler(void *clientd, const uint8_t *buffer, si
             acting_version,
             length - shm_tensorpool_control_messageHeader_encoded_length());
 
-        if (shm_tensorpool_control_frameProgress_streamId(&progress) != consumer->stream_id ||
-            shm_tensorpool_control_frameProgress_epoch(&progress) != consumer->epoch)
+        if ((shm_tensorpool_control_frameProgress_streamId(&progress) != consumer->stream_id) ||
+            (shm_tensorpool_control_frameProgress_epoch(&progress) != consumer->epoch))
         {
             return;
         }
         uint32_t header_index = shm_tensorpool_control_frameProgress_headerIndex(&progress);
-        if (consumer->header_nslots > 0 && header_index >= consumer->header_nslots)
+        if ((consumer->header_nslots > 0) && (header_index >= consumer->header_nslots))
         {
             return;
         }
@@ -250,7 +250,7 @@ static void tp_consumer_control_handler(void *clientd, const uint8_t *buffer, si
 
 void tp_consumer_handle_control_buffer(tp_consumer_t *consumer, const uint8_t *buffer, size_t length)
 {
-    if (consumer == NULL || buffer == NULL)
+    if ((consumer == NULL) || (buffer == NULL))
     {
         return;
     }
@@ -268,7 +268,7 @@ static tp_err_t tp_consumer_protocol_error(tp_consumer_t *consumer)
 
 static tp_err_t tp_consumer_send_hello(tp_consumer_t *consumer)
 {
-    if (consumer == NULL || consumer->pub_control == NULL)
+    if ((consumer == NULL) || (consumer->pub_control == NULL))
     {
         return TP_ERR_ARG;
     }
@@ -386,7 +386,7 @@ static bool tp_infer_strides(
     uint32_t elem_size,
     int32_t *out_strides)
 {
-    if (ndims == 0 || elem_size == 0)
+    if ((ndims == 0) || (elem_size == 0))
     {
         return false;
     }
@@ -476,7 +476,7 @@ static bool tp_validate_tensor_layout(
     const int32_t *strides,
     int32_t *out_strides)
 {
-    if (ndims == 0 || ndims > TP_MAX_DIMS || elem_size == 0)
+    if ((ndims == 0) || (ndims > TP_MAX_DIMS) || (elem_size == 0))
     {
         return false;
     }
@@ -543,7 +543,7 @@ static bool tp_validate_tensor_layout(
         {
             return false;
         }
-        if (expected_stride == 0 || progress_stride_bytes != expected_stride)
+        if ((expected_stride == 0) || (progress_stride_bytes != expected_stride))
         {
             return false;
         }
@@ -689,7 +689,7 @@ static tp_err_t tp_init_consumer_from_attach(tp_client_t *client, const tp_attac
 
 tp_err_t tp_attach_consumer(tp_client_t *client, uint32_t stream_id, tp_consumer_t **consumer)
 {
-    if (client == NULL || consumer == NULL)
+    if ((client == NULL) || (consumer == NULL))
     {
         return TP_ERR_ARG;
     }
@@ -736,7 +736,7 @@ tp_err_t tp_attach_consumer(tp_client_t *client, uint32_t stream_id, tp_consumer
 
 tp_err_t tp_consumer_reattach(tp_consumer_t **consumer)
 {
-    if (consumer == NULL || *consumer == NULL)
+    if ((consumer == NULL) || (*consumer == NULL))
     {
         return TP_ERR_ARG;
     }
@@ -749,11 +749,11 @@ tp_err_t tp_consumer_reattach(tp_consumer_t **consumer)
 
 tp_err_t tp_consumer_poll(tp_consumer_t *consumer, int fragment_limit)
 {
-    if (consumer == NULL || consumer->sub_descriptor == NULL)
+    if ((consumer == NULL) || (consumer->sub_descriptor == NULL))
     {
         return TP_ERR_ARG;
     }
-    if (consumer->revoked || consumer->client->driver.shutdown)
+    if ((consumer->revoked) || (consumer->client->driver.shutdown))
     {
         consumer->revoked = true;
         return TP_ERR_PROTOCOL;
@@ -824,22 +824,22 @@ static tp_pool_mapping_t *tp_consumer_find_pool(tp_consumer_t *consumer, uint16_
 
 tp_err_t tp_consumer_try_read_frame(tp_consumer_t *consumer, tp_frame_view_t *view)
 {
-    if (consumer == NULL || view == NULL)
+    if ((consumer == NULL) || (view == NULL))
     {
         return TP_ERR_ARG;
     }
-    if (consumer->revoked || consumer->client->driver.shutdown)
+    if ((consumer->revoked) || (consumer->client->driver.shutdown))
     {
         return tp_consumer_protocol_error(consumer);
     }
-    if (consumer->client->driver.revoked_lease_id == consumer->lease_id &&
-        consumer->client->driver.revoked_role == shm_tensorpool_driver_role_CONSUMER)
+    if ((consumer->client->driver.revoked_lease_id == consumer->lease_id) &&
+        (consumer->client->driver.revoked_role == shm_tensorpool_driver_role_CONSUMER))
     {
         consumer->revoked = true;
         return tp_consumer_protocol_error(consumer);
     }
-    if (consumer->client->driver.revoked_role == shm_tensorpool_driver_role_PRODUCER &&
-        consumer->client->driver.revoked_stream_id == consumer->stream_id)
+    if ((consumer->client->driver.revoked_role == shm_tensorpool_driver_role_PRODUCER) &&
+        (consumer->client->driver.revoked_stream_id == consumer->stream_id))
     {
         consumer->revoked = true;
         return tp_consumer_protocol_error(consumer);
@@ -948,7 +948,7 @@ tp_err_t tp_consumer_try_read_frame(tp_consumer_t *consumer, tp_frame_view_t *vi
         header_len - shm_tensorpool_control_messageHeader_encoded_length());
 
     uint64_t end = __atomic_load_n(commit_ptr, __ATOMIC_ACQUIRE);
-    if (begin != end || (end & 1ULL) != 0)
+    if ((begin != end) || ((end & 1ULL) != 0))
     {
         consumer->drops_late += 1;
         return TP_ERR_TIMEOUT;
@@ -1034,7 +1034,7 @@ tp_err_t tp_consumer_try_read_frame(tp_consumer_t *consumer, tp_frame_view_t *vi
         shm_tensorpool_control_tensorHeader_dims(&tensor, i, &view->tensor.dims[i]);
         shm_tensorpool_control_tensorHeader_strides(&tensor, i, &view->tensor.strides[i]);
     }
-    if (view->tensor.ndims == 0 || view->tensor.ndims > TP_MAX_DIMS)
+    if ((view->tensor.ndims == 0) || (view->tensor.ndims > TP_MAX_DIMS))
     {
         return tp_consumer_protocol_error(consumer);
     }
@@ -1067,7 +1067,7 @@ tp_err_t tp_consumer_send_qos(
     uint64_t drops_gap,
     uint64_t drops_late)
 {
-    if (consumer == NULL || consumer->pub_qos == NULL)
+    if ((consumer == NULL) || (consumer->pub_qos == NULL))
     {
         return TP_ERR_ARG;
     }
@@ -1107,7 +1107,7 @@ tp_err_t tp_consumer_get_progress(
     uint8_t *state,
     bool *available)
 {
-    if (consumer == NULL || frame_id == NULL || bytes_filled == NULL || state == NULL || available == NULL)
+    if ((consumer == NULL) || (frame_id == NULL) || (bytes_filled == NULL) || (state == NULL) || (available == NULL))
     {
         return TP_ERR_ARG;
     }
@@ -1163,7 +1163,7 @@ void tp_consumer_close(tp_consumer_t *consumer)
 
 bool tp_consumer_is_connected(const tp_consumer_t *consumer)
 {
-    if (consumer == NULL || consumer->sub_descriptor == NULL)
+    if ((consumer == NULL) || (consumer->sub_descriptor == NULL))
     {
         return false;
     }

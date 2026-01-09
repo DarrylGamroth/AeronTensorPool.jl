@@ -139,7 +139,7 @@ static void tp_qos_fragment_handler(void *clientd, const uint8_t *buffer, size_t
 
 void tp_qos_monitor_handle_buffer(tp_qos_monitor_t *monitor, char *buffer, size_t length)
 {
-    if (monitor == NULL || buffer == NULL)
+    if ((monitor == NULL) || (buffer == NULL))
     {
         return;
     }
@@ -148,7 +148,7 @@ void tp_qos_monitor_handle_buffer(tp_qos_monitor_t *monitor, char *buffer, size_
 
 tp_err_t tp_qos_monitor_init(tp_client_t *client, const char *channel, int32_t stream_id, tp_qos_monitor_t **monitor)
 {
-    if (client == NULL || channel == NULL || monitor == NULL)
+    if ((client == NULL) || (channel == NULL) || (monitor == NULL))
     {
         return TP_ERR_ARG;
     }
@@ -205,7 +205,7 @@ int tp_qos_monitor_poll(tp_qos_monitor_t *monitor, int fragment_limit)
 
 tp_err_t tp_qos_monitor_get_producer(const tp_qos_monitor_t *monitor, uint32_t producer_id, tp_qos_producer_snapshot_t *out)
 {
-    if (monitor == NULL || out == NULL)
+    if ((monitor == NULL) || (out == NULL))
     {
         return TP_ERR_ARG;
     }
@@ -222,7 +222,7 @@ tp_err_t tp_qos_monitor_get_producer(const tp_qos_monitor_t *monitor, uint32_t p
 
 tp_err_t tp_qos_monitor_get_consumer(const tp_qos_monitor_t *monitor, uint32_t consumer_id, tp_qos_consumer_snapshot_t *out)
 {
-    if (monitor == NULL || out == NULL)
+    if ((monitor == NULL) || (out == NULL))
     {
         return TP_ERR_ARG;
     }

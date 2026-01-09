@@ -194,7 +194,7 @@ static void tp_metadata_fragment_handler(void *clientd, const uint8_t *buffer, s
 
 void tp_metadata_cache_handle_buffer(tp_metadata_cache_t *cache, char *buffer, size_t length)
 {
-    if (cache == NULL || buffer == NULL)
+    if ((cache == NULL) || (buffer == NULL))
     {
         return;
     }
@@ -203,7 +203,7 @@ void tp_metadata_cache_handle_buffer(tp_metadata_cache_t *cache, char *buffer, s
 
 tp_err_t tp_metadata_cache_init(tp_client_t *client, const char *channel, int32_t stream_id, tp_metadata_cache_t **cache)
 {
-    if (client == NULL || channel == NULL || cache == NULL)
+    if ((client == NULL) || (channel == NULL) || (cache == NULL))
     {
         return TP_ERR_ARG;
     }
@@ -230,15 +230,15 @@ tp_err_t tp_metadata_cache_init(tp_client_t *client, const char *channel, int32_
 
 void tp_metadata_cache_close(tp_metadata_cache_t *cache)
 {
-    if (cache == NULL)
+    if ((cache == NULL))
     {
         return;
     }
-    if (cache->assembler)
+    if ((cache->assembler))
     {
         aeron_fragment_assembler_delete(cache->assembler);
     }
-    if (cache->sub)
+    if ((cache->sub))
     {
         aeron_subscription_close(cache->sub, NULL, NULL);
     }
@@ -247,7 +247,7 @@ void tp_metadata_cache_close(tp_metadata_cache_t *cache)
 
 int tp_metadata_cache_poll(tp_metadata_cache_t *cache, int fragment_limit)
 {
-    if (cache == NULL)
+    if ((cache == NULL))
     {
         return 0;
     }
@@ -260,7 +260,7 @@ int tp_metadata_cache_poll(tp_metadata_cache_t *cache, int fragment_limit)
 
 tp_err_t tp_metadata_cache_get(const tp_metadata_cache_t *cache, uint32_t stream_id, tp_metadata_entry_t *out)
 {
-    if (cache == NULL || out == NULL)
+    if ((cache == NULL) || (out == NULL))
     {
         return TP_ERR_ARG;
     }

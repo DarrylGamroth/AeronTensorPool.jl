@@ -120,7 +120,7 @@ static tp_err_t tp_init_producer_from_attach(tp_client_t *client, const tp_attac
 
 tp_err_t tp_attach_producer(tp_client_t *client, uint32_t stream_id, tp_producer_t **producer)
 {
-    if (client == NULL || producer == NULL)
+    if ((client == NULL) || (producer == NULL))
     {
         return TP_ERR_ARG;
     }
@@ -162,7 +162,7 @@ tp_err_t tp_attach_producer(tp_client_t *client, uint32_t stream_id, tp_producer
 
 tp_err_t tp_producer_reattach(tp_producer_t **producer)
 {
-    if (producer == NULL || *producer == NULL)
+    if ((producer == NULL) || (*producer == NULL))
     {
         return TP_ERR_ARG;
     }
@@ -203,17 +203,17 @@ static tp_pool_mapping_t *tp_select_pool(tp_producer_t *producer, uint32_t value
 
 tp_err_t tp_producer_try_claim_slot(tp_producer_t *producer, uint16_t pool_id, tp_slot_claim_t *claim)
 {
-    if (producer == NULL || claim == NULL)
+    if ((producer == NULL) || (claim == NULL))
     {
         return TP_ERR_ARG;
     }
-    if (producer->revoked || producer->client->driver.shutdown)
+    if ((producer->revoked) || (producer->client->driver.shutdown))
     {
         producer->revoked = true;
         return TP_ERR_PROTOCOL;
     }
-    if (producer->client->driver.revoked_lease_id == producer->lease_id &&
-        producer->client->driver.revoked_role == shm_tensorpool_driver_role_PRODUCER)
+    if ((producer->client->driver.revoked_lease_id == producer->lease_id) &&
+        (producer->client->driver.revoked_role == shm_tensorpool_driver_role_PRODUCER))
     {
         producer->revoked = true;
         return TP_ERR_PROTOCOL;
@@ -255,7 +255,7 @@ tp_err_t tp_producer_try_claim_slot(tp_producer_t *producer, uint16_t pool_id, t
 
 tp_err_t tp_producer_try_claim_slot_by_size(tp_producer_t *producer, uint32_t values_len, tp_slot_claim_t *claim)
 {
-    if (producer == NULL || claim == NULL)
+    if ((producer == NULL) || (claim == NULL))
     {
         return TP_ERR_ARG;
     }
@@ -401,11 +401,11 @@ tp_err_t tp_producer_commit_slot(
     const tp_tensor_header_t *tensor,
     uint32_t meta_version)
 {
-    if (producer == NULL || claim == NULL || tensor == NULL)
+    if ((producer == NULL) || (claim == NULL) || (tensor == NULL))
     {
         return TP_ERR_ARG;
     }
-    if (producer->revoked || producer->client->driver.shutdown)
+    if ((producer->revoked) || (producer->client->driver.shutdown))
     {
         return TP_ERR_PROTOCOL;
     }
@@ -437,11 +437,11 @@ tp_err_t tp_producer_offer_frame(
     const tp_tensor_header_t *tensor,
     uint32_t meta_version)
 {
-    if (producer == NULL || payload == NULL || tensor == NULL)
+    if ((producer == NULL) || (payload == NULL) || (tensor == NULL))
     {
         return TP_ERR_ARG;
     }
-    if (producer->revoked || producer->client->driver.shutdown)
+    if ((producer->revoked) || (producer->client->driver.shutdown))
     {
         return TP_ERR_PROTOCOL;
     }
@@ -468,7 +468,7 @@ tp_err_t tp_producer_offer_frame(
 
 tp_err_t tp_producer_send_qos(tp_producer_t *producer, uint64_t current_seq, uint64_t watermark)
 {
-    if (producer == NULL || producer->pub_qos == NULL)
+    if ((producer == NULL) || (producer->pub_qos == NULL))
     {
         return TP_ERR_ARG;
     }
@@ -505,7 +505,7 @@ tp_err_t tp_producer_poll(tp_producer_t *producer)
     {
         return TP_ERR_ARG;
     }
-    if (producer->revoked || producer->client->driver.shutdown)
+    if ((producer->revoked) || (producer->client->driver.shutdown))
     {
         return TP_ERR_PROTOCOL;
     }
@@ -566,7 +566,7 @@ void tp_producer_close(tp_producer_t *producer)
 
 bool tp_producer_is_connected(const tp_producer_t *producer)
 {
-    if (producer == NULL || producer->pub_descriptor == NULL)
+    if ((producer == NULL) || (producer->pub_descriptor == NULL))
     {
         return false;
     }

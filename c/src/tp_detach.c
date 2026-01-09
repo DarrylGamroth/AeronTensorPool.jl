@@ -37,14 +37,14 @@ static tp_err_t tp_send_detach(tp_client_t *client, uint64_t lease_id, uint32_t 
 
 tp_err_t tp_detach(tp_client_t *client, uint64_t lease_id, uint32_t stream_id, uint32_t client_id, uint8_t role)
 {
-    if (client == NULL)
+    if ((client == NULL))
     {
         return TP_ERR_ARG;
     }
-    if (client->driver.last_detach_code == shm_tensorpool_driver_responseCode_OK &&
-        client->driver.last_detach_lease_id == lease_id &&
-        client->driver.last_detach_stream_id == stream_id &&
-        client->driver.last_detach_role == role)
+    if ((client->driver.last_detach_code == shm_tensorpool_driver_responseCode_OK) &&
+        (client->driver.last_detach_lease_id == lease_id) &&
+        (client->driver.last_detach_stream_id == stream_id) &&
+        (client->driver.last_detach_role == role))
     {
         return TP_OK;
     }
@@ -56,10 +56,10 @@ tp_err_t tp_detach(tp_client_t *client, uint64_t lease_id, uint32_t stream_id, u
     }
 
     const uint64_t deadline = tp_now_ns() + 5000000000ULL;
-    while (tp_now_ns() < deadline)
+    while ((tp_now_ns() < deadline))
     {
         tp_client_do_work(client);
-        if (client->driver.last_detach_correlation == correlation_id)
+        if ((client->driver.last_detach_correlation == correlation_id))
         {
             return client->driver.last_detach_code == shm_tensorpool_driver_responseCode_OK ? TP_OK : TP_ERR_PROTOCOL;
         }

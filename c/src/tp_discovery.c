@@ -182,7 +182,7 @@ static void tp_discovery_fragment_handler(void *clientd, const uint8_t *buffer, 
 
 void tp_discovery_client_handle_buffer(tp_discovery_client_t *client, char *buffer, size_t length)
 {
-    if (client == NULL || buffer == NULL)
+    if ((client == NULL) || (buffer == NULL))
     {
         return;
     }
@@ -197,7 +197,7 @@ tp_err_t tp_discovery_client_init(
     int32_t response_stream_id,
     tp_discovery_client_t **discovery)
 {
-    if (client == NULL || request_channel == NULL || response_channel == NULL || discovery == NULL)
+    if ((client == NULL) || (request_channel == NULL) || (response_channel == NULL) || (discovery == NULL))
     {
         return TP_ERR_ARG;
     }
@@ -277,7 +277,7 @@ tp_err_t tp_discovery_send_request(
     uint32_t tag_count,
     uint64_t *request_id)
 {
-    if (discovery == NULL || request_id == NULL)
+    if ((discovery == NULL) || (request_id == NULL))
     {
         return TP_ERR_ARG;
     }
@@ -381,7 +381,7 @@ tp_err_t tp_discovery_get_response(
     size_t error_len,
     int32_t *status)
 {
-    if (discovery == NULL || entries == NULL || entry_count == NULL || status == NULL)
+    if ((discovery == NULL) || (entries == NULL) || (entry_count == NULL) || (status == NULL))
     {
         return TP_ERR_ARG;
     }
