@@ -36,17 +36,11 @@ end
 function Agent.do_work(agent::AppProducerAgent)
     now_ns = UInt64(time_ns())
     state = AeronTensorPool.handle_state(agent.handle)
-    conn = producer_connections(agent.handle)
-    if !conn.descriptor_connected
+    if !producer_connected(agent.handle)
         if now_ns - agent.last_connect_log_ns > 1_000_000_000
-            @info "Waiting for descriptor publication to connect"
-            agent.last_connect_log_ns = now_ns
-        end
-        return 0
-    end
-    if !conn.control_connected
-        if now_ns - agent.last_connect_log_ns > 1_000_000_000
-            @info "Waiting for control publication to connect"
+            conn = producer_connections(agent.handle)
+            @info "Waiting for producer publications to connect" descriptor_connected = conn.descriptor_connected control_connected =
+                conn.control_connected qos_connected = conn.qos_connected
             agent.last_connect_log_ns = now_ns
         end
         return 0

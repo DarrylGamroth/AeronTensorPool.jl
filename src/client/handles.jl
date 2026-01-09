@@ -50,6 +50,17 @@ function producer_connections(handle::ProducerHandle)
 end
 
 """
+Return true if required producer publications are connected.
+"""
+function producer_connected(handle::ProducerHandle)
+    conn = producer_connections(handle)
+    state = handle.producer_agent.state
+    qos_required = state.config.qos_stream_id != 0
+    return conn.descriptor_connected && conn.control_connected &&
+           (!qos_required || conn.qos_connected)
+end
+
+"""
 Close a ConsumerHandle and its resources.
 """
 function Base.close(handle::ConsumerHandle)
