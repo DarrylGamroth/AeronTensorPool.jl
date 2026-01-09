@@ -200,6 +200,15 @@ Publishing helpers on a `ProducerHandle` (`announce_data_source!`, `set_metadata
 `set_metadata_attribute!`, `delete_metadata_attribute!`) enqueue updates that are emitted by the
 producer work loop.
 
+Example (upsert/remove by key):
+
+```julia
+announce_data_source!(handle, "camera-1"; summary = "front-left")
+set_metadata_attribute!(handle, "pattern" => ("text/plain", "counter"))
+set_metadata_attribute!(handle, "payload_bytes" => (format = "text/plain", value = 640_000))
+delete_metadata_attribute!(handle, "pattern")
+```
+
 Ownership:
 - If you pass a `QosMonitor` into `attach_producer(...; callbacks=..., qos_monitor=...)`, the producer agent owns and closes it on shutdown.
 
