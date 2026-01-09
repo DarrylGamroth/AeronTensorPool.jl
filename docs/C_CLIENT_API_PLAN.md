@@ -124,6 +124,7 @@ Optional features (deferred from v1):
 - QoS monitor.
 - Metadata cache.
 - Discovery client.
+Status: complete.
 
 ## 9. Open Questions (to resolve before coding)
 - How much of Aeron C client to vendor vs depend on? Prefer vendoring only the minimal required pieces.
