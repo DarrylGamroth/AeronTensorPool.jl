@@ -251,6 +251,7 @@ Suggested transitions:
 - `Unattached` → `Attaching` on attach request; send `ShmAttachRequest`.
 - `Attaching` → `Attached` on `ShmAttachResponse(code=OK)`; start keepalive timer.
 - `Attaching` → `Backoff` on `ShmAttachResponse(code!=OK)`; schedule retry.
+- `Attaching` → `Backoff` on attach timeout (no response within a configured window); schedule retry.
 - `Attached` → `Attached` on keepalive tick; send `ShmLeaseKeepalive`.
 - `Attached` → `Backoff` on `ShmLeaseRevoked` for own lease; stop using SHM and reattach.
 - `Attached` → `Detaching` on user close; send `ShmDetachRequest`.
