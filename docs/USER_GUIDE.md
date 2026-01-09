@@ -62,6 +62,34 @@ If you run a discovery service:
 
 Discovery is advisory only; you still validate epochs/layout via `ShmPoolAnnounce`.
 
+### No discovery vs discovery
+
+No discovery (fixed stream id):
+
+```julia
+ctx = TensorPoolContext(driver_cfg.endpoints)
+client = connect(ctx)
+handle = attach_consumer(client, consumer_cfg; discover = false)
+```
+
+Discovery (lookup by data source name):
+
+```julia
+ctx = TensorPoolContext(driver_cfg.endpoints;
+    discovery_channel = "aeron:ipc?term-length=4m",
+    discovery_stream_id = 7000)
+client = connect(ctx)
+entry = discover_stream!(client; data_source_name = "camera-01")
+consumer_cfg.stream_id = entry.stream_id
+handle = attach_consumer(client, consumer_cfg; discover = false)
+```
+
+### Where does `data_source_name` come from?
+
+It is supplied by the producer when it publishes metadata (`DataSourceAnnounce`), typically via
+`set_metadata!(producer_handle, meta_version, name; ...)`. Discovery just indexes whatever the
+producer announces (e.g., device name, stream label, or logical topic).
+
 ---
 
 ## 5. Attach flow (Driver mode)
