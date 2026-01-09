@@ -142,4 +142,11 @@ if (TP_BUILD_INTEGRATION_TESTS)
         ${CMAKE_CURRENT_SOURCE_DIR}/vendor/aeron)
     add_test(NAME tp_integration_smoke COMMAND tp_integration_smoke)
     set_tests_properties(tp_integration_smoke PROPERTIES ENVIRONMENT "TP_STREAM_ID=10000;TP_ATTACH_TIMEOUT_MS=30000")
+    add_executable(tp_integration_detach tests/tp_integration_detach.c)
+    target_link_libraries(tp_integration_detach PRIVATE tensorpool_client)
+    target_include_directories(tp_integration_detach PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/src
+        ${CMAKE_CURRENT_SOURCE_DIR}/vendor/aeron)
+    add_test(NAME tp_integration_detach COMMAND tp_integration_detach)
+    set_tests_properties(tp_integration_detach PROPERTIES ENVIRONMENT "TP_STREAM_ID=10000;TP_ATTACH_TIMEOUT_MS=30000;TP_DETACH_TIMEOUT_MS=30000")
 endif ()
