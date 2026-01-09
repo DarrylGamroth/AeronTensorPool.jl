@@ -87,7 +87,7 @@ handle = attach_consumer(client, consumer_cfg; discover = false)
 ### Where does `data_source_name` come from?
 
 It is supplied by the producer when it publishes metadata (`DataSourceAnnounce`), typically via
-`announce_data_source!(producer_handle, meta_version, name; ...)` and then optional
+`announce_data_source!(producer_handle, name; ...)` and then optional
 `set_metadata_attributes!` updates. Discovery just indexes whatever the producer announces (e.g.,
 device name, stream label, or logical topic).
 
@@ -188,11 +188,17 @@ Metadata is published separately:
 - `DataSourceAnnounce` advertises the source + `meta_version`.
 - `DataSourceMeta` contains the actual metadata payload.
 
-Frames carry `meta_version` so consumers can interpret payloads correctly.
+Frames carry `meta_version` so consumers can interpret payloads correctly. Producer metadata
+helpers manage this version automatically by incrementing it on each metadata change; use
+`metadata_version(handle)` to fetch the current value for frame publishing.
 
 Client helpers:
 - `MetadataPublisher` publishes `DataSourceAnnounce`/`DataSourceMeta` on the metadata stream.
 - `MetadataCache` subscribes to metadata and caches the latest entry per stream.
+
+Publishing helpers on a `ProducerHandle` (`announce_data_source!`, `set_metadata_attributes!`,
+`set_metadata_attribute!`, `delete_metadata_attribute!`) enqueue updates that are emitted by the
+producer work loop.
 
 Ownership:
 - If you pass a `QosMonitor` into `attach_producer(...; callbacks=..., qos_monitor=...)`, the producer agent owns and closes it on shutdown.

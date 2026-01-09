@@ -150,17 +150,18 @@ end
 
 """
 Set producer metadata for a ProducerHandle.
+
+This increments the metadata version and queues an announce+meta update to be emitted
+by the producer work loop.
 """
 function set_metadata!(
     handle::ProducerHandle,
-    meta_version::UInt32,
     name::AbstractString;
     summary::AbstractString = "",
     attributes::AbstractVector{MetadataAttribute} = MetadataAttribute[],
 )
     return set_metadata!(
         handle.producer_agent.state,
-        meta_version,
         name;
         summary = summary,
         attributes = attributes,
@@ -169,16 +170,17 @@ end
 
 """
 Announce data source name/summary for a ProducerHandle.
+
+This increments the metadata version and queues an announce update to be emitted by
+the producer work loop.
 """
 function announce_data_source!(
     handle::ProducerHandle,
-    meta_version::UInt32,
     name::AbstractString;
     summary::AbstractString = "",
 )
     return announce_data_source!(
         handle.producer_agent.state,
-        meta_version,
         name;
         summary = summary,
     )
@@ -186,32 +188,34 @@ end
 
 """
 Set metadata attributes for a ProducerHandle without changing the data source name.
+
+This increments the metadata version and queues a meta update to be emitted by the
+producer work loop.
 """
 function set_metadata_attributes!(
-    handle::ProducerHandle,
-    meta_version::UInt32;
+    handle::ProducerHandle;
     attributes::AbstractVector{MetadataAttribute} = MetadataAttribute[],
 )
     return set_metadata_attributes!(
-        handle.producer_agent.state,
-        meta_version;
+        handle.producer_agent.state;
         attributes = attributes,
     )
 end
 
 """
 Upsert a metadata attribute for a ProducerHandle.
+
+This increments the metadata version and queues a meta update to be emitted by the
+producer work loop.
 """
 function set_metadata_attribute!(
     handle::ProducerHandle,
-    meta_version::UInt32,
     key::AbstractString,
     format::AbstractString,
     value::AbstractVector{UInt8},
 )
     return set_metadata_attribute!(
         handle.producer_agent.state,
-        meta_version,
         key,
         format,
         value,
@@ -220,14 +224,12 @@ end
 
 function set_metadata_attribute!(
     handle::ProducerHandle,
-    meta_version::UInt32,
     key::AbstractString,
     format::AbstractString,
     value::AbstractString,
 )
     return set_metadata_attribute!(
         handle.producer_agent.state,
-        meta_version,
         key,
         format,
         value,
@@ -236,31 +238,56 @@ end
 
 function set_metadata_attribute!(
     handle::ProducerHandle,
-    meta_version::UInt32,
     key::AbstractString,
     format::AbstractString,
     value::Integer,
 )
     return set_metadata_attribute!(
         handle.producer_agent.state,
-        meta_version,
         key,
         format,
         value,
     )
 end
 
+function set_metadata_attribute!(
+    handle::ProducerHandle,
+    attribute::MetadataAttribute,
+)
+    return set_metadata_attribute!(handle.producer_agent.state, attribute)
+end
+
+function set_metadata_attribute!(
+    handle::ProducerHandle,
+    kv::Pair{<:AbstractString, <:Tuple{<:AbstractString, Any}},
+)
+    return set_metadata_attribute!(handle.producer_agent.state, kv)
+end
+
+function set_metadata_attribute!(
+    handle::ProducerHandle,
+    kv::Pair{<:AbstractString, <:NamedTuple{(:format, :value), <:Tuple{<:AbstractString, Any}}},
+)
+    return set_metadata_attribute!(handle.producer_agent.state, kv)
+end
+
 """
 Delete a metadata attribute for a ProducerHandle.
+
+This increments the metadata version and queues a meta update to be emitted by the
+producer work loop.
 """
 function delete_metadata_attribute!(
     handle::ProducerHandle,
-    meta_version::UInt32,
     key::AbstractString,
 )
     return delete_metadata_attribute!(
         handle.producer_agent.state,
-        meta_version,
         key,
     )
 end
+
+"""
+Return the current metadata version for a ProducerHandle.
+"""
+metadata_version(handle::ProducerHandle) = metadata_version(handle.producer_agent.state)

@@ -136,7 +136,6 @@ function run_producer(driver_cfg_path::String, producer_cfg_path::String, count:
     ctx = TensorPoolContext(driver_cfg.endpoints)
     tp_client = connect(ctx)
     try
-        meta_version = UInt32(1)
         qos_monitor = QosMonitor(producer_cfg; client = tp_client.aeron_client)
         metadata_attrs = MetadataAttribute[
             MetadataAttribute("pattern" => ("text/plain", "counter")),
@@ -162,11 +161,11 @@ function run_producer(driver_cfg_path::String, producer_cfg_path::String, count:
             Aeron.is_connected(state.runtime.control.pub_control) qos_connected = Aeron.is_connected(state.runtime.pub_qos)
         announce_data_source!(
             handle,
-            meta_version,
             "example-producer";
             summary = "metadata example",
         )
-        set_metadata_attributes!(handle, meta_version; attributes = metadata_attrs)
+        set_metadata_attributes!(handle; attributes = metadata_attrs)
+        meta_version = metadata_version(handle)
         payload = Vector{UInt8}(undef, effective_payload_bytes)
         shape = Int32[effective_payload_bytes]
         strides = Int32[1]

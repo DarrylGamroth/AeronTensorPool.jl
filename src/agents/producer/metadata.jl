@@ -1,65 +1,67 @@
 """
 Set producer metadata to be published.
 
+This increments the metadata version and queues an announce+meta update to be emitted
+by the producer work loop.
+
 Arguments:
 - `state`: producer state.
-- `meta_version`: metadata correlation/version.
 - `name`: human-friendly name.
 - `summary`: optional summary.
 - `attributes`: metadata attributes.
 """
 function set_metadata!(
     state::ProducerState,
-    meta_version::UInt32,
     name::AbstractString;
     summary::AbstractString = "",
     attributes::AbstractVector{MetadataAttribute} = MetadataAttribute[],
 )
-    announce_data_source!(state, meta_version, name; summary = summary)
-    set_metadata_attributes!(state, meta_version; attributes = attributes)
+    next_metadata_version!(state)
+    state.metadata_name = String(name)
+    state.metadata_summary = String(summary)
+    state.metadata_attrs = MetadataAttribute[attributes...]
+    state.metadata_dirty = true
     return nothing
 end
 
 """
 Announce a data source name/summary without overwriting metadata attributes.
 
+This increments the metadata version and queues an announce update to be emitted by
+the producer work loop.
+
 Arguments:
 - `state`: producer state.
-- `meta_version`: metadata correlation/version.
 - `name`: data source name (used by discovery).
 - `summary`: optional summary.
 """
 function announce_data_source!(
     state::ProducerState,
-    meta_version::UInt32,
     name::AbstractString;
     summary::AbstractString = "",
 )
-    state.metadata_version = meta_version
+    next_metadata_version!(state)
     state.metadata_name = String(name)
     state.metadata_summary = String(summary)
-    return emit_metadata_announce!(
-        state,
-        state.metadata_version,
-        state.metadata_name,
-        state.metadata_summary,
-    )
+    state.metadata_dirty = true
+    return nothing
 end
 
 """
 Set metadata attributes without changing the announced data source name.
 
+This increments the metadata version and queues a meta update to be emitted by the
+producer work loop.
+
 Arguments:
 - `state`: producer state.
-- `meta_version`: metadata correlation/version.
 - `attributes`: metadata attributes.
 """
 function set_metadata_attributes!(
-    state::ProducerState,
-    meta_version::UInt32;
+    state::ProducerState;
     attributes::AbstractVector{MetadataAttribute} = MetadataAttribute[],
 )
-    state.metadata_version = meta_version
+    next_metadata_version!(state)
     state.metadata_attrs = MetadataAttribute[attributes...]
     state.metadata_dirty = true
     return nothing
@@ -68,21 +70,22 @@ end
 """
 Upsert a metadata attribute (by key) without changing the data source name.
 
+This increments the metadata version and queues a meta update to be emitted by the
+producer work loop.
+
 Arguments:
 - `state`: producer state.
-- `meta_version`: metadata correlation/version.
 - `key`: metadata key.
 - `format`: value format (e.g. MIME type).
 - `value`: metadata value.
 """
 function set_metadata_attribute!(
     state::ProducerState,
-    meta_version::UInt32,
     key::AbstractString,
     format::AbstractString,
     value::AbstractVector{UInt8},
 )
-    state.metadata_version = meta_version
+    next_metadata_version!(state)
     attr = MetadataAttribute(key, format, value)
     idx = findfirst(existing -> existing.key == key, state.metadata_attrs)
     if idx === nothing
@@ -96,14 +99,12 @@ end
 
 function set_metadata_attribute!(
     state::ProducerState,
-    meta_version::UInt32,
     key::AbstractString,
     format::AbstractString,
     value::AbstractString,
 )
     return set_metadata_attribute!(
         state,
-        meta_version,
         key,
         format,
         Vector{UInt8}(codeunits(value)),
@@ -112,34 +113,59 @@ end
 
 function set_metadata_attribute!(
     state::ProducerState,
-    meta_version::UInt32,
     key::AbstractString,
     format::AbstractString,
     value::Integer,
 )
     return set_metadata_attribute!(
         state,
-        meta_version,
         key,
         format,
         Vector{UInt8}(codeunits(string(value))),
     )
 end
 
+function set_metadata_attribute!(
+    state::ProducerState,
+    attribute::MetadataAttribute,
+)
+    return set_metadata_attribute!(
+        state,
+        attribute.key,
+        attribute.format,
+        attribute.value,
+    )
+end
+
+function set_metadata_attribute!(
+    state::ProducerState,
+    kv::Pair{<:AbstractString, <:Tuple{<:AbstractString, Any}},
+)
+    return set_metadata_attribute!(state, MetadataAttribute(kv))
+end
+
+function set_metadata_attribute!(
+    state::ProducerState,
+    kv::Pair{<:AbstractString, <:NamedTuple{(:format, :value), <:Tuple{<:AbstractString, Any}}},
+)
+    return set_metadata_attribute!(state, MetadataAttribute(kv))
+end
+
 """
 Delete a metadata attribute (by key) without changing the data source name.
 
+This increments the metadata version and queues a meta update to be emitted by the
+producer work loop.
+
 Arguments:
 - `state`: producer state.
-- `meta_version`: metadata correlation/version.
 - `key`: metadata key.
 """
 function delete_metadata_attribute!(
     state::ProducerState,
-    meta_version::UInt32,
     key::AbstractString,
 )
-    state.metadata_version = meta_version
+    next_metadata_version!(state)
     removed = false
     for idx in reverse(eachindex(state.metadata_attrs))
         if state.metadata_attrs[idx].key == key
@@ -150,6 +176,16 @@ function delete_metadata_attribute!(
     removed && (state.metadata_dirty = true)
     return nothing
 end
+
+@inline function next_metadata_version!(state::ProducerState)
+    state.metadata_version += UInt32(1)
+    return state.metadata_version
+end
+
+"""
+Return the current metadata version for a producer state.
+"""
+metadata_version(state::ProducerState) = state.metadata_version
 
 """
 Emit DataSourceAnnounce using the producer runtime.
