@@ -1100,20 +1100,27 @@ tp_err_t tp_consumer_send_qos(
     return TP_OK;
 }
 
-bool tp_consumer_get_progress(const tp_consumer_t *consumer, uint64_t *frame_id, uint64_t *bytes_filled, uint8_t *state)
+tp_err_t tp_consumer_get_progress(
+    const tp_consumer_t *consumer,
+    uint64_t *frame_id,
+    uint64_t *bytes_filled,
+    uint8_t *state,
+    bool *available)
 {
-    if (consumer == NULL || frame_id == NULL || bytes_filled == NULL || state == NULL)
+    if (consumer == NULL || frame_id == NULL || bytes_filled == NULL || state == NULL || available == NULL)
     {
-        return false;
+        return TP_ERR_ARG;
     }
     if (!consumer->has_progress)
     {
-        return false;
+        *available = false;
+        return TP_OK;
     }
     *frame_id = consumer->last_progress_frame_id;
     *bytes_filled = consumer->last_progress_bytes;
     *state = consumer->last_progress_state;
-    return true;
+    *available = true;
+    return TP_OK;
 }
 
 void tp_consumer_close(tp_consumer_t *consumer)

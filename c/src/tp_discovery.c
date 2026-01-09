@@ -372,7 +372,7 @@ tp_err_t tp_discovery_send_request(
     return TP_OK;
 }
 
-bool tp_discovery_get_response(
+tp_err_t tp_discovery_get_response(
     const tp_discovery_client_t *discovery,
     uint64_t request_id,
     tp_discovery_entry_t *entries,
@@ -383,11 +383,11 @@ bool tp_discovery_get_response(
 {
     if (discovery == NULL || entries == NULL || entry_count == NULL || status == NULL)
     {
-        return false;
+        return TP_ERR_ARG;
     }
     if (discovery->last_request_id != request_id)
     {
-        return false;
+        return TP_ERR_TIMEOUT;
     }
     *status = discovery->last_status;
     if (error_message != NULL && error_len > 0)
@@ -400,5 +400,5 @@ bool tp_discovery_get_response(
         entries[i] = discovery->entries[i];
     }
     *entry_count = count;
-    return true;
+    return TP_OK;
 }

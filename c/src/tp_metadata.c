@@ -258,17 +258,17 @@ int tp_metadata_cache_poll(tp_metadata_cache_t *cache, int fragment_limit)
         (size_t)fragment_limit);
 }
 
-bool tp_metadata_cache_get(const tp_metadata_cache_t *cache, uint32_t stream_id, tp_metadata_entry_t *out)
+tp_err_t tp_metadata_cache_get(const tp_metadata_cache_t *cache, uint32_t stream_id, tp_metadata_entry_t *out)
 {
     if (cache == NULL || out == NULL)
     {
-        return false;
+        return TP_ERR_ARG;
     }
     const tp_metadata_entry_t *entry = tp_find_metadata_entry_const(cache, stream_id);
     if (entry == NULL)
     {
-        return false;
+        return TP_ERR_TIMEOUT;
     }
     *out = *entry;
-    return true;
+    return TP_OK;
 }

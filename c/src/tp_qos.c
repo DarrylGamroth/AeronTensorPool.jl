@@ -203,36 +203,36 @@ int tp_qos_monitor_poll(tp_qos_monitor_t *monitor, int fragment_limit)
         (size_t)fragment_limit);
 }
 
-bool tp_qos_monitor_get_producer(const tp_qos_monitor_t *monitor, uint32_t producer_id, tp_qos_producer_snapshot_t *out)
+tp_err_t tp_qos_monitor_get_producer(const tp_qos_monitor_t *monitor, uint32_t producer_id, tp_qos_producer_snapshot_t *out)
 {
     if (monitor == NULL || out == NULL)
     {
-        return false;
+        return TP_ERR_ARG;
     }
     for (uint32_t i = 0; i < monitor->producer_count; i++)
     {
         if (monitor->producers[i].producer_id == producer_id)
         {
             *out = monitor->producers[i];
-            return true;
+            return TP_OK;
         }
     }
-    return false;
+    return TP_ERR_TIMEOUT;
 }
 
-bool tp_qos_monitor_get_consumer(const tp_qos_monitor_t *monitor, uint32_t consumer_id, tp_qos_consumer_snapshot_t *out)
+tp_err_t tp_qos_monitor_get_consumer(const tp_qos_monitor_t *monitor, uint32_t consumer_id, tp_qos_consumer_snapshot_t *out)
 {
     if (monitor == NULL || out == NULL)
     {
-        return false;
+        return TP_ERR_ARG;
     }
     for (uint32_t i = 0; i < monitor->consumer_count; i++)
     {
         if (monitor->consumers[i].consumer_id == consumer_id)
         {
             *out = monitor->consumers[i];
-            return true;
+            return TP_OK;
         }
     }
-    return false;
+    return TP_ERR_TIMEOUT;
 }
