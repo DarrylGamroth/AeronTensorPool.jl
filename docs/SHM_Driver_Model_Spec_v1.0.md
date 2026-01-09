@@ -87,6 +87,8 @@ If `code=OK` and any required field is set to its `nullValue`, the client MUST t
 
 For `code=OK`, `headerRegionUri` and every `payloadPools.regionUri` MUST be present, non-empty, and not blank. If any required URI is absent or empty (length=0), the client MUST treat the response as a protocol error, DROP the attach, and reattach.
 
+For `code=OK`, clients MUST reject the response if `headerSlotBytes != 256`, if `maxDims` does not match the schema constant, or if the `payloadPools` group is empty.
+
 For `code=OK`, the driver MUST set `poolNslots` equal to `headerNslots` for each payload pool. Clients MUST treat any mismatch as a protocol error, DROP the attach, and reattach.
 
 If `leaseExpiryTimestampNs` is present, clients MUST treat it as a hard deadline; if absent, clients MUST still send keepalives at the configured interval and treat lease validity as unknown beyond the absence of `ShmLeaseRevoked`.
@@ -121,6 +123,8 @@ This model mirrors Aeron’s driver liveness approach (heartbeat plus timeout ra
 ### 4.4a Schema Version Compatibility (Normative)
 
 Clients MUST reject messages with a schema version higher than they support. Drivers SHOULD respond using the highest schema version supported by both client and driver; if no compatible version exists, the driver MUST return `code=UNSUPPORTED`.
+
+Clients MUST reject driver control-plane messages whose `schemaId` or `templateId` does not match the expected driver control schema.
 
 ### 4.5 Control-Plane Transport (Normative)
 
