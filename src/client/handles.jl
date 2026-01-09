@@ -17,6 +17,15 @@ mutable struct ProducerHandle
 end
 
 """
+Connection status for consumer subscriptions/publications.
+"""
+struct ConsumerConnections
+    descriptor_connected::Bool
+    control_connected::Bool
+    qos_connected::Bool
+end
+
+"""
 Connection status for producer publications.
 """
 struct ProducerConnections
@@ -36,6 +45,29 @@ Return the underlying agent state for a handle.
 """
 handle_state(handle::ConsumerHandle) = handle.consumer_agent.state
 handle_state(handle::ProducerHandle) = handle.producer_agent.state
+
+"""
+Return current Aeron connection status for consumer subscriptions/publications.
+"""
+function consumer_connections(handle::ConsumerHandle)
+    state = handle.consumer_agent.state
+    return ConsumerConnections(
+        Aeron.is_connected(state.runtime.sub_descriptor),
+        Aeron.is_connected(state.runtime.control.sub_control),
+        Aeron.is_connected(state.runtime.sub_qos),
+    )
+end
+
+"""
+Return true if required consumer subscriptions are connected.
+"""
+function consumer_connected(handle::ConsumerHandle)
+    conn = consumer_connections(handle)
+    state = handle.consumer_agent.state
+    qos_required = state.config.qos_stream_id != 0
+    return conn.descriptor_connected && conn.control_connected &&
+           (!qos_required || conn.qos_connected)
+end
 
 """
 Return current Aeron connection status for producer publications.

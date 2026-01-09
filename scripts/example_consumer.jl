@@ -80,17 +80,27 @@ end
 function Agent.do_work(agent::AppConsumerAgent)
     poll_qos!(agent.qos_monitor)
     poll_metadata!(agent.metadata_cache)
+    now_ns = UInt64(time_ns())
+    if !consumer_connected(agent.handle)
+        if agent.verbose && now_ns - agent.last_log_ns > 1_000_000_000
+            conn = consumer_connections(agent.handle)
+            @info "Waiting for consumer subscriptions to connect" descriptor_connected = conn.descriptor_connected control_connected =
+                conn.control_connected qos_connected = conn.qos_connected
+            agent.last_log_ns = now_ns
+        end
+        return 0
+    end
     metrics = AeronTensorPool.handle_state(agent.handle).metrics
     if agent.verbose && metrics.frames_ok != agent.last_frames_ok
         header = AeronTensorPool.handle_state(agent.handle).runtime.frame_view.header
         @info "Consumer frames_ok updated" frames_ok = metrics.frames_ok header_seq_commit = header.seq_commit
         agent.last_frames_ok = metrics.frames_ok
     end
-    now_ns = UInt64(time_ns())
     if agent.verbose && now_ns - agent.last_log_ns > 1_000_000_000
         @info "Consumer frame state" last_frame = agent.last_frame seen = agent.seen
-        desc_connected = Aeron.is_connected(AeronTensorPool.handle_state(agent.handle).runtime.sub_descriptor)
-        @info "Consumer descriptor connected" connected = desc_connected
+        conn = consumer_connections(agent.handle)
+        @info "Consumer subscriptions connected" descriptor_connected = conn.descriptor_connected control_connected =
+            conn.control_connected qos_connected = conn.qos_connected
         if metrics.drops_late != agent.last_drops_late ||
            metrics.drops_header_invalid != agent.last_drops_header_invalid
             @info "Consumer metrics" frames_ok = metrics.frames_ok drops_late = metrics.drops_late drops_odd =
