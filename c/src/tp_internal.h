@@ -197,4 +197,8 @@ tp_err_t tp_shm_validate_superblock(
 
 uint64_t tp_now_ns(void);
 
+void tp_qos_monitor_handle_buffer(tp_qos_monitor_t *monitor, char *buffer, size_t length);
+void tp_metadata_cache_handle_buffer(tp_metadata_cache_t *cache, char *buffer, size_t length);
+void tp_discovery_client_handle_buffer(tp_discovery_client_t *client, char *buffer, size_t length);
+
 #endif

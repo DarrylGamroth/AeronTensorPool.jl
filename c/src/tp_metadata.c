@@ -140,10 +140,8 @@ static void tp_handle_metadata_meta(tp_metadata_cache_t *cache, char *buffer, si
     }
 }
 
-static void tp_metadata_fragment_handler(void *clientd, const uint8_t *buffer, size_t length, aeron_header_t *header)
+static void tp_metadata_handle_buffer(tp_metadata_cache_t *cache, const uint8_t *buffer, size_t length)
 {
-    (void)header;
-    tp_metadata_cache_t *cache = (tp_metadata_cache_t *)clientd;
     if (length < shm_tensorpool_control_messageHeader_encoded_length())
     {
         return;
@@ -169,6 +167,22 @@ static void tp_metadata_fragment_handler(void *clientd, const uint8_t *buffer, s
     {
         tp_handle_metadata_meta(cache, buf, length, &hdr);
     }
+}
+
+static void tp_metadata_fragment_handler(void *clientd, const uint8_t *buffer, size_t length, aeron_header_t *header)
+{
+    (void)header;
+    tp_metadata_cache_t *cache = (tp_metadata_cache_t *)clientd;
+    tp_metadata_handle_buffer(cache, buffer, length);
+}
+
+void tp_metadata_cache_handle_buffer(tp_metadata_cache_t *cache, char *buffer, size_t length)
+{
+    if (cache == NULL || buffer == NULL)
+    {
+        return;
+    }
+    tp_metadata_handle_buffer(cache, (const uint8_t *)buffer, length);
 }
 
 tp_err_t tp_metadata_cache_init(tp_client_t *client, const char *channel, int32_t stream_id, tp_metadata_cache_t **cache)

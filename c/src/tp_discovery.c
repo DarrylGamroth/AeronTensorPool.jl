@@ -144,10 +144,8 @@ static void tp_handle_discovery_response(tp_discovery_client_t *client, char *bu
     }
 }
 
-static void tp_discovery_fragment_handler(void *clientd, const uint8_t *buffer, size_t length, aeron_header_t *header)
+static void tp_discovery_handle_buffer(tp_discovery_client_t *client, const uint8_t *buffer, size_t length)
 {
-    (void)header;
-    tp_discovery_client_t *client = (tp_discovery_client_t *)clientd;
     if (length < shm_tensorpool_discovery_messageHeader_encoded_length())
     {
         return;
@@ -169,6 +167,22 @@ static void tp_discovery_fragment_handler(void *clientd, const uint8_t *buffer, 
         return;
     }
     tp_handle_discovery_response(client, buf, length, &hdr);
+}
+
+static void tp_discovery_fragment_handler(void *clientd, const uint8_t *buffer, size_t length, aeron_header_t *header)
+{
+    (void)header;
+    tp_discovery_client_t *client = (tp_discovery_client_t *)clientd;
+    tp_discovery_handle_buffer(client, buffer, length);
+}
+
+void tp_discovery_client_handle_buffer(tp_discovery_client_t *client, char *buffer, size_t length)
+{
+    if (client == NULL || buffer == NULL)
+    {
+        return;
+    }
+    tp_discovery_handle_buffer(client, (const uint8_t *)buffer, length);
 }
 
 tp_err_t tp_discovery_client_init(

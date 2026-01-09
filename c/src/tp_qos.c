@@ -97,10 +97,8 @@ static void tp_qos_handle_consumer(tp_qos_monitor_t *monitor, char *buffer, size
     snap->drops_late = shm_tensorpool_control_qosConsumer_dropsLate(&msg);
 }
 
-static void tp_qos_fragment_handler(void *clientd, const uint8_t *buffer, size_t length, aeron_header_t *header)
+static void tp_qos_handle_buffer(tp_qos_monitor_t *monitor, const uint8_t *buffer, size_t length)
 {
-    (void)header;
-    tp_qos_monitor_t *monitor = (tp_qos_monitor_t *)clientd;
     if (length < shm_tensorpool_control_messageHeader_encoded_length())
     {
         return;
@@ -126,6 +124,22 @@ static void tp_qos_fragment_handler(void *clientd, const uint8_t *buffer, size_t
     {
         tp_qos_handle_consumer(monitor, buf, length, &hdr);
     }
+}
+
+static void tp_qos_fragment_handler(void *clientd, const uint8_t *buffer, size_t length, aeron_header_t *header)
+{
+    (void)header;
+    tp_qos_monitor_t *monitor = (tp_qos_monitor_t *)clientd;
+    tp_qos_handle_buffer(monitor, buffer, length);
+}
+
+void tp_qos_monitor_handle_buffer(tp_qos_monitor_t *monitor, char *buffer, size_t length)
+{
+    if (monitor == NULL || buffer == NULL)
+    {
+        return;
+    }
+    tp_qos_handle_buffer(monitor, (const uint8_t *)buffer, length);
 }
 
 tp_err_t tp_qos_monitor_init(tp_client_t *client, const char *channel, int32_t stream_id, tp_qos_monitor_t **monitor)

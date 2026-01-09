@@ -63,6 +63,30 @@ if (TP_BUILD_TESTS)
         ${CMAKE_CURRENT_SOURCE_DIR}/src
         ${CMAKE_CURRENT_SOURCE_DIR}/vendor/aeron)
     add_test(NAME tp_superblock_test COMMAND tp_superblock_test)
+    add_executable(tp_shm_validate_test tests/tp_shm_validate_test.c)
+    target_link_libraries(tp_shm_validate_test PRIVATE tensorpool_client)
+    target_include_directories(tp_shm_validate_test PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/src
+        ${CMAKE_CURRENT_SOURCE_DIR}/vendor/aeron)
+    add_test(NAME tp_shm_validate_test COMMAND tp_shm_validate_test)
+    add_executable(tp_qos_test tests/tp_qos_test.c)
+    target_link_libraries(tp_qos_test PRIVATE tensorpool_client)
+    target_include_directories(tp_qos_test PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/src
+        ${CMAKE_CURRENT_SOURCE_DIR}/vendor/aeron)
+    add_test(NAME tp_qos_test COMMAND tp_qos_test)
+    add_executable(tp_metadata_test tests/tp_metadata_test.c)
+    target_link_libraries(tp_metadata_test PRIVATE tensorpool_client)
+    target_include_directories(tp_metadata_test PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/src
+        ${CMAKE_CURRENT_SOURCE_DIR}/vendor/aeron)
+    add_test(NAME tp_metadata_test COMMAND tp_metadata_test)
+    add_executable(tp_discovery_test tests/tp_discovery_test.c)
+    target_link_libraries(tp_discovery_test PRIVATE tensorpool_client)
+    target_include_directories(tp_discovery_test PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/src
+        ${CMAKE_CURRENT_SOURCE_DIR}/vendor/aeron)
+    add_test(NAME tp_discovery_test COMMAND tp_discovery_test)
 endif ()
 
 if (TP_BUILD_INTEGRATION_TESTS)
