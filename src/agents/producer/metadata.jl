@@ -66,6 +66,92 @@ function set_metadata_attributes!(
 end
 
 """
+Upsert a metadata attribute (by key) without changing the data source name.
+
+Arguments:
+- `state`: producer state.
+- `meta_version`: metadata correlation/version.
+- `key`: metadata key.
+- `format`: value format (e.g. MIME type).
+- `value`: metadata value.
+"""
+function set_metadata_attribute!(
+    state::ProducerState,
+    meta_version::UInt32,
+    key::AbstractString,
+    format::AbstractString,
+    value::AbstractVector{UInt8},
+)
+    state.metadata_version = meta_version
+    attr = MetadataAttribute(key, format, value)
+    idx = findfirst(existing -> existing.key == key, state.metadata_attrs)
+    if idx === nothing
+        push!(state.metadata_attrs, attr)
+    else
+        state.metadata_attrs[idx] = attr
+    end
+    state.metadata_dirty = true
+    return nothing
+end
+
+function set_metadata_attribute!(
+    state::ProducerState,
+    meta_version::UInt32,
+    key::AbstractString,
+    format::AbstractString,
+    value::AbstractString,
+)
+    return set_metadata_attribute!(
+        state,
+        meta_version,
+        key,
+        format,
+        Vector{UInt8}(codeunits(value)),
+    )
+end
+
+function set_metadata_attribute!(
+    state::ProducerState,
+    meta_version::UInt32,
+    key::AbstractString,
+    format::AbstractString,
+    value::Integer,
+)
+    return set_metadata_attribute!(
+        state,
+        meta_version,
+        key,
+        format,
+        Vector{UInt8}(codeunits(string(value))),
+    )
+end
+
+"""
+Delete a metadata attribute (by key) without changing the data source name.
+
+Arguments:
+- `state`: producer state.
+- `meta_version`: metadata correlation/version.
+- `key`: metadata key.
+"""
+function delete_metadata_attribute!(
+    state::ProducerState,
+    meta_version::UInt32,
+    key::AbstractString,
+)
+    state.metadata_version = meta_version
+    removed = false
+    for idx in reverse(eachindex(state.metadata_attrs))
+        if state.metadata_attrs[idx].key == key
+            deleteat!(state.metadata_attrs, idx)
+            removed = true
+        end
+    end
+    removed && (state.metadata_dirty = true)
+    return nothing
+end
+
+"""
 Emit DataSourceAnnounce using the producer runtime.
 """
 function emit_metadata_announce!(

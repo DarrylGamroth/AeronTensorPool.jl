@@ -198,3 +198,69 @@ function set_metadata_attributes!(
         attributes = attributes,
     )
 end
+
+"""
+Upsert a metadata attribute for a ProducerHandle.
+"""
+function set_metadata_attribute!(
+    handle::ProducerHandle,
+    meta_version::UInt32,
+    key::AbstractString,
+    format::AbstractString,
+    value::AbstractVector{UInt8},
+)
+    return set_metadata_attribute!(
+        handle.producer_agent.state,
+        meta_version,
+        key,
+        format,
+        value,
+    )
+end
+
+function set_metadata_attribute!(
+    handle::ProducerHandle,
+    meta_version::UInt32,
+    key::AbstractString,
+    format::AbstractString,
+    value::AbstractString,
+)
+    return set_metadata_attribute!(
+        handle.producer_agent.state,
+        meta_version,
+        key,
+        format,
+        value,
+    )
+end
+
+function set_metadata_attribute!(
+    handle::ProducerHandle,
+    meta_version::UInt32,
+    key::AbstractString,
+    format::AbstractString,
+    value::Integer,
+)
+    return set_metadata_attribute!(
+        handle.producer_agent.state,
+        meta_version,
+        key,
+        format,
+        value,
+    )
+end
+
+"""
+Delete a metadata attribute for a ProducerHandle.
+"""
+function delete_metadata_attribute!(
+    handle::ProducerHandle,
+    meta_version::UInt32,
+    key::AbstractString,
+)
+    return delete_metadata_attribute!(
+        handle.producer_agent.state,
+        meta_version,
+        key,
+    )
+end
