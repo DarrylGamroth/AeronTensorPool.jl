@@ -12,6 +12,9 @@ The key words “MUST”, “MUST NOT”, “REQUIRED”, “SHOULD”, “SHOUL
 **Normative References**  
 - Shared-Memory Tensor Pool Wire Specification v1.1
 
+**Informative Reference**  
+- Stream ID guidance: `docs/STREAM_ID_CONVENTIONS.md`
+
 ---
 
 ## 1. Scope

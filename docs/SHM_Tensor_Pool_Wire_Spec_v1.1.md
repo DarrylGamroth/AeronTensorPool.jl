@@ -12,6 +12,7 @@ It is written to be directly consumable by automated code-generation tools
 **Key Words** The key words “MUST”, “MUST NOT”, “REQUIRED”, “SHOULD”, “SHOULD NOT”, and “MAY” are to be interpreted as described in RFC 2119.
 
 **Document Conventions** Normative sections: 6–11, 15.1–15.22, 16. Informative sections: 1–5, 12–14. "NOTE:"/"Rationale:" text is informative. Uppercase MUST/SHOULD/MAY keywords appear only in normative sections and carry RFC 2119 force; any lowercase "must/should/may" in informative text is non-normative.
+**Informative Reference** Stream ID guidance: `docs/STREAM_ID_CONVENTIONS.md`.
 **Version History**
 - v1.1 (2025-12-30): Initial RFC-style specification. Adds normative algorithms, compatibility matrix, explicit field alignment (SlotHeader + TensorHeader), language-neutral requirements, and progress reporting protocol. Normative wire/SHM schemas included.
 - v1.1 also requires `announce_clock_domain` in `ShmPoolAnnounce` and forbids unsynchronized realtime timestamps.
