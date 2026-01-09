@@ -41,6 +41,17 @@ jobs:
       - uses: julia-actions/julia-runtest@v1
         env:
           JULIA_NUM_THREADS: ${{ matrix.threads }}
+      - name: C integration tests
+        if: env.TP_RUN_C_INTEGRATION == 'true'
+        run: |
+          cmake -S c -B c/build -DTP_USE_BUNDLED_AERON=ON -DTP_BUILD_TESTS=ON -DTP_BUILD_INTEGRATION_TESTS=ON
+          cmake --build c/build
+          julia --project scripts/example_driver.jl docs/examples/driver_integration_example.toml > /tmp/tp_driver.log 2>&1 &
+          DRIVER_PID=$!
+          scripts/run_c_integration_tests.sh docs/examples/driver_integration_example.toml c/build
+          kill $DRIVER_PID
+        env:
+          TP_RUN_C_INTEGRATION: ${{ env.TP_RUN_C_INTEGRATION }}
       - uses: julia-actions/julia-processcoverage@v1
       - uses: codecov/codecov-action@v5
         with:

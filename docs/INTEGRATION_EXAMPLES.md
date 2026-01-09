@@ -218,6 +218,34 @@ variables are set before running `tp_producer_example` / `tp_consumer_example`:
 - `TP_CONSUMER_MAX_RATE_HZ` (optional)
 - `TP_CONSUMER_MODE` (optional; defaults to stream)
 
+### C example quickstart
+
+Build:
+
+```bash
+cmake -S c -B c/build -DTP_USE_BUNDLED_AERON=ON -DTP_BUILD_TESTS=ON -DTP_BUILD_INTEGRATION_TESTS=ON
+cmake --build c/build
+```
+
+Common env vars:
+- `TP_AERON_DIR` (optional)
+- `TP_CONTROL_CHANNEL`, `TP_CONTROL_STREAM_ID`
+- `TP_DESCRIPTOR_CHANNEL`, `TP_DESCRIPTOR_STREAM_ID`
+- `TP_STREAM_ID`
+
+Example binaries (under `c/build/`):
+- `tp_producer_example`, `tp_consumer_example`
+- `tp_discovery_example`, `tp_qos_monitor_example`
+- `tp_consumer_progress_example`, `tp_consumer_rate_limit_example`
+- `tp_detach_example`, `tp_reattach_example`
+- `tp_invoker_example`
+
+Integration test runner:
+
+```bash
+scripts/run_c_integration_tests.sh docs/examples/driver_integration_example.toml c/build
+```
+
 ### Cross-check C ↔ Julia (C producer → Julia consumer, Julia producer → C consumer)
 
 ```bash
