@@ -307,6 +307,7 @@ All messages below are SBE encoded and transported over Aeron.
 - Variable-length `data` fields are optional by encoding an empty value (length = 0). Producers MUST use length 0 to indicate absence; consumers MUST treat length 0 as “not provided”.
 - For sbe-tool compatibility, variable-length `data` fields MUST NOT be marked `presence="optional"` in the schema; absence is represented by length 0 only.
 - SBE requires variable-length `data` fields to appear at the end of a message. Field IDs are assigned sequentially to fixed fields first, then sequentially to `data` fields.
+- In driver-model deployments, `ShmPoolAnnounce` is emitted by the SHM Driver (authoritative) rather than the producer; see the Driver Model specification.
 
 #### 10.1.1 ShmPoolAnnounce (producer → all)
 

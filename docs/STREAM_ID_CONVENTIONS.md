@@ -22,7 +22,7 @@ This document provides **recommended** stream ID conventions for AeronTensorPool
 ### Driver Control Plane (local IPC)
 
 - `driver.control_stream_id`: `1000`
-- `driver.announce_stream_id`: `1001` (can equal control stream if desired)
+- `driver.announce_stream_id`: `1001` (may equal control stream if desired)
 - `driver.qos_stream_id`: `1200`
 
 ### Producer/Consumer (local IPC)

@@ -90,6 +90,8 @@ discovery.stream_id = 1000
 
 When Discovery is embedded in the Driver, `discovery.*` MAY default to the driver control endpoint.
 
+If discovery shares a channel or stream with other control-plane traffic, implementations MUST gate decoding on the SBE message header `schemaId` (and `templateId`) to avoid mixed-schema collisions.
+
 ### 4.3 Response Channels (Normative)
 
 - Clients MUST provide a response channel and stream ID in each request.
