@@ -392,7 +392,43 @@ int main(int argc, char **argv)
         fprintf(stderr, "producer headerBytes length field=%u\n", header_len_field);
     }
 
+    tp_tensor_header_t tensor_empty;
+    memset(&tensor_empty, 0, sizeof(tensor_empty));
+    tensor_empty.dtype = (uint8_t)shm_tensorpool_control_dtype_UINT8;
+    tensor_empty.major_order = (uint8_t)shm_tensorpool_control_majorOrder_ROW;
+    tensor_empty.ndims = 1;
+    tensor_empty.dims[0] = 0;
+    tensor_empty.strides[0] = 1;
+
+    tp_slot_claim_t empty_claim;
+    tp_err_t empty_claim_err = tp_producer_try_claim_slot_by_size(producer, 0, &empty_claim);
+    if (empty_claim_err != TP_OK)
+    {
+        fprintf(stderr, "try_claim_slot empty failed (err=%d)\n", empty_claim_err);
+        tp_consumer_close(consumer);
+        tp_producer_close(producer);
+        tp_client_close(client_prod);
+        tp_client_close(client_cons);
+        tp_context_close(ctx_prod);
+        tp_context_close(ctx_cons);
+        return 1;
+    }
+    tp_err_t empty_commit_err = tp_producer_commit_slot(producer, &empty_claim, 0, &tensor_empty, 2);
+    if (empty_commit_err != TP_OK)
+    {
+        fprintf(stderr, "commit_slot empty failed (err=%d)\n", empty_commit_err);
+        tp_consumer_close(consumer);
+        tp_producer_close(producer);
+        tp_client_close(client_prod);
+        tp_client_close(client_cons);
+        tp_context_close(ctx_prod);
+        tp_context_close(ctx_cons);
+        return 1;
+    }
+
     tp_frame_view_t view;
+    bool got_first = false;
+    bool got_empty = false;
     uint64_t deadline = now_ns() + 2000000000ULL;
     bool printed_commit = false;
     while (now_ns() < deadline)
@@ -416,24 +452,35 @@ int main(int argc, char **argv)
         tp_err_t read_err = tp_consumer_try_read_frame(consumer, &view);
         if (read_err == TP_OK)
         {
-            if (view.payload_len != sizeof(payload))
+            if (view.payload_len == sizeof(payload))
             {
-                fprintf(stderr, "payload length mismatch\n");
+                if (memcmp(view.payload, payload, sizeof(payload)) != 0)
+                {
+                    fprintf(stderr, "payload mismatch\n");
+                    break;
+                }
+                got_first = true;
+            }
+            else if (view.payload_len == 0)
+            {
+                got_empty = true;
+            }
+            else
+            {
+                fprintf(stderr, "unexpected payload length\n");
                 break;
             }
-            if (memcmp(view.payload, payload, sizeof(payload)) != 0)
+            if (got_first && got_empty)
             {
-                fprintf(stderr, "payload mismatch\n");
-                break;
+                detach_leases(client_prod, client_cons, producer, consumer, stream_id);
+                tp_consumer_close(consumer);
+                tp_producer_close(producer);
+                tp_client_close(client_prod);
+                tp_client_close(client_cons);
+                tp_context_close(ctx_prod);
+                tp_context_close(ctx_cons);
+                return 0;
             }
-            detach_leases(client_prod, client_cons, producer, consumer, stream_id);
-            tp_consumer_close(consumer);
-            tp_producer_close(producer);
-            tp_client_close(client_prod);
-            tp_client_close(client_cons);
-            tp_context_close(ctx_prod);
-            tp_context_close(ctx_cons);
-            return 0;
         }
         if (read_err != TP_ERR_TIMEOUT)
         {
