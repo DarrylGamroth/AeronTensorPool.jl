@@ -13,7 +13,7 @@ using ..ShmTensorpoolControl
 using ..StringViews
 using Clocks
 using UnsafeArrays
-import ..Agents.Producer: offer_frame!, try_claim_slot!, try_claim_slot_by_size!, commit_slot!, with_claimed_slot!, set_metadata!
+import ..Agents.Producer: offer_frame!, try_claim_slot!, try_claim_slot_by_size!, commit_slot!, with_claimed_slot!, announce_data_source!, set_metadata_attributes!, set_metadata!
 
 include("context.jl")
 include("callbacks.jl")
@@ -58,6 +58,8 @@ export DriverClientState,
     emit_metadata_meta!,
     poll_metadata!,
     metadata_entry,
+    announce_data_source!,
+    set_metadata_attributes!,
     set_metadata!,
     offer_frame!,
     try_claim_slot!,

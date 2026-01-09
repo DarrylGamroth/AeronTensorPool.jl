@@ -15,9 +15,51 @@ function set_metadata!(
     summary::AbstractString = "",
     attributes::AbstractVector{MetadataAttribute} = MetadataAttribute[],
 )
+    announce_data_source!(state, meta_version, name; summary = summary)
+    set_metadata_attributes!(state, meta_version; attributes = attributes)
+    return nothing
+end
+
+"""
+Announce a data source name/summary without overwriting metadata attributes.
+
+Arguments:
+- `state`: producer state.
+- `meta_version`: metadata correlation/version.
+- `name`: data source name (used by discovery).
+- `summary`: optional summary.
+"""
+function announce_data_source!(
+    state::ProducerState,
+    meta_version::UInt32,
+    name::AbstractString;
+    summary::AbstractString = "",
+)
     state.metadata_version = meta_version
     state.metadata_name = String(name)
     state.metadata_summary = String(summary)
+    return emit_metadata_announce!(
+        state,
+        state.metadata_version,
+        state.metadata_name,
+        state.metadata_summary,
+    )
+end
+
+"""
+Set metadata attributes without changing the announced data source name.
+
+Arguments:
+- `state`: producer state.
+- `meta_version`: metadata correlation/version.
+- `attributes`: metadata attributes.
+"""
+function set_metadata_attributes!(
+    state::ProducerState,
+    meta_version::UInt32;
+    attributes::AbstractVector{MetadataAttribute} = MetadataAttribute[],
+)
+    state.metadata_version = meta_version
     state.metadata_attrs = MetadataAttribute[attributes...]
     state.metadata_dirty = true
     return nothing

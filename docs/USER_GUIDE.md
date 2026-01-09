@@ -87,8 +87,9 @@ handle = attach_consumer(client, consumer_cfg; discover = false)
 ### Where does `data_source_name` come from?
 
 It is supplied by the producer when it publishes metadata (`DataSourceAnnounce`), typically via
-`set_metadata!(producer_handle, meta_version, name; ...)`. Discovery just indexes whatever the
-producer announces (e.g., device name, stream label, or logical topic).
+`announce_data_source!(producer_handle, meta_version, name; ...)` and then optional
+`set_metadata_attributes!` updates. Discovery just indexes whatever the producer announces (e.g.,
+device name, stream label, or logical topic).
 
 ---
 

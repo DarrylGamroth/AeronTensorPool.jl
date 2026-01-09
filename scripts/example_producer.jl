@@ -160,13 +160,13 @@ function run_producer(driver_cfg_path::String, producer_cfg_path::String, count:
             state.config.descriptor_stream_id
         @info "Producer Aeron connections" descriptor_connected = Aeron.is_connected(state.runtime.pub_descriptor) control_connected =
             Aeron.is_connected(state.runtime.control.pub_control) qos_connected = Aeron.is_connected(state.runtime.pub_qos)
-        set_metadata!(
+        announce_data_source!(
             handle,
             meta_version,
             "example-producer";
             summary = "metadata example",
-            attributes = metadata_attrs,
         )
+        set_metadata_attributes!(handle, meta_version; attributes = metadata_attrs)
         payload = Vector{UInt8}(undef, effective_payload_bytes)
         shape = Int32[effective_payload_bytes]
         strides = Int32[1]

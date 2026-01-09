@@ -166,3 +166,35 @@ function set_metadata!(
         attributes = attributes,
     )
 end
+
+"""
+Announce data source name/summary for a ProducerHandle.
+"""
+function announce_data_source!(
+    handle::ProducerHandle,
+    meta_version::UInt32,
+    name::AbstractString;
+    summary::AbstractString = "",
+)
+    return announce_data_source!(
+        handle.producer_agent.state,
+        meta_version,
+        name;
+        summary = summary,
+    )
+end
+
+"""
+Set metadata attributes for a ProducerHandle without changing the data source name.
+"""
+function set_metadata_attributes!(
+    handle::ProducerHandle,
+    meta_version::UInt32;
+    attributes::AbstractVector{MetadataAttribute} = MetadataAttribute[],
+)
+    return set_metadata_attributes!(
+        handle.producer_agent.state,
+        meta_version;
+        attributes = attributes,
+    )
+end
