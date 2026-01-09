@@ -210,6 +210,14 @@ variables are set before running `tp_producer_example` / `tp_consumer_example`:
 - `tp_reattach_example`: detaches and reattaches a producer.
 - `tp_invoker_example`: runs the client in invoker mode.
 
+#### Per-consumer rate-limit env (C)
+
+`tp_consumer_rate_limit_example` uses:
+- `TP_CONSUMER_DESCRIPTOR_CHANNEL`, `TP_CONSUMER_DESCRIPTOR_STREAM_ID`
+- `TP_CONSUMER_CONTROL_CHANNEL`, `TP_CONSUMER_CONTROL_STREAM_ID`
+- `TP_CONSUMER_MAX_RATE_HZ` (optional)
+- `TP_CONSUMER_MODE` (optional; defaults to stream)
+
 ### Cross-check C ↔ Julia (C producer → Julia consumer, Julia producer → C consumer)
 
 ```bash
