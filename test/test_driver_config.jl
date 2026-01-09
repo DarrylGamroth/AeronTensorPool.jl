@@ -18,6 +18,6 @@ using Test
     @test !isempty(profile.payload_pools)
 
     stream = cfg.streams["cam1"]
-    @test stream.stream_id == 1001
+    @test stream.stream_id == 10000
     @test stream.profile == "raw_profile"
 end
