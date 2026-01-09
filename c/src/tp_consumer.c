@@ -190,6 +190,10 @@ static void tp_consumer_control_handler(void *clientd, const uint8_t *buffer, si
         {
             return;
         }
+        if (!tp_validate_progress(consumer, &progress))
+        {
+            return;
+        }
         consumer->last_progress_frame_id = shm_tensorpool_control_frameProgress_frameId(&progress);
         consumer->last_progress_header_index = header_index;
         consumer->last_progress_bytes = shm_tensorpool_control_frameProgress_payloadBytesFilled(&progress);
@@ -554,6 +558,175 @@ static bool tp_validate_tensor_layout(
     return true;
 }
 
+static bool tp_validate_progress(
+    tp_consumer_t *consumer,
+    const struct shm_tensorpool_control_frameProgress *progress)
+{
+    if ((consumer == NULL) || (consumer->header.addr == NULL))
+    {
+        return false;
+    }
+    uint32_t header_index = shm_tensorpool_control_frameProgress_headerIndex(progress);
+    if ((consumer->header_nslots > 0) && (header_index >= consumer->header_nslots))
+    {
+        return false;
+    }
+    uint64_t header_offset = TP_SUPERBLOCK_SIZE + ((uint64_t)header_index * consumer->header_slot_bytes);
+    uint64_t *commit_ptr = (uint64_t *)(consumer->header.addr + header_offset);
+    uint64_t begin = __atomic_load_n(commit_ptr, __ATOMIC_ACQUIRE);
+    if ((begin & 1ULL) != 0)
+    {
+        return false;
+    }
+
+    struct shm_tensorpool_control_slotHeader slot;
+    shm_tensorpool_control_slotHeader_wrap_for_decode(
+        &slot,
+        (char *)consumer->header.addr + header_offset,
+        0,
+        shm_tensorpool_control_slotHeader_sbe_block_length(),
+        shm_tensorpool_control_slotHeader_sbe_schema_version(),
+        consumer->header.length - header_offset);
+
+    struct shm_tensorpool_control_slotHeader_string_view header_view =
+        shm_tensorpool_control_slotHeader_get_headerBytes_as_string_view(&slot);
+    if (header_view.data == NULL)
+    {
+        return false;
+    }
+    uint32_t header_len = header_view.length;
+    if (header_len != (shm_tensorpool_control_messageHeader_encoded_length() +
+        shm_tensorpool_control_tensorHeader_sbe_block_length()))
+    {
+        return false;
+    }
+
+    struct shm_tensorpool_control_messageHeader hdr;
+    if (!shm_tensorpool_control_messageHeader_wrap(
+            &hdr,
+            (char *)header_view.data,
+            0,
+            shm_tensorpool_control_messageHeader_sbe_schema_version(),
+            header_len))
+    {
+        return false;
+    }
+    if (shm_tensorpool_control_messageHeader_schemaId(&hdr) !=
+        shm_tensorpool_control_tensorHeader_sbe_schema_id())
+    {
+        return false;
+    }
+    if (shm_tensorpool_control_messageHeader_version(&hdr) !=
+        shm_tensorpool_control_tensorHeader_sbe_schema_version())
+    {
+        return false;
+    }
+    if (shm_tensorpool_control_messageHeader_templateId(&hdr) !=
+        shm_tensorpool_control_tensorHeader_sbe_template_id())
+    {
+        return false;
+    }
+    if (shm_tensorpool_control_messageHeader_blockLength(&hdr) !=
+        shm_tensorpool_control_tensorHeader_sbe_block_length())
+    {
+        return false;
+    }
+
+    struct shm_tensorpool_control_tensorHeader tensor;
+    shm_tensorpool_control_tensorHeader_wrap_for_decode(
+        &tensor,
+        (char *)header_view.data + shm_tensorpool_control_messageHeader_encoded_length(),
+        0,
+        shm_tensorpool_control_tensorHeader_sbe_block_length(),
+        shm_tensorpool_control_tensorHeader_sbe_schema_version(),
+        header_len - shm_tensorpool_control_messageHeader_encoded_length());
+
+    uint64_t end = __atomic_load_n(commit_ptr, __ATOMIC_ACQUIRE);
+    if ((begin != end) || ((end & 1ULL) != 0))
+    {
+        return false;
+    }
+    if ((end >> 1) != shm_tensorpool_control_frameProgress_frameId(progress))
+    {
+        return false;
+    }
+
+    uint32_t values_len = shm_tensorpool_control_slotHeader_valuesLenBytes(&slot);
+    uint64_t payload_bytes = shm_tensorpool_control_frameProgress_payloadBytesFilled(progress);
+    if (payload_bytes > values_len)
+    {
+        return false;
+    }
+
+    enum shm_tensorpool_control_dtype dtype_val;
+    if (!shm_tensorpool_control_tensorHeader_dtype(&tensor, &dtype_val))
+    {
+        return false;
+    }
+    if (dtype_val == shm_tensorpool_control_dtype_NULL_VALUE)
+    {
+        return false;
+    }
+    enum shm_tensorpool_control_majorOrder major_val;
+    if (!shm_tensorpool_control_tensorHeader_majorOrder(&tensor, &major_val))
+    {
+        return false;
+    }
+    if (major_val == shm_tensorpool_control_majorOrder_NULL_VALUE)
+    {
+        return false;
+    }
+    uint8_t ndims = shm_tensorpool_control_tensorHeader_ndims(&tensor);
+    enum shm_tensorpool_control_progressUnit progress_unit;
+    if (!shm_tensorpool_control_tensorHeader_progressUnit(&tensor, &progress_unit))
+    {
+        return false;
+    }
+    if (progress_unit == shm_tensorpool_control_progressUnit_NULL_VALUE)
+    {
+        return false;
+    }
+    uint32_t progress_stride_bytes = shm_tensorpool_control_tensorHeader_progressStrideBytes(&tensor);
+    int32_t dims[TP_MAX_DIMS];
+    int32_t strides[TP_MAX_DIMS];
+    int32_t out_strides[TP_MAX_DIMS];
+    for (uint32_t i = 0; i < TP_MAX_DIMS; i++)
+    {
+        shm_tensorpool_control_tensorHeader_dims(&tensor, i, &dims[i]);
+        shm_tensorpool_control_tensorHeader_strides(&tensor, i, &strides[i]);
+    }
+    if (!tp_validate_tensor_layout(
+            (uint8_t)major_val,
+            ndims,
+            progress_unit,
+            progress_stride_bytes,
+            tp_dtype_size(dtype_val),
+            dims,
+            strides,
+            out_strides))
+    {
+        return false;
+    }
+
+    if (consumer->progress_last_frame_ids && consumer->progress_last_bytes)
+    {
+        uint64_t frame_id = shm_tensorpool_control_frameProgress_frameId(progress);
+        uint32_t idx = header_index;
+        if (consumer->progress_last_frame_ids[idx] != frame_id)
+        {
+            consumer->progress_last_frame_ids[idx] = frame_id;
+            consumer->progress_last_bytes[idx] = 0;
+        }
+        if (payload_bytes < consumer->progress_last_bytes[idx])
+        {
+            return false;
+        }
+        consumer->progress_last_bytes[idx] = payload_bytes;
+    }
+
+    return true;
+}
+
 static tp_err_t tp_init_consumer_from_attach(tp_client_t *client, const tp_attach_response_t *resp, tp_consumer_t **out)
 {
     tp_consumer_t *consumer = (tp_consumer_t *)calloc(1, sizeof(tp_consumer_t));
@@ -573,6 +746,13 @@ static tp_err_t tp_init_consumer_from_attach(tp_client_t *client, const tp_attac
     {
         tp_consumer_close(consumer);
         return TP_ERR_PROTOCOL;
+    }
+    consumer->progress_last_frame_ids = (uint64_t *)calloc(resp->header_nslots, sizeof(uint64_t));
+    consumer->progress_last_bytes = (uint64_t *)calloc(resp->header_nslots, sizeof(uint64_t));
+    if ((consumer->progress_last_frame_ids == NULL) || (consumer->progress_last_bytes == NULL))
+    {
+        tp_consumer_close(consumer);
+        return TP_ERR_NOMEM;
     }
     snprintf(consumer->descriptor_channel, sizeof(consumer->descriptor_channel), "%s", client->context->descriptor_channel);
     consumer->descriptor_stream_id = client->context->descriptor_stream_id;
@@ -918,7 +1098,13 @@ tp_err_t tp_consumer_try_read_frame(tp_consumer_t *consumer, tp_frame_view_t *vi
         }
         return tp_consumer_protocol_error(consumer);
     }
-    if (shm_tensorpool_control_messageHeader_version(&hdr) > shm_tensorpool_control_messageHeader_sbe_schema_version())
+    if (shm_tensorpool_control_messageHeader_schemaId(&hdr) !=
+        shm_tensorpool_control_tensorHeader_sbe_schema_id())
+    {
+        return tp_consumer_protocol_error(consumer);
+    }
+    if (shm_tensorpool_control_messageHeader_version(&hdr) !=
+        shm_tensorpool_control_tensorHeader_sbe_schema_version())
     {
         return tp_consumer_protocol_error(consumer);
     }
@@ -1157,6 +1343,14 @@ void tp_consumer_close(tp_consumer_t *consumer)
         aeron_publication_close(consumer->pub_qos, NULL, NULL);
     }
     tp_shm_unmap(&consumer->header);
+    if (consumer->progress_last_frame_ids)
+    {
+        free(consumer->progress_last_frame_ids);
+    }
+    if (consumer->progress_last_bytes)
+    {
+        free(consumer->progress_last_bytes);
+    }
     for (uint32_t i = 0; i < consumer->pool_count; i++)
     {
         tp_shm_unmap(&consumer->pools[i].mapping);

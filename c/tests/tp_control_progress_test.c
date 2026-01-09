@@ -3,6 +3,57 @@
 
 #include "tp_internal.h"
 
+static void encode_slot_header(
+    uint8_t *buffer,
+    size_t buffer_len,
+    uint32_t header_index,
+    uint64_t seq_commit,
+    uint32_t values_len)
+{
+    size_t offset = (size_t)header_index * 256;
+    assert(buffer_len >= offset + 256);
+    uint8_t *slot_buf = buffer + offset;
+    struct shm_tensorpool_control_slotHeader slot;
+    shm_tensorpool_control_slotHeader_wrap_for_encode(&slot, (char *)slot_buf, 0, buffer_len - offset);
+    shm_tensorpool_control_slotHeader_set_seqCommit(&slot, seq_commit);
+    shm_tensorpool_control_slotHeader_set_timestampNs(&slot, 0);
+    shm_tensorpool_control_slotHeader_set_metaVersion(&slot, 0);
+    shm_tensorpool_control_slotHeader_set_valuesLenBytes(&slot, values_len);
+    shm_tensorpool_control_slotHeader_set_payloadSlot(&slot, 0);
+    shm_tensorpool_control_slotHeader_set_payloadOffset(&slot, 0);
+    shm_tensorpool_control_slotHeader_set_poolId(&slot, 1);
+
+    uint64_t pos = shm_tensorpool_control_slotHeader_sbe_offset(&slot) +
+        shm_tensorpool_control_slotHeader_sbe_block_length();
+    shm_tensorpool_control_slotHeader_set_sbe_position(&slot, pos);
+    uint32_t header_len = shm_tensorpool_control_messageHeader_encoded_length() +
+        shm_tensorpool_control_tensorHeader_sbe_block_length();
+    uint32_t header_len_le = SBE_LITTLE_ENDIAN_ENCODE_32(header_len);
+    memcpy(slot_buf + pos, &header_len_le, sizeof(uint32_t));
+    char *header_buf = (char *)(slot_buf + pos + 4);
+    struct shm_tensorpool_control_messageHeader hdr;
+    struct shm_tensorpool_control_tensorHeader tensor;
+    shm_tensorpool_control_tensorHeader_wrap_and_apply_header(
+        &tensor,
+        header_buf,
+        0,
+        header_len,
+        &hdr);
+    shm_tensorpool_control_tensorHeader_set_dtype(&tensor, shm_tensorpool_control_dtype_UINT8);
+    shm_tensorpool_control_tensorHeader_set_majorOrder(&tensor, shm_tensorpool_control_majorOrder_ROW);
+    shm_tensorpool_control_tensorHeader_set_ndims(&tensor, 1);
+    shm_tensorpool_control_tensorHeader_set_padAlign(&tensor, 0);
+    shm_tensorpool_control_tensorHeader_set_progressUnit(&tensor, shm_tensorpool_control_progressUnit_NONE);
+    shm_tensorpool_control_tensorHeader_set_progressStrideBytes(&tensor, 0);
+    int32_t dims[TP_MAX_DIMS] = {0};
+    int32_t strides[TP_MAX_DIMS] = {0};
+    dims[0] = (int32_t)values_len;
+    strides[0] = 1;
+    shm_tensorpool_control_tensorHeader_put_dims(&tensor, dims, TP_MAX_DIMS);
+    shm_tensorpool_control_tensorHeader_put_strides(&tensor, strides, TP_MAX_DIMS);
+    shm_tensorpool_control_slotHeader_set_sbe_position(&slot, pos + 4 + header_len);
+}
+
 static void encode_progress(
     uint8_t *buffer,
     size_t buffer_len,
@@ -56,6 +107,16 @@ int main(void)
     consumer.stream_id = 10;
     consumer.epoch = 42;
     consumer.header_nslots = 8;
+    consumer.header_slot_bytes = 256;
+    consumer.progress_last_frame_ids = calloc(consumer.header_nslots, sizeof(uint64_t));
+    consumer.progress_last_bytes = calloc(consumer.header_nslots, sizeof(uint64_t));
+    assert(consumer.progress_last_frame_ids != NULL);
+    assert(consumer.progress_last_bytes != NULL);
+    uint8_t header_buf[TP_SUPERBLOCK_SIZE + (256 * 8)];
+    memset(header_buf, 0, sizeof(header_buf));
+    consumer.header.addr = header_buf;
+    consumer.header.length = sizeof(header_buf);
+    encode_slot_header(header_buf + TP_SUPERBLOCK_SIZE, 256 * 8, 2, (uint64_t)99 << 1, 256);
     tp_context_t context;
     memset(&context, 0, sizeof(context));
     context.announce_freshness_ns = 3000000000ULL;
@@ -83,6 +144,38 @@ int main(void)
     assert(consumer.last_progress_frame_id == 99);
     assert(consumer.last_progress_header_index == 2);
     assert(consumer.last_progress_bytes == 128);
+
+    consumer.has_progress = false;
+    memset(buffer, 0, sizeof(buffer));
+    encode_progress(
+        buffer,
+        sizeof(buffer),
+        consumer.stream_id,
+        consumer.epoch,
+        99,
+        2,
+        64,
+        shm_tensorpool_control_frameProgressState_COMPLETE);
+    tp_consumer_handle_control_buffer(&consumer, buffer,
+        shm_tensorpool_control_messageHeader_encoded_length() +
+        shm_tensorpool_control_frameProgress_sbe_block_length());
+    assert(!consumer.has_progress);
+
+    consumer.has_progress = false;
+    memset(buffer, 0, sizeof(buffer));
+    encode_progress(
+        buffer,
+        sizeof(buffer),
+        consumer.stream_id,
+        consumer.epoch,
+        99,
+        2,
+        512,
+        shm_tensorpool_control_frameProgressState_COMPLETE);
+    tp_consumer_handle_control_buffer(&consumer, buffer,
+        shm_tensorpool_control_messageHeader_encoded_length() +
+        shm_tensorpool_control_frameProgress_sbe_block_length());
+    assert(!consumer.has_progress);
 
     consumer.has_progress = false;
     memset(buffer, 0, sizeof(buffer));
@@ -143,6 +236,9 @@ int main(void)
     context.announce_freshness_ns = 1000000000ULL;
     tp_consumer_handle_control_buffer(&consumer, buffer, announce_len);
     assert(consumer.last_announce_timestamp_ns == announce_ts);
+
+    free(consumer.progress_last_frame_ids);
+    free(consumer.progress_last_bytes);
 
     return 0;
 }

@@ -204,6 +204,8 @@ typedef struct tp_consumer_stct
     aeron_publication_t *pub_qos;
     uint64_t last_progress_frame_id;
     uint64_t last_progress_bytes;
+    uint64_t *progress_last_frame_ids;
+    uint64_t *progress_last_bytes;
     uint64_t last_qos_ns;
     uint64_t last_keepalive_ns;
     uint64_t drops_gap;
