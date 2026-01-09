@@ -60,6 +60,12 @@ This plan defines the initial C client implementation for AeronTensorPool. It fo
 - `tp_discovery_client_t`: `tp_discover_streams(...)`, `tp_poll_discovery_response(...)`
 - `tp_qos_monitor_t`: `tp_poll_qos(...)`, `tp_qos_monitor_get_producer(...)`, `tp_qos_monitor_get_consumer(...)` (return `tp_err_t`)
 - `tp_metadata_cache_t`: `tp_poll_metadata(...)`, `tp_metadata_cache_get(...)` (return `tp_err_t`)
+- Producer metadata helpers (auto-versioned):
+  - `tp_producer_metadata_version(...)`
+  - `tp_producer_announce_data_source(...)`
+  - `tp_producer_set_metadata_attributes(...)`
+  - `tp_producer_set_metadata_attribute(...)`
+  - `tp_producer_delete_metadata_attribute(...)`
 
 ## 3. Wire/Driver Compliance
 Must implement client rules from:
