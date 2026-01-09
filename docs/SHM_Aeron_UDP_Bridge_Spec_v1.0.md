@@ -140,13 +140,14 @@ Upon receiving all chunks for a frame:
 2. Drop frames until at least one `ShmPoolAnnounce` has been received for the mapping; receivers MUST NOT accept payloads without a source pool announce.
 3. Drop frames if the chunk `epoch` does not match the most recent forwarded `ShmPoolAnnounce` epoch for the mapping; receivers MUST NOT write into a mapping with mismatched epoch/layout.
 4. Validate the header: `values_len_bytes` MUST equal `payloadLength`; `ndims`, `dtype`, and `dims` MUST be within local limits; malformed headers MUST be dropped. Header length requirements in §5.2 are mandatory.
+   The embedded header MUST decode to a supported type (v1.0: `TensorHeader` with the expected schemaId/version/templateId and length); otherwise drop. `payload_offset` MUST be 0 in v1.1.
 5. Validate `headerBytes.pool_id` against the source pool range from the most recent forwarded `ShmPoolAnnounce` for the mapping; invalid pool IDs MUST be dropped.
 6. Validate `payloadLength` against the source pool stride (from the forwarded announce); if `payloadLength` exceeds the source `stride_bytes`, the frame MUST be dropped.
 7. Select the local payload pool and slot using configured mapping rules (e.g., smallest stride >= `payloadLength`). If no local pool can fit the payload, or if `payloadLength` exceeds the largest local `stride_bytes`, the receiver MUST drop the frame.
 8. Write payload bytes into the selected local SHM payload pool.
 9. Write the `SlotHeader` (with embedded TensorHeader) into the local header ring (with logical sequence preserved), but override `pool_id` and `payload_slot` to match the local mapping. The receiver MUST ignore source `pool_id` and `payload_slot` values.
 10. Commit via the standard `seq_commit` protocol.
-11. Publish a local `FrameDescriptor` on the receiver's descriptor stream.
+11. Publish a local `FrameDescriptor` on the receiver's descriptor stream only after `seq_commit` is COMMITTED and payload visibility is ensured.
 
 The receiver MUST treat `seq` as the canonical frame identity and MUST ensure it matches `seq_commit >> 1`.
 
