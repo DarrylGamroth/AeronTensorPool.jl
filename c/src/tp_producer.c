@@ -2,6 +2,19 @@
 #include <stdio.h>
 #include <string.h>
 
+tp_err_t tp_producer_send_metadata_announce(
+    tp_producer_t *producer,
+    uint32_t meta_version,
+    const char *name,
+    const char *summary);
+
+tp_err_t tp_producer_send_metadata_meta(
+    tp_producer_t *producer,
+    uint32_t meta_version,
+    uint64_t timestamp_ns,
+    const tp_metadata_attribute_t *attrs,
+    uint32_t attr_count);
+
 static bool tp_is_power_of_two(uint32_t value)
 {
     return value != 0 && (value & (value - 1)) == 0;

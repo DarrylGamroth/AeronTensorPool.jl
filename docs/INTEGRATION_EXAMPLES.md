@@ -231,9 +231,11 @@ The C examples can emit QoS and metadata when the following environment
 variables are set before running `tp_producer_example` / `tp_consumer_example`:
 
 - `TP_METADATA_CHANNEL`, `TP_METADATA_STREAM_ID` to enable metadata publish/consume
-- `TP_META_VERSION` to set the metadata version (producer)
 - `TP_QOS_CHANNEL`, `TP_QOS_STREAM_ID` to enable QoS publications
 - `TP_QOS_INTERVAL_MS` to control periodic QoS/keepalive cadence
+
+Metadata versions are auto‑incremented by the producer; use
+`tp_producer_metadata_version()` to fetch the current value for frame headers.
 
 ### Additional C examples
 

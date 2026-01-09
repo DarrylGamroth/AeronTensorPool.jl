@@ -1,6 +1,8 @@
 #include <assert.h>
+#include <stdio.h>
 #include <string.h>
 
+#include "tensorpool_client.h"
 #include "tp_internal.h"
 
 int main(void)

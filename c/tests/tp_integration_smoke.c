@@ -33,6 +33,31 @@ static bool wait_for_driver_connect(tp_client_t *client, uint64_t timeout_ns)
     return false;
 }
 
+static void detach_leases(
+    tp_client_t *client_prod,
+    tp_client_t *client_cons,
+    tp_producer_t *producer,
+    tp_consumer_t *consumer,
+    uint32_t stream_id)
+{
+    uint64_t producer_lease = 0;
+    uint64_t consumer_lease = 0;
+    uint32_t prod_client_id = 0;
+    uint32_t cons_client_id = 0;
+    if (producer && client_prod &&
+        tp_producer_get_lease_id(producer, &producer_lease) == TP_OK &&
+        tp_client_get_client_id(client_prod, &prod_client_id) == TP_OK)
+    {
+        tp_detach(client_prod, producer_lease, stream_id, prod_client_id, TP_ROLE_PRODUCER);
+    }
+    if (consumer && client_cons &&
+        tp_consumer_get_lease_id(consumer, &consumer_lease) == TP_OK &&
+        tp_client_get_client_id(client_cons, &cons_client_id) == TP_OK)
+    {
+        tp_detach(client_cons, consumer_lease, stream_id, cons_client_id, TP_ROLE_CONSUMER);
+    }
+}
+
 int main(int argc, char **argv)
 {
     (void)argc;
@@ -401,6 +426,7 @@ int main(int argc, char **argv)
                 fprintf(stderr, "payload mismatch\n");
                 break;
             }
+            detach_leases(client_prod, client_cons, producer, consumer, stream_id);
             tp_consumer_close(consumer);
             tp_producer_close(producer);
             tp_client_close(client_prod);
@@ -420,6 +446,7 @@ int main(int argc, char **argv)
     }
 
     fprintf(stderr, "timed out waiting for frame\n");
+    detach_leases(client_prod, client_cons, producer, consumer, stream_id);
     tp_consumer_close(consumer);
     tp_producer_close(producer);
     tp_client_close(client_prod);
