@@ -45,6 +45,7 @@ For a combined wire + driver overview, see `docs/IMPLEMENTATION_GUIDE.md`.
 - driver mlock on create: configurable via `policies.mlock_shm` (default: false; fatal if enabled and mlock fails)
 - epoch GC: configurable via `policies.epoch_gc_enabled` / `policies.epoch_gc_keep` / `policies.epoch_gc_min_age_ns`; only delete epochs whose superblock `activity_timestamp_ns` is stale and whose producer PID is no longer alive
 - client mlock: when enabled, each producer/consumer process SHOULD mlock its own SHM mappings (mlock is per-process)
+- Stream IDs: follow `docs/STREAM_ID_CONVENTIONS.md` (informative defaults).
 
 ## 4. Producer Flow (spec §15.19)
 1) header_index = seq & (nslots - 1)
@@ -111,6 +112,7 @@ Implementation notes:
 - Discovery responses are advisory; clients MUST attach via the driver and validate epochs/layout.
 - Embedded provider: `DiscoveryAgent` subscribes to `ShmPoolAnnounce` + metadata, serves requests on a discovery request channel.
 - Registry mode: `DiscoveryRegistryAgent` aggregates multiple driver endpoints and serves the same request API.
+- Cross-spec gating: discovery results and announces MUST be ignored unless their schema id/version matches the expected wire spec.
 
 ### 9a.1 Embedded Provider Config (example)
 ```toml
@@ -172,6 +174,10 @@ if slot.status == DiscoveryStatus.OK
     end
 end
 ```
+
+## 10a. Driver Control Plane
+- Attach retries SHOULD use a backoff (exponential or capped linear). Avoid tight loops; reattach should be timer-driven.
+- Attach validation MUST reject missing or null fields (lease_id/stream_id/epoch/layout_version/header_nslots/header_slot_bytes/max_dims) and invalid publish_mode values.
 
 ## 10. Operational Defaults
 - Announce cadence: 1 Hz; liveness timeout: 3–5× cadence.
@@ -400,6 +406,8 @@ profile = "raw_profile"
 - Bridge receiver validates `headerBytes.pool_id` against the most recent forwarded announce; invalid pool IDs are dropped.
 - Bridge receiver selects the local payload pool by smallest stride that fits `payloadLength`, ignores source `pool_id`/`payload_slot`, and rewrites `pool_id`/`payload_slot` in the local header.
 - Bridge receiver rematerializes with preserved `seq/frame_id`; it publishes local `FrameDescriptor` only on IPC.
+- Bridge receiver MUST validate embedded TensorHeader message header (schema/template/version/block length) before accepting chunks.
+- Publish ordering: receiver MUST write SHM (payload + header + commit) before republishing FrameDescriptor; progress forwarding MUST preserve ordering rules per spec.
 - Progress forwarding: sender rewrites `stream_id`; receiver remaps `headerIndex` to the local header index (drop if mapping mismatch).
 - QoS/FrameProgress forwarding is gated by `forward_qos`/`forward_progress` and uses per-mapping control stream IDs.
 - Metadata forwarding uses the bridge metadata channel; forwarded `stream_id` is rewritten to `metadata_stream_id` (defaulting to `dest_stream_id`).
