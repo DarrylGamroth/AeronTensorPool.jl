@@ -43,6 +43,13 @@ function Agent.do_work(agent::AppProducerAgent)
         end
         return 0
     end
+    if !Aeron.is_connected(state.runtime.control.pub_control)
+        if now_ns - agent.last_connect_log_ns > 1_000_000_000
+            @info "Waiting for control publication to connect"
+            agent.last_connect_log_ns = now_ns
+        end
+        return 0
+    end
     if now_ns - agent.last_send_ns < agent.send_interval_ns
         return 0
     end
