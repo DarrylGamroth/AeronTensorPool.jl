@@ -42,7 +42,7 @@ jobs:
         env:
           JULIA_NUM_THREADS: ${{ matrix.threads }}
       - name: C integration tests
-        if: matrix.version == '1' && matrix.threads == 1 && matrix.os == 'ubuntu-latest'
+        if: matrix.version == '1' && matrix.threads == 4 && matrix.os == 'ubuntu-latest'
         run: |
           cmake -S c -B c/build -DTP_USE_BUNDLED_AERON=ON -DTP_BUILD_TESTS=ON -DTP_BUILD_INTEGRATION_TESTS=ON
           cmake --build c/build
