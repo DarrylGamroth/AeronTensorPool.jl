@@ -1,10 +1,30 @@
 """
-Return the canonical epoch directory for SHM files.
+Return the canonical epoch root directory for SHM files.
 
 Arguments:
 - `shm_base_dir`: base directory for SHM files.
 - `shm_namespace`: namespace under `shm_base_dir`.
 - `producer_instance_id`: producer instance identifier.
+- `epoch`: epoch number.
+
+Returns:
+- Filesystem path to the epoch directory.
+"""
+function canonical_epoch_root_dir(
+    shm_base_dir::AbstractString,
+    shm_namespace::AbstractString,
+    producer_instance_id::AbstractString,
+)
+    return joinpath(shm_base_dir, shm_namespace, producer_instance_id)
+end
+
+"""
+Return the canonical epoch directory for SHM files.
+
+Arguments:
+- `shm_base_dir`: base directory for SHM files.
+- `shm_namespace`: logical stream namespace (e.g., "stream-10000").
+- `producer_instance_id`: driver instance id.
 - `epoch`: epoch number.
 
 Returns:
@@ -16,7 +36,8 @@ function canonical_epoch_dir(
     producer_instance_id::AbstractString,
     epoch::Integer,
 )
-    return joinpath(shm_base_dir, shm_namespace, producer_instance_id, "epoch-$(epoch)")
+    root = canonical_epoch_root_dir(shm_base_dir, shm_namespace, producer_instance_id)
+    return joinpath(root, "epoch-$(epoch)")
 end
 
 """

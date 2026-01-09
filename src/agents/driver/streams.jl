@@ -91,6 +91,7 @@ function get_or_create_stream!(
         stream_id,
         profile,
         UInt64(0),
+        Dict{UInt64, UInt64}(),
         "",
         Dict{UInt16, String}(),
         UInt64(0),
@@ -107,8 +108,104 @@ function bump_epoch!(state::DriverState, stream_state::DriverStreamState)
     else
         stream_state.epoch = max(stream_state.epoch + 1, now_ns)
     end
+    stream_state.epoch_start_ns[stream_state.epoch] = now_ns
     provision_stream_epoch!(state, stream_state)
+    gc_stream_epochs!(state, stream_state, now_ns)
     return nothing
+end
+
+function parse_epoch_dirname(name::AbstractString)
+    m = match(r"^epoch-(\d+)$", name)
+    m === nothing && return nothing
+    return tryparse(UInt64, m.captures[1])
+end
+
+function epoch_dir_age_ns(path::AbstractString, now_ns::UInt64, epoch_start_ns::Union{UInt64, Nothing})
+    if epoch_start_ns !== nothing
+        return now_ns > epoch_start_ns ? now_ns - epoch_start_ns : UInt64(0)
+    end
+    stat_info = stat(path)
+    mtime_ns = UInt64(floor(stat_info.mtime * 1_000_000_000))
+    return now_ns > mtime_ns ? now_ns - mtime_ns : UInt64(0)
+end
+
+function gc_stream_epochs!(
+    state::DriverState,
+    stream_state::DriverStreamState,
+    now_ns::UInt64;
+    min_age_ns::Union{UInt64, Nothing} = nothing,
+)
+    policy = state.config.policies
+    policy.epoch_gc_enabled || return 0
+    keep = max(1, Int(policy.epoch_gc_keep))
+    effective_min_age = min_age_ns === nothing ? policy.epoch_gc_min_age_ns : min_age_ns
+    root_dir = canonical_epoch_root_dir(
+        state.config.shm.base_dir,
+        "stream-$(stream_state.stream_id)",
+        state.config.endpoints.instance_id,
+    )
+    isdir(root_dir) || return 0
+
+    epochs = UInt64[]
+    for entry in readdir(root_dir)
+        ep = parse_epoch_dirname(entry)
+        ep === nothing && continue
+        push!(epochs, ep)
+    end
+    isempty(epochs) && return 0
+
+    current_epoch = stream_state.epoch == 0 ? maximum(epochs) : stream_state.epoch
+    min_keep_epoch = current_epoch > keep - 1 ? current_epoch - (keep - 1) : UInt64(0)
+    removed = 0
+    for ep in epochs
+        ep >= min_keep_epoch && continue
+        path = joinpath(root_dir, "epoch-$(ep)")
+        path_allowed(path, state.config.shm.allowed_base_dirs) || continue
+        age_ns = epoch_dir_age_ns(path, now_ns, get(stream_state.epoch_start_ns, ep, nothing))
+        age_ns < effective_min_age && continue
+        rm(path; recursive = true, force = true)
+        delete!(stream_state.epoch_start_ns, ep)
+        removed += 1
+    end
+    return removed
+end
+
+function gc_orphan_epochs_for_stream!(
+    state::DriverState,
+    stream_id::UInt32,
+    now_ns::UInt64,
+    min_age_ns::Union{UInt64, Nothing} = nothing,
+)
+    policy = state.config.policies
+    policy.epoch_gc_enabled || return 0
+    keep = max(1, Int(policy.epoch_gc_keep))
+    effective_min_age = min_age_ns === nothing ? policy.epoch_gc_min_age_ns : min_age_ns
+    root_dir = canonical_epoch_root_dir(
+        state.config.shm.base_dir,
+        "stream-$(stream_id)",
+        state.config.endpoints.instance_id,
+    )
+    isdir(root_dir) || return 0
+    epochs = UInt64[]
+    for entry in readdir(root_dir)
+        ep = parse_epoch_dirname(entry)
+        ep === nothing && continue
+        push!(epochs, ep)
+    end
+    isempty(epochs) && return 0
+    current_epoch = maximum(epochs)
+    min_keep_epoch = current_epoch > keep - 1 ? current_epoch - (keep - 1) : UInt64(0)
+    removed = 0
+    for ep in epochs
+        ep >= min_keep_epoch && continue
+        path = joinpath(root_dir, "epoch-$(ep)")
+        path_allowed(path, state.config.shm.allowed_base_dirs) || continue
+        age_ns = epoch_dir_age_ns(path, now_ns, nothing)
+        age_ns < effective_min_age && continue
+        rm(path; recursive = true, force = true)
+        removed += 1
+    end
+    return removed
 end
 
 function provision_stream_epoch!(state::DriverState, stream_state::DriverStreamState)
@@ -131,6 +228,7 @@ function provision_stream_epoch!(state::DriverState, stream_state::DriverStreamS
 
     header_path = parse_shm_uri(header_uri).path
     header_size = SUPERBLOCK_SIZE + Int(stream_state.profile.header_nslots) * HEADER_SLOT_BYTES
+    ensure_shm_capacity!(state, stream_state, header_path, header_size)
     created = ensure_shm_file!(
         state,
         header_path,
@@ -138,12 +236,6 @@ function provision_stream_epoch!(state::DriverState, stream_state::DriverStreamS
         state.config.shm.permissions_mode,
         state.config.policies.reuse_existing_shm,
     )
-    if created && state.config.policies.prefault_shm
-        available = shm_available_bytes(header_path)
-        if available < header_size
-            throw(ArgumentError("insufficient shm space for header region: need $(header_size) bytes, have $(available)"))
-        end
-    end
     header_mmap = created ? mmap_shm(header_uri, header_size; write = true) :
                   mmap_shm_existing(header_uri, header_size; write = true)
     if created && state.config.policies.prefault_shm
@@ -176,6 +268,7 @@ function provision_stream_epoch!(state::DriverState, stream_state::DriverStreamS
         pool_uri = stream_state.pool_uris[pool.pool_id]
         pool_path = parse_shm_uri(pool_uri).path
         pool_size = SUPERBLOCK_SIZE + Int(stream_state.profile.header_nslots) * Int(pool.stride_bytes)
+        ensure_shm_capacity!(state, stream_state, pool_path, pool_size; pool_id = pool.pool_id)
         created = ensure_shm_file!(
             state,
             pool_path,
@@ -183,12 +276,6 @@ function provision_stream_epoch!(state::DriverState, stream_state::DriverStreamS
             state.config.shm.permissions_mode,
             state.config.policies.reuse_existing_shm,
         )
-        if created && state.config.policies.prefault_shm
-            available = shm_available_bytes(pool_path)
-            if available < pool_size
-                throw(ArgumentError("insufficient shm space for payload pool $(pool.pool_id): need $(pool_size) bytes, have $(available)"))
-            end
-        end
         pool_mmap = created ? mmap_shm(pool_uri, pool_size; write = true) :
                     mmap_shm_existing(pool_uri, pool_size; write = true)
         if created && state.config.policies.prefault_shm
@@ -215,6 +302,30 @@ function provision_stream_epoch!(state::DriverState, stream_state::DriverStreamS
                 now_ns,
             ),
         )
+    end
+    return nothing
+end
+
+function ensure_shm_capacity!(
+    state::DriverState,
+    stream_state::DriverStreamState,
+    path::AbstractString,
+    size::Int;
+    pool_id::Union{UInt16, Nothing} = nothing,
+)
+    stat_path = ispath(path) ? path : state.config.shm.base_dir
+    available = shm_available_bytes(stat_path)
+    if available >= size
+        return nothing
+    end
+    now_ns = UInt64(Clocks.time_nanos(state.clock))
+    gc_stream_epochs!(state, stream_state, now_ns; min_age_ns = UInt64(0))
+    available = shm_available_bytes(stat_path)
+    if available < size
+        if pool_id === nothing
+            throw(ArgumentError("insufficient shm space for header region: need $(size) bytes, have $(available)"))
+        end
+        throw(ArgumentError("insufficient shm space for payload pool $(pool_id): need $(size) bytes, have $(available)"))
     end
     return nothing
 end

@@ -75,6 +75,12 @@ function init_driver(config::DriverConfig; client::Aeron.Client)
         lifecycle,
     )
     state.runtime.control_assembler = make_driver_control_assembler(state)
+    if config.policies.epoch_gc_on_startup
+        now_ns = UInt64(Clocks.time_nanos(clock))
+        for stream in values(config.streams)
+            gc_orphan_epochs_for_stream!(state, stream.stream_id, now_ns)
+        end
+    end
     return state
 end
 

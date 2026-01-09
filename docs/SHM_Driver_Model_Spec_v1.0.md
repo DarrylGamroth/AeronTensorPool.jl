@@ -429,6 +429,10 @@ Optional keys and defaults:
 - `policies.lease_expiry_grace_intervals` (uint32): missed keepalives before expiry. Default: `3`.
 - `policies.prefault_shm` (bool): prefault/zero SHM regions on create. Default: `true`.
 - `policies.mlock_shm` (bool): mlock SHM regions on create; if enabled and `mlock` fails, the driver MUST treat it as a fatal error. `mlock` is per-process; clients SHOULD mlock their own mappings when enabled. On unsupported platforms, implementations SHOULD warn and treat it as a no-op. Default: `false`.
+- `policies.epoch_gc_enabled` (bool): enable epoch directory GC. Default: `true`.
+- `policies.epoch_gc_keep` (uint32): number of epochs to keep (current + N-1). Default: `2`.
+- `policies.epoch_gc_min_age_ns` (uint64): minimum age before deletion. Default: `3 × announce_period`.
+- `policies.epoch_gc_on_startup` (bool): run GC at driver startup. Default: `false`.
 - `policies.shutdown_timeout_ms` (uint32): drain period before shutdown completes. Default: `2000`.
 - `policies.shutdown_token` (string): admin shutdown token. Default: empty (disabled).
 

@@ -41,9 +41,43 @@ struct DriverPolicyConfig
     reuse_existing_shm::Bool
     mlock_shm::Bool
     cleanup_shm_on_exit::Bool
+    epoch_gc_enabled::Bool
+    epoch_gc_keep::UInt32
+    epoch_gc_min_age_ns::UInt64
+    epoch_gc_on_startup::Bool
     shutdown_timeout_ms::UInt32
     shutdown_token::String
 end
+
+DriverPolicyConfig(
+    allow_dynamic_streams::Bool,
+    default_profile::String,
+    announce_period_ms::UInt32,
+    lease_keepalive_interval_ms::UInt32,
+    lease_expiry_grace_intervals::UInt32,
+    prefault_shm::Bool,
+    reuse_existing_shm::Bool,
+    mlock_shm::Bool,
+    cleanup_shm_on_exit::Bool,
+    shutdown_timeout_ms::UInt32,
+    shutdown_token::String,
+) = DriverPolicyConfig(
+    allow_dynamic_streams,
+    default_profile,
+    announce_period_ms,
+    lease_keepalive_interval_ms,
+    lease_expiry_grace_intervals,
+    prefault_shm,
+    reuse_existing_shm,
+    mlock_shm,
+    cleanup_shm_on_exit,
+    true,
+    UInt32(2),
+    UInt64(announce_period_ms) * 1_000_000 * 3,
+    false,
+    shutdown_timeout_ms,
+    shutdown_token,
+)
 
 """
 Inclusive stream id allocation range.
@@ -126,6 +160,10 @@ function env_override(env::AbstractDict, key::AbstractString, fallback::UInt16)
     return parse(UInt16, get(env, env_key(key), string(fallback)))
 end
 
+function env_override(env::AbstractDict, key::AbstractString, fallback::UInt64)
+    return parse(UInt64, get(env, env_key(key), string(fallback)))
+end
+
 function env_override(env::AbstractDict, key::AbstractString, fallback::Int32)
     return parse(Int32, get(env, env_key(key), string(fallback)))
 end
@@ -198,6 +236,19 @@ function load_driver_config(path::AbstractString; env::AbstractDict = ENV)
     mlock_shm = env_override(env, "policies.mlock_shm", Bool(get(policies_tbl, "mlock_shm", false)))
     cleanup_shm_on_exit =
         env_override(env, "policies.cleanup_shm_on_exit", Bool(get(policies_tbl, "cleanup_shm_on_exit", false)))
+    epoch_gc_enabled =
+        env_override(env, "policies.epoch_gc_enabled", Bool(get(policies_tbl, "epoch_gc_enabled", true)))
+    epoch_gc_keep = env_override(env, "policies.epoch_gc_keep", UInt32(get(policies_tbl, "epoch_gc_keep", 2)))
+    epoch_gc_min_age_ns = env_override(
+        env,
+        "policies.epoch_gc_min_age_ns",
+        UInt64(get(policies_tbl, "epoch_gc_min_age_ns", 0)),
+    )
+    if epoch_gc_min_age_ns == 0
+        epoch_gc_min_age_ns = UInt64(announce_period_ms) * 1_000_000 * 3
+    end
+    epoch_gc_on_startup =
+        env_override(env, "policies.epoch_gc_on_startup", Bool(get(policies_tbl, "epoch_gc_on_startup", false)))
     shutdown_timeout_ms =
         env_override(env, "policies.shutdown_timeout_ms", UInt32(get(policies_tbl, "shutdown_timeout_ms", 2000)))
     shutdown_token = String(env_override(env, "policies.shutdown_token", String(get(policies_tbl, "shutdown_token", ""))))
@@ -288,6 +339,10 @@ function load_driver_config(path::AbstractString; env::AbstractDict = ENV)
         reuse_existing_shm,
         mlock_shm,
         cleanup_shm_on_exit,
+        epoch_gc_enabled,
+        epoch_gc_keep,
+        epoch_gc_min_age_ns,
+        epoch_gc_on_startup,
         shutdown_timeout_ms,
         shutdown_token,
     )

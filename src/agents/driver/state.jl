@@ -21,6 +21,7 @@ mutable struct DriverStreamState
     stream_id::UInt32
     profile::DriverProfileConfig
     epoch::UInt64
+    epoch_start_ns::Dict{UInt64, UInt64}
     header_uri::String
     pool_uris::Dict{UInt16, String}
     producer_lease_id::UInt64
