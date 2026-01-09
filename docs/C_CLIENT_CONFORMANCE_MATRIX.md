@@ -73,9 +73,9 @@ Status legend:
 
 | Spec | Requirement | Status | Evidence / Notes |
 | --- | --- | --- | --- |
-| §9 | ShmPoolAnnounce soft-state + freshness handling | **Not Implemented** | C client does not subscribe to ShmPoolAnnounce. |
-| §10.3 | FrameProgress handling (optional) | **Not Implemented** | No progress subscription/handling. |
-| §12 | QosProducer/QosConsumer send | **Partial** | Explicit send APIs exist; no scheduling loop. |
+| §9 | ShmPoolAnnounce soft-state + freshness handling | **Implemented** | Control handler validates epoch/stream, join-time (monotonic), and freshness window; tracks last announce timestamp. |
+| §10.3 | FrameProgress handling (optional) | **Implemented** | Control handler validates epoch/stream and header index; updates cached progress. |
+| §12 | QosProducer/QosConsumer send | **Implemented** | Periodic send in `tp_consumer_poll` and `tp_producer_poll`; explicit send APIs still available. |
 | §12 | QoS monitoring (receive) | **Implemented** | `tp_qos_monitor_*`. |
 
 ### Per-consumer streams & rate limiting
@@ -99,10 +99,10 @@ Status legend:
 
 - Core attach, SHM mapping, and seqlock read/write are implemented with defensive validations (URI/stride, header_index bounds, epoch checks, payload offset/length, ndims, and progress/stride validation).
 - Control-plane robustness is improved: attach/detach, lease revocation, and shutdown handling are implemented, but reattach remains caller-driven.
-- QoS/metadata/discovery receive paths exist; QoS send APIs exist but require caller scheduling; FrameProgress handling remains unimplemented.
+- QoS/metadata/discovery receive paths exist; QoS send is scheduled via poll helpers; FrameProgress and announce handling are implemented.
 
 ## Recommended next actions
 
-1) Add FrameProgress handling if needed for partial-frame workflows.
-2) Add ShmPoolAnnounce subscription with freshness/join-time filtering if required for liveness monitoring.
-3) Add a scheduler/poller for QoS send intervals if deployments require automated QoS cadence.
+1) Expand automated reattach/remap workflows for lease revocation or epoch changes if desired.
+2) Add optional schema version negotiation to explicitly reject incompatible versions.
+3) Add additional integration tests to cover driver shutdown/reattach scenarios.
