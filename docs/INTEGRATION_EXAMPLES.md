@@ -190,6 +190,16 @@ Defaults:
 - `TP_INTEROP_USE_EMBEDDED=1` (starts a standalone MediaDriver via `scripts/run_media_driver.jl` with a temp `AERON_DIR`)
 - `TP_INTEROP_TIMEOUT_S=30`
 
+### C metadata/QoS example notes
+
+The C examples can emit QoS and metadata when the following environment
+variables are set before running `tp_producer_example` / `tp_consumer_example`:
+
+- `TP_METADATA_CHANNEL`, `TP_METADATA_STREAM_ID` to enable metadata publish/consume
+- `TP_META_VERSION` to set the metadata version (producer)
+- `TP_QOS_CHANNEL`, `TP_QOS_STREAM_ID` to enable QoS publications
+- `TP_QOS_INTERVAL_MS` to control periodic QoS/keepalive cadence
+
 ### Cross-check C ↔ Julia (C producer → Julia consumer, Julia producer → C consumer)
 
 ```bash

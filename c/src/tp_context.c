@@ -18,6 +18,8 @@ tp_err_t tp_context_init(tp_context_t **ctx)
     tmp->control_stream_id = 1000;
     snprintf(tmp->descriptor_channel, sizeof(tmp->descriptor_channel), "%s", "aeron:ipc?term-length=4m");
     tmp->descriptor_stream_id = 1100;
+    tmp->metadata_channel[0] = '\0';
+    tmp->metadata_stream_id = 0;
     tmp->qos_channel[0] = '\0';
     tmp->qos_stream_id = 0;
     tmp->client_id = (uint32_t)getpid();
@@ -118,6 +120,25 @@ tp_err_t tp_context_set_qos_stream_id(tp_context_t *ctx, int32_t stream_id)
         return TP_ERR_ARG;
     }
     ctx->qos_stream_id = stream_id;
+    return TP_OK;
+}
+
+tp_err_t tp_context_set_metadata_channel(tp_context_t *ctx, const char *channel)
+{
+    if (ctx == NULL)
+    {
+        return TP_ERR_ARG;
+    }
+    return tp_set_string(ctx->metadata_channel, sizeof(ctx->metadata_channel), channel);
+}
+
+tp_err_t tp_context_set_metadata_stream_id(tp_context_t *ctx, int32_t stream_id)
+{
+    if (ctx == NULL)
+    {
+        return TP_ERR_ARG;
+    }
+    ctx->metadata_stream_id = stream_id;
     return TP_OK;
 }
 

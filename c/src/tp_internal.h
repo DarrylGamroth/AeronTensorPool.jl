@@ -57,6 +57,7 @@ typedef struct tp_context_stct
     uint32_t client_id;
     int32_t control_stream_id;
     int32_t descriptor_stream_id;
+    int32_t metadata_stream_id;
     int32_t qos_stream_id;
     int32_t consumer_descriptor_stream_id;
     int32_t consumer_control_stream_id;
@@ -65,6 +66,7 @@ typedef struct tp_context_stct
     char aeron_dir[TP_URI_MAX];
     char control_channel[TP_URI_MAX];
     char descriptor_channel[TP_URI_MAX];
+    char metadata_channel[TP_URI_MAX];
     char qos_channel[TP_URI_MAX];
     char consumer_descriptor_channel[TP_URI_MAX];
     char consumer_control_channel[TP_URI_MAX];
@@ -167,6 +169,7 @@ typedef struct tp_producer_stct
 {
     tp_client_t *client;
     aeron_publication_t *pub_descriptor;
+    aeron_publication_t *pub_metadata;
     aeron_publication_t *pub_qos;
     uint64_t lease_id;
     uint64_t epoch;

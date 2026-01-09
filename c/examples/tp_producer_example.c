@@ -30,6 +30,10 @@ int main(int argc, char **argv)
     uint32_t send_delay_ms = env ? (uint32_t)strtoul(env, NULL, 10) : 0;
     env = getenv("TP_ATTACH_TIMEOUT_MS");
     uint64_t attach_timeout_ns = env ? (uint64_t)strtoull(env, NULL, 10) * 1000000ULL : 5000000000ULL;
+    env = getenv("TP_QOS_INTERVAL_MS");
+    uint64_t qos_interval_ns = env ? (uint64_t)strtoull(env, NULL, 10) * 1000000ULL : 0;
+    env = getenv("TP_META_VERSION");
+    uint32_t meta_version = env ? (uint32_t)strtoul(env, NULL, 10) : 1;
 
     tp_context_t *ctx = NULL;
     tp_client_t *client = NULL;
@@ -56,6 +60,16 @@ int main(int argc, char **argv)
     {
         tp_context_set_descriptor_channel(ctx, descriptor_channel);
     }
+    const char *metadata_channel = getenv("TP_METADATA_CHANNEL");
+    if (metadata_channel && metadata_channel[0] != '\0')
+    {
+        tp_context_set_metadata_channel(ctx, metadata_channel);
+    }
+    const char *qos_channel = getenv("TP_QOS_CHANNEL");
+    if (qos_channel && qos_channel[0] != '\0')
+    {
+        tp_context_set_qos_channel(ctx, qos_channel);
+    }
     env = getenv("TP_CONTROL_STREAM_ID");
     if (env && env[0] != '\0')
     {
@@ -66,7 +80,21 @@ int main(int argc, char **argv)
     {
         tp_context_set_descriptor_stream_id(ctx, (uint32_t)strtoul(env, NULL, 10));
     }
+    const char *metadata_stream_env = getenv("TP_METADATA_STREAM_ID");
+    if (metadata_stream_env && metadata_stream_env[0] != '\0')
+    {
+        tp_context_set_metadata_stream_id(ctx, (int32_t)strtoul(metadata_stream_env, NULL, 10));
+    }
+    env = getenv("TP_QOS_STREAM_ID");
+    if (env && env[0] != '\0')
+    {
+        tp_context_set_qos_stream_id(ctx, (uint32_t)strtoul(env, NULL, 10));
+    }
     tp_context_set_attach_timeout_ns(ctx, attach_timeout_ns);
+    if (qos_interval_ns > 0)
+    {
+        tp_context_set_qos_interval_ns(ctx, qos_interval_ns);
+    }
 
     if (tp_client_connect(ctx, &client) != TP_OK)
     {
@@ -81,6 +109,39 @@ int main(int argc, char **argv)
         tp_client_close(client);
         tp_context_close(ctx);
         return 1;
+    }
+
+    if (metadata_channel && metadata_channel[0] != '\0' && metadata_stream_env && metadata_stream_env[0] != '\0')
+    {
+        tp_metadata_attribute_t attrs[1];
+        memset(attrs, 0, sizeof(attrs));
+        snprintf(attrs[0].key, sizeof(attrs[0].key), "%s", "payload_bytes");
+        snprintf(attrs[0].mime_type, sizeof(attrs[0].mime_type), "%s", "text/plain");
+        char value_buf[32];
+        snprintf(value_buf, sizeof(value_buf), "%u", payload_bytes);
+        attrs[0].value_len = (uint32_t)strlen(value_buf);
+        memcpy(attrs[0].value, value_buf, attrs[0].value_len);
+
+        tp_err_t ann_err = tp_producer_send_metadata_announce(
+            producer,
+            meta_version,
+            "tp-producer-example",
+            "metadata example");
+        if (ann_err != TP_OK)
+        {
+            fprintf(stderr, "metadata announce failed (err=%d)\n", ann_err);
+        }
+
+        tp_err_t meta_err = tp_producer_send_metadata_meta(
+            producer,
+            meta_version,
+            now_ns(),
+            attrs,
+            1);
+        if (meta_err != TP_OK)
+        {
+            fprintf(stderr, "metadata meta failed (err=%d)\n", meta_err);
+        }
     }
 
     uint8_t *payload = (uint8_t *)malloc(payload_bytes);
@@ -119,6 +180,7 @@ int main(int argc, char **argv)
     while (sent < count && now_ns() < deadline)
     {
         tp_client_do_work(client);
+        tp_producer_poll(producer);
         if (debug_conn && sent == 0 && (now_ns() % 1000000000ULL) < 1000000ULL)
         {
             bool connected = tp_producer_is_connected(producer);

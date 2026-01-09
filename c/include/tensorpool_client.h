@@ -28,6 +28,8 @@ tp_err_t tp_context_set_descriptor_channel(tp_context_t *ctx, const char *channe
 tp_err_t tp_context_set_descriptor_stream_id(tp_context_t *ctx, int32_t stream_id);
 tp_err_t tp_context_set_qos_channel(tp_context_t *ctx, const char *channel);
 tp_err_t tp_context_set_qos_stream_id(tp_context_t *ctx, int32_t stream_id);
+tp_err_t tp_context_set_metadata_channel(tp_context_t *ctx, const char *channel);
+tp_err_t tp_context_set_metadata_stream_id(tp_context_t *ctx, int32_t stream_id);
 tp_err_t tp_context_set_client_id(tp_context_t *ctx, uint32_t client_id);
 tp_err_t tp_context_set_use_invoker(tp_context_t *ctx, bool value);
 tp_err_t tp_context_set_attach_timeout_ns(tp_context_t *ctx, uint64_t timeout_ns);
@@ -67,6 +69,17 @@ tp_err_t tp_producer_commit_slot(
     uint32_t values_len,
     const tp_tensor_header_t *tensor,
     uint32_t meta_version);
+tp_err_t tp_producer_send_metadata_announce(
+    tp_producer_t *producer,
+    uint32_t meta_version,
+    const char *name,
+    const char *summary);
+tp_err_t tp_producer_send_metadata_meta(
+    tp_producer_t *producer,
+    uint32_t meta_version,
+    uint64_t timestamp_ns,
+    const tp_metadata_attribute_t *attrs,
+    uint32_t attr_count);
 tp_err_t tp_producer_send_qos(tp_producer_t *producer, uint64_t current_seq, uint64_t watermark);
 tp_err_t tp_producer_poll(tp_producer_t *producer);
 

@@ -1,5 +1,6 @@
 #include "tp_internal.h"
 #include <stdio.h>
+#include <string.h>
 
 static bool tp_is_power_of_two(uint32_t value)
 {
@@ -103,13 +104,21 @@ static tp_err_t tp_init_producer_from_attach(tp_client_t *client, const tp_attac
         tp_producer_close(producer);
         return TP_ERR_AERON;
     }
+    if (client->context->metadata_channel[0] != '\0' && client->context->metadata_stream_id != 0)
+    {
+        if (tp_add_publication(client->aeron, client->context->metadata_channel, client->context->metadata_stream_id, &producer->pub_metadata) < 0)
+        {
+            tp_producer_close(producer);
+            return TP_ERR_AERON;
+        }
+    }
     if (client->context->qos_channel[0] != '\0' && client->context->qos_stream_id != 0)
     {
-    if (tp_add_publication(client->aeron, client->context->qos_channel, client->context->qos_stream_id, &producer->pub_qos) < 0)
-    {
-        tp_producer_close(producer);
-        return TP_ERR_AERON;
-    }
+        if (tp_add_publication(client->aeron, client->context->qos_channel, client->context->qos_stream_id, &producer->pub_qos) < 0)
+        {
+            tp_producer_close(producer);
+            return TP_ERR_AERON;
+        }
     }
 
     producer->last_qos_ns = tp_now_ns();
@@ -542,6 +551,148 @@ tp_err_t tp_producer_poll(tp_producer_t *producer)
     return TP_OK;
 }
 
+static uint32_t tp_metadata_text_len(const char *text, uint32_t max_len)
+{
+    if (text == NULL)
+    {
+        return 0;
+    }
+    size_t len = strnlen(text, max_len);
+    return (uint32_t)len;
+}
+
+static uint64_t tp_metadata_announce_length(const char *name, const char *summary)
+{
+    uint64_t length = shm_tensorpool_control_messageHeader_encoded_length() +
+        shm_tensorpool_control_dataSourceAnnounce_sbe_block_length();
+    length += shm_tensorpool_control_dataSourceAnnounce_name_header_length();
+    length += tp_metadata_text_len(name, TP_METADATA_TEXT_MAX);
+    length += shm_tensorpool_control_dataSourceAnnounce_summary_header_length();
+    length += tp_metadata_text_len(summary, TP_METADATA_TEXT_MAX);
+    return length;
+}
+
+static uint64_t tp_metadata_meta_length(const tp_metadata_attribute_t *attrs, uint32_t attr_count)
+{
+    uint64_t length = shm_tensorpool_control_messageHeader_encoded_length() +
+        shm_tensorpool_control_dataSourceMeta_sbe_block_length();
+    length += shm_tensorpool_control_dataSourceMeta_attributes_sbe_header_size();
+    length += (uint64_t)attr_count * shm_tensorpool_control_dataSourceMeta_attributes_sbe_block_length();
+    for (uint32_t i = 0; i < attr_count; i++)
+    {
+        length += shm_tensorpool_control_dataSourceMeta_attributes_key_header_length();
+        length += tp_metadata_text_len(attrs[i].key, TP_METADATA_TEXT_MAX);
+        length += shm_tensorpool_control_dataSourceMeta_attributes_format_header_length();
+        length += tp_metadata_text_len(attrs[i].mime_type, TP_METADATA_TEXT_MAX);
+        length += shm_tensorpool_control_dataSourceMeta_attributes_value_header_length();
+        length += attrs[i].value_len;
+    }
+    return length;
+}
+
+tp_err_t tp_producer_send_metadata_announce(
+    tp_producer_t *producer,
+    uint32_t meta_version,
+    const char *name,
+    const char *summary)
+{
+    if ((producer == NULL) || (producer->pub_metadata == NULL))
+    {
+        return TP_ERR_ARG;
+    }
+    aeron_buffer_claim_t claim_buf;
+    uint64_t msg_len = tp_metadata_announce_length(name, summary);
+    int64_t position = aeron_publication_try_claim(producer->pub_metadata, msg_len, &claim_buf);
+    if (position < 0)
+    {
+        return TP_ERR_AERON;
+    }
+
+    struct shm_tensorpool_control_messageHeader hdr;
+    struct shm_tensorpool_control_dataSourceAnnounce msg;
+    shm_tensorpool_control_dataSourceAnnounce_wrap_and_apply_header(
+        &msg,
+        (char *)claim_buf.data,
+        0,
+        msg_len,
+        &hdr);
+    shm_tensorpool_control_dataSourceAnnounce_set_streamId(&msg, producer->stream_id);
+    shm_tensorpool_control_dataSourceAnnounce_set_producerId(&msg, producer->client->context->client_id);
+    shm_tensorpool_control_dataSourceAnnounce_set_epoch(&msg, producer->epoch);
+    shm_tensorpool_control_dataSourceAnnounce_set_metaVersion(&msg, meta_version);
+    shm_tensorpool_control_dataSourceAnnounce_put_name(
+        &msg,
+        name == NULL ? "" : name,
+        tp_metadata_text_len(name, TP_METADATA_TEXT_MAX));
+    shm_tensorpool_control_dataSourceAnnounce_put_summary(
+        &msg,
+        summary == NULL ? "" : summary,
+        tp_metadata_text_len(summary, TP_METADATA_TEXT_MAX));
+
+    aeron_buffer_claim_commit(&claim_buf);
+    return TP_OK;
+}
+
+tp_err_t tp_producer_send_metadata_meta(
+    tp_producer_t *producer,
+    uint32_t meta_version,
+    uint64_t timestamp_ns,
+    const tp_metadata_attribute_t *attrs,
+    uint32_t attr_count)
+{
+    if ((producer == NULL) || (producer->pub_metadata == NULL) || (attrs == NULL && attr_count > 0))
+    {
+        return TP_ERR_ARG;
+    }
+    if (attr_count > TP_MAX_METADATA_ATTRS)
+    {
+        return TP_ERR_ARG;
+    }
+    aeron_buffer_claim_t claim_buf;
+    uint64_t msg_len = tp_metadata_meta_length(attrs, attr_count);
+    int64_t position = aeron_publication_try_claim(producer->pub_metadata, msg_len, &claim_buf);
+    if (position < 0)
+    {
+        return TP_ERR_AERON;
+    }
+
+    struct shm_tensorpool_control_messageHeader hdr;
+    struct shm_tensorpool_control_dataSourceMeta msg;
+    shm_tensorpool_control_dataSourceMeta_wrap_and_apply_header(
+        &msg,
+        (char *)claim_buf.data,
+        0,
+        msg_len,
+        &hdr);
+    shm_tensorpool_control_dataSourceMeta_set_streamId(&msg, producer->stream_id);
+    shm_tensorpool_control_dataSourceMeta_set_metaVersion(&msg, meta_version);
+    shm_tensorpool_control_dataSourceMeta_set_timestampNs(&msg, timestamp_ns);
+
+    struct shm_tensorpool_control_dataSourceMeta_attributes attrs_group;
+    shm_tensorpool_control_dataSourceMeta_attributes_set_count(&msg, &attrs_group, attr_count);
+    for (uint32_t i = 0; i < attr_count; i++)
+    {
+        shm_tensorpool_control_dataSourceMeta_attributes_next(&attrs_group);
+        uint32_t key_len = tp_metadata_text_len(attrs[i].key, TP_METADATA_TEXT_MAX);
+        uint32_t format_len = tp_metadata_text_len(attrs[i].mime_type, TP_METADATA_TEXT_MAX);
+        shm_tensorpool_control_dataSourceMeta_attributes_put_key(
+            &attrs_group,
+            attrs[i].key,
+            key_len);
+        shm_tensorpool_control_dataSourceMeta_attributes_put_format(
+            &attrs_group,
+            attrs[i].mime_type,
+            format_len);
+        shm_tensorpool_control_dataSourceMeta_attributes_put_value(
+            &attrs_group,
+            (const char *)attrs[i].value,
+            attrs[i].value_len);
+    }
+
+    aeron_buffer_claim_commit(&claim_buf);
+    return TP_OK;
+}
+
 void tp_producer_close(tp_producer_t *producer)
 {
     if (producer == NULL)
@@ -551,6 +702,10 @@ void tp_producer_close(tp_producer_t *producer)
     if (producer->pub_descriptor)
     {
         aeron_publication_close(producer->pub_descriptor, NULL, NULL);
+    }
+    if (producer->pub_metadata)
+    {
+        aeron_publication_close(producer->pub_metadata, NULL, NULL);
     }
     if (producer->pub_qos)
     {
