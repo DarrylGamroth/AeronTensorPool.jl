@@ -120,6 +120,7 @@ Each agent follows the same organization for readability:
 - Embedded TensorHeader decode: `SlotHeader.headerBytes` includes a `MessageHeader`; use the default `TensorHeaderMsg.wrap!` when decoding (and `wrap_and_apply_header!` only on the write path).
 - Regenerate codecs after spec/schema edits: run `julia --project -e 'using Pkg; Pkg.build(\"AeronTensorPool\")'` to avoid stale schema/version mismatches.
 - Producer startup: wait for descriptor publication connectivity before sending frames; `try_claim` returns `-1` when no consumer is connected.
+- Julia naming: prefer fully qualified names in tests and agent code to avoid ambiguity from unqualified imports.
 
 ## Scripts
 - `scripts/run_role.jl`: run a single role with a config
