@@ -22,6 +22,20 @@ end
 
 This keeps Aeron + SHM management inside AeronTensorPool and lets your server own device control and lifecycle.
 
+## Metadata (producer handle)
+
+Metadata helpers auto‑increment `meta_version` and queue updates for the producer work loop:
+
+```julia
+handle = attach_producer(client, producer_cfg; discover = false)
+announce_data_source!(handle, "camera-1"; summary = "front-left")
+set_metadata_attribute!(handle, "pattern" => ("text/plain", "counter"))
+set_metadata_attribute!(handle, "payload_bytes" => (format = "text/plain", value = 640_000))
+meta_version = metadata_version(handle)
+
+# Ensure the producer agent is running so metadata is emitted.
+```
+
 ## Device DMA into SHM (BGAPI2-style)
 
 Register SHM payload slots as device buffers, then publish descriptors when DMA completes.
