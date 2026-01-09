@@ -1,4 +1,5 @@
 #include "tp_internal.h"
+#include <stdlib.h>
 
 static int64_t tp_next_correlation_id(tp_client_t *client)
 {
@@ -46,7 +47,9 @@ tp_err_t tp_send_attach_request(
 
 tp_err_t tp_wait_attach(tp_client_t *client, int64_t correlation_id, tp_attach_response_t *out)
 {
-    const uint64_t deadline = tp_now_ns() + 5000000000ULL;
+    const char *timeout_env = getenv("TP_ATTACH_TIMEOUT_MS");
+    const uint64_t timeout_ns = timeout_env ? (uint64_t)strtoull(timeout_env, NULL, 10) * 1000000ULL : 5000000000ULL;
+    const uint64_t deadline = tp_now_ns() + timeout_ns;
     while (tp_now_ns() < deadline)
     {
         tp_client_do_work(client);

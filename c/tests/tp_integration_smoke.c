@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sched.h>
 #include <time.h>
 #include <unistd.h>
 
@@ -16,6 +17,22 @@ static uint64_t now_ns(void)
     return (uint64_t)ts.tv_sec * 1000000000ULL + (uint64_t)ts.tv_nsec;
 }
 
+static bool wait_for_driver_connect(tp_client_t *client, uint64_t timeout_ns)
+{
+    const uint64_t deadline = now_ns() + timeout_ns;
+    while (now_ns() < deadline)
+    {
+        tp_client_do_work(client);
+        if (client->driver.pub && aeron_publication_is_connected(client->driver.pub) &&
+            client->driver.sub && aeron_subscription_is_connected(client->driver.sub))
+        {
+            return true;
+        }
+        sched_yield();
+    }
+    return false;
+}
+
 int main(int argc, char **argv)
 {
     (void)argc;
@@ -23,6 +40,8 @@ int main(int argc, char **argv)
 
     const char *env = getenv("TP_STREAM_ID");
     uint32_t stream_id = env ? (uint32_t)strtoul(env, NULL, 10) : 10000;
+    env = getenv("TP_ATTACH_TIMEOUT_MS");
+    uint64_t attach_timeout_ns = env ? (uint64_t)strtoull(env, NULL, 10) * 1000000ULL : 30000000000ULL;
 
     tp_context_t *ctx_prod = NULL;
     tp_context_t *ctx_cons = NULL;
@@ -90,6 +109,17 @@ int main(int argc, char **argv)
     {
         fprintf(stderr, "client connect failed\n");
         tp_client_close(client_prod);
+        tp_context_close(ctx_prod);
+        tp_context_close(ctx_cons);
+        return 1;
+    }
+
+    if (!wait_for_driver_connect(client_prod, attach_timeout_ns) ||
+        !wait_for_driver_connect(client_cons, attach_timeout_ns))
+    {
+        fprintf(stderr, "driver control not connected\n");
+        tp_client_close(client_prod);
+        tp_client_close(client_cons);
         tp_context_close(ctx_prod);
         tp_context_close(ctx_cons);
         return 1;

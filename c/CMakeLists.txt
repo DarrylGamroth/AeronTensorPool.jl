@@ -68,5 +68,5 @@ if (TP_BUILD_INTEGRATION_TESTS)
         ${CMAKE_CURRENT_SOURCE_DIR}/src
         ${CMAKE_CURRENT_SOURCE_DIR}/vendor/aeron)
     add_test(NAME tp_integration_smoke COMMAND tp_integration_smoke)
-    set_tests_properties(tp_integration_smoke PROPERTIES ENVIRONMENT "TP_STREAM_ID=10000")
+    set_tests_properties(tp_integration_smoke PROPERTIES ENVIRONMENT "TP_STREAM_ID=10000;TP_ATTACH_TIMEOUT_MS=30000")
 endif ()
