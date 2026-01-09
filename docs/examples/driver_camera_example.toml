@@ -51,25 +51,25 @@ stride_bytes = 2097152
 [streams]
 
 [streams.cam1]
-stream_id = 1001
+stream_id = 10000
 profile = "raw_profile"
 
 [streams.cam2]
-stream_id = 1002
+stream_id = 10001
 profile = "raw_profile"
 
 [streams.cam3]
-stream_id = 1003
+stream_id = 10002
 profile = "raw_profile"
 
 [streams.proc1]
-stream_id = 2001
+stream_id = 10100
 profile = "processed_profile"
 
 [streams.proc2]
-stream_id = 2002
+stream_id = 10101
 profile = "processed_profile"
 
 [streams.proc3]
-stream_id = 2003
+stream_id = 10102
 profile = "processed_profile"

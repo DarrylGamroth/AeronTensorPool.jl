@@ -21,7 +21,7 @@ int main(int argc, char **argv)
     (void)argv;
 
     const char *env = getenv("TP_STREAM_ID");
-    uint32_t stream_id = env ? (uint32_t)strtoul(env, NULL, 10) : 1;
+    uint32_t stream_id = env ? (uint32_t)strtoul(env, NULL, 10) : 10000;
     env = getenv("TP_COUNT");
     uint32_t count = env ? (uint32_t)strtoul(env, NULL, 10) : 10;
 

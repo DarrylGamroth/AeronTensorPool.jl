@@ -19,7 +19,7 @@ using Test
             end
             @test ok
 
-            cid = send_attach_request!(driver_client; stream_id = UInt32(1))
+            cid = send_attach_request!(driver_client; stream_id = UInt32(10000))
             @test cid == 0
 
             close(driver_client.pub)

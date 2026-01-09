@@ -23,35 +23,35 @@ forward_qos = false
 forward_progress = false
 
 [[mappings]]
-source_stream_id = 1001
-dest_stream_id = 2001
+source_stream_id = 10000
+dest_stream_id = 20000
 profile = "processed_profile"
-metadata_stream_id = 2001
+metadata_stream_id = 20000
 source_control_stream_id = 1201
 dest_control_stream_id = 2201
 
 [[mappings]]
-source_stream_id = 1002
-dest_stream_id = 2002
+source_stream_id = 10001
+dest_stream_id = 20001
 profile = "processed_profile"
-metadata_stream_id = 2002
+metadata_stream_id = 20001
 source_control_stream_id = 1202
 dest_control_stream_id = 2202
 
 # Bidirectional example: add reverse mappings to the same bridge instance
 # Note: reverse mappings swap source/dest control stream IDs.
 [[mappings]]
-source_stream_id = 1101
-dest_stream_id = 2101
+source_stream_id = 20000
+dest_stream_id = 10000
 profile = "processed_profile"
-metadata_stream_id = 2101
+metadata_stream_id = 10000
 source_control_stream_id = 2201
 dest_control_stream_id = 1201
 
 [[mappings]]
-source_stream_id = 1102
-dest_stream_id = 2102
+source_stream_id = 20001
+dest_stream_id = 10001
 profile = "processed_profile"
-metadata_stream_id = 2102
+metadata_stream_id = 10001
 source_control_stream_id = 2202
 dest_control_stream_id = 1202

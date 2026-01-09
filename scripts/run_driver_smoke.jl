@@ -42,7 +42,7 @@ payload_pools = [
 ]
 
 [streams.cam1]
-stream_id = 42
+stream_id = 10000
 profile = "raw"
 """,
         )
@@ -92,19 +92,19 @@ Aeron.MediaDriver.launch_embedded() do media_driver
             end
         end
 
-        attach_cmd = `julia --project scripts/tp_tool.jl driver-attach $(aeron_dir) aeron:ipc 1000 7 producer 42`
+        attach_cmd = `julia --project scripts/tp_tool.jl driver-attach $(aeron_dir) aeron:ipc 1000 7 producer 10000`
         attach_out = read(attach_cmd, String)
         println(attach_out)
         lease_id = parse_lease_id(attach_out)
         lease_id != 0 || error("driver attach failed")
 
         keepalive_cmd =
-            `julia --project scripts/tp_tool.jl driver-keepalive $(aeron_dir) aeron:ipc 1000 7 producer 42 $(lease_id)`
+            `julia --project scripts/tp_tool.jl driver-keepalive $(aeron_dir) aeron:ipc 1000 7 producer 10000 $(lease_id)`
         keepalive_out = read(keepalive_cmd, String)
         println("keepalive=$(strip(keepalive_out))")
 
         detach_cmd =
-            `julia --project scripts/tp_tool.jl driver-detach $(aeron_dir) aeron:ipc 1000 7 producer 42 $(lease_id)`
+            `julia --project scripts/tp_tool.jl driver-detach $(aeron_dir) aeron:ipc 1000 7 producer 10000 $(lease_id)`
         detach_out = read(detach_cmd, String)
         println(detach_out)
 

@@ -14,6 +14,11 @@ This document provides **recommended** stream ID conventions for AeronTensorPool
 
 ## 2. Suggested Stream ID Map
 
+### Pool Streams (per tensor pool)
+
+- Primary pool `stream_id`: `10000`
+- Additional pool streams: `10000-10999` (recommended static range)
+
 ### Driver Control Plane (local IPC)
 
 - `driver.control_stream_id`: `1000`
@@ -44,6 +49,10 @@ This document provides **recommended** stream ID conventions for AeronTensorPool
 ---
 
 ## 3. Recommended Ranges
+
+### Static pool stream IDs
+
+- `pool.stream_id` range: `10000-10999`
 
 ### Dynamic stream IDs (driver)
 

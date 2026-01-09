@@ -43,7 +43,7 @@ payload_pools = [
 ]
 
 [streams.cam1]
-stream_id = 1
+stream_id = 10000
 profile = "camera"
 """,
             )
@@ -60,7 +60,7 @@ descriptor_stream_id = 1100
 control_stream_id = 1000
 qos_stream_id = 1200
 metadata_stream_id = 1300
-stream_id = 1
+stream_id = 10000
 producer_id = 1
 layout_version = 1
 nslots = 64
@@ -92,7 +92,7 @@ aeron_uri = "aeron:ipc"
 descriptor_stream_id = 1100
 control_stream_id = 1000
 qos_stream_id = 1200
-stream_id = 1
+stream_id = 10000
 consumer_id = 1
 expected_layout_version = 1
 mode = "STREAM"

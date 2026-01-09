@@ -5,6 +5,6 @@ control_channel = "aeron:ipc?term-length=4m"
 control_stream_id = 1000
 descriptor_channel = "aeron:ipc?term-length=4m"
 descriptor_stream_id = 1100
-stream_id = 1
+stream_id = 10000
 # aeron_dir = "/dev/shm/aeron"
 # payload_stride_bytes = 1048576

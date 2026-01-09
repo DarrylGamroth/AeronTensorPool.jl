@@ -11,6 +11,7 @@ match the current code layout in `src/` and the wire/driver specs in `docs/`.
 - Discovery spec: `docs/SHM_Discovery_Service_Spec_v_1.0.md`
 - Rate limiter spec: `docs/SHM_RateLimiter_Spec_v1.0.md`
 - Implementation guides: `docs/IMPLEMENTATION.md`, `docs/IMPLEMENTATION_GUIDE.md`
+- Stream ID conventions (authoritative for defaults/ranges): `docs/STREAM_ID_CONVENTIONS.md`
 
 ## Design constraints
 - Steady-state must be type-stable and zero-allocation after initialization.
