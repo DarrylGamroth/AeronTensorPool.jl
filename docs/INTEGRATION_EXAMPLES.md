@@ -163,6 +163,18 @@ use the same attach flow as the example producer, but replace the generator loop
 - Producers/consumers attach via the driver client API and map SHM from responses.
 - The example producer/consumer scripts are a working end-to-end reference.
 
+## Julia Examples
+
+- `scripts/example_producer.jl`: kitchen-sink producer (metadata + QoS).
+- `scripts/example_consumer.jl`: kitchen-sink consumer (metadata + QoS + discovery).
+- `scripts/example_rate_limited_consumer.jl`: per-consumer streams + rate limiting.
+- `scripts/example_discovery.jl`: discovery request/response.
+- `scripts/example_qos_monitor.jl`: QoS snapshot monitor.
+- `scripts/example_progress_consumer.jl`: progress polling.
+- `scripts/example_detach.jl`: detach request via driver control.
+- `scripts/example_reattach.jl`: detach/reattach flow.
+- `scripts/example_invoker.jl`: invoker-mode client loop.
+
 ## C ↔ Julia Interop Helpers
 
 These scripts align the C client env vars with a driver config and provide
