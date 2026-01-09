@@ -26,6 +26,7 @@ add_library(tensorpool_client STATIC
     src/tp_context.c
     src/tp_detach.c
     src/tp_driver_control.c
+    src/tp_errors.c
     src/tp_keepalive.c
     src/tp_qos.c
     src/tp_metadata.c
@@ -125,6 +126,12 @@ if (TP_BUILD_TESTS)
         ${CMAKE_CURRENT_SOURCE_DIR}/src
         ${CMAKE_CURRENT_SOURCE_DIR}/vendor/aeron)
     add_test(NAME tp_getters_not_found_test COMMAND tp_getters_not_found_test)
+    add_executable(tp_accessors_test tests/tp_accessors_test.c)
+    target_link_libraries(tp_accessors_test PRIVATE tensorpool_client)
+    target_include_directories(tp_accessors_test PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/src
+        ${CMAKE_CURRENT_SOURCE_DIR}/vendor/aeron)
+    add_test(NAME tp_accessors_test COMMAND tp_accessors_test)
 endif ()
 
 if (TP_BUILD_INTEGRATION_TESTS)

@@ -57,6 +57,10 @@ control_stream_id = Int(override("control_stream_id", cfg.endpoints.control_stre
 stream_id = Int(override("stream_id", first_stream_id(cfg)))
 descriptor_channel = String(override("descriptor_channel", ""))
 descriptor_stream_id = Int(override("descriptor_stream_id", 0))
+consumer_descriptor_channel = String(override("consumer_descriptor_channel", ""))
+consumer_descriptor_stream_id = Int(override("consumer_descriptor_stream_id", 0))
+consumer_control_channel = String(override("consumer_control_channel", ""))
+consumer_control_stream_id = Int(override("consumer_control_stream_id", 0))
 payload_stride = Int(override("payload_stride_bytes", first_payload_stride(cfg)))
 
 println("export TP_CONTROL_CHANNEL=$(control_channel)")
@@ -71,6 +75,18 @@ if !isempty(descriptor_channel)
 end
 if descriptor_stream_id != 0
     println("export TP_DESCRIPTOR_STREAM_ID=$(descriptor_stream_id)")
+end
+if !isempty(consumer_descriptor_channel)
+    println("export TP_CONSUMER_DESCRIPTOR_CHANNEL=$(consumer_descriptor_channel)")
+end
+if consumer_descriptor_stream_id != 0
+    println("export TP_CONSUMER_DESCRIPTOR_STREAM_ID=$(consumer_descriptor_stream_id)")
+end
+if !isempty(consumer_control_channel)
+    println("export TP_CONSUMER_CONTROL_CHANNEL=$(consumer_control_channel)")
+end
+if consumer_control_stream_id != 0
+    println("export TP_CONSUMER_CONTROL_STREAM_ID=$(consumer_control_stream_id)")
 end
 if payload_stride != 0
     println("export TP_PAYLOAD_BYTES=$(payload_stride)")

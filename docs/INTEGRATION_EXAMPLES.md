@@ -200,6 +200,16 @@ variables are set before running `tp_producer_example` / `tp_consumer_example`:
 - `TP_QOS_CHANNEL`, `TP_QOS_STREAM_ID` to enable QoS publications
 - `TP_QOS_INTERVAL_MS` to control periodic QoS/keepalive cadence
 
+### Additional C examples
+
+- `tp_discovery_example`: uses the discovery request/response streams.
+- `tp_qos_monitor_example`: reads QoS snapshots for a producer/consumer.
+- `tp_consumer_progress_example`: polls `FrameProgress`.
+- `tp_consumer_rate_limit_example`: requests per-consumer streams + max rate.
+- `tp_detach_example`: issues a driver detach with a lease id.
+- `tp_reattach_example`: detaches and reattaches a producer.
+- `tp_invoker_example`: runs the client in invoker mode.
+
 ### Cross-check C ↔ Julia (C producer → Julia consumer, Julia producer → C consumer)
 
 ```bash

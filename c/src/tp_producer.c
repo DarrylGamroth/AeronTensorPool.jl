@@ -747,3 +747,13 @@ tp_err_t tp_producer_get_stream_id(const tp_producer_t *producer, uint32_t *stre
     *stream_id = producer->stream_id;
     return TP_OK;
 }
+
+tp_err_t tp_producer_get_producer_id(const tp_producer_t *producer, uint32_t *producer_id)
+{
+    if ((producer == NULL) || (producer_id == NULL))
+    {
+        return TP_ERR_ARG;
+    }
+    *producer_id = producer->client->context->client_id;
+    return TP_OK;
+}

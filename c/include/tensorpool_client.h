@@ -84,6 +84,7 @@ tp_err_t tp_producer_send_qos(tp_producer_t *producer, uint64_t current_seq, uin
 tp_err_t tp_producer_poll(tp_producer_t *producer);
 tp_err_t tp_producer_get_lease_id(const tp_producer_t *producer, uint64_t *lease_id);
 tp_err_t tp_producer_get_stream_id(const tp_producer_t *producer, uint32_t *stream_id);
+tp_err_t tp_producer_get_producer_id(const tp_producer_t *producer, uint32_t *producer_id);
 
 tp_err_t tp_consumer_poll(tp_consumer_t *consumer, int fragment_limit);
 tp_err_t tp_consumer_try_read_frame(tp_consumer_t *consumer, tp_frame_view_t *view);
@@ -101,7 +102,10 @@ tp_err_t tp_consumer_get_progress(
     bool *available);
 tp_err_t tp_consumer_get_lease_id(const tp_consumer_t *consumer, uint64_t *lease_id);
 tp_err_t tp_consumer_get_stream_id(const tp_consumer_t *consumer, uint32_t *stream_id);
+tp_err_t tp_consumer_get_consumer_id(const tp_consumer_t *consumer, uint32_t *consumer_id);
 tp_err_t tp_client_get_client_id(const tp_client_t *client, uint32_t *client_id);
+
+const char *tp_err_str(tp_err_t err);
 
 void tp_producer_close(tp_producer_t *producer);
 void tp_consumer_close(tp_consumer_t *consumer);

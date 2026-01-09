@@ -1192,3 +1192,13 @@ tp_err_t tp_consumer_get_stream_id(const tp_consumer_t *consumer, uint32_t *stre
     *stream_id = consumer->stream_id;
     return TP_OK;
 }
+
+tp_err_t tp_consumer_get_consumer_id(const tp_consumer_t *consumer, uint32_t *consumer_id)
+{
+    if ((consumer == NULL) || (consumer_id == NULL))
+    {
+        return TP_ERR_ARG;
+    }
+    *consumer_id = consumer->client->context->client_id;
+    return TP_OK;
+}
