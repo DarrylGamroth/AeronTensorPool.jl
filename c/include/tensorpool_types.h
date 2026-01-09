@@ -11,6 +11,14 @@ extern "C" {
 #define TP_MAX_POOLS 16
 #define TP_URI_MAX 1024
 #define TP_MAX_DIMS 8
+#define TP_MAX_QOS_ENTRIES 64
+#define TP_MAX_METADATA_ENTRIES 64
+#define TP_MAX_METADATA_ATTRS 32
+#define TP_METADATA_TEXT_MAX 256
+#define TP_METADATA_VALUE_MAX 512
+#define TP_MAX_DISCOVERY_ENTRIES 64
+#define TP_MAX_TAGS 16
+#define TP_TAG_MAX 64
 
 typedef struct tp_pool_desc_stct
 {
@@ -78,6 +86,82 @@ typedef struct tp_frame_view_stct
     uint32_t payload_len;
 }
 tp_frame_view_t;
+
+typedef struct tp_qos_producer_snapshot_stct
+{
+    uint32_t stream_id;
+    uint32_t producer_id;
+    uint64_t epoch;
+    uint64_t current_seq;
+    uint64_t watermark;
+}
+tp_qos_producer_snapshot_t;
+
+typedef struct tp_qos_consumer_snapshot_stct
+{
+    uint32_t stream_id;
+    uint32_t consumer_id;
+    uint64_t epoch;
+    uint8_t mode;
+    uint64_t last_seq_seen;
+    uint64_t drops_gap;
+    uint64_t drops_late;
+}
+tp_qos_consumer_snapshot_t;
+
+typedef struct tp_metadata_attribute_stct
+{
+    char key[TP_METADATA_TEXT_MAX];
+    char mime_type[TP_METADATA_TEXT_MAX];
+    uint8_t value[TP_METADATA_VALUE_MAX];
+    uint32_t value_len;
+}
+tp_metadata_attribute_t;
+
+typedef struct tp_metadata_entry_stct
+{
+    uint32_t stream_id;
+    uint32_t producer_id;
+    uint64_t epoch;
+    uint32_t meta_version;
+    uint64_t timestamp_ns;
+    char name[TP_METADATA_TEXT_MAX];
+    char summary[TP_METADATA_TEXT_MAX];
+    uint32_t attr_count;
+    tp_metadata_attribute_t attrs[TP_MAX_METADATA_ATTRS];
+}
+tp_metadata_entry_t;
+
+typedef struct tp_discovery_pool_entry_stct
+{
+    uint16_t pool_id;
+    uint32_t pool_nslots;
+    uint32_t stride_bytes;
+    char region_uri[TP_URI_MAX];
+}
+tp_discovery_pool_entry_t;
+
+typedef struct tp_discovery_entry_stct
+{
+    uint32_t stream_id;
+    uint32_t producer_id;
+    uint64_t epoch;
+    uint32_t layout_version;
+    uint32_t header_nslots;
+    uint16_t header_slot_bytes;
+    uint8_t max_dims;
+    uint32_t data_source_id;
+    uint32_t driver_control_stream_id;
+    char header_region_uri[TP_URI_MAX];
+    char data_source_name[TP_METADATA_TEXT_MAX];
+    char driver_instance_id[TP_METADATA_TEXT_MAX];
+    char driver_control_channel[TP_URI_MAX];
+    uint32_t pool_count;
+    tp_discovery_pool_entry_t pools[TP_MAX_POOLS];
+    uint32_t tag_count;
+    char tags[TP_MAX_TAGS][TP_TAG_MAX];
+}
+tp_discovery_entry_t;
 
 #ifdef __cplusplus
 }

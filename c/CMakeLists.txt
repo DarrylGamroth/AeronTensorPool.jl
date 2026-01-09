@@ -27,6 +27,9 @@ add_library(tensorpool_client STATIC
     src/tp_detach.c
     src/tp_driver_control.c
     src/tp_keepalive.c
+    src/tp_qos.c
+    src/tp_metadata.c
+    src/tp_discovery.c
     src/tp_producer.c
     src/tp_shm.c)
 
@@ -34,7 +37,8 @@ target_include_directories(tensorpool_client
     PUBLIC
         ${CMAKE_CURRENT_SOURCE_DIR}/include
         ${CMAKE_CURRENT_SOURCE_DIR}/gen/wire
-        ${CMAKE_CURRENT_SOURCE_DIR}/gen/driver)
+        ${CMAKE_CURRENT_SOURCE_DIR}/gen/driver
+        ${CMAKE_CURRENT_SOURCE_DIR}/gen/discovery)
 
 target_include_directories(tensorpool_client
     PRIVATE

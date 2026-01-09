@@ -28,6 +28,15 @@
 #include "shm_tensorpool_control/slotHeader.h"
 #include "shm_tensorpool_control/tensorHeader.h"
 #include "shm_tensorpool_control/frameDescriptor.h"
+#include "shm_tensorpool_control/qosProducer.h"
+#include "shm_tensorpool_control/qosConsumer.h"
+#include "shm_tensorpool_control/dataSourceAnnounce.h"
+#include "shm_tensorpool_control/dataSourceMeta.h"
+
+#include "shm_tensorpool_discovery/messageHeader.h"
+#include "shm_tensorpool_discovery/discoveryRequest.h"
+#include "shm_tensorpool_discovery/discoveryResponse.h"
+#include "shm_tensorpool_discovery/discoveryStatus.h"
 
 #define TP_SUPERBLOCK_SIZE 64
 #define TP_HEADER_SLOT_BYTES 256
@@ -67,6 +76,45 @@ typedef struct tp_client_stct
     int64_t next_correlation_id;
 }
 tp_client_t;
+
+typedef struct tp_qos_monitor_stct
+{
+    tp_client_t *client;
+    aeron_subscription_t *sub;
+    aeron_fragment_assembler_t *assembler;
+    tp_qos_producer_snapshot_t producers[TP_MAX_QOS_ENTRIES];
+    uint32_t producer_count;
+    tp_qos_consumer_snapshot_t consumers[TP_MAX_QOS_ENTRIES];
+    uint32_t consumer_count;
+}
+tp_qos_monitor_t;
+
+typedef struct tp_metadata_cache_stct
+{
+    tp_client_t *client;
+    aeron_subscription_t *sub;
+    aeron_fragment_assembler_t *assembler;
+    tp_metadata_entry_t entries[TP_MAX_METADATA_ENTRIES];
+    uint32_t entry_count;
+}
+tp_metadata_cache_t;
+
+typedef struct tp_discovery_client_stct
+{
+    tp_client_t *client;
+    aeron_publication_t *pub;
+    aeron_subscription_t *sub;
+    aeron_fragment_assembler_t *assembler;
+    uint64_t next_request_id;
+    char response_channel[TP_URI_MAX];
+    int32_t response_stream_id;
+    uint64_t last_request_id;
+    int32_t last_status;
+    char last_error[TP_URI_MAX];
+    tp_discovery_entry_t entries[TP_MAX_DISCOVERY_ENTRIES];
+    uint32_t entry_count;
+}
+tp_discovery_client_t;
 
 typedef struct tp_shm_mapping_stct
 {
