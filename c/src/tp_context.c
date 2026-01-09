@@ -4,7 +4,7 @@
 
 tp_err_t tp_context_init(tp_context_t **ctx)
 {
-    if ((ctx == NULL))
+    if (ctx == NULL)
     {
         return TP_ERR_ARG;
     }
@@ -37,7 +37,7 @@ tp_err_t tp_context_init(tp_context_t **ctx)
 
 void tp_context_close(tp_context_t *ctx)
 {
-    if ((ctx))
+    if (ctx)
     {
         free(ctx);
     }
@@ -55,7 +55,7 @@ static tp_err_t tp_set_string(char *dst, size_t dst_len, const char *src)
 
 tp_err_t tp_context_set_aeron_dir(tp_context_t *ctx, const char *aeron_dir)
 {
-    if ((ctx == NULL))
+    if (ctx == NULL)
     {
         return TP_ERR_ARG;
     }
@@ -64,7 +64,7 @@ tp_err_t tp_context_set_aeron_dir(tp_context_t *ctx, const char *aeron_dir)
 
 tp_err_t tp_context_set_control_channel(tp_context_t *ctx, const char *channel)
 {
-    if ((ctx == NULL))
+    if (ctx == NULL)
     {
         return TP_ERR_ARG;
     }
@@ -73,7 +73,7 @@ tp_err_t tp_context_set_control_channel(tp_context_t *ctx, const char *channel)
 
 tp_err_t tp_context_set_control_stream_id(tp_context_t *ctx, int32_t stream_id)
 {
-    if ((ctx == NULL))
+    if (ctx == NULL)
     {
         return TP_ERR_ARG;
     }
@@ -83,7 +83,7 @@ tp_err_t tp_context_set_control_stream_id(tp_context_t *ctx, int32_t stream_id)
 
 tp_err_t tp_context_set_descriptor_channel(tp_context_t *ctx, const char *channel)
 {
-    if ((ctx == NULL))
+    if (ctx == NULL)
     {
         return TP_ERR_ARG;
     }
@@ -92,7 +92,7 @@ tp_err_t tp_context_set_descriptor_channel(tp_context_t *ctx, const char *channe
 
 tp_err_t tp_context_set_descriptor_stream_id(tp_context_t *ctx, int32_t stream_id)
 {
-    if ((ctx == NULL))
+    if (ctx == NULL)
     {
         return TP_ERR_ARG;
     }
@@ -102,7 +102,7 @@ tp_err_t tp_context_set_descriptor_stream_id(tp_context_t *ctx, int32_t stream_i
 
 tp_err_t tp_context_set_qos_channel(tp_context_t *ctx, const char *channel)
 {
-    if ((ctx == NULL))
+    if (ctx == NULL)
     {
         return TP_ERR_ARG;
     }
@@ -111,7 +111,7 @@ tp_err_t tp_context_set_qos_channel(tp_context_t *ctx, const char *channel)
 
 tp_err_t tp_context_set_qos_stream_id(tp_context_t *ctx, int32_t stream_id)
 {
-    if ((ctx == NULL))
+    if (ctx == NULL)
     {
         return TP_ERR_ARG;
     }
@@ -121,7 +121,7 @@ tp_err_t tp_context_set_qos_stream_id(tp_context_t *ctx, int32_t stream_id)
 
 tp_err_t tp_context_set_client_id(tp_context_t *ctx, uint32_t client_id)
 {
-    if ((ctx == NULL))
+    if (ctx == NULL)
     {
         return TP_ERR_ARG;
     }
@@ -131,7 +131,7 @@ tp_err_t tp_context_set_client_id(tp_context_t *ctx, uint32_t client_id)
 
 tp_err_t tp_context_set_use_invoker(tp_context_t *ctx, bool value)
 {
-    if ((ctx == NULL))
+    if (ctx == NULL)
     {
         return TP_ERR_ARG;
     }
@@ -141,7 +141,7 @@ tp_err_t tp_context_set_use_invoker(tp_context_t *ctx, bool value)
 
 tp_err_t tp_context_set_attach_timeout_ns(tp_context_t *ctx, uint64_t timeout_ns)
 {
-    if ((ctx == NULL))
+    if (ctx == NULL)
     {
         return TP_ERR_ARG;
     }
@@ -151,7 +151,7 @@ tp_err_t tp_context_set_attach_timeout_ns(tp_context_t *ctx, uint64_t timeout_ns
 
 tp_err_t tp_context_set_qos_interval_ns(tp_context_t *ctx, uint64_t interval_ns)
 {
-    if ((ctx == NULL))
+    if (ctx == NULL)
     {
         return TP_ERR_ARG;
     }
@@ -161,7 +161,7 @@ tp_err_t tp_context_set_qos_interval_ns(tp_context_t *ctx, uint64_t interval_ns)
 
 tp_err_t tp_context_set_lease_keepalive_interval_ns(tp_context_t *ctx, uint64_t interval_ns)
 {
-    if ((ctx == NULL))
+    if (ctx == NULL)
     {
         return TP_ERR_ARG;
     }

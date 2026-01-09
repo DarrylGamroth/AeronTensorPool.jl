@@ -230,15 +230,15 @@ tp_err_t tp_metadata_cache_init(tp_client_t *client, const char *channel, int32_
 
 void tp_metadata_cache_close(tp_metadata_cache_t *cache)
 {
-    if ((cache == NULL))
+    if (cache == NULL)
     {
         return;
     }
-    if ((cache->assembler))
+    if (cache->assembler)
     {
         aeron_fragment_assembler_delete(cache->assembler);
     }
-    if ((cache->sub))
+    if (cache->sub)
     {
         aeron_subscription_close(cache->sub, NULL, NULL);
     }
@@ -247,7 +247,7 @@ void tp_metadata_cache_close(tp_metadata_cache_t *cache)
 
 int tp_metadata_cache_poll(tp_metadata_cache_t *cache, int fragment_limit)
 {
-    if ((cache == NULL))
+    if (cache == NULL)
     {
         return 0;
     }

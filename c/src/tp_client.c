@@ -41,7 +41,7 @@ tp_err_t tp_client_connect(tp_context_t *ctx, tp_client_t **client)
         return TP_ERR_AERON;
     }
 
-    if ((ctx->aeron_dir[0] != '\0'))
+    if (ctx->aeron_dir[0] != '\0')
     {
         aeron_context_set_dir(aeron_ctx, ctx->aeron_dir);
     }
@@ -81,7 +81,7 @@ tp_err_t tp_client_connect(tp_context_t *ctx, tp_client_t **client)
     tp->aeron = aeron;
     tp->next_correlation_id = 1;
 
-    if ((tp_driver_client_init(tp) != TP_OK))
+    if (tp_driver_client_init(tp) != TP_OK)
     {
         const char *debug_env = getenv("TP_DEBUG_AERON");
         if (debug_env != NULL && debug_env[0] != '\0')
@@ -98,16 +98,16 @@ tp_err_t tp_client_connect(tp_context_t *ctx, tp_client_t **client)
 
 void tp_client_close(tp_client_t *client)
 {
-    if ((client == NULL))
+    if (client == NULL)
     {
         return;
     }
     tp_driver_client_close(&client->driver);
-    if ((client->aeron))
+    if (client->aeron)
     {
         aeron_close(client->aeron);
     }
-    if ((client->aeron_ctx))
+    if (client->aeron_ctx)
     {
         aeron_context_close(client->aeron_ctx);
     }
@@ -116,7 +116,7 @@ void tp_client_close(tp_client_t *client)
 
 int tp_client_do_work(tp_client_t *client)
 {
-    if ((client == NULL))
+    if (client == NULL)
     {
         return -1;
     }

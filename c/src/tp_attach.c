@@ -11,7 +11,7 @@ tp_err_t tp_send_attach_request(
     uint8_t role,
     uint8_t publish_mode)
 {
-    if ((client->driver.pending_attach_correlation != 0))
+    if (client->driver.pending_attach_correlation != 0)
     {
         return TP_ERR_BUSY;
     }
@@ -19,7 +19,7 @@ tp_err_t tp_send_attach_request(
     const uint64_t msg_len = shm_tensorpool_driver_messageHeader_encoded_length() +
         shm_tensorpool_driver_shmAttachRequest_sbe_block_length();
     const int64_t position = aeron_publication_try_claim(client->driver.pub, msg_len, &claim);
-    if ((position < 0))
+    if (position < 0)
     {
         return TP_ERR_AERON;
     }
@@ -54,7 +54,7 @@ tp_err_t tp_wait_attach(tp_client_t *client, int64_t correlation_id, tp_attach_r
     while ((tp_now_ns() < deadline))
     {
         tp_client_do_work(client);
-        if ((client->driver.last_attach_correlation == correlation_id))
+        if (client->driver.last_attach_correlation == correlation_id)
         {
             client->driver.pending_attach_correlation = 0;
             if (!client->driver.last_attach_valid)

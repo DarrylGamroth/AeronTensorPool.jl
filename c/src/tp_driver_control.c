@@ -46,11 +46,11 @@ static void tp_copy_ascii(char *dst, size_t dst_len, const char *src, uint32_t l
 
 tp_err_t tp_validate_attach_response(const tp_attach_response_t *resp)
 {
-    if ((resp == NULL))
+    if (resp == NULL)
     {
         return TP_ERR_ARG;
     }
-    if ((resp->code != shm_tensorpool_driver_responseCode_OK))
+    if (resp->code != shm_tensorpool_driver_responseCode_OK)
     {
         return TP_OK;
     }
@@ -74,7 +74,7 @@ tp_err_t tp_validate_attach_response(const tp_attach_response_t *resp)
     {
         return TP_ERR_PROTOCOL;
     }
-    if ((resp->header_nslots == 0))
+    if (resp->header_nslots == 0)
     {
         return TP_ERR_PROTOCOL;
     }
@@ -82,7 +82,7 @@ tp_err_t tp_validate_attach_response(const tp_attach_response_t *resp)
     {
         return TP_ERR_PROTOCOL;
     }
-    if ((resp->header_uri[0] == '\0'))
+    if (resp->header_uri[0] == '\0')
     {
         return TP_ERR_PROTOCOL;
     }
@@ -95,15 +95,15 @@ tp_err_t tp_validate_attach_response(const tp_attach_response_t *resp)
         {
             return TP_ERR_PROTOCOL;
         }
-        if ((resp->pools[i].nslots != resp->header_nslots))
+        if (resp->pools[i].nslots != resp->header_nslots)
         {
             return TP_ERR_PROTOCOL;
         }
-        if ((resp->pools[i].stride_bytes == 0))
+        if (resp->pools[i].stride_bytes == 0)
         {
             return TP_ERR_PROTOCOL;
         }
-        if ((resp->pools[i].uri[0] == '\0'))
+        if (resp->pools[i].uri[0] == '\0')
         {
             return TP_ERR_PROTOCOL;
         }
@@ -119,13 +119,13 @@ static void tp_decode_attach_response(tp_driver_client_t *driver, char *buffer, 
     {
         return;
     }
-    if ((shm_tensorpool_driver_messageHeader_version(&hdr) > shm_tensorpool_driver_messageHeader_sbe_schema_version()))
+    if (shm_tensorpool_driver_messageHeader_version(&hdr) > shm_tensorpool_driver_messageHeader_sbe_schema_version())
     {
         return;
     }
 
     const uint16_t template_id = shm_tensorpool_driver_messageHeader_templateId(&hdr);
-    if ((template_id != shm_tensorpool_driver_shmAttachResponse_sbe_template_id()))
+    if (template_id != shm_tensorpool_driver_shmAttachResponse_sbe_template_id())
     {
         return;
     }
@@ -144,7 +144,7 @@ static void tp_decode_attach_response(tp_driver_client_t *driver, char *buffer, 
     tp_attach_response_t *out = &driver->last_attach;
     memset(out, 0, sizeof(*out));
     out->correlation_id = shm_tensorpool_driver_shmAttachResponse_correlationId(&resp);
-    if ((acting_version > shm_tensorpool_driver_shmAttachResponse_sbe_schema_version()))
+    if (acting_version > shm_tensorpool_driver_shmAttachResponse_sbe_schema_version())
     {
         driver->last_attach_valid = false;
         driver->last_attach_correlation = out->correlation_id;
@@ -241,11 +241,11 @@ static void tp_decode_detach_response(tp_driver_client_t *driver, char *buffer, 
     {
         return;
     }
-    if ((shm_tensorpool_driver_messageHeader_version(&hdr) > shm_tensorpool_driver_messageHeader_sbe_schema_version()))
+    if (shm_tensorpool_driver_messageHeader_version(&hdr) > shm_tensorpool_driver_messageHeader_sbe_schema_version())
     {
         return;
     }
-    if ((shm_tensorpool_driver_messageHeader_templateId(&hdr) != shm_tensorpool_driver_shmDetachResponse_sbe_template_id()))
+    if (shm_tensorpool_driver_messageHeader_templateId(&hdr) != shm_tensorpool_driver_shmDetachResponse_sbe_template_id())
     {
         return;
     }
@@ -261,10 +261,10 @@ static void tp_decode_detach_response(tp_driver_client_t *driver, char *buffer, 
         length - shm_tensorpool_driver_messageHeader_encoded_length());
 
     driver->last_detach_correlation = shm_tensorpool_driver_shmDetachResponse_correlationId(&resp);
-    if ((acting_version > shm_tensorpool_driver_shmDetachResponse_sbe_schema_version()))
+    if (acting_version > shm_tensorpool_driver_shmDetachResponse_sbe_schema_version())
     {
         driver->last_detach_code = shm_tensorpool_driver_responseCode_REJECTED;
-        if ((driver->pending_detach_correlation == driver->last_detach_correlation))
+        if (driver->pending_detach_correlation == driver->last_detach_correlation)
         {
             driver->pending_detach_correlation = 0;
         }
@@ -276,9 +276,9 @@ static void tp_decode_detach_response(tp_driver_client_t *driver, char *buffer, 
         return;
     }
     driver->last_detach_code = (int32_t)code_val;
-    if ((driver->pending_detach_correlation == driver->last_detach_correlation))
+    if (driver->pending_detach_correlation == driver->last_detach_correlation)
     {
-        if ((code_val == shm_tensorpool_driver_responseCode_OK))
+        if (code_val == shm_tensorpool_driver_responseCode_OK)
         {
             driver->last_detach_lease_id = driver->pending_detach_lease_id;
             driver->last_detach_stream_id = driver->pending_detach_stream_id;
@@ -292,7 +292,7 @@ static void tp_driver_fragment_handler(void *clientd, const uint8_t *buffer, siz
 {
     (void)header;
     tp_driver_client_t *driver = (tp_driver_client_t *)clientd;
-    if ((length < shm_tensorpool_driver_messageHeader_encoded_length()))
+    if (length < shm_tensorpool_driver_messageHeader_encoded_length())
     {
         return;
     }
@@ -303,12 +303,12 @@ static void tp_driver_fragment_handler(void *clientd, const uint8_t *buffer, siz
     {
         return;
     }
-    if ((shm_tensorpool_driver_messageHeader_version(&hdr) > shm_tensorpool_driver_messageHeader_sbe_schema_version()))
+    if (shm_tensorpool_driver_messageHeader_version(&hdr) > shm_tensorpool_driver_messageHeader_sbe_schema_version())
     {
         return;
     }
     uint16_t template_id = shm_tensorpool_driver_messageHeader_templateId(&hdr);
-    if ((template_id == shm_tensorpool_driver_shmAttachResponse_sbe_template_id()))
+    if (template_id == shm_tensorpool_driver_shmAttachResponse_sbe_template_id())
     {
         tp_decode_attach_response(driver, buf, length);
     }

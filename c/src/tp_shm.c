@@ -18,13 +18,13 @@ static tp_err_t tp_parse_shm_uri(const char *uri, char *path_out, size_t path_le
     {
         return TP_ERR_ARG;
     }
-    if ((strncmp(uri, prefix, strlen(prefix)) != 0))
+    if (strncmp(uri, prefix, strlen(prefix)) != 0)
     {
         return TP_ERR_PROTOCOL;
     }
 
     const char *params = uri + strlen(prefix);
-    if ((*params == '\0'))
+    if (*params == '\0')
     {
         return TP_ERR_PROTOCOL;
     }
@@ -98,11 +98,11 @@ tp_err_t tp_shm_validate_uri(const char *uri, bool *require_hugepages)
 
 tp_err_t tp_validate_stride_bytes(uint32_t stride_bytes, bool require_hugepages)
 {
-    if ((stride_bytes == 0))
+    if (stride_bytes == 0)
     {
         return TP_ERR_PROTOCOL;
     }
-    if ((!tp_is_power_of_two(stride_bytes)))
+    if (!tp_is_power_of_two(stride_bytes))
     {
         return TP_ERR_PROTOCOL;
     }
@@ -111,7 +111,7 @@ tp_err_t tp_validate_stride_bytes(uint32_t stride_bytes, bool require_hugepages)
     {
         return TP_ERR_PROTOCOL;
     }
-    if ((require_hugepages))
+    if (require_hugepages)
     {
         return TP_ERR_UNSUPPORTED;
     }
@@ -127,21 +127,21 @@ tp_err_t tp_shm_map(const char *uri, size_t size, bool write, tp_shm_mapping_t *
     char path_buf[TP_URI_MAX];
     bool require_hugepages = false;
     tp_err_t parse_err = tp_parse_shm_uri(uri, path_buf, sizeof(path_buf), &require_hugepages);
-    if ((parse_err != TP_OK))
+    if (parse_err != TP_OK)
     {
         return parse_err;
     }
-    if ((require_hugepages))
+    if (require_hugepages)
     {
         return TP_ERR_UNSUPPORTED;
     }
 
     struct stat st_path;
-    if ((lstat(path_buf, &st_path) != 0))
+    if (lstat(path_buf, &st_path) != 0)
     {
         return TP_ERR_IO;
     }
-    if ((S_ISLNK(st_path.st_mode)))
+    if (S_ISLNK(st_path.st_mode))
     {
         return TP_ERR_PROTOCOL;
     }
@@ -151,18 +151,18 @@ tp_err_t tp_shm_map(const char *uri, size_t size, bool write, tp_shm_mapping_t *
     flags |= O_NOFOLLOW;
 #endif
     int fd = open(path_buf, flags);
-    if ((fd < 0))
+    if (fd < 0)
     {
         return TP_ERR_IO;
     }
 
     struct stat st_fd;
-    if ((fstat(fd, &st_fd) != 0))
+    if (fstat(fd, &st_fd) != 0)
     {
         close(fd);
         return TP_ERR_IO;
     }
-    if ((!S_ISREG(st_fd.st_mode)))
+    if (!S_ISREG(st_fd.st_mode))
     {
         close(fd);
         return TP_ERR_PROTOCOL;
@@ -177,7 +177,7 @@ tp_err_t tp_shm_map(const char *uri, size_t size, bool write, tp_shm_mapping_t *
     int prot = write ? (PROT_READ | PROT_WRITE) : PROT_READ;
     void *addr = mmap(NULL, size, prot, MAP_SHARED, fd, 0);
     close(fd);
-    if ((addr == MAP_FAILED))
+    if (addr == MAP_FAILED)
     {
         return TP_ERR_IO;
     }
