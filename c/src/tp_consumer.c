@@ -8,6 +8,8 @@ tp_err_t tp_consumer_send_qos(
     uint64_t drops_gap,
     uint64_t drops_late);
 
+static bool tp_validate_progress(tp_consumer_t *consumer, const struct shm_tensorpool_control_frameProgress *progress);
+
 static void tp_descriptor_handler(void *clientd, const uint8_t *buffer, size_t length, aeron_header_t *header)
 {
     (void)header;

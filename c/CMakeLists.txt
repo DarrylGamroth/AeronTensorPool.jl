@@ -138,6 +138,12 @@ if (TP_BUILD_TESTS)
         ${CMAKE_CURRENT_SOURCE_DIR}/src
         ${CMAKE_CURRENT_SOURCE_DIR}/vendor/aeron)
     add_test(NAME tp_accessors_test COMMAND tp_accessors_test)
+    add_executable(tp_consumer_empty_payload_test tests/tp_consumer_empty_payload_test.c)
+    target_link_libraries(tp_consumer_empty_payload_test PRIVATE tensorpool_client)
+    target_include_directories(tp_consumer_empty_payload_test PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/src
+        ${CMAKE_CURRENT_SOURCE_DIR}/vendor/aeron)
+    add_test(NAME tp_consumer_empty_payload_test COMMAND tp_consumer_empty_payload_test)
 endif ()
 
 if (TP_BUILD_INTEGRATION_TESTS)

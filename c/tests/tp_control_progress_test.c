@@ -23,7 +23,7 @@ static void encode_slot_header(
     shm_tensorpool_control_slotHeader_set_payloadOffset(&slot, 0);
     shm_tensorpool_control_slotHeader_set_poolId(&slot, 1);
 
-    uint64_t pos = shm_tensorpool_control_slotHeader_sbe_offset(&slot) +
+    uint64_t pos = shm_tensorpool_control_slotHeader_offset(&slot) +
         shm_tensorpool_control_slotHeader_sbe_block_length();
     shm_tensorpool_control_slotHeader_set_sbe_position(&slot, pos);
     uint32_t header_len = shm_tensorpool_control_messageHeader_encoded_length() +
@@ -49,8 +49,8 @@ static void encode_slot_header(
     int32_t strides[TP_MAX_DIMS] = {0};
     dims[0] = (int32_t)values_len;
     strides[0] = 1;
-    shm_tensorpool_control_tensorHeader_put_dims(&tensor, dims, TP_MAX_DIMS);
-    shm_tensorpool_control_tensorHeader_put_strides(&tensor, strides, TP_MAX_DIMS);
+    shm_tensorpool_control_tensorHeader_put_dims(&tensor, (const char *)dims);
+    shm_tensorpool_control_tensorHeader_put_strides(&tensor, (const char *)strides);
     shm_tensorpool_control_slotHeader_set_sbe_position(&slot, pos + 4 + header_len);
 }
 
