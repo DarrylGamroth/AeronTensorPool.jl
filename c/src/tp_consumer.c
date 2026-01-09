@@ -25,6 +25,10 @@ static void tp_descriptor_handler(void *clientd, const uint8_t *buffer, size_t l
     {
         return;
     }
+    if (shm_tensorpool_control_messageHeader_version(&hdr) > shm_tensorpool_control_messageHeader_sbe_schema_version())
+    {
+        return;
+    }
     if (shm_tensorpool_control_messageHeader_templateId(&hdr) != shm_tensorpool_control_frameDescriptor_sbe_template_id())
     {
         return;
@@ -64,6 +68,10 @@ static void tp_consumer_control_handler(void *clientd, const uint8_t *buffer, si
     struct shm_tensorpool_control_messageHeader hdr;
     if (!shm_tensorpool_control_messageHeader_wrap(
             &hdr, (char *)buffer, 0, shm_tensorpool_control_messageHeader_sbe_schema_version(), length))
+    {
+        return;
+    }
+    if (shm_tensorpool_control_messageHeader_version(&hdr) > shm_tensorpool_control_messageHeader_sbe_schema_version())
     {
         return;
     }
@@ -249,6 +257,15 @@ void tp_consumer_handle_control_buffer(tp_consumer_t *consumer, const uint8_t *b
     tp_consumer_control_handler(consumer, buffer, length, NULL);
 }
 
+static tp_err_t tp_consumer_protocol_error(tp_consumer_t *consumer)
+{
+    if (consumer != NULL)
+    {
+        consumer->revoked = true;
+    }
+    return TP_ERR_PROTOCOL;
+}
+
 static tp_err_t tp_consumer_send_hello(tp_consumer_t *consumer)
 {
     if (consumer == NULL || consumer->pub_control == NULL)
@@ -279,20 +296,53 @@ static tp_err_t tp_consumer_send_hello(tp_consumer_t *consumer)
     shm_tensorpool_control_consumerHello_set_consumerId(&hello, consumer->client->context->client_id);
     shm_tensorpool_control_consumerHello_set_supportsShm(&hello, true);
     shm_tensorpool_control_consumerHello_set_supportsProgress(&hello, false);
-    shm_tensorpool_control_consumerHello_set_mode(&hello, shm_tensorpool_control_mode_STREAM);
-    shm_tensorpool_control_consumerHello_set_maxRateHz(
+    shm_tensorpool_control_consumerHello_set_mode(
         &hello,
-        shm_tensorpool_control_consumerHello_maxRateHz_null_value());
+        (enum shm_tensorpool_control_mode)consumer->client->context->consumer_mode);
+    uint64_t max_rate = consumer->client->context->consumer_max_rate_hz;
+    if (max_rate == 0)
+    {
+        max_rate = shm_tensorpool_control_consumerHello_maxRateHz_null_value();
+    }
+    shm_tensorpool_control_consumerHello_set_maxRateHz(&hello, max_rate);
     shm_tensorpool_control_consumerHello_set_progressIntervalUs(
         &hello,
         shm_tensorpool_control_consumerHello_progressIntervalUs_null_value());
     shm_tensorpool_control_consumerHello_set_progressMajorDeltaUnits(
         &hello,
         shm_tensorpool_control_consumerHello_progressMajorDeltaUnits_null_value());
-    shm_tensorpool_control_consumerHello_set_descriptorStreamId(&hello, 0);
-    shm_tensorpool_control_consumerHello_set_controlStreamId(&hello, 0);
-    shm_tensorpool_control_consumerHello_put_descriptorChannel(&hello, "", 0);
-    shm_tensorpool_control_consumerHello_put_controlChannel(&hello, "", 0);
+    if (consumer->client->context->consumer_descriptor_stream_id != 0 &&
+        consumer->client->context->consumer_descriptor_channel[0] != '\0')
+    {
+        shm_tensorpool_control_consumerHello_set_descriptorStreamId(
+            &hello,
+            (uint32_t)consumer->client->context->consumer_descriptor_stream_id);
+        shm_tensorpool_control_consumerHello_put_descriptorChannel(
+            &hello,
+            consumer->client->context->consumer_descriptor_channel,
+            (uint32_t)strlen(consumer->client->context->consumer_descriptor_channel));
+    }
+    else
+    {
+        shm_tensorpool_control_consumerHello_set_descriptorStreamId(&hello, 0);
+        shm_tensorpool_control_consumerHello_put_descriptorChannel(&hello, "", 0);
+    }
+    if (consumer->client->context->consumer_control_stream_id != 0 &&
+        consumer->client->context->consumer_control_channel[0] != '\0')
+    {
+        shm_tensorpool_control_consumerHello_set_controlStreamId(
+            &hello,
+            (uint32_t)consumer->client->context->consumer_control_stream_id);
+        shm_tensorpool_control_consumerHello_put_controlChannel(
+            &hello,
+            consumer->client->context->consumer_control_channel,
+            (uint32_t)strlen(consumer->client->context->consumer_control_channel));
+    }
+    else
+    {
+        shm_tensorpool_control_consumerHello_set_controlStreamId(&hello, 0);
+        shm_tensorpool_control_consumerHello_put_controlChannel(&hello, "", 0);
+    }
 
     aeron_buffer_claim_commit(&claim);
     return TP_OK;
@@ -632,6 +682,7 @@ static tp_err_t tp_init_consumer_from_attach(tp_client_t *client, const tp_attac
     }
 
     consumer->last_qos_ns = tp_now_ns();
+    consumer->last_keepalive_ns = consumer->last_qos_ns;
     *out = consumer;
     return TP_OK;
 }
@@ -683,6 +734,19 @@ tp_err_t tp_attach_consumer(tp_client_t *client, uint32_t stream_id, tp_consumer
     return tp_consumer_send_hello(*consumer);
 }
 
+tp_err_t tp_consumer_reattach(tp_consumer_t **consumer)
+{
+    if (consumer == NULL || *consumer == NULL)
+    {
+        return TP_ERR_ARG;
+    }
+    tp_client_t *client = (*consumer)->client;
+    uint32_t stream_id = (*consumer)->stream_id;
+    tp_consumer_close(*consumer);
+    *consumer = NULL;
+    return tp_attach_consumer(client, stream_id, consumer);
+}
+
 tp_err_t tp_consumer_poll(tp_consumer_t *consumer, int fragment_limit)
 {
     if (consumer == NULL || consumer->sub_descriptor == NULL)
@@ -691,6 +755,13 @@ tp_err_t tp_consumer_poll(tp_consumer_t *consumer, int fragment_limit)
     }
     if (consumer->revoked || consumer->client->driver.shutdown)
     {
+        consumer->revoked = true;
+        return TP_ERR_PROTOCOL;
+    }
+    if (consumer->client->driver.revoked_lease_id == consumer->lease_id &&
+        consumer->client->driver.revoked_role == shm_tensorpool_driver_role_CONSUMER)
+    {
+        consumer->revoked = true;
         return TP_ERR_PROTOCOL;
     }
     if (consumer->sub_control)
@@ -706,14 +777,30 @@ tp_err_t tp_consumer_poll(tp_consumer_t *consumer, int fragment_limit)
         aeron_fragment_assembler_handler,
         consumer->descriptor_assembler,
         (size_t)fragment_limit);
+    uint64_t now_ns = tp_now_ns();
+    uint64_t keepalive_interval = consumer->client->context->lease_keepalive_interval_ns;
+    if (keepalive_interval > 0 && now_ns - consumer->last_keepalive_ns >= keepalive_interval)
+    {
+        tp_err_t err = tp_lease_keepalive(
+            consumer->client,
+            consumer->lease_id,
+            consumer->stream_id,
+            consumer->client->context->client_id,
+            shm_tensorpool_driver_role_CONSUMER);
+        if (err != TP_OK)
+        {
+            consumer->revoked = true;
+            return TP_ERR_PROTOCOL;
+        }
+        consumer->last_keepalive_ns = now_ns;
+    }
     if (consumer->pub_qos != NULL && consumer->client != NULL)
     {
-        uint64_t now_ns = tp_now_ns();
         if (now_ns - consumer->last_qos_ns >= consumer->client->context->qos_interval_ns)
         {
             tp_consumer_send_qos(
                 consumer,
-                shm_tensorpool_control_mode_STREAM,
+                consumer->client->context->consumer_mode,
                 consumer->last_seq,
                 consumer->drops_gap,
                 consumer->drops_late);
@@ -743,19 +830,19 @@ tp_err_t tp_consumer_try_read_frame(tp_consumer_t *consumer, tp_frame_view_t *vi
     }
     if (consumer->revoked || consumer->client->driver.shutdown)
     {
-        return TP_ERR_PROTOCOL;
+        return tp_consumer_protocol_error(consumer);
     }
     if (consumer->client->driver.revoked_lease_id == consumer->lease_id &&
         consumer->client->driver.revoked_role == shm_tensorpool_driver_role_CONSUMER)
     {
         consumer->revoked = true;
-        return TP_ERR_PROTOCOL;
+        return tp_consumer_protocol_error(consumer);
     }
     if (consumer->client->driver.revoked_role == shm_tensorpool_driver_role_PRODUCER &&
         consumer->client->driver.revoked_stream_id == consumer->stream_id)
     {
         consumer->revoked = true;
-        return TP_ERR_PROTOCOL;
+        return tp_consumer_protocol_error(consumer);
     }
     if (!consumer->has_descriptor)
     {
@@ -763,19 +850,20 @@ tp_err_t tp_consumer_try_read_frame(tp_consumer_t *consumer, tp_frame_view_t *vi
     }
     if (consumer->last_epoch != consumer->epoch)
     {
-        return TP_ERR_PROTOCOL;
+        consumer->revoked = true;
+        return tp_consumer_protocol_error(consumer);
     }
 
     uint32_t header_index = consumer->last_header_index;
     if (header_index >= consumer->header_nslots)
     {
-        return TP_ERR_PROTOCOL;
+        return tp_consumer_protocol_error(consumer);
     }
     if (tp_is_power_of_two(consumer->header_nslots))
     {
         if ((consumer->last_seq & (consumer->header_nslots - 1)) != header_index)
         {
-            return TP_ERR_PROTOCOL;
+            return tp_consumer_protocol_error(consumer);
         }
     }
     uint64_t header_offset = TP_SUPERBLOCK_SIZE + ((uint64_t)header_index * consumer->header_slot_bytes);
@@ -800,7 +888,7 @@ tp_err_t tp_consumer_try_read_frame(tp_consumer_t *consumer, tp_frame_view_t *vi
         shm_tensorpool_control_slotHeader_get_headerBytes_as_string_view(&slot);
     if (header_view.data == NULL)
     {
-        return TP_ERR_PROTOCOL;
+        return tp_consumer_protocol_error(consumer);
     }
     uint32_t header_len = header_view.length;
     if (header_len != (shm_tensorpool_control_messageHeader_encoded_length() +
@@ -810,7 +898,7 @@ tp_err_t tp_consumer_try_read_frame(tp_consumer_t *consumer, tp_frame_view_t *vi
         {
             fprintf(stderr, "headerBytes length mismatch: %u\n", header_len);
         }
-        return TP_ERR_PROTOCOL;
+        return tp_consumer_protocol_error(consumer);
     }
 
     struct shm_tensorpool_control_messageHeader hdr;
@@ -825,7 +913,11 @@ tp_err_t tp_consumer_try_read_frame(tp_consumer_t *consumer, tp_frame_view_t *vi
         {
             fprintf(stderr, "messageHeader wrap failed\n");
         }
-        return TP_ERR_PROTOCOL;
+        return tp_consumer_protocol_error(consumer);
+    }
+    if (shm_tensorpool_control_messageHeader_version(&hdr) > shm_tensorpool_control_messageHeader_sbe_schema_version())
+    {
+        return tp_consumer_protocol_error(consumer);
     }
     if (shm_tensorpool_control_messageHeader_templateId(&hdr) != shm_tensorpool_control_tensorHeader_sbe_template_id())
     {
@@ -834,7 +926,7 @@ tp_err_t tp_consumer_try_read_frame(tp_consumer_t *consumer, tp_frame_view_t *vi
             fprintf(stderr, "tensorHeader template mismatch: %u\n",
                 shm_tensorpool_control_messageHeader_templateId(&hdr));
         }
-        return TP_ERR_PROTOCOL;
+        return tp_consumer_protocol_error(consumer);
     }
     if (shm_tensorpool_control_messageHeader_blockLength(&hdr) != shm_tensorpool_control_tensorHeader_sbe_block_length())
     {
@@ -843,7 +935,7 @@ tp_err_t tp_consumer_try_read_frame(tp_consumer_t *consumer, tp_frame_view_t *vi
             fprintf(stderr, "tensorHeader block length mismatch: %u\n",
                 shm_tensorpool_control_messageHeader_blockLength(&hdr));
         }
-        return TP_ERR_PROTOCOL;
+        return tp_consumer_protocol_error(consumer);
     }
 
     struct shm_tensorpool_control_tensorHeader tensor;
@@ -864,14 +956,14 @@ tp_err_t tp_consumer_try_read_frame(tp_consumer_t *consumer, tp_frame_view_t *vi
     if ((end >> 1) != consumer->last_seq)
     {
         consumer->drops_late += 1;
-        return TP_ERR_PROTOCOL;
+        return tp_consumer_protocol_error(consumer);
     }
 
     uint16_t pool_id = shm_tensorpool_control_slotHeader_poolId(&slot);
     tp_pool_mapping_t *pool = tp_consumer_find_pool(consumer, pool_id);
     if (pool == NULL)
     {
-        return TP_ERR_PROTOCOL;
+        return tp_consumer_protocol_error(consumer);
     }
 
     uint32_t values_len = shm_tensorpool_control_slotHeader_valuesLenBytes(&slot);
@@ -879,20 +971,20 @@ tp_err_t tp_consumer_try_read_frame(tp_consumer_t *consumer, tp_frame_view_t *vi
     uint32_t payload_offset = shm_tensorpool_control_slotHeader_payloadOffset(&slot);
     if (payload_offset != 0)
     {
-        return TP_ERR_PROTOCOL;
+        return tp_consumer_protocol_error(consumer);
     }
     if (payload_slot >= pool->nslots)
     {
-        return TP_ERR_PROTOCOL;
+        return tp_consumer_protocol_error(consumer);
     }
     if (values_len > pool->stride_bytes)
     {
-        return TP_ERR_PROTOCOL;
+        return tp_consumer_protocol_error(consumer);
     }
     uint64_t payload_pos = TP_SUPERBLOCK_SIZE + ((uint64_t)payload_slot * pool->stride_bytes) + payload_offset;
     if (payload_pos + values_len > pool->mapping.length)
     {
-        return TP_ERR_PROTOCOL;
+        return tp_consumer_protocol_error(consumer);
     }
 
     view->seq_commit = end;
@@ -907,20 +999,20 @@ tp_err_t tp_consumer_try_read_frame(tp_consumer_t *consumer, tp_frame_view_t *vi
     enum shm_tensorpool_control_dtype dtype_val;
     if (!shm_tensorpool_control_tensorHeader_dtype(&tensor, &dtype_val))
     {
-        return TP_ERR_PROTOCOL;
+        return tp_consumer_protocol_error(consumer);
     }
     if (dtype_val == shm_tensorpool_control_dtype_NULL_VALUE)
     {
-        return TP_ERR_PROTOCOL;
+        return tp_consumer_protocol_error(consumer);
     }
     enum shm_tensorpool_control_majorOrder major_val;
     if (!shm_tensorpool_control_tensorHeader_majorOrder(&tensor, &major_val))
     {
-        return TP_ERR_PROTOCOL;
+        return tp_consumer_protocol_error(consumer);
     }
     if (major_val == shm_tensorpool_control_majorOrder_NULL_VALUE)
     {
-        return TP_ERR_PROTOCOL;
+        return tp_consumer_protocol_error(consumer);
     }
     view->tensor.dtype = (uint8_t)dtype_val;
     view->tensor.major_order = (uint8_t)major_val;
@@ -929,11 +1021,11 @@ tp_err_t tp_consumer_try_read_frame(tp_consumer_t *consumer, tp_frame_view_t *vi
     enum shm_tensorpool_control_progressUnit progress_val;
     if (!shm_tensorpool_control_tensorHeader_progressUnit(&tensor, &progress_val))
     {
-        return TP_ERR_PROTOCOL;
+        return tp_consumer_protocol_error(consumer);
     }
     if (progress_val == shm_tensorpool_control_progressUnit_NULL_VALUE)
     {
-        return TP_ERR_PROTOCOL;
+        return tp_consumer_protocol_error(consumer);
     }
     view->tensor.progress_unit = (uint8_t)progress_val;
     view->tensor.progress_stride_bytes = shm_tensorpool_control_tensorHeader_progressStrideBytes(&tensor);
@@ -944,13 +1036,13 @@ tp_err_t tp_consumer_try_read_frame(tp_consumer_t *consumer, tp_frame_view_t *vi
     }
     if (view->tensor.ndims == 0 || view->tensor.ndims > TP_MAX_DIMS)
     {
-        return TP_ERR_PROTOCOL;
+        return tp_consumer_protocol_error(consumer);
     }
     int32_t resolved_strides[TP_MAX_DIMS] = {0};
     uint32_t elem_size = tp_dtype_size(dtype_val);
     if (elem_size == 0)
     {
-        return TP_ERR_PROTOCOL;
+        return tp_consumer_protocol_error(consumer);
     }
     if (!tp_validate_tensor_layout(
             view->tensor.major_order,
@@ -962,7 +1054,7 @@ tp_err_t tp_consumer_try_read_frame(tp_consumer_t *consumer, tp_frame_view_t *vi
             view->tensor.strides,
             resolved_strides))
     {
-        return TP_ERR_PROTOCOL;
+        return tp_consumer_protocol_error(consumer);
     }
     consumer->has_descriptor = false;
     return TP_OK;

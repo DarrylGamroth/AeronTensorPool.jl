@@ -113,6 +113,7 @@ static tp_err_t tp_init_producer_from_attach(tp_client_t *client, const tp_attac
     }
 
     producer->last_qos_ns = tp_now_ns();
+    producer->last_keepalive_ns = producer->last_qos_ns;
     *out = producer;
     return TP_OK;
 }
@@ -159,6 +160,19 @@ tp_err_t tp_attach_producer(tp_client_t *client, uint32_t stream_id, tp_producer
     return tp_init_producer_from_attach(client, &resp, producer);
 }
 
+tp_err_t tp_producer_reattach(tp_producer_t **producer)
+{
+    if (producer == NULL || *producer == NULL)
+    {
+        return TP_ERR_ARG;
+    }
+    tp_client_t *client = (*producer)->client;
+    uint32_t stream_id = (*producer)->stream_id;
+    tp_producer_close(*producer);
+    *producer = NULL;
+    return tp_attach_producer(client, stream_id, producer);
+}
+
 static tp_pool_mapping_t *tp_find_pool(tp_producer_t *producer, uint16_t pool_id)
 {
     for (uint32_t i = 0; i < producer->pool_count; i++)
@@ -195,6 +209,13 @@ tp_err_t tp_producer_try_claim_slot(tp_producer_t *producer, uint16_t pool_id, t
     }
     if (producer->revoked || producer->client->driver.shutdown)
     {
+        producer->revoked = true;
+        return TP_ERR_PROTOCOL;
+    }
+    if (producer->client->driver.revoked_lease_id == producer->lease_id &&
+        producer->client->driver.revoked_role == shm_tensorpool_driver_role_PRODUCER)
+    {
+        producer->revoked = true;
         return TP_ERR_PROTOCOL;
     }
     if (producer->client->driver.revoked_lease_id == producer->lease_id &&
@@ -488,11 +509,27 @@ tp_err_t tp_producer_poll(tp_producer_t *producer)
     {
         return TP_ERR_PROTOCOL;
     }
+    uint64_t now_ns = tp_now_ns();
+    uint64_t keepalive_interval = producer->client->context->lease_keepalive_interval_ns;
+    if (keepalive_interval > 0 && now_ns - producer->last_keepalive_ns >= keepalive_interval)
+    {
+        tp_err_t err = tp_lease_keepalive(
+            producer->client,
+            producer->lease_id,
+            producer->stream_id,
+            producer->client->context->client_id,
+            shm_tensorpool_driver_role_PRODUCER);
+        if (err != TP_OK)
+        {
+            producer->revoked = true;
+            return TP_ERR_PROTOCOL;
+        }
+        producer->last_keepalive_ns = now_ns;
+    }
     if (producer->pub_qos == NULL)
     {
         return TP_OK;
     }
-    uint64_t now_ns = tp_now_ns();
     if (now_ns - producer->last_qos_ns >= producer->client->context->qos_interval_ns)
     {
         tp_err_t err = tp_producer_send_qos(producer, producer->seq, 0);

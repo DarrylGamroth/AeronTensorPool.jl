@@ -24,6 +24,13 @@ tp_err_t tp_context_init(tp_context_t **ctx)
     tmp->use_invoker = false;
     tmp->attach_timeout_ns = 5000000000ULL;
     tmp->qos_interval_ns = 1000000000ULL;
+    tmp->lease_keepalive_interval_ns = 1000000000ULL;
+    tmp->consumer_mode = shm_tensorpool_control_mode_STREAM;
+    tmp->consumer_max_rate_hz = shm_tensorpool_control_consumerHello_maxRateHz_null_value();
+    tmp->consumer_descriptor_channel[0] = '\0';
+    tmp->consumer_descriptor_stream_id = 0;
+    tmp->consumer_control_channel[0] = '\0';
+    tmp->consumer_control_stream_id = 0;
     *ctx = tmp;
     return TP_OK;
 }
@@ -149,5 +156,62 @@ tp_err_t tp_context_set_qos_interval_ns(tp_context_t *ctx, uint64_t interval_ns)
         return TP_ERR_ARG;
     }
     ctx->qos_interval_ns = interval_ns;
+    return TP_OK;
+}
+
+tp_err_t tp_context_set_lease_keepalive_interval_ns(tp_context_t *ctx, uint64_t interval_ns)
+{
+    if (ctx == NULL)
+    {
+        return TP_ERR_ARG;
+    }
+    ctx->lease_keepalive_interval_ns = interval_ns;
+    return TP_OK;
+}
+
+tp_err_t tp_context_set_consumer_mode(tp_context_t *ctx, uint8_t mode)
+{
+    if (ctx == NULL)
+    {
+        return TP_ERR_ARG;
+    }
+    if (mode != shm_tensorpool_control_mode_STREAM &&
+        mode != shm_tensorpool_control_mode_RATE_LIMITED)
+    {
+        return TP_ERR_ARG;
+    }
+    ctx->consumer_mode = mode;
+    return TP_OK;
+}
+
+tp_err_t tp_context_set_consumer_max_rate_hz(tp_context_t *ctx, uint64_t rate_hz)
+{
+    if (ctx == NULL)
+    {
+        return TP_ERR_ARG;
+    }
+    ctx->consumer_max_rate_hz = rate_hz;
+    return TP_OK;
+}
+
+tp_err_t tp_context_set_consumer_descriptor_request(tp_context_t *ctx, const char *channel, int32_t stream_id)
+{
+    if (ctx == NULL || channel == NULL)
+    {
+        return TP_ERR_ARG;
+    }
+    snprintf(ctx->consumer_descriptor_channel, sizeof(ctx->consumer_descriptor_channel), "%s", channel);
+    ctx->consumer_descriptor_stream_id = stream_id;
+    return TP_OK;
+}
+
+tp_err_t tp_context_set_consumer_control_request(tp_context_t *ctx, const char *channel, int32_t stream_id)
+{
+    if (ctx == NULL || channel == NULL)
+    {
+        return TP_ERR_ARG;
+    }
+    snprintf(ctx->consumer_control_channel, sizeof(ctx->consumer_control_channel), "%s", channel);
+    ctx->consumer_control_stream_id = stream_id;
     return TP_OK;
 }

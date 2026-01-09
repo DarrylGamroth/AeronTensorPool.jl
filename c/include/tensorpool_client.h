@@ -32,6 +32,11 @@ tp_err_t tp_context_set_client_id(tp_context_t *ctx, uint32_t client_id);
 tp_err_t tp_context_set_use_invoker(tp_context_t *ctx, bool value);
 tp_err_t tp_context_set_attach_timeout_ns(tp_context_t *ctx, uint64_t timeout_ns);
 tp_err_t tp_context_set_qos_interval_ns(tp_context_t *ctx, uint64_t interval_ns);
+tp_err_t tp_context_set_lease_keepalive_interval_ns(tp_context_t *ctx, uint64_t interval_ns);
+tp_err_t tp_context_set_consumer_mode(tp_context_t *ctx, uint8_t mode);
+tp_err_t tp_context_set_consumer_max_rate_hz(tp_context_t *ctx, uint64_t rate_hz);
+tp_err_t tp_context_set_consumer_descriptor_request(tp_context_t *ctx, const char *channel, int32_t stream_id);
+tp_err_t tp_context_set_consumer_control_request(tp_context_t *ctx, const char *channel, int32_t stream_id);
 
 tp_err_t tp_client_connect(tp_context_t *ctx, tp_client_t **client);
 void tp_client_close(tp_client_t *client);
@@ -39,6 +44,8 @@ int tp_client_do_work(tp_client_t *client);
 
 tp_err_t tp_attach_producer(tp_client_t *client, uint32_t stream_id, tp_producer_t **producer);
 tp_err_t tp_attach_consumer(tp_client_t *client, uint32_t stream_id, tp_consumer_t **consumer);
+tp_err_t tp_producer_reattach(tp_producer_t **producer);
+tp_err_t tp_consumer_reattach(tp_consumer_t **consumer);
 
 tp_err_t tp_detach(tp_client_t *client, uint64_t lease_id, uint32_t stream_id, uint32_t client_id, uint8_t role);
 tp_err_t tp_lease_keepalive(tp_client_t *client, uint64_t lease_id, uint32_t stream_id, uint32_t client_id, uint8_t role);

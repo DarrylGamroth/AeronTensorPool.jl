@@ -119,6 +119,10 @@ static void tp_decode_attach_response(tp_driver_client_t *driver, char *buffer, 
     {
         return;
     }
+    if (shm_tensorpool_driver_messageHeader_version(&hdr) > shm_tensorpool_driver_messageHeader_sbe_schema_version())
+    {
+        return;
+    }
 
     const uint16_t template_id = shm_tensorpool_driver_messageHeader_templateId(&hdr);
     if (template_id != shm_tensorpool_driver_shmAttachResponse_sbe_template_id())
@@ -140,6 +144,12 @@ static void tp_decode_attach_response(tp_driver_client_t *driver, char *buffer, 
     tp_attach_response_t *out = &driver->last_attach;
     memset(out, 0, sizeof(*out));
     out->correlation_id = shm_tensorpool_driver_shmAttachResponse_correlationId(&resp);
+    if (acting_version > shm_tensorpool_driver_shmAttachResponse_sbe_schema_version())
+    {
+        driver->last_attach_valid = false;
+        driver->last_attach_correlation = out->correlation_id;
+        return;
+    }
     enum shm_tensorpool_driver_responseCode code_val;
     if (!shm_tensorpool_driver_shmAttachResponse_code(&resp, &code_val))
     {
@@ -231,6 +241,10 @@ static void tp_decode_detach_response(tp_driver_client_t *driver, char *buffer, 
     {
         return;
     }
+    if (shm_tensorpool_driver_messageHeader_version(&hdr) > shm_tensorpool_driver_messageHeader_sbe_schema_version())
+    {
+        return;
+    }
     if (shm_tensorpool_driver_messageHeader_templateId(&hdr) != shm_tensorpool_driver_shmDetachResponse_sbe_template_id())
     {
         return;
@@ -247,12 +261,31 @@ static void tp_decode_detach_response(tp_driver_client_t *driver, char *buffer, 
         length - shm_tensorpool_driver_messageHeader_encoded_length());
 
     driver->last_detach_correlation = shm_tensorpool_driver_shmDetachResponse_correlationId(&resp);
+    if (acting_version > shm_tensorpool_driver_shmDetachResponse_sbe_schema_version())
+    {
+        driver->last_detach_code = shm_tensorpool_driver_responseCode_REJECTED;
+        if (driver->pending_detach_correlation == driver->last_detach_correlation)
+        {
+            driver->pending_detach_correlation = 0;
+        }
+        return;
+    }
     enum shm_tensorpool_driver_responseCode code_val;
     if (!shm_tensorpool_driver_shmDetachResponse_code(&resp, &code_val))
     {
         return;
     }
     driver->last_detach_code = (int32_t)code_val;
+    if (driver->pending_detach_correlation == driver->last_detach_correlation)
+    {
+        if (code_val == shm_tensorpool_driver_responseCode_OK)
+        {
+            driver->last_detach_lease_id = driver->pending_detach_lease_id;
+            driver->last_detach_stream_id = driver->pending_detach_stream_id;
+            driver->last_detach_role = driver->pending_detach_role;
+        }
+        driver->pending_detach_correlation = 0;
+    }
 }
 
 static void tp_driver_fragment_handler(void *clientd, const uint8_t *buffer, size_t length, aeron_header_t *header)
@@ -267,6 +300,10 @@ static void tp_driver_fragment_handler(void *clientd, const uint8_t *buffer, siz
     struct shm_tensorpool_driver_messageHeader hdr;
     if (!shm_tensorpool_driver_messageHeader_wrap(
             &hdr, buf, 0, shm_tensorpool_driver_messageHeader_sbe_schema_version(), length))
+    {
+        return;
+    }
+    if (shm_tensorpool_driver_messageHeader_version(&hdr) > shm_tensorpool_driver_messageHeader_sbe_schema_version())
     {
         return;
     }

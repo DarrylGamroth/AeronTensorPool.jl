@@ -59,6 +59,13 @@ typedef struct tp_context_stct
     bool use_invoker;
     uint64_t attach_timeout_ns;
     uint64_t qos_interval_ns;
+    uint64_t lease_keepalive_interval_ns;
+    uint8_t consumer_mode;
+    uint64_t consumer_max_rate_hz;
+    char consumer_descriptor_channel[TP_URI_MAX];
+    int32_t consumer_descriptor_stream_id;
+    char consumer_control_channel[TP_URI_MAX];
+    int32_t consumer_control_stream_id;
 }
 tp_context_t;
 
@@ -73,6 +80,13 @@ typedef struct tp_driver_client_stct
     bool last_attach_valid;
     int32_t last_detach_code;
     int64_t last_detach_correlation;
+    int64_t pending_detach_correlation;
+    uint64_t pending_detach_lease_id;
+    uint32_t pending_detach_stream_id;
+    uint8_t pending_detach_role;
+    uint64_t last_detach_lease_id;
+    uint32_t last_detach_stream_id;
+    uint8_t last_detach_role;
     bool shutdown;
     uint8_t shutdown_reason;
     uint64_t revoked_lease_id;
@@ -163,6 +177,7 @@ typedef struct tp_producer_stct
     uint32_t pool_count;
     uint64_t seq;
     uint64_t last_qos_ns;
+    uint64_t last_keepalive_ns;
     bool revoked;
 }
 tp_producer_t;
@@ -189,6 +204,7 @@ typedef struct tp_consumer_stct
     uint8_t last_progress_state;
     bool has_progress;
     uint64_t last_qos_ns;
+    uint64_t last_keepalive_ns;
     uint64_t drops_gap;
     uint64_t drops_late;
     uint64_t lease_id;
@@ -222,6 +238,7 @@ int tp_add_subscription(aeron_t *client, const char *channel, int32_t stream_id,
 tp_err_t tp_send_attach_request(tp_client_t *client, uint32_t stream_id, uint8_t role, uint8_t publish_mode);
 tp_err_t tp_wait_attach(tp_client_t *client, int64_t correlation_id, tp_attach_response_t *out);
 tp_err_t tp_validate_attach_response(const tp_attach_response_t *resp);
+tp_err_t tp_lease_keepalive(tp_client_t *client, uint64_t lease_id, uint32_t stream_id, uint32_t client_id, uint8_t role);
 
 tp_err_t tp_shm_map(const char *uri, size_t size, bool write, tp_shm_mapping_t *mapping);
 void tp_shm_unmap(tp_shm_mapping_t *mapping);

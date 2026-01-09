@@ -28,6 +28,10 @@ static tp_err_t tp_send_detach(tp_client_t *client, uint64_t lease_id, uint32_t 
     shm_tensorpool_driver_shmDetachRequest_set_role(&req, role);
 
     aeron_buffer_claim_commit(&claim);
+    client->driver.pending_detach_correlation = *correlation_id;
+    client->driver.pending_detach_lease_id = lease_id;
+    client->driver.pending_detach_stream_id = stream_id;
+    client->driver.pending_detach_role = role;
     return TP_OK;
 }
 
@@ -36,6 +40,13 @@ tp_err_t tp_detach(tp_client_t *client, uint64_t lease_id, uint32_t stream_id, u
     if (client == NULL)
     {
         return TP_ERR_ARG;
+    }
+    if (client->driver.last_detach_code == shm_tensorpool_driver_responseCode_OK &&
+        client->driver.last_detach_lease_id == lease_id &&
+        client->driver.last_detach_stream_id == stream_id &&
+        client->driver.last_detach_role == role)
+    {
+        return TP_OK;
     }
     int64_t correlation_id = 0;
     tp_err_t err = tp_send_detach(client, lease_id, stream_id, client_id, role, &correlation_id);
