@@ -16,6 +16,9 @@ cleanup() {
   if [[ -n "${DRIVER_PID:-}" ]]; then kill "$DRIVER_PID" 2>/dev/null || true; fi
   if [[ -n "${MEDIA_PID:-}" ]]; then kill "$MEDIA_PID" 2>/dev/null || true; fi
   wait || true
+  if [[ -n "${TP_INTEROP_READY_FILE:-}" ]]; then
+    rm -f "$TP_INTEROP_READY_FILE" || true
+  fi
   if [[ -n "${TP_INTEROP_AERON_DIR:-}" ]]; then
     rm -rf "$TP_INTEROP_AERON_DIR" || true
   fi
@@ -36,6 +39,13 @@ if [[ "$use_embedded" == "1" ]]; then
 fi
 
 eval "$(scripts/interop_env.sh "$config_path" "$interop_path")"
+
+if [[ -n "${TP_HEADER_NSLOTS:-}" ]]; then
+  if (( count > TP_HEADER_NSLOTS )); then
+    echo "Reducing count from ${count} to ${TP_HEADER_NSLOTS} to fit header_nslots" >&2
+    count="${TP_HEADER_NSLOTS}"
+  fi
+fi
 
 example_env=()
 export TP_PATTERN=interop
@@ -80,9 +90,20 @@ fi
 
 scripts/run_c_integration_smoke.sh "$config_path" "$build_dir" "$interop_path"
 
+TP_INTEROP_READY_FILE="$(mktemp /tmp/tp-consumer-ready-XXXXXX)"
+export TP_READY_FILE="$TP_INTEROP_READY_FILE"
 env "${example_env[@]}" timeout "${timeout_s}s" julia --project scripts/example_consumer.jl "$config_path" config/defaults.toml "$count" &
 CONS_PID=$!
-sleep 1
+
+ready_waited=0
+while [[ ! -f "$TP_INTEROP_READY_FILE" && "$ready_waited" -lt "$timeout_s" ]]; do
+  sleep 1
+  ready_waited=$((ready_waited + 1))
+done
+if [[ ! -f "$TP_INTEROP_READY_FILE" ]]; then
+  echo "consumer not ready after ${timeout_s}s" >&2
+  exit 1
+fi
 
 env "${example_env[@]}" TP_COUNT="$count" timeout "${timeout_s}s" julia --project scripts/example_producer.jl "$config_path" config/defaults.toml "$count" 0
 wait "$CONS_PID"

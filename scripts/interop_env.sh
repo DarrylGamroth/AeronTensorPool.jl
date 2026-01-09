@@ -25,6 +25,12 @@ function first_payload_stride(cfg::DriverConfig)
     return profile.payload_pools[1].stride_bytes
 end
 
+function first_header_nslots(cfg::DriverConfig)
+    isempty(cfg.streams) && error("driver config has no streams")
+    profile = cfg.profiles[first(values(cfg.streams)).profile]
+    return profile.header_nslots
+end
+
 config_path = ARGS[1]
 interop_path = length(ARGS) >= 2 ? ARGS[2] : ""
 
@@ -68,6 +74,7 @@ consumer_descriptor_stream_id = Int(override("consumer_descriptor_stream_id", 0)
 consumer_control_channel = String(override("consumer_control_channel", ""))
 consumer_control_stream_id = Int(override("consumer_control_stream_id", 0))
 payload_stride = Int(override("payload_stride_bytes", first_payload_stride(cfg)))
+header_nslots = Int(override("header_nslots", first_header_nslots(cfg)))
 
 println("export TP_CONTROL_CHANNEL=$(control_channel)")
 println("export TP_CONTROL_STREAM_ID=$(control_stream_id)")
@@ -96,5 +103,8 @@ if consumer_control_stream_id != 0
 end
 if payload_stride != 0
     println("export TP_PAYLOAD_BYTES=$(payload_stride)")
+end
+if header_nslots != 0
+    println("export TP_HEADER_NSLOTS=$(header_nslots)")
 end
 ' "$config_path" "$interop_path"
