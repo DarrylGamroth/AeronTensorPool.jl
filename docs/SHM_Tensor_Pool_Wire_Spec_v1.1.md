@@ -183,6 +183,9 @@ This header represents “almost fixed-size TensorMessage metadata” with the l
 
 SBE definition: `SlotHeader` and `TensorHeader` messages in the schema appendix (v1.1 `MAX_DIMS=8`). The schema includes a `maxDims` constant field for codegen alignment; it is not encoded on the wire and MUST be treated as a compile-time constant. Changing `MAX_DIMS` requires a new `layout_version` and schema rebuild.
 
+**Encoding note (normative)**
+- The header slot is a raw SBE message body (no SBE message header). `seq_commit` MUST be at byte offset 0 of the slot. SBE wrap functions MUST be used without applying a message header.
+
 **SlotHeader fields** (wire/layout order, fixed 60-byte prefix + `headerBytes`)
 - `seq_commit : u64` (commit + sequence; LSB is commit bit, upper bits are `logical_sequence`)
 - `values_len_bytes : u32`
@@ -205,6 +208,9 @@ SBE definition: `SlotHeader` and `TensorHeader` messages in the schema appendix 
 - `strides[MAX_DIMS] : i32[]` (bytes per dim; 0 = contiguous/infer)
 - padding to 192 bytes total (including the 8-byte SBE message header)
 
+**Slot size math (informative)**
+- 256 bytes total = 60-byte fixed prefix + 4-byte varData length prefix + 192-byte embedded `TensorHeader`.
+
 Canonical identity: `logical_sequence = seq_commit >> 1`, `FrameDescriptor.seq`, and `FrameProgress.frame_id` MUST be equal for the same frame; consumers MUST DROP if any differ. No separate `frame_id` field exists in the header.
 
 **NOTE**
@@ -215,10 +221,23 @@ Canonical identity: `logical_sequence = seq_commit >> 1`, `FrameDescriptor.seq`,
 - For v1.1, `payload_offset` MUST be 0; consumers MUST drop frames with non-zero `payload_offset`.
 - Producers MUST zero-fill `dims[i]` and `strides[i]` for all `i >= ndims`; consumers MUST ignore indices `i >= ndims`.
 - Strides: `0` means inferred contiguous; negative strides are **not supported in v1.1**; strides MUST describe a non-overlapping layout consistent with `major_order` (row-major implies increasing stride as dimension index decreases); reject headers whose strides would overlap or contradict `major_order`.
+- Stride terms: `stride_bytes` (pool stride) is the byte distance between payload slots; `strides[]` (tensor strides) describe in-buffer layout within a single payload slot. These are independent.
+- Stride diagram (informative):
+```
+payload slot 0 base  = payload_base + 0 * stride_bytes
+payload slot 1 base  = payload_base + 1 * stride_bytes
+...
+payload slot N base  = payload_base + N * stride_bytes
+
+within a slot:
+element_offset = sum(dims_index[i] * strides[i])
+element_addr   = slot_base + payload_offset + element_offset
+```
 - Progress: if `progress_unit != NONE`, `progress_stride_bytes` MUST be non-zero and equal to the true row/column stride implied by `strides` (or inferred contiguous). Consumers MUST drop frames where `progress_unit != NONE` and `progress_stride_bytes` is zero or inconsistent with the declared layout.
 - Arrays alignment: `pad_align` ensures `dims` and `strides` are 4-byte aligned; consumers may rely on this for word accesses.
 - Padding is reserved/opaque; producers MAY leave it zeroed or use it for implementation-specific data; consumers MUST ignore it and MUST NOT store process-specific pointers/addresses there.
 - Frame identity: `logical_sequence` (derived from `seq_commit`), `FrameDescriptor.seq`, and `FrameProgress.frame_id` MUST match. Consumers SHOULD drop a frame if `seq_commit` and `FrameDescriptor.seq` disagree (stale header_index reuse).
+- Empty payloads: `values_len_bytes = 0` is valid. Producers MUST still commit the slot; consumers MUST NOT read payload bytes when `values_len_bytes = 0` (payload metadata may be ignored). `payload_slot` MUST still equal `header_index` in v1.1.
 
 ### 8.3 Commit Encoding via `seq_commit` (Normative)
 
@@ -245,6 +264,7 @@ commit_state     = seq_commit & 1
 3. Read header + payload.
 4. Re-read `seq_commit` (acquire).
 5. Parse `headerBytes` as an embedded SBE message (expect `TensorHeader` in v1.1); drop if header length or templateId is invalid (length MUST equal the embedded message header + blockLength).
+   The embedded message header MUST have the expected `schemaId` and `version`; otherwise drop.
 6. Accept only if unchanged, `(seq_commit & 1) == 1`, and `(seq_commit >> 1)` equals the expected sequence (from `FrameDescriptor.seq`).
 
 This prevents torn reads under overwrite.
@@ -387,10 +407,12 @@ Optional fields (may reduce SHM reads for filtering):
 - `meta_version : u32`
 
 **Rules**
+- Producers MUST publish `FrameDescriptor` only after the slot’s `seq_commit` is set to COMMITTED and payload visibility is ensured.
 - Consumers MUST ignore descriptors whose `epoch` does not match mapped SHM regions.
 - Consumers derive all payload location/shape/type from the SHM header slot.
 - Consumers MUST drop if `header_index` is out of range for the mapped header ring.
 - Consumer MUST drop if the header slot’s committed `logical_sequence` (derived from `seq_commit >> 1`) does not equal `FrameDescriptor.seq` for that `header_index` (stale reuse guard).
+- Consumers MUST drop if `payload_slot` decoded from the header is out of range for the mapped payload pool.
 - Consumers MUST drop frames where `values_len_bytes > stride_bytes`. (Future versions that permit non-zero `payload_offset` MUST additionally enforce `payload_offset + values_len_bytes <= stride_bytes`.)
 
 #### 10.2.2 FrameProgress (producer → interested consumers, optional)
@@ -411,6 +433,8 @@ Optional partial-availability hints during DMA.
 - Producer emits `COMPLETE` or simply the usual `FrameDescriptor` when DMA finishes; `seq_commit` semantics remain unchanged (LSB=1 = committed).
 - Consumers that do not opt in ignore `FrameProgress` and rely on `FrameDescriptor`.
 - Consumers that opt in must read only the prefix `[0:payload_bytes_filled)` and may reread `payload_bytes_filled` to confirm. Consumers MUST validate `progress_unit`/`progress_stride_bytes` before treating any prefix as layout-safe; if `progress_unit != NONE` and `progress_stride_bytes` is zero or inconsistent with the declared strides, the frame MUST be dropped.
+- `payload_bytes_filled` MUST be `<= values_len_bytes`.
+- `payload_bytes_filled` MUST be monotonic non-decreasing within a frame; consumers MUST drop if it regresses.
 - `FrameProgress.state=COMPLETE` does **not** guarantee payload visibility; consumers MUST still validate `seq_commit` before treating data as committed.
 - FrameDescriptor remains the canonical “frame available” signal; consumers MUST NOT treat `FrameProgress` (including COMPLETE) as a substitute, and producers MAY omit `FrameProgress` entirely.
 - Progress payload prefix safety:
@@ -718,8 +742,9 @@ Producer transitions
 Consumer validation rules (given `FrameDescriptor(seq, headerIndex = i)`)
 1. **Slot validity**: `headerIndex` MUST be within the mapped header ring; else DROP.
 2. **Commit stability**: MUST observe a stable `seq_commit` with LSB=1 before accepting; if WRITING/unstable, DROP.
-3. **Frame identity**: `(seq_commit >> 1)` MUST equal `FrameDescriptor.seq` (same rule as §10.2.1); if not, DROP.
-4. **No waiting**: MUST NOT block/spin waiting for commit; on any failure, DROP and continue.
+3. **Embedded header validation**: `headerBytes` MUST decode to a supported embedded header (v1.1: `TensorHeader` with the expected schemaId/version/templateId and length per §8.3); otherwise DROP.
+4. **Frame identity**: `(seq_commit >> 1)` MUST equal `FrameDescriptor.seq` (same rule as §10.2.1); if not, DROP.
+5. **No waiting**: MUST NOT block/spin waiting for commit; on any failure, DROP and continue.
 
 Dropped frames are treated as overwritten or in-flight; they are not errors.
 
@@ -877,7 +902,10 @@ Using epoch-scoped directories allows:
 - Robust recovery after producer crashes
 
 Implementations MAY remove epoch directories eagerly on clean shutdown or lazily
-during startup or supervision.
+during startup or supervision. A Supervisor or Driver SHOULD periodically scan
+`shm_base_dir` (or configured `allowed_base_dirs`) and unlink epoch directories
+whose `activity_timestamp_ns` is stale and whose PIDs are no longer active on
+the OS.
 
 ### 15.22 SHM Backend Validation (v1.1)
 
