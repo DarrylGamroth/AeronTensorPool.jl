@@ -4,6 +4,10 @@
 #include <stdint.h>
 #include <stdbool.h>
 
+#include "shm_tensorpool_driver/role.h"
+#include "shm_tensorpool_control/mode.h"
+#include "shm_tensorpool_control/tensorHeader.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -11,6 +15,7 @@ extern "C" {
 #define TP_MAX_POOLS 16
 #define TP_URI_MAX 1024
 #define TP_MAX_DIMS 8
+#define TP_MAX_DIMS_WIRE shm_tensorpool_control_tensorHeader_maxDims()
 #define TP_MAX_QOS_ENTRIES 64
 #define TP_MAX_METADATA_ENTRIES 64
 #define TP_MAX_METADATA_ATTRS 32
@@ -19,10 +24,10 @@ extern "C" {
 #define TP_MAX_DISCOVERY_ENTRIES 64
 #define TP_MAX_TAGS 16
 #define TP_TAG_MAX 64
-#define TP_ROLE_PRODUCER 1
-#define TP_ROLE_CONSUMER 2
-#define TP_CONSUMER_MODE_STREAM 1
-#define TP_CONSUMER_MODE_RATE_LIMITED 2
+#define TP_ROLE_PRODUCER shm_tensorpool_driver_role_PRODUCER
+#define TP_ROLE_CONSUMER shm_tensorpool_driver_role_CONSUMER
+#define TP_CONSUMER_MODE_STREAM shm_tensorpool_control_mode_STREAM
+#define TP_CONSUMER_MODE_RATE_LIMITED shm_tensorpool_control_mode_RATE_LIMITED
 
 typedef struct tp_pool_desc_stct
 {

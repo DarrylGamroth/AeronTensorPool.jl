@@ -13,6 +13,11 @@ tp_err_t tp_context_init(tp_context_t **ctx)
     {
         return TP_ERR_NOMEM;
     }
+    if (TP_MAX_DIMS != TP_MAX_DIMS_WIRE)
+    {
+        free(tmp);
+        return TP_ERR_PROTOCOL;
+    }
     tmp->aeron_dir[0] = '\0';
     snprintf(tmp->control_channel, sizeof(tmp->control_channel), "%s", "aeron:ipc?term-length=4m");
     tmp->control_stream_id = 1000;
