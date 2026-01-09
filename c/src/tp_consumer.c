@@ -1172,3 +1172,23 @@ bool tp_consumer_is_connected(const tp_consumer_t *consumer)
     }
     return aeron_subscription_is_connected(consumer->sub_descriptor);
 }
+
+tp_err_t tp_consumer_get_lease_id(const tp_consumer_t *consumer, uint64_t *lease_id)
+{
+    if ((consumer == NULL) || (lease_id == NULL))
+    {
+        return TP_ERR_ARG;
+    }
+    *lease_id = consumer->lease_id;
+    return TP_OK;
+}
+
+tp_err_t tp_consumer_get_stream_id(const tp_consumer_t *consumer, uint32_t *stream_id)
+{
+    if ((consumer == NULL) || (stream_id == NULL))
+    {
+        return TP_ERR_ARG;
+    }
+    *stream_id = consumer->stream_id;
+    return TP_OK;
+}

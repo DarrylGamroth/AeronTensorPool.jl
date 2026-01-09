@@ -128,3 +128,13 @@ int tp_client_do_work(tp_client_t *client)
     work += tp_driver_poll(client, 10);
     return work;
 }
+
+tp_err_t tp_client_get_client_id(const tp_client_t *client, uint32_t *client_id)
+{
+    if ((client == NULL) || (client_id == NULL))
+    {
+        return TP_ERR_ARG;
+    }
+    *client_id = client->context->client_id;
+    return TP_OK;
+}

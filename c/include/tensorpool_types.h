@@ -19,6 +19,10 @@ extern "C" {
 #define TP_MAX_DISCOVERY_ENTRIES 64
 #define TP_MAX_TAGS 16
 #define TP_TAG_MAX 64
+#define TP_ROLE_PRODUCER 1
+#define TP_ROLE_CONSUMER 2
+#define TP_CONSUMER_MODE_STREAM 1
+#define TP_CONSUMER_MODE_RATE_LIMITED 2
 
 typedef struct tp_pool_desc_stct
 {

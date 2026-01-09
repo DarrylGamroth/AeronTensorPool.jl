@@ -727,3 +727,23 @@ bool tp_producer_is_connected(const tp_producer_t *producer)
     }
     return aeron_publication_is_connected(producer->pub_descriptor);
 }
+
+tp_err_t tp_producer_get_lease_id(const tp_producer_t *producer, uint64_t *lease_id)
+{
+    if ((producer == NULL) || (lease_id == NULL))
+    {
+        return TP_ERR_ARG;
+    }
+    *lease_id = producer->lease_id;
+    return TP_OK;
+}
+
+tp_err_t tp_producer_get_stream_id(const tp_producer_t *producer, uint32_t *stream_id)
+{
+    if ((producer == NULL) || (stream_id == NULL))
+    {
+        return TP_ERR_ARG;
+    }
+    *stream_id = producer->stream_id;
+    return TP_OK;
+}
