@@ -29,10 +29,12 @@
 #include "shm_tensorpool_control/slotHeader.h"
 #include "shm_tensorpool_control/tensorHeader.h"
 #include "shm_tensorpool_control/frameDescriptor.h"
+#include "shm_tensorpool_control/frameProgress.h"
 #include "shm_tensorpool_control/qosProducer.h"
 #include "shm_tensorpool_control/qosConsumer.h"
 #include "shm_tensorpool_control/dataSourceAnnounce.h"
 #include "shm_tensorpool_control/dataSourceMeta.h"
+#include "shm_tensorpool_control/shmPoolAnnounce.h"
 #include "shm_tensorpool_control/consumerHello.h"
 #include "shm_tensorpool_control/consumerConfig.h"
 
@@ -56,6 +58,7 @@ typedef struct tp_context_stct
     uint32_t client_id;
     bool use_invoker;
     uint64_t attach_timeout_ns;
+    uint64_t qos_interval_ns;
 }
 tp_context_t;
 
@@ -159,6 +162,7 @@ typedef struct tp_producer_stct
     tp_pool_mapping_t pools[TP_MAX_POOLS];
     uint32_t pool_count;
     uint64_t seq;
+    uint64_t last_qos_ns;
     bool revoked;
 }
 tp_producer_t;
@@ -176,6 +180,17 @@ typedef struct tp_consumer_stct
     int32_t descriptor_stream_id;
     char control_channel[TP_URI_MAX];
     int32_t control_stream_id;
+    uint64_t join_time_ns;
+    uint64_t last_announce_timestamp_ns;
+    uint8_t last_announce_clock_domain;
+    uint64_t last_progress_frame_id;
+    uint32_t last_progress_header_index;
+    uint64_t last_progress_bytes;
+    uint8_t last_progress_state;
+    bool has_progress;
+    uint64_t last_qos_ns;
+    uint64_t drops_gap;
+    uint64_t drops_late;
     uint64_t lease_id;
     uint32_t stream_id;
     uint64_t epoch;
@@ -201,6 +216,7 @@ int tp_client_do_work(tp_client_t *client);
 void tp_client_close(tp_client_t *client);
 void tp_producer_close(tp_producer_t *producer);
 void tp_consumer_close(tp_consumer_t *consumer);
+void tp_consumer_handle_control_buffer(tp_consumer_t *consumer, const uint8_t *buffer, size_t length);
 int tp_add_publication(aeron_t *client, const char *channel, int32_t stream_id, aeron_publication_t **pub);
 int tp_add_subscription(aeron_t *client, const char *channel, int32_t stream_id, aeron_subscription_t **sub);
 tp_err_t tp_send_attach_request(tp_client_t *client, uint32_t stream_id, uint8_t role, uint8_t publish_mode);
@@ -223,6 +239,7 @@ tp_err_t tp_shm_validate_superblock(
     uint16_t expected_region_type);
 
 uint64_t tp_now_ns(void);
+uint64_t tp_now_realtime_ns(void);
 
 void tp_qos_monitor_handle_buffer(tp_qos_monitor_t *monitor, char *buffer, size_t length);
 void tp_metadata_cache_handle_buffer(tp_metadata_cache_t *cache, char *buffer, size_t length);

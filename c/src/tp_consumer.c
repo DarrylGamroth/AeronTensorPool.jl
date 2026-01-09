@@ -1,6 +1,15 @@
 #include "tp_internal.h"
 #include <stdio.h>
 
+static const uint64_t TP_ANNOUNCE_FRESHNESS_NS = 3000000000ULL;
+
+tp_err_t tp_consumer_send_qos(
+    tp_consumer_t *consumer,
+    uint8_t mode,
+    uint64_t last_seq_seen,
+    uint64_t drops_gap,
+    uint64_t drops_late);
+
 static void tp_descriptor_handler(void *clientd, const uint8_t *buffer, size_t length, aeron_header_t *header)
 {
     (void)header;
@@ -32,7 +41,12 @@ static void tp_descriptor_handler(void *clientd, const uint8_t *buffer, size_t l
         acting_version,
         length - shm_tensorpool_control_messageHeader_encoded_length());
 
-    consumer->last_seq = shm_tensorpool_control_frameDescriptor_seq(&desc);
+    uint64_t next_seq = shm_tensorpool_control_frameDescriptor_seq(&desc);
+    if (consumer->has_descriptor && next_seq > consumer->last_seq + 1)
+    {
+        consumer->drops_gap += (next_seq - consumer->last_seq - 1);
+    }
+    consumer->last_seq = next_seq;
     consumer->last_header_index = shm_tensorpool_control_frameDescriptor_headerIndex(&desc);
     consumer->last_meta_version = shm_tensorpool_control_frameDescriptor_metaVersion(&desc);
     consumer->last_epoch = shm_tensorpool_control_frameDescriptor_epoch(&desc);
@@ -53,94 +67,186 @@ static void tp_consumer_control_handler(void *clientd, const uint8_t *buffer, si
     {
         return;
     }
-    if (shm_tensorpool_control_messageHeader_templateId(&hdr) != shm_tensorpool_control_consumerConfig_sbe_template_id())
+    uint16_t template_id = shm_tensorpool_control_messageHeader_templateId(&hdr);
+    if (template_id == shm_tensorpool_control_consumerConfig_sbe_template_id())
     {
-        return;
-    }
+        struct shm_tensorpool_control_consumerConfig cfg;
+        uint64_t acting_block_length = shm_tensorpool_control_messageHeader_blockLength(&hdr);
+        uint64_t acting_version = shm_tensorpool_control_messageHeader_version(&hdr);
+        shm_tensorpool_control_consumerConfig_wrap_for_decode(
+            &cfg,
+            (char *)buffer + shm_tensorpool_control_messageHeader_encoded_length(),
+            0,
+            acting_block_length,
+            acting_version,
+            length - shm_tensorpool_control_messageHeader_encoded_length());
 
-    struct shm_tensorpool_control_consumerConfig cfg;
-    uint64_t acting_block_length = shm_tensorpool_control_messageHeader_blockLength(&hdr);
-    uint64_t acting_version = shm_tensorpool_control_messageHeader_version(&hdr);
-    shm_tensorpool_control_consumerConfig_wrap_for_decode(
-        &cfg,
-        (char *)buffer + shm_tensorpool_control_messageHeader_encoded_length(),
-        0,
-        acting_block_length,
-        acting_version,
-        length - shm_tensorpool_control_messageHeader_encoded_length());
+        if (shm_tensorpool_control_consumerConfig_consumerId(&cfg) != consumer->client->context->client_id)
+        {
+            return;
+        }
+        if (shm_tensorpool_control_consumerConfig_streamId(&cfg) != consumer->stream_id)
+        {
+            return;
+        }
 
-    if (shm_tensorpool_control_consumerConfig_consumerId(&cfg) != consumer->client->context->client_id)
-    {
-        return;
-    }
-    if (shm_tensorpool_control_consumerConfig_streamId(&cfg) != consumer->stream_id)
-    {
-        return;
-    }
-
-    uint32_t desc_stream_id = shm_tensorpool_control_consumerConfig_descriptorStreamId(&cfg);
-    struct shm_tensorpool_control_consumerConfig_string_view desc_view =
-        shm_tensorpool_control_consumerConfig_get_descriptorChannel_as_string_view(&cfg);
-    bool desc_has_channel = desc_view.length > 0;
-    bool desc_has_stream = desc_stream_id != 0;
-    if (desc_has_channel != desc_has_stream)
-    {
-        consumer->revoked = true;
-        return;
-    }
-    if (desc_has_channel)
-    {
-        if (desc_view.length >= sizeof(consumer->descriptor_channel))
+        uint32_t desc_stream_id = shm_tensorpool_control_consumerConfig_descriptorStreamId(&cfg);
+        struct shm_tensorpool_control_consumerConfig_string_view desc_view =
+            shm_tensorpool_control_consumerConfig_get_descriptorChannel_as_string_view(&cfg);
+        bool desc_has_channel = desc_view.length > 0;
+        bool desc_has_stream = desc_stream_id != 0;
+        if (desc_has_channel != desc_has_stream)
         {
             consumer->revoked = true;
             return;
         }
-        memcpy(consumer->descriptor_channel, desc_view.data, desc_view.length);
-        consumer->descriptor_channel[desc_view.length] = '\0';
-        consumer->descriptor_stream_id = (int32_t)desc_stream_id;
-        if (consumer->sub_descriptor)
+        if (desc_has_channel)
         {
-            aeron_subscription_close(consumer->sub_descriptor, NULL, NULL);
-            consumer->sub_descriptor = NULL;
+            if (desc_view.length >= sizeof(consumer->descriptor_channel))
+            {
+                consumer->revoked = true;
+                return;
+            }
+            memcpy(consumer->descriptor_channel, desc_view.data, desc_view.length);
+            consumer->descriptor_channel[desc_view.length] = '\0';
+            consumer->descriptor_stream_id = (int32_t)desc_stream_id;
+            if (consumer->sub_descriptor)
+            {
+                aeron_subscription_close(consumer->sub_descriptor, NULL, NULL);
+                consumer->sub_descriptor = NULL;
+            }
+            if (tp_add_subscription(consumer->client->aeron, consumer->descriptor_channel, consumer->descriptor_stream_id, &consumer->sub_descriptor) < 0)
+            {
+                consumer->revoked = true;
+                return;
+            }
         }
-        if (tp_add_subscription(consumer->client->aeron, consumer->descriptor_channel, consumer->descriptor_stream_id, &consumer->sub_descriptor) < 0)
+
+        uint32_t ctrl_stream_id = shm_tensorpool_control_consumerConfig_controlStreamId(&cfg);
+        struct shm_tensorpool_control_consumerConfig_string_view ctrl_view =
+            shm_tensorpool_control_consumerConfig_get_controlChannel_as_string_view(&cfg);
+        bool ctrl_has_channel = ctrl_view.length > 0;
+        bool ctrl_has_stream = ctrl_stream_id != 0;
+        if (ctrl_has_channel != ctrl_has_stream)
         {
             consumer->revoked = true;
             return;
         }
-    }
-
-    uint32_t ctrl_stream_id = shm_tensorpool_control_consumerConfig_controlStreamId(&cfg);
-    struct shm_tensorpool_control_consumerConfig_string_view ctrl_view =
-        shm_tensorpool_control_consumerConfig_get_controlChannel_as_string_view(&cfg);
-    bool ctrl_has_channel = ctrl_view.length > 0;
-    bool ctrl_has_stream = ctrl_stream_id != 0;
-    if (ctrl_has_channel != ctrl_has_stream)
-    {
-        consumer->revoked = true;
+        if (ctrl_has_channel)
+        {
+            if (ctrl_view.length >= sizeof(consumer->control_channel))
+            {
+                consumer->revoked = true;
+                return;
+            }
+            memcpy(consumer->control_channel, ctrl_view.data, ctrl_view.length);
+            consumer->control_channel[ctrl_view.length] = '\0';
+            consumer->control_stream_id = (int32_t)ctrl_stream_id;
+            if (consumer->sub_control)
+            {
+                aeron_subscription_close(consumer->sub_control, NULL, NULL);
+                consumer->sub_control = NULL;
+            }
+            if (tp_add_subscription(consumer->client->aeron, consumer->control_channel, consumer->control_stream_id, &consumer->sub_control) < 0)
+            {
+                consumer->revoked = true;
+                return;
+            }
+        }
         return;
     }
-    if (ctrl_has_channel)
+
+    if (template_id == shm_tensorpool_control_frameProgress_sbe_template_id())
     {
-        if (ctrl_view.length >= sizeof(consumer->control_channel))
+        struct shm_tensorpool_control_frameProgress progress;
+        uint64_t acting_block_length = shm_tensorpool_control_messageHeader_blockLength(&hdr);
+        uint64_t acting_version = shm_tensorpool_control_messageHeader_version(&hdr);
+        shm_tensorpool_control_frameProgress_wrap_for_decode(
+            &progress,
+            (char *)buffer + shm_tensorpool_control_messageHeader_encoded_length(),
+            0,
+            acting_block_length,
+            acting_version,
+            length - shm_tensorpool_control_messageHeader_encoded_length());
+
+        if (shm_tensorpool_control_frameProgress_streamId(&progress) != consumer->stream_id ||
+            shm_tensorpool_control_frameProgress_epoch(&progress) != consumer->epoch)
         {
-            consumer->revoked = true;
             return;
         }
-        memcpy(consumer->control_channel, ctrl_view.data, ctrl_view.length);
-        consumer->control_channel[ctrl_view.length] = '\0';
-        consumer->control_stream_id = (int32_t)ctrl_stream_id;
-        if (consumer->sub_control)
+        uint32_t header_index = shm_tensorpool_control_frameProgress_headerIndex(&progress);
+        if (consumer->header_nslots > 0 && header_index >= consumer->header_nslots)
         {
-            aeron_subscription_close(consumer->sub_control, NULL, NULL);
-            consumer->sub_control = NULL;
-        }
-        if (tp_add_subscription(consumer->client->aeron, consumer->control_channel, consumer->control_stream_id, &consumer->sub_control) < 0)
-        {
-            consumer->revoked = true;
             return;
         }
+        enum shm_tensorpool_control_frameProgressState state_val;
+        if (!shm_tensorpool_control_frameProgress_state(&progress, &state_val))
+        {
+            return;
+        }
+        consumer->last_progress_frame_id = shm_tensorpool_control_frameProgress_frameId(&progress);
+        consumer->last_progress_header_index = header_index;
+        consumer->last_progress_bytes = shm_tensorpool_control_frameProgress_payloadBytesFilled(&progress);
+        consumer->last_progress_state = (uint8_t)state_val;
+        consumer->has_progress = true;
+        return;
     }
+
+    if (template_id == shm_tensorpool_control_shmPoolAnnounce_sbe_template_id())
+    {
+        struct shm_tensorpool_control_shmPoolAnnounce announce;
+        uint64_t acting_block_length = shm_tensorpool_control_messageHeader_blockLength(&hdr);
+        uint64_t acting_version = shm_tensorpool_control_messageHeader_version(&hdr);
+        shm_tensorpool_control_shmPoolAnnounce_wrap_for_decode(
+            &announce,
+            (char *)buffer + shm_tensorpool_control_messageHeader_encoded_length(),
+            0,
+            acting_block_length,
+            acting_version,
+            length - shm_tensorpool_control_messageHeader_encoded_length());
+
+        if (shm_tensorpool_control_shmPoolAnnounce_streamId(&announce) != consumer->stream_id)
+        {
+            return;
+        }
+        if (shm_tensorpool_control_shmPoolAnnounce_epoch(&announce) != consumer->epoch)
+        {
+            return;
+        }
+        enum shm_tensorpool_control_clockDomain domain_val;
+        if (!shm_tensorpool_control_shmPoolAnnounce_announceClockDomain(&announce, &domain_val))
+        {
+            return;
+        }
+        uint64_t announce_ts = shm_tensorpool_control_shmPoolAnnounce_announceTimestampNs(&announce);
+        uint64_t now_ns = (domain_val == shm_tensorpool_control_clockDomain_REALTIME_SYNCED) ?
+            tp_now_realtime_ns() : tp_now_ns();
+        if (domain_val == shm_tensorpool_control_clockDomain_MONOTONIC &&
+            announce_ts < consumer->join_time_ns)
+        {
+            return;
+        }
+        if (now_ns > announce_ts)
+        {
+            uint64_t delta = now_ns - announce_ts;
+            if (delta > TP_ANNOUNCE_FRESHNESS_NS)
+            {
+                return;
+            }
+        }
+        consumer->last_announce_timestamp_ns = announce_ts;
+        consumer->last_announce_clock_domain = (uint8_t)domain_val;
+        return;
+    }
+}
+
+void tp_consumer_handle_control_buffer(tp_consumer_t *consumer, const uint8_t *buffer, size_t length)
+{
+    if (consumer == NULL || buffer == NULL)
+    {
+        return;
+    }
+    tp_consumer_control_handler(consumer, buffer, length, NULL);
 }
 
 static tp_err_t tp_consumer_send_hello(tp_consumer_t *consumer)
@@ -525,6 +631,7 @@ static tp_err_t tp_init_consumer_from_attach(tp_client_t *client, const tp_attac
         }
     }
 
+    consumer->last_qos_ns = tp_now_ns();
     *out = consumer;
     return TP_OK;
 }
@@ -572,6 +679,7 @@ tp_err_t tp_attach_consumer(tp_client_t *client, uint32_t stream_id, tp_consumer
     {
         return init_err;
     }
+    (*consumer)->join_time_ns = tp_now_ns();
     return tp_consumer_send_hello(*consumer);
 }
 
@@ -598,6 +706,20 @@ tp_err_t tp_consumer_poll(tp_consumer_t *consumer, int fragment_limit)
         aeron_fragment_assembler_handler,
         consumer->descriptor_assembler,
         (size_t)fragment_limit);
+    if (consumer->pub_qos != NULL && consumer->client != NULL)
+    {
+        uint64_t now_ns = tp_now_ns();
+        if (now_ns - consumer->last_qos_ns >= consumer->client->context->qos_interval_ns)
+        {
+            tp_consumer_send_qos(
+                consumer,
+                shm_tensorpool_control_mode_STREAM,
+                consumer->last_seq,
+                consumer->drops_gap,
+                consumer->drops_late);
+            consumer->last_qos_ns = now_ns;
+        }
+    }
     return TP_OK;
 }
 
@@ -661,6 +783,7 @@ tp_err_t tp_consumer_try_read_frame(tp_consumer_t *consumer, tp_frame_view_t *vi
     uint64_t begin = __atomic_load_n(commit_ptr, __ATOMIC_ACQUIRE);
     if ((begin & 1ULL) != 0)
     {
+        consumer->drops_late += 1;
         return TP_ERR_TIMEOUT;
     }
 
@@ -735,10 +858,12 @@ tp_err_t tp_consumer_try_read_frame(tp_consumer_t *consumer, tp_frame_view_t *vi
     uint64_t end = __atomic_load_n(commit_ptr, __ATOMIC_ACQUIRE);
     if (begin != end || (end & 1ULL) != 0)
     {
+        consumer->drops_late += 1;
         return TP_ERR_TIMEOUT;
     }
     if ((end >> 1) != consumer->last_seq)
     {
+        consumer->drops_late += 1;
         return TP_ERR_PROTOCOL;
     }
 
@@ -881,6 +1006,22 @@ tp_err_t tp_consumer_send_qos(
 
     aeron_buffer_claim_commit(&claim_buf);
     return TP_OK;
+}
+
+bool tp_consumer_get_progress(tp_consumer_t *consumer, uint64_t *frame_id, uint64_t *bytes_filled, uint8_t *state)
+{
+    if (consumer == NULL || frame_id == NULL || bytes_filled == NULL || state == NULL)
+    {
+        return false;
+    }
+    if (!consumer->has_progress)
+    {
+        return false;
+    }
+    *frame_id = consumer->last_progress_frame_id;
+    *bytes_filled = consumer->last_progress_bytes;
+    *state = consumer->last_progress_state;
+    return true;
 }
 
 void tp_consumer_close(tp_consumer_t *consumer)

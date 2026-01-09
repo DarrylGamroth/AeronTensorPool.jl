@@ -99,6 +99,12 @@ if (TP_BUILD_TESTS)
         ${CMAKE_CURRENT_SOURCE_DIR}/src
         ${CMAKE_CURRENT_SOURCE_DIR}/vendor/aeron)
     add_test(NAME tp_attach_validate_test COMMAND tp_attach_validate_test)
+    add_executable(tp_control_progress_test tests/tp_control_progress_test.c)
+    target_link_libraries(tp_control_progress_test PRIVATE tensorpool_client)
+    target_include_directories(tp_control_progress_test PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/src
+        ${CMAKE_CURRENT_SOURCE_DIR}/vendor/aeron)
+    add_test(NAME tp_control_progress_test COMMAND tp_control_progress_test)
 endif ()
 
 if (TP_BUILD_INTEGRATION_TESTS)

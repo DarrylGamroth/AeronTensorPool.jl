@@ -105,13 +105,14 @@ static tp_err_t tp_init_producer_from_attach(tp_client_t *client, const tp_attac
     }
     if (client->context->qos_channel[0] != '\0' && client->context->qos_stream_id != 0)
     {
-        if (tp_add_publication(client->aeron, client->context->qos_channel, client->context->qos_stream_id, &producer->pub_qos) < 0)
-        {
-            tp_producer_close(producer);
-            return TP_ERR_AERON;
-        }
+    if (tp_add_publication(client->aeron, client->context->qos_channel, client->context->qos_stream_id, &producer->pub_qos) < 0)
+    {
+        tp_producer_close(producer);
+        return TP_ERR_AERON;
+    }
     }
 
+    producer->last_qos_ns = tp_now_ns();
     *out = producer;
     return TP_OK;
 }
@@ -474,6 +475,33 @@ tp_err_t tp_producer_send_qos(tp_producer_t *producer, uint64_t current_seq, uin
     shm_tensorpool_control_qosProducer_set_watermark(&msg, watermark);
 
     aeron_buffer_claim_commit(&claim_buf);
+    return TP_OK;
+}
+
+tp_err_t tp_producer_poll(tp_producer_t *producer)
+{
+    if (producer == NULL)
+    {
+        return TP_ERR_ARG;
+    }
+    if (producer->revoked || producer->client->driver.shutdown)
+    {
+        return TP_ERR_PROTOCOL;
+    }
+    if (producer->pub_qos == NULL)
+    {
+        return TP_OK;
+    }
+    uint64_t now_ns = tp_now_ns();
+    if (now_ns - producer->last_qos_ns >= producer->client->context->qos_interval_ns)
+    {
+        tp_err_t err = tp_producer_send_qos(producer, producer->seq, 0);
+        if (err == TP_OK)
+        {
+            producer->last_qos_ns = now_ns;
+        }
+        return err;
+    }
     return TP_OK;
 }
 

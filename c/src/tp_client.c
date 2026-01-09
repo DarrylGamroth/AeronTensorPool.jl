@@ -9,6 +9,13 @@ uint64_t tp_now_ns(void)
     return (uint64_t)ts.tv_sec * 1000000000ULL + (uint64_t)ts.tv_nsec;
 }
 
+uint64_t tp_now_realtime_ns(void)
+{
+    struct timespec ts;
+    clock_gettime(CLOCK_REALTIME, &ts);
+    return (uint64_t)ts.tv_sec * 1000000000ULL + (uint64_t)ts.tv_nsec;
+}
+
 tp_err_t tp_client_connect(tp_context_t *ctx, tp_client_t **client)
 {
     if (ctx == NULL || client == NULL)
