@@ -307,6 +307,11 @@ static void tp_driver_fragment_handler(void *clientd, const uint8_t *buffer, siz
     {
         return;
     }
+    uint16_t schema_id = shm_tensorpool_driver_messageHeader_schemaId(&hdr);
+    if (schema_id != shm_tensorpool_driver_messageHeader_sbe_schema_id())
+    {
+        return;
+    }
     uint16_t template_id = shm_tensorpool_driver_messageHeader_templateId(&hdr);
     if (template_id == shm_tensorpool_driver_shmAttachResponse_sbe_template_id())
     {
@@ -363,6 +368,15 @@ static void tp_driver_fragment_handler(void *clientd, const uint8_t *buffer, siz
         driver->shutdown = true;
         driver->shutdown_reason = (uint8_t)reason_val;
     }
+}
+
+void tp_driver_client_handle_control_buffer(tp_driver_client_t *driver, const uint8_t *buffer, size_t length)
+{
+    if ((driver == NULL) || (buffer == NULL))
+    {
+        return;
+    }
+    tp_driver_fragment_handler(driver, buffer, length, NULL);
 }
 
 tp_err_t tp_driver_client_init(tp_client_t *client)

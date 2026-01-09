@@ -144,6 +144,54 @@ if (TP_BUILD_TESTS)
         ${CMAKE_CURRENT_SOURCE_DIR}/src
         ${CMAKE_CURRENT_SOURCE_DIR}/vendor/aeron)
     add_test(NAME tp_consumer_empty_payload_test COMMAND tp_consumer_empty_payload_test)
+    add_executable(tp_seqlock_drop_test tests/tp_seqlock_drop_test.c)
+    target_link_libraries(tp_seqlock_drop_test PRIVATE tensorpool_client)
+    target_include_directories(tp_seqlock_drop_test PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/src
+        ${CMAKE_CURRENT_SOURCE_DIR}/vendor/aeron)
+    add_test(NAME tp_seqlock_drop_test COMMAND tp_seqlock_drop_test)
+    add_executable(tp_epoch_remap_test tests/tp_epoch_remap_test.c)
+    target_link_libraries(tp_epoch_remap_test PRIVATE tensorpool_client)
+    target_include_directories(tp_epoch_remap_test PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/src
+        ${CMAKE_CURRENT_SOURCE_DIR}/vendor/aeron)
+    add_test(NAME tp_epoch_remap_test COMMAND tp_epoch_remap_test)
+    add_executable(tp_control_schema_gating_test tests/tp_control_schema_gating_test.c)
+    target_link_libraries(tp_control_schema_gating_test PRIVATE tensorpool_client)
+    target_include_directories(tp_control_schema_gating_test PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/src
+        ${CMAKE_CURRENT_SOURCE_DIR}/vendor/aeron)
+    add_test(NAME tp_control_schema_gating_test COMMAND tp_control_schema_gating_test)
+    add_executable(tp_attach_required_fields_test tests/tp_attach_required_fields_test.c)
+    target_link_libraries(tp_attach_required_fields_test PRIVATE tensorpool_client)
+    target_include_directories(tp_attach_required_fields_test PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/src
+        ${CMAKE_CURRENT_SOURCE_DIR}/vendor/aeron)
+    add_test(NAME tp_attach_required_fields_test COMMAND tp_attach_required_fields_test)
+    add_executable(tp_per_consumer_streams_test tests/tp_per_consumer_streams_test.c)
+    target_link_libraries(tp_per_consumer_streams_test PRIVATE tensorpool_client)
+    target_include_directories(tp_per_consumer_streams_test PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/src
+        ${CMAKE_CURRENT_SOURCE_DIR}/vendor/aeron)
+    add_test(NAME tp_per_consumer_streams_test COMMAND tp_per_consumer_streams_test)
+    add_executable(tp_lease_revoke_reattach_test tests/tp_lease_revoke_reattach_test.c)
+    target_link_libraries(tp_lease_revoke_reattach_test PRIVATE tensorpool_client)
+    target_include_directories(tp_lease_revoke_reattach_test PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/src
+        ${CMAKE_CURRENT_SOURCE_DIR}/vendor/aeron)
+    add_test(NAME tp_lease_revoke_reattach_test COMMAND tp_lease_revoke_reattach_test)
+    add_executable(tp_discovery_gating_test tests/tp_discovery_gating_test.c)
+    target_link_libraries(tp_discovery_gating_test PRIVATE tensorpool_client)
+    target_include_directories(tp_discovery_gating_test PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/src
+        ${CMAKE_CURRENT_SOURCE_DIR}/vendor/aeron)
+    add_test(NAME tp_discovery_gating_test COMMAND tp_discovery_gating_test)
+    add_executable(tp_shm_validation_fallback_test tests/tp_shm_validation_fallback_test.c)
+    target_link_libraries(tp_shm_validation_fallback_test PRIVATE tensorpool_client)
+    target_include_directories(tp_shm_validation_fallback_test PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/src
+        ${CMAKE_CURRENT_SOURCE_DIR}/vendor/aeron)
+    add_test(NAME tp_shm_validation_fallback_test COMMAND tp_shm_validation_fallback_test)
 endif ()
 
 if (TP_BUILD_INTEGRATION_TESTS)
@@ -161,4 +209,11 @@ if (TP_BUILD_INTEGRATION_TESTS)
         ${CMAKE_CURRENT_SOURCE_DIR}/vendor/aeron)
     add_test(NAME tp_integration_detach COMMAND tp_integration_detach)
     set_tests_properties(tp_integration_detach PROPERTIES ENVIRONMENT "TP_STREAM_ID=10000;TP_ATTACH_TIMEOUT_MS=30000;TP_DETACH_TIMEOUT_MS=30000")
+    add_executable(tp_attach_backoff_test tests/tp_attach_backoff_test.c)
+    target_link_libraries(tp_attach_backoff_test PRIVATE tensorpool_client)
+    target_include_directories(tp_attach_backoff_test PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/src
+        ${CMAKE_CURRENT_SOURCE_DIR}/vendor/aeron)
+    add_test(NAME tp_attach_backoff_test COMMAND tp_attach_backoff_test)
+    set_tests_properties(tp_attach_backoff_test PROPERTIES ENVIRONMENT "TP_AERON_DIR=$ENV{TP_AERON_DIR}")
 endif ()

@@ -30,6 +30,7 @@ tp_err_t tp_context_init(tp_context_t **ctx)
     tmp->client_id = (uint32_t)getpid();
     tmp->use_invoker = false;
     tmp->attach_timeout_ns = 5000000000ULL;
+    tmp->attach_retry_interval_ns = 1000000000ULL;
     tmp->detach_timeout_ns = 5000000000ULL;
     tmp->qos_interval_ns = 1000000000ULL;
     tmp->lease_keepalive_interval_ns = 1000000000ULL;
@@ -174,6 +175,16 @@ tp_err_t tp_context_set_attach_timeout_ns(tp_context_t *ctx, uint64_t timeout_ns
         return TP_ERR_ARG;
     }
     ctx->attach_timeout_ns = timeout_ns;
+    return TP_OK;
+}
+
+tp_err_t tp_context_set_attach_retry_interval_ns(tp_context_t *ctx, uint64_t interval_ns)
+{
+    if (ctx == NULL)
+    {
+        return TP_ERR_ARG;
+    }
+    ctx->attach_retry_interval_ns = interval_ns;
     return TP_OK;
 }
 

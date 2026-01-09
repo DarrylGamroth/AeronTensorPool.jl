@@ -33,6 +33,7 @@ tp_err_t tp_context_set_metadata_stream_id(tp_context_t *ctx, int32_t stream_id)
 tp_err_t tp_context_set_client_id(tp_context_t *ctx, uint32_t client_id);
 tp_err_t tp_context_set_use_invoker(tp_context_t *ctx, bool value);
 tp_err_t tp_context_set_attach_timeout_ns(tp_context_t *ctx, uint64_t timeout_ns);
+tp_err_t tp_context_set_attach_retry_interval_ns(tp_context_t *ctx, uint64_t interval_ns);
 tp_err_t tp_context_set_qos_interval_ns(tp_context_t *ctx, uint64_t interval_ns);
 tp_err_t tp_context_set_detach_timeout_ns(tp_context_t *ctx, uint64_t timeout_ns);
 tp_err_t tp_context_set_announce_freshness_ns(tp_context_t *ctx, uint64_t freshness_ns);

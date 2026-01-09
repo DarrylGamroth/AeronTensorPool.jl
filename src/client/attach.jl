@@ -30,6 +30,7 @@ function await_attach_response(
     correlation_id::Int64;
     timeout_ns::UInt64 = client.context.attach_timeout_ns,
     retry_interval_ns::UInt64 = client.context.attach_retry_interval_ns,
+    retry_fn::Union{Nothing, Function} = nothing,
 )
     deadline = UInt64(time_ns()) + timeout_ns
     last_retry_ns = UInt64(time_ns())
@@ -37,6 +38,10 @@ function await_attach_response(
         do_work(client)
         now_ns = UInt64(time_ns())
         if now_ns - last_retry_ns > retry_interval_ns
+            if retry_fn !== nothing
+                new_id = retry_fn()
+                new_id != 0 && (correlation_id = new_id)
+            end
             last_retry_ns = now_ns
         end
         attach = Control.poll_attach!(driver_client, correlation_id, now_ns)
@@ -143,7 +148,18 @@ function attach_consumer(
         control_channel = control_channel,
         control_stream_id = control_stream_id,
     )
-    attach = await_attach_response(client, request.driver_client, request.correlation_id)
+    attach = await_attach_response(
+        client,
+        request.driver_client,
+        request.correlation_id;
+        retry_fn = () -> send_attach_request!(
+            request.driver_client;
+            stream_id = stream_id,
+            expected_layout_version = settings.expected_layout_version,
+            max_dims = UInt8(MAX_DIMS),
+            require_hugepages = settings.require_hugepages,
+        ),
+    )
     consumer_state = Consumer.init_consumer_from_attach(
         settings,
         attach;
@@ -190,7 +206,17 @@ function attach_producer(
         control_channel = control_channel,
         control_stream_id = control_stream_id,
     )
-    attach = await_attach_response(client, request.driver_client, request.correlation_id)
+    attach = await_attach_response(
+        client,
+        request.driver_client,
+        request.correlation_id;
+        retry_fn = () -> send_attach_request!(
+            request.driver_client;
+            stream_id = stream_id,
+            expected_layout_version = config.layout_version,
+            max_dims = UInt8(MAX_DIMS),
+        ),
+    )
     producer_state = Producer.init_producer_from_attach(
         config,
         attach;

@@ -49,6 +49,7 @@
 typedef struct tp_context_stct
 {
     uint64_t attach_timeout_ns;
+    uint64_t attach_retry_interval_ns;
     uint64_t detach_timeout_ns;
     uint64_t qos_interval_ns;
     uint64_t lease_keepalive_interval_ns;
@@ -82,6 +83,9 @@ typedef struct tp_driver_client_stct
     uint64_t pending_detach_lease_id;
     uint64_t last_detach_lease_id;
     uint64_t revoked_lease_id;
+    uint32_t pending_attach_stream_id;
+    uint8_t pending_attach_role;
+    uint8_t pending_attach_publish_mode;
     int64_t last_attach_correlation;
     int64_t pending_attach_correlation;
     int64_t last_detach_correlation;
@@ -241,6 +245,7 @@ tp_consumer_t;
 tp_err_t tp_driver_client_init(tp_client_t *client);
 void tp_driver_client_close(tp_driver_client_t *driver);
 int tp_driver_poll(tp_client_t *client, int fragment_limit);
+void tp_driver_client_handle_control_buffer(tp_driver_client_t *driver, const uint8_t *buffer, size_t length);
 int tp_client_do_work(tp_client_t *client);
 void tp_client_close(tp_client_t *client);
 void tp_producer_close(tp_producer_t *producer);

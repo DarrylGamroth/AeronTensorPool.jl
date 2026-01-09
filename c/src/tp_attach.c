@@ -45,18 +45,26 @@ tp_err_t tp_send_attach_request(
 
     aeron_buffer_claim_commit(&claim);
     client->driver.pending_attach_correlation = correlation_id;
+    client->driver.pending_attach_stream_id = stream_id;
+    client->driver.pending_attach_role = role;
+    client->driver.pending_attach_publish_mode = publish_mode;
     return TP_OK;
 }
 
 tp_err_t tp_wait_attach(tp_client_t *client, int64_t correlation_id, tp_attach_response_t *out)
 {
     const uint64_t deadline = tp_now_ns() + client->context->attach_timeout_ns;
+    uint64_t last_retry_ns = tp_now_ns();
+    uint64_t retry_interval = client->context->attach_retry_interval_ns;
     while ((tp_now_ns() < deadline))
     {
         tp_client_do_work(client);
         if (client->driver.last_attach_correlation == correlation_id)
         {
             client->driver.pending_attach_correlation = 0;
+            client->driver.pending_attach_stream_id = 0;
+            client->driver.pending_attach_role = 0;
+            client->driver.pending_attach_publish_mode = 0;
             if (!client->driver.last_attach_valid)
             {
                 return TP_ERR_PROTOCOL;
@@ -64,7 +72,24 @@ tp_err_t tp_wait_attach(tp_client_t *client, int64_t correlation_id, tp_attach_r
             *out = client->driver.last_attach;
             return TP_OK;
         }
+        uint64_t now_ns = tp_now_ns();
+        if ((retry_interval > 0) && (now_ns - last_retry_ns >= retry_interval))
+        {
+            uint32_t stream_id = client->driver.pending_attach_stream_id;
+            uint8_t role = client->driver.pending_attach_role;
+            uint8_t publish_mode = client->driver.pending_attach_publish_mode;
+            client->driver.pending_attach_correlation = 0;
+            tp_err_t err = tp_send_attach_request(client, stream_id, role, publish_mode);
+            if (err == TP_OK)
+            {
+                correlation_id = client->driver.pending_attach_correlation;
+            }
+            last_retry_ns = now_ns;
+        }
     }
     client->driver.pending_attach_correlation = 0;
+    client->driver.pending_attach_stream_id = 0;
+    client->driver.pending_attach_role = 0;
+    client->driver.pending_attach_publish_mode = 0;
     return TP_ERR_TIMEOUT;
 }
