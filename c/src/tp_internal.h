@@ -181,9 +181,15 @@ typedef struct tp_producer_stct
     uint32_t header_nslots;
     uint32_t pool_count;
     uint16_t header_slot_bytes;
+    uint32_t metadata_version;
+    uint32_t metadata_attr_count;
     bool revoked;
+    bool metadata_dirty;
     tp_shm_mapping_t header;
     tp_pool_mapping_t pools[TP_MAX_POOLS];
+    char metadata_name[TP_METADATA_TEXT_MAX];
+    char metadata_summary[TP_METADATA_TEXT_MAX];
+    tp_metadata_attribute_t metadata_attrs[TP_MAX_METADATA_ATTRS];
 }
 tp_producer_t;
 

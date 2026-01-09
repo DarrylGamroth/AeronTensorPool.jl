@@ -22,6 +22,11 @@ static tp_err_t tp_init_producer_from_attach(tp_client_t *client, const tp_attac
     producer->header_nslots = resp->header_nslots;
     producer->header_slot_bytes = resp->header_slot_bytes;
     producer->pool_count = resp->pool_count;
+    producer->metadata_version = 0;
+    producer->metadata_attr_count = 0;
+    producer->metadata_dirty = false;
+    producer->metadata_name[0] = '\0';
+    producer->metadata_summary[0] = '\0';
     if (!tp_is_power_of_two(resp->header_nslots))
     {
         tp_producer_close(producer);
@@ -537,7 +542,33 @@ tp_err_t tp_producer_poll(tp_producer_t *producer)
     }
     if (producer->pub_qos == NULL)
     {
-        return TP_OK;
+        if (producer->pub_metadata == NULL || !producer->metadata_dirty)
+        {
+            return TP_OK;
+        }
+    }
+    if (producer->pub_metadata && producer->metadata_dirty)
+    {
+        tp_err_t err = tp_producer_send_metadata_announce(
+            producer,
+            producer->metadata_version,
+            producer->metadata_name,
+            producer->metadata_summary);
+        if (err != TP_OK)
+        {
+            return err;
+        }
+        err = tp_producer_send_metadata_meta(
+            producer,
+            producer->metadata_version,
+            now_ns,
+            producer->metadata_attrs,
+            producer->metadata_attr_count);
+        if (err != TP_OK)
+        {
+            return err;
+        }
+        producer->metadata_dirty = false;
     }
     if (now_ns - producer->last_qos_ns >= producer->client->context->qos_interval_ns)
     {
@@ -690,6 +721,236 @@ tp_err_t tp_producer_send_metadata_meta(
     }
 
     aeron_buffer_claim_commit(&claim_buf);
+    return TP_OK;
+}
+
+static tp_err_t tp_metadata_copy_text(char *dst, size_t dst_len, const char *src)
+{
+    if ((dst == NULL) || (dst_len == 0))
+    {
+        return TP_ERR_ARG;
+    }
+    snprintf(dst, dst_len, "%s", src == NULL ? "" : src);
+    return TP_OK;
+}
+
+static tp_err_t tp_metadata_copy_attribute(tp_metadata_attribute_t *dst, const char *key, const char *mime_type, const uint8_t *value, uint32_t value_len)
+{
+    if ((dst == NULL) || (key == NULL) || (mime_type == NULL))
+    {
+        return TP_ERR_ARG;
+    }
+    if (value_len > TP_METADATA_VALUE_MAX)
+    {
+        return TP_ERR_ARG;
+    }
+    tp_err_t err = tp_metadata_copy_text(dst->key, sizeof(dst->key), key);
+    if (err != TP_OK)
+    {
+        return err;
+    }
+    err = tp_metadata_copy_text(dst->mime_type, sizeof(dst->mime_type), mime_type);
+    if (err != TP_OK)
+    {
+        return err;
+    }
+    dst->value_len = value_len;
+    if (value_len > 0 && value != NULL)
+    {
+        memcpy(dst->value, value, value_len);
+    }
+    return TP_OK;
+}
+
+static int tp_metadata_find_attr(const tp_producer_t *producer, const char *key)
+{
+    if ((producer == NULL) || (key == NULL))
+    {
+        return -1;
+    }
+    for (uint32_t i = 0; i < producer->metadata_attr_count; i++)
+    {
+        if (strncmp(producer->metadata_attrs[i].key, key, TP_METADATA_TEXT_MAX) == 0)
+        {
+            return (int)i;
+        }
+    }
+    return -1;
+}
+
+static uint32_t tp_producer_next_meta_version(tp_producer_t *producer)
+{
+    producer->metadata_version += 1;
+    return producer->metadata_version;
+}
+
+tp_err_t tp_producer_metadata_version(const tp_producer_t *producer, uint32_t *meta_version)
+{
+    if ((producer == NULL) || (meta_version == NULL))
+    {
+        return TP_ERR_ARG;
+    }
+    *meta_version = producer->metadata_version;
+    return TP_OK;
+}
+
+tp_err_t tp_producer_set_metadata(
+    tp_producer_t *producer,
+    const char *name,
+    const char *summary,
+    const tp_metadata_attribute_t *attrs,
+    uint32_t attr_count)
+{
+    if (producer == NULL)
+    {
+        return TP_ERR_ARG;
+    }
+    if (attr_count > TP_MAX_METADATA_ATTRS)
+    {
+        return TP_ERR_ARG;
+    }
+    tp_err_t err = tp_metadata_copy_text(producer->metadata_name, sizeof(producer->metadata_name), name);
+    if (err != TP_OK)
+    {
+        return err;
+    }
+    err = tp_metadata_copy_text(producer->metadata_summary, sizeof(producer->metadata_summary), summary);
+    if (err != TP_OK)
+    {
+        return err;
+    }
+    producer->metadata_attr_count = 0;
+    if (attrs != NULL)
+    {
+        for (uint32_t i = 0; i < attr_count; i++)
+        {
+            err = tp_metadata_copy_attribute(
+                &producer->metadata_attrs[i],
+                attrs[i].key,
+                attrs[i].mime_type,
+                attrs[i].value,
+                attrs[i].value_len);
+            if (err != TP_OK)
+            {
+                return err;
+            }
+            producer->metadata_attr_count++;
+        }
+    }
+    tp_producer_next_meta_version(producer);
+    producer->metadata_dirty = true;
+    return TP_OK;
+}
+
+tp_err_t tp_producer_announce_data_source(tp_producer_t *producer, const char *name, const char *summary)
+{
+    if (producer == NULL)
+    {
+        return TP_ERR_ARG;
+    }
+    tp_err_t err = tp_metadata_copy_text(producer->metadata_name, sizeof(producer->metadata_name), name);
+    if (err != TP_OK)
+    {
+        return err;
+    }
+    err = tp_metadata_copy_text(producer->metadata_summary, sizeof(producer->metadata_summary), summary);
+    if (err != TP_OK)
+    {
+        return err;
+    }
+    tp_producer_next_meta_version(producer);
+    producer->metadata_dirty = true;
+    return TP_OK;
+}
+
+tp_err_t tp_producer_set_metadata_attributes(
+    tp_producer_t *producer,
+    const tp_metadata_attribute_t *attrs,
+    uint32_t attr_count)
+{
+    if (producer == NULL)
+    {
+        return TP_ERR_ARG;
+    }
+    if (attrs == NULL && attr_count > 0)
+    {
+        return TP_ERR_ARG;
+    }
+    if (attr_count > TP_MAX_METADATA_ATTRS)
+    {
+        return TP_ERR_ARG;
+    }
+    producer->metadata_attr_count = 0;
+    if (attrs != NULL)
+    {
+        for (uint32_t i = 0; i < attr_count; i++)
+        {
+            tp_err_t err = tp_metadata_copy_attribute(
+                &producer->metadata_attrs[i],
+                attrs[i].key,
+                attrs[i].mime_type,
+                attrs[i].value,
+                attrs[i].value_len);
+            if (err != TP_OK)
+            {
+                return err;
+            }
+            producer->metadata_attr_count++;
+        }
+    }
+    tp_producer_next_meta_version(producer);
+    producer->metadata_dirty = true;
+    return TP_OK;
+}
+
+tp_err_t tp_producer_set_metadata_attribute(
+    tp_producer_t *producer,
+    const char *key,
+    const char *mime_type,
+    const uint8_t *value,
+    uint32_t value_len)
+{
+    if (producer == NULL)
+    {
+        return TP_ERR_ARG;
+    }
+    tp_producer_next_meta_version(producer);
+    int idx = tp_metadata_find_attr(producer, key);
+    if (idx < 0)
+    {
+        if (producer->metadata_attr_count >= TP_MAX_METADATA_ATTRS)
+        {
+            return TP_ERR_ARG;
+        }
+        idx = (int)producer->metadata_attr_count++;
+    }
+    tp_err_t err = tp_metadata_copy_attribute(&producer->metadata_attrs[idx], key, mime_type, value, value_len);
+    if (err != TP_OK)
+    {
+        return err;
+    }
+    producer->metadata_dirty = true;
+    return TP_OK;
+}
+
+tp_err_t tp_producer_delete_metadata_attribute(tp_producer_t *producer, const char *key)
+{
+    if ((producer == NULL) || (key == NULL))
+    {
+        return TP_ERR_ARG;
+    }
+    int idx = tp_metadata_find_attr(producer, key);
+    if (idx < 0)
+    {
+        return TP_ERR_NOT_FOUND;
+    }
+    for (uint32_t i = (uint32_t)idx + 1; i < producer->metadata_attr_count; i++)
+    {
+        producer->metadata_attrs[i - 1] = producer->metadata_attrs[i];
+    }
+    producer->metadata_attr_count--;
+    tp_producer_next_meta_version(producer);
+    producer->metadata_dirty = true;
     return TP_OK;
 }
 

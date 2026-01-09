@@ -69,6 +69,27 @@ tp_err_t tp_producer_commit_slot(
     uint32_t values_len,
     const tp_tensor_header_t *tensor,
     uint32_t meta_version);
+
+tp_err_t tp_producer_metadata_version(const tp_producer_t *producer, uint32_t *meta_version);
+tp_err_t tp_producer_set_metadata(
+    tp_producer_t *producer,
+    const char *name,
+    const char *summary,
+    const tp_metadata_attribute_t *attrs,
+    uint32_t attr_count);
+tp_err_t tp_producer_announce_data_source(tp_producer_t *producer, const char *name, const char *summary);
+tp_err_t tp_producer_set_metadata_attributes(
+    tp_producer_t *producer,
+    const tp_metadata_attribute_t *attrs,
+    uint32_t attr_count);
+tp_err_t tp_producer_set_metadata_attribute(
+    tp_producer_t *producer,
+    const char *key,
+    const char *mime_type,
+    const uint8_t *value,
+    uint32_t value_len);
+tp_err_t tp_producer_delete_metadata_attribute(tp_producer_t *producer, const char *key);
+
 tp_err_t tp_producer_send_metadata_announce(
     tp_producer_t *producer,
     uint32_t meta_version,

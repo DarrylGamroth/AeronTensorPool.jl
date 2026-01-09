@@ -32,8 +32,6 @@ int main(int argc, char **argv)
     uint64_t attach_timeout_ns = env ? (uint64_t)strtoull(env, NULL, 10) * 1000000ULL : 5000000000ULL;
     env = getenv("TP_QOS_INTERVAL_MS");
     uint64_t qos_interval_ns = env ? (uint64_t)strtoull(env, NULL, 10) * 1000000ULL : 0;
-    env = getenv("TP_META_VERSION");
-    uint32_t meta_version = env ? (uint32_t)strtoul(env, NULL, 10) : 1;
 
     tp_context_t *ctx = NULL;
     tp_client_t *client = NULL;
@@ -122,25 +120,15 @@ int main(int argc, char **argv)
         attrs[0].value_len = (uint32_t)strlen(value_buf);
         memcpy(attrs[0].value, value_buf, attrs[0].value_len);
 
-        tp_err_t ann_err = tp_producer_send_metadata_announce(
-            producer,
-            meta_version,
-            "tp-producer-example",
-            "metadata example");
-        if (ann_err != TP_OK)
+        tp_err_t err = tp_producer_announce_data_source(producer, "tp-producer-example", "metadata example");
+        if (err != TP_OK)
         {
-            fprintf(stderr, "metadata announce failed (err=%d)\n", ann_err);
+            fprintf(stderr, "metadata announce failed (err=%d)\n", err);
         }
-
-        tp_err_t meta_err = tp_producer_send_metadata_meta(
-            producer,
-            meta_version,
-            now_ns(),
-            attrs,
-            1);
-        if (meta_err != TP_OK)
+        err = tp_producer_set_metadata_attributes(producer, attrs, 1);
+        if (err != TP_OK)
         {
-            fprintf(stderr, "metadata meta failed (err=%d)\n", meta_err);
+            fprintf(stderr, "metadata attributes failed (err=%d)\n", err);
         }
     }
 
@@ -193,7 +181,9 @@ int main(int argc, char **argv)
             continue;
         }
         memcpy(claim.ptr, payload, payload_bytes);
-        tp_err_t commit_err = tp_producer_commit_slot(producer, &claim, payload_bytes, &tensor, 1);
+        uint32_t meta_version = 0;
+        tp_producer_metadata_version(producer, &meta_version);
+        tp_err_t commit_err = tp_producer_commit_slot(producer, &claim, payload_bytes, &tensor, meta_version);
         if (commit_err != TP_OK)
         {
             if (!printed_error)
