@@ -144,9 +144,7 @@ Defaults (if not specified):
 
 ```julia
 entry = discover_stream!(client; data_source_name="camera-1")
-producer = attach_producer(client; stream_id=entry.stream_id,
-                           control_channel=entry.driver_control_channel,
-                           control_stream_id=entry.driver_control_stream_id)
+producer = attach_producer(client, entry; producer_id=1)
 ```
 
 Preferred overload (explicit, idiomatic):
@@ -156,6 +154,9 @@ entry = discover_stream!(client; data_source_name="camera-1")
 producer = attach_producer(client, entry; producer_id=1)
 consumer = attach_consumer(client, entry; consumer_id=2)
 ```
+
+Use accessor functions for discovery entries; avoid direct field access to keep
+the entry representation opaque.
 
 ## Additional Recommendations
 
