@@ -185,13 +185,23 @@ Use a single callbacks struct with explicit return codes, similar to Aeron
     COMMIT   = 3
 end
 
-struct ClientCallbacks
-    on_frame!::Function        # (state, frame) -> CallbackAction
-    on_qos_producer!::Function # (state, snapshot) -> CallbackAction
-    on_qos_consumer!::Function # (state, snapshot) -> CallbackAction
-    on_metadata!::Function     # (state, entry) -> CallbackAction
+struct ClientCallbacks{F1,F2,F3,F4}
+    on_frame!::F1        # (state, frame) -> CallbackAction
+    on_qos_producer!::F2 # (state, snapshot) -> CallbackAction
+    on_qos_consumer!::F3 # (state, snapshot) -> CallbackAction
+    on_metadata!::F4     # (state, entry) -> CallbackAction
 end
 ```
+
+Construction guidance (type-stable):
+- Provide a keyword constructor that returns a fully concrete
+  `ClientCallbacks{F1,F2,F3,F4}` by inferring the function object types.
+- Use small callable structs for defaults (e.g., `NoopFrame`, `NoopQos`)
+  instead of `Function`-typed fields.
+- Functors (callable structs) or FunctionWrappers are acceptable alternatives
+  when you need dynamic behavior without boxing.
+- Ensure handles are parameterized on callback types:
+  `ProducerHandle{CB}` / `ConsumerHandle{CB}` to avoid boxing.
 
 Rules:
 - Callbacks run on the agent thread; MUST be non-allocating and non-blocking.
@@ -234,6 +244,15 @@ Use dispatch to improve ergonomics while keeping concrete types:
 - `poll_qos!(::ProducerHandle)` and `poll_qos!(::ConsumerHandle)` returning concrete snapshots.
 - `handle_status(::ProducerHandle)` / `handle_status(::ConsumerHandle)` with role-specific structs.
 - `try_claim_slot!(::ProducerHandle, bytes::Integer)` vs `try_claim_slot!(::ProducerHandle, payload::AbstractVector)`.
+
+## Type-Stability Checklist
+
+- Avoid abstract-typed fields in hot-path structs (prefer parametric concrete types).
+- Avoid `Function` fields; use functors or FunctionWrappers.
+- Keep hot-path collections typed (e.g., `Vector{UInt8}` not `Vector{Any}`).
+- Use small unions (`Union{T,Nothing}`) rather than large union types.
+- For larger unions, consider WrappedUnions.jl to preserve type stability.
+- Avoid non-`const` globals and `AbstractDict` in hot paths.
 
 ## Interface Seams (Swappable Implementations)
 
