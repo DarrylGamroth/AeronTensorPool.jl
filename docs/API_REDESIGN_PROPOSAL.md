@@ -183,6 +183,11 @@ the entry representation opaque.
 - No hidden background tasks.
 - No implicit global state.
 
+## Encapsulation Guidelines
+
+- Prefer accessor functions over direct field access for user-facing types.
+- Keep struct fields internal so representations can evolve without breaking API.
+
 ## Proposed Final Surface (Breaking Changes OK)
 
 Keep as canonical:
