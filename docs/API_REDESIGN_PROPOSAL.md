@@ -168,6 +168,19 @@ producer = attach_producer(client, entry; producer_id=1)
 consumer = attach_consumer(client, entry; consumer_id=2)
 ```
 
+## Additional Recommendations
+
+- Provide `poll!(client, fragment_limit)` and `poll!(handle, fragment_limit)`
+  helpers that return work counts for idle strategy integration.
+- Allow attach timeouts via kwargs:
+  `attach_producer(...; timeout_ns=..., retry_ns=...)`.
+- Consolidate attach errors into a small typed error hierarchy or enum for
+  consistent handling and logging.
+- Add `Base.show` methods for Context/Client/Handle/DiscoveryEntry to improve
+  REPL diagnostics (keep them concise and non-allocating in hot paths).
+- Consider a `LowLevel` namespace for request/poll/claim helpers to keep the
+  primary API surface small.
+
 ## Lessons Incorporated
 
 - Avoid manual endpoint patching by adding `with_driver_endpoints`.
