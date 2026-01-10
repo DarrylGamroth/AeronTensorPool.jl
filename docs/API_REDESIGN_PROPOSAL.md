@@ -12,6 +12,7 @@ target.
 - Aeron-style mental model: Context → Client → explicit poll → explicit close.
 - Minimize boilerplate around driver endpoints, QoS, and metadata.
 - Keep hot-path operations explicit and allocation-free.
+- Hot-path producer/consumer calls MUST remain zero-allocation after initialization.
 
 ## Proposed API Surface
 
@@ -160,6 +161,17 @@ Optional convenience helpers:
 - `handle_status`
 - `run!` (agent runner convenience)
 
+## Cleanup and Teardown
+
+Explicitly document shutdown order to avoid dangling keepalives or background
+pollers:
+
+1. `close!(producer)` / `close!(consumer)` — stop agents, QoS/metadata helpers.
+2. `close!(client)` — close Aeron client and control-plane resources.
+3. Optional: `close!(runner)` if an explicit runner is used.
+
+Handles should be idempotent to close; repeated `close!` calls must be safe.
+
 ## Callback Redesign (Aeron-Style)
 
 Use a single callbacks struct with explicit return codes, similar to Aeron
@@ -219,7 +231,7 @@ Julia-ish pseudocode).
 
 ```
 send_request!(transport, msg) -> correlation_id::Int64
-poll_response!(transport, correlation_id::Int64, now_ns::UInt64) -> Union{Response,Nothing}
+poll_response!(transport, correlation_id::Int64, now_ns::UInt64) -> Union{AttachResponse,Nothing}
 send_keepalive!(transport, lease_id::UInt64, now_ns::UInt64) -> Bool
 ```
 
@@ -241,7 +253,7 @@ record_qos!(sink, snapshot) -> nothing
 ### MetadataStore
 
 ```
-publish_metadata!(store, stream_id, attributes) -> nothing
+publish_metadata!(store, stream_id, attributes) -> nothing  # attributes: Pair/MetadataAttribute collection
 poll_metadata!(store) -> nothing
 lookup_metadata(store, stream_id) -> entry_or_nothing
 ```
