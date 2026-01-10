@@ -1033,6 +1033,10 @@ tp_err_t tp_consumer_try_read_frame(tp_consumer_t *consumer, tp_frame_view_t *vi
     }
     if (!consumer->has_descriptor)
     {
+        if (getenv("TP_DEBUG_FRAME") != NULL)
+        {
+            fprintf(stderr, "no descriptor available\n");
+        }
         return TP_ERR_TIMEOUT;
     }
     if (consumer->last_epoch != consumer->epoch)
@@ -1058,6 +1062,10 @@ tp_err_t tp_consumer_try_read_frame(tp_consumer_t *consumer, tp_frame_view_t *vi
     uint64_t begin = __atomic_load_n(commit_ptr, __ATOMIC_ACQUIRE);
     if ((begin & 1ULL) != 0)
     {
+        if (getenv("TP_DEBUG_FRAME") != NULL)
+        {
+            fprintf(stderr, "commit begin odd: 0x%016llx\n", (unsigned long long)begin);
+        }
         consumer->drops_late += 1;
         return TP_ERR_TIMEOUT;
     }
@@ -1143,6 +1151,11 @@ tp_err_t tp_consumer_try_read_frame(tp_consumer_t *consumer, tp_frame_view_t *vi
     uint64_t end = __atomic_load_n(commit_ptr, __ATOMIC_ACQUIRE);
     if ((begin != end) || ((end & 1ULL) != 0))
     {
+        if (getenv("TP_DEBUG_FRAME") != NULL)
+        {
+            fprintf(stderr, "commit mismatch: begin=0x%016llx end=0x%016llx\n",
+                (unsigned long long)begin, (unsigned long long)end);
+        }
         consumer->drops_late += 1;
         return TP_ERR_TIMEOUT;
     }

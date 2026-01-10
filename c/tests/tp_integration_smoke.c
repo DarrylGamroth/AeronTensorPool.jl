@@ -33,6 +33,31 @@ static bool wait_for_driver_connect(tp_client_t *client, uint64_t timeout_ns)
     return false;
 }
 
+static bool wait_for_data_connect(
+    tp_producer_t *producer,
+    tp_consumer_t *consumer,
+    uint64_t timeout_ns)
+{
+    const uint64_t deadline = now_ns() + timeout_ns;
+    while (now_ns() < deadline)
+    {
+        if (producer && producer->client)
+        {
+            tp_client_do_work(producer->client);
+        }
+        if (consumer && consumer->client)
+        {
+            tp_client_do_work(consumer->client);
+        }
+        if (tp_producer_is_connected(producer) && tp_consumer_is_connected(consumer))
+        {
+            return true;
+        }
+        sched_yield();
+    }
+    return false;
+}
+
 static void detach_leases(
     tp_client_t *client_prod,
     tp_client_t *client_cons,
@@ -345,6 +370,18 @@ int main(int argc, char **argv)
         return 1;
     }
 
+    if (!wait_for_data_connect(producer, consumer, attach_timeout_ns))
+    {
+        fprintf(stderr, "descriptor channels not connected\n");
+        tp_consumer_close(consumer);
+        tp_producer_close(producer);
+        tp_client_close(client_prod);
+        tp_client_close(client_cons);
+        tp_context_close(ctx_prod);
+        tp_context_close(ctx_cons);
+        return 1;
+    }
+
     uint8_t payload[16];
     for (uint32_t i = 0; i < sizeof(payload); i++)
     {
@@ -392,6 +429,72 @@ int main(int argc, char **argv)
         fprintf(stderr, "producer headerBytes length field=%u\n", header_len_field);
     }
 
+    tp_frame_view_t view;
+    bool printed_commit = false;
+    bool got_first = false;
+    uint64_t deadline = now_ns() + 2000000000ULL;
+    while (now_ns() < deadline)
+    {
+        tp_client_do_work(client_prod);
+        tp_client_do_work(client_cons);
+        tp_consumer_poll(consumer, 10);
+        if (debug && consumer->has_descriptor)
+        {
+            fprintf(stderr, "descriptor seen: seq=%llu header_index=%u\n",
+                (unsigned long long)consumer->last_seq,
+                consumer->last_header_index);
+            if (!printed_commit)
+            {
+                uint64_t header_offset = 64 + ((uint64_t)consumer->last_header_index * consumer->header_slot_bytes);
+                uint64_t commit_word = *(uint64_t *)(consumer->header.addr + header_offset);
+                fprintf(stderr, "commit word raw=0x%016llx\n", (unsigned long long)commit_word);
+                printed_commit = true;
+            }
+        }
+        tp_err_t read_err = tp_consumer_try_read_frame(consumer, &view);
+        if (read_err == TP_OK)
+        {
+            if (debug)
+            {
+                fprintf(stderr, "read frame ok: seq=%llu len=%u\n",
+                    (unsigned long long)consumer->last_seq,
+                    view.payload_len);
+            }
+            if (view.payload_len != sizeof(payload))
+            {
+                fprintf(stderr, "unexpected payload length\n");
+                break;
+            }
+            if (memcmp(view.payload, payload, sizeof(payload)) != 0)
+            {
+                fprintf(stderr, "payload mismatch\n");
+                break;
+            }
+            got_first = true;
+            break;
+        }
+        else if (read_err != TP_ERR_TIMEOUT)
+        {
+            if (debug)
+            {
+                fprintf(stderr, "read frame failed (err=%d)\n", read_err);
+            }
+            break;
+        }
+    }
+    if (!got_first)
+    {
+        fprintf(stderr, "timed out waiting for payload frame\n");
+        detach_leases(client_prod, client_cons, producer, consumer, stream_id);
+        tp_consumer_close(consumer);
+        tp_producer_close(producer);
+        tp_client_close(client_prod);
+        tp_client_close(client_cons);
+        tp_context_close(ctx_prod);
+        tp_context_close(ctx_cons);
+        return 1;
+    }
+
     tp_tensor_header_t tensor_empty;
     memset(&tensor_empty, 0, sizeof(tensor_empty));
     tensor_empty.dtype = (uint8_t)shm_tensorpool_control_dtype_UINT8;
@@ -426,63 +529,36 @@ int main(int argc, char **argv)
         return 1;
     }
 
-    tp_frame_view_t view;
-    bool got_first = false;
-    bool got_empty = false;
-    uint64_t deadline = now_ns() + 2000000000ULL;
-    bool printed_commit = false;
+    deadline = now_ns() + 2000000000ULL;
     while (now_ns() < deadline)
     {
         tp_client_do_work(client_prod);
         tp_client_do_work(client_cons);
         tp_consumer_poll(consumer, 10);
-        if (debug && consumer->has_descriptor)
-        {
-            fprintf(stderr, "descriptor seen: seq=%llu header_index=%u\n",
-                (unsigned long long)consumer->last_seq,
-                consumer->last_header_index);
-            if (!printed_commit)
-            {
-                uint64_t header_offset = 64 + ((uint64_t)consumer->last_header_index * consumer->header_slot_bytes);
-                uint64_t commit_word = *(uint64_t *)(consumer->header.addr + header_offset);
-                fprintf(stderr, "commit word raw=0x%016llx\n", (unsigned long long)commit_word);
-                printed_commit = true;
-            }
-        }
         tp_err_t read_err = tp_consumer_try_read_frame(consumer, &view);
         if (read_err == TP_OK)
         {
-            if (view.payload_len == sizeof(payload))
+            if (debug)
             {
-                if (memcmp(view.payload, payload, sizeof(payload)) != 0)
-                {
-                    fprintf(stderr, "payload mismatch\n");
-                    break;
-                }
-                got_first = true;
+                fprintf(stderr, "read frame ok: seq=%llu len=%u\n",
+                    (unsigned long long)consumer->last_seq,
+                    view.payload_len);
             }
-            else if (view.payload_len == 0)
-            {
-                got_empty = true;
-            }
-            else
+            if (view.payload_len != 0)
             {
                 fprintf(stderr, "unexpected payload length\n");
                 break;
             }
-            if (got_first && got_empty)
-            {
-                detach_leases(client_prod, client_cons, producer, consumer, stream_id);
-                tp_consumer_close(consumer);
-                tp_producer_close(producer);
-                tp_client_close(client_prod);
-                tp_client_close(client_cons);
-                tp_context_close(ctx_prod);
-                tp_context_close(ctx_cons);
-                return 0;
-            }
+            detach_leases(client_prod, client_cons, producer, consumer, stream_id);
+            tp_consumer_close(consumer);
+            tp_producer_close(producer);
+            tp_client_close(client_prod);
+            tp_client_close(client_cons);
+            tp_context_close(ctx_prod);
+            tp_context_close(ctx_cons);
+            return 0;
         }
-        if (read_err != TP_ERR_TIMEOUT)
+        else if (read_err != TP_ERR_TIMEOUT)
         {
             if (debug)
             {
@@ -492,7 +568,7 @@ int main(int argc, char **argv)
         }
     }
 
-    fprintf(stderr, "timed out waiting for frame\n");
+    fprintf(stderr, "timed out waiting for empty frame\n");
     detach_leases(client_prod, client_cons, producer, consumer, stream_id);
     tp_consumer_close(consumer);
     tp_producer_close(producer);
