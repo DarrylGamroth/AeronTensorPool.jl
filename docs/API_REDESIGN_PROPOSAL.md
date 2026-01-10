@@ -23,6 +23,13 @@ target.
 - `Client`: connects to Aeron and control plane
 - `Producer`: handle for producing frames
 - `Consumer`: handle for consuming frames
+- `ClientConductor`: per-client agent that drives polling and control-plane work
+
+### Aeron Naming Alignment (Selected)
+
+- Prefer `MessageHandler` / `ControlledMessageHandler` over `FragmentHandler`
+  since ATP operates on decoded messages, not raw fragments.
+- Do not expose `Image` unless per-image state becomes a user-facing concept.
 
 ### Attach Functions
 
@@ -122,6 +129,43 @@ wait(runner)
 
 close(consumer)
 close(client)
+```
+
+## Config-less API Variant (Aeron-Style)
+
+Prefer programmatic configuration with kwargs and defaults from
+`docs/STREAM_ID_CONVENTIONS.md`:
+
+```julia
+ctx = Context(; aeron_dir="...", control_channel="aeron:ipc?term-length=4m")
+client = connect(ctx)
+
+producer = attach_producer(client; stream_id=10000, producer_id=1)
+consumer = attach_consumer(client; stream_id=10000, consumer_id=2)
+```
+
+Defaults (if not specified):
+- `control_stream_id = 1000`
+- `descriptor_stream_id = 1100`
+- `qos_stream_id = 1200`
+- `metadata_stream_id = 1300`
+- Channels default to `control_channel` unless overridden.
+
+### Discovery Example
+
+```julia
+entry = discover_stream!(client; data_source_name="camera-1")
+producer = attach_producer(client; stream_id=entry.stream_id,
+                           control_channel=entry.driver_control_channel,
+                           control_stream_id=entry.driver_control_stream_id)
+```
+
+Preferred overload (explicit, idiomatic):
+
+```julia
+entry = discover_stream!(client; data_source_name="camera-1")
+producer = attach_producer(client, entry; producer_id=1)
+consumer = attach_consumer(client, entry; consumer_id=2)
 ```
 
 ## Lessons Incorporated
@@ -277,6 +321,9 @@ Use dispatch to improve ergonomics while keeping concrete types:
   ownership.
 - If multi-threaded access is needed, it must be explicit and coordinated outside
   the handle (no implicit locking).
+- We can adopt Aeron’s “client conductor” terminology: a per-client Agent that
+  runs `do_work` / `driver_client_do_work!`, driven by an `AgentRunner` or
+  `AgentInvoker`.
 
 ## Testing and Validation
 
