@@ -85,9 +85,9 @@ or expose a `run!` variant that yields an invoker-friendly object).
 ### Explicit Lifecycle
 
 ```julia
-close!(producer)
-close!(consumer)
-close!(client)
+close(producer)
+close(consumer)
+close(client)
 ```
 
 ## Example: Producer (Target Shape)
@@ -104,8 +104,8 @@ set_metadata_attribute!(producer, attrs)
 runner = run!(producer, app_agent)
 wait(runner)
 
-close!(producer)
-close!(client)
+close(producer)
+close(client)
 ```
 
 ## Example: Consumer (Target Shape)
@@ -119,8 +119,8 @@ consumer = attach_consumer(client, consumer_cfg; qos=true, metadata=true)
 runner = run!(consumer, app_agent)
 wait(runner)
 
-close!(consumer)
-close!(client)
+close(consumer)
+close(client)
 ```
 
 ## Lessons Incorporated
@@ -144,7 +144,7 @@ Keep as canonical:
 - `request_attach_producer`, `request_attach_consumer` (low-level)
 - `poll_attach!` (low-level)
 - `do_work`, `driver_client_do_work!`
-- `close!` for handles and client
+- `Base.close` for handles and client
 - `offer_frame!`, `try_claim_slot!`, `try_claim_slot_by_size!`, `commit_slot!`,
   `with_claimed_slot!`
 - `set_metadata_attribute!` (single name, multi-dispatch + varargs)
@@ -166,11 +166,11 @@ Optional convenience helpers:
 Explicitly document shutdown order to avoid dangling keepalives or background
 pollers:
 
-1. `close!(producer)` / `close!(consumer)` — stop agents, QoS/metadata helpers.
-2. `close!(client)` — close Aeron client and control-plane resources.
-3. Optional: `close!(runner)` if an explicit runner is used.
+1. `close(producer)` / `close(consumer)` — stop agents, QoS/metadata helpers.
+2. `close(client)` — close Aeron client and control-plane resources.
+3. Optional: `close(runner)` if an explicit runner is used.
 
-Handles should be idempotent to close; repeated `close!` calls must be safe.
+Handles should be idempotent to close; repeated `close` calls must be safe.
 
 ## Callback Redesign (Aeron-Style)
 
@@ -218,7 +218,7 @@ If no callbacks are provided, default to no-op handlers that return `CONTINUE`.
 
 ### Producer/Consumer
 - Add `handle_status(handle)` for lightweight logging snapshots.
-- Ensure `close!(handle)` tears down internal timers and agent state cleanly.
+- Ensure `close(handle)` tears down internal timers and agent state cleanly.
 - Provide `with_driver_endpoints(config, driver_cfg)` to reduce config boilerplate.
 
 ## Multiple Dispatch Opportunities (No Dynamic Dispatch)
