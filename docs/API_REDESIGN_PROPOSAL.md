@@ -43,15 +43,6 @@ Behavior:
 - `metadata=true` creates a `MetadataCache` (consumer) or metadata publisher
   helpers (producer).
 
-### Config Helpers
-
-```julia
-producer_cfg = with_driver_endpoints(producer_cfg, driver_cfg)
-consumer_cfg = with_driver_endpoints(consumer_cfg, driver_cfg)
-```
-
-This eliminates manual copying of control/qos/metadata endpoints.
-
 ### Status Helpers
 
 ```julia
@@ -103,7 +94,6 @@ close(client)
 ```julia
 ctx = Context(driver_cfg.endpoints; aeron_dir=aeron_dir)
 client = connect(ctx)
-producer_cfg = with_driver_endpoints(producer_cfg, driver_cfg)
 
 producer = attach_producer(client, producer_cfg; qos=true, metadata=true)
 announce_data_source!(producer, "example-producer")
@@ -121,7 +111,6 @@ close(client)
 ```julia
 ctx = Context(driver_cfg.endpoints; discovery_channel=discovery_channel)
 client = connect(ctx)
-consumer_cfg = with_driver_endpoints(consumer_cfg, driver_cfg)
 
 consumer = attach_consumer(client, consumer_cfg; qos=true, metadata=true)
 runner = run!(consumer, app_agent)
@@ -183,7 +172,6 @@ consumer = attach_consumer(client, entry; consumer_id=2)
 
 ## Lessons Incorporated
 
-- Avoid manual endpoint patching by adding `with_driver_endpoints`.
 - Make QoS/metadata optional but ergonomic.
 - Keep polling/agent lifecycle explicit (Aeron style).
 - Provide a single, stable attach entrypoint per role.
@@ -215,7 +203,6 @@ Remove or move to `LowLevel`:
 - Any attach wrappers that only forward to `attach_*` without adding behavior
 
 Optional convenience helpers:
-- `with_driver_endpoints`
 - `handle_status`
 - `run!` (agent runner convenience)
 
@@ -288,7 +275,6 @@ If no callbacks are provided, default to no-op handlers that return `CONTINUE`.
 ### Producer/Consumer
 - Add `handle_status(handle)` for lightweight logging snapshots.
 - Ensure `close(handle)` tears down internal timers and agent state cleanly.
-- Provide `with_driver_endpoints(config, driver_cfg)` to reduce config boilerplate.
 
 ## Multiple Dispatch Opportunities (No Dynamic Dispatch)
 
