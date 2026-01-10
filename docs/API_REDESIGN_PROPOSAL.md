@@ -13,6 +13,7 @@ target.
 - Minimize boilerplate around driver endpoints, QoS, and metadata.
 - Keep hot-path operations explicit and allocation-free.
 - Hot-path producer/consumer calls MUST remain zero-allocation after initialization.
+- Mirror Aeron.jl naming and lifecycle patterns where practical, while staying idiomatic Julia.
 
 ## Proposed API Surface
 
@@ -205,6 +206,7 @@ Construction guidance (type-stable):
 
 Rules:
 - Callbacks run on the agent thread; MUST be non-allocating and non-blocking.
+- Callbacks MUST NOT throw in the hot path; use return actions for control flow.
 - `CONTINUE` is the default action.
 - `ABORT` means re-deliver the same event later.
 - `BREAK` means stop polling for this work cycle.
@@ -253,6 +255,34 @@ Use dispatch to improve ergonomics while keeping concrete types:
 - Use small unions (`Union{T,Nothing}`) rather than large union types.
 - For larger unions, consider WrappedUnions.jl to preserve type stability.
 - Avoid non-`const` globals and `AbstractDict` in hot paths.
+
+## Performance Notes (Hot Path)
+
+- Prefer `@inline` for small, frequently called helpers in the hot path.
+- Avoid splatting (`f(args...)`) in hot paths; it can allocate.
+- Preallocate temporary buffers/workspaces; do not grow vectors during polling.
+- Avoid `String` conversions or interpolation in hot paths.
+- Use `@inbounds`/`@simd` only when bounds are guaranteed and measured.
+
+## Aeron Publication Notes
+
+- Prefer the normal `FragmentAssembler` unless controlled polling is required.
+- Internally, `ExclusivePublication` is safe when a single publishing thread is
+  guaranteed (matches the single-writer model). Use regular `Publication` when
+  a publication might be shared across threads.
+
+## Threading Model
+
+- Handles are owned by a single agent thread; hot-path calls assume single-thread
+  ownership.
+- If multi-threaded access is needed, it must be explicit and coordinated outside
+  the handle (no implicit locking).
+
+## Testing and Validation
+
+- Add allocation checks for hot-path calls (e.g., `@allocated` in microbenchmarks).
+- Include a zero-allocation smoke test for producer/consumer hot loops.
+- Validate type stability with `@code_warntype` on hot-path entrypoints.
 
 ## Interface Seams (Swappable Implementations)
 
