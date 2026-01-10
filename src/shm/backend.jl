@@ -74,8 +74,10 @@ function mlock_buffer!(buffer::AbstractVector{UInt8}, label::AbstractString)
         @tp_warn "mlock unsupported on this platform; skipping" label
         return nothing
     end
-    ptr = Ptr{UInt8}(pointer(buffer))
-    res = Libc.mlock(ptr, length(buffer))
-    res == 0 || throw(ArgumentError("mlock failed for $(label) (errno=$(Libc.errno()))"))
+    GC.@preserve buffer begin
+        ptr = Ptr{UInt8}(pointer(buffer))
+        res = Libc.mlock(ptr, length(buffer))
+        res == 0 || throw(ArgumentError("mlock failed for $(label) (errno=$(Libc.errno()))"))
+    end
     return nothing
 end

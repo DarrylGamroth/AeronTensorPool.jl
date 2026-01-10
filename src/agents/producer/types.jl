@@ -37,6 +37,9 @@ end
 
 """
 Claim handle for a payload slot that will be filled externally.
+
+The `ptr` is only valid while the owning producer state and its SHM mappings
+remain alive; do not retain a `SlotClaim` beyond the lifecycle of its producer.
 """
 struct SlotClaim
     seq::UInt64
