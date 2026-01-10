@@ -221,6 +221,20 @@ If no callbacks are provided, default to no-op handlers that return `CONTINUE`.
 - Ensure `close!(handle)` tears down internal timers and agent state cleanly.
 - Provide `with_driver_endpoints(config, driver_cfg)` to reduce config boilerplate.
 
+## Multiple Dispatch Opportunities (No Dynamic Dispatch)
+
+Use dispatch to improve ergonomics while keeping concrete types:
+
+- `set_metadata_attribute!(producer, attr::MetadataAttribute)`
+- `set_metadata_attribute!(producer, pair::Pair{<:AbstractString, <:Tuple})`
+- `set_metadata_attribute!(producer, attrs::AbstractVector{MetadataAttribute})`
+- `set_metadata_attribute!(producer, attrs::MetadataAttribute...)`
+- `attach_consumer(client, cfg::ConsumerConfig)` vs `attach_consumer(client; kwargs...)`
+  by materializing a concrete config struct for keyword paths.
+- `poll_qos!(::ProducerHandle)` and `poll_qos!(::ConsumerHandle)` returning concrete snapshots.
+- `handle_status(::ProducerHandle)` / `handle_status(::ConsumerHandle)` with role-specific structs.
+- `try_claim_slot!(::ProducerHandle, bytes::Integer)` vs `try_claim_slot!(::ProducerHandle, payload::AbstractVector)`.
+
 ## Interface Seams (Swappable Implementations)
 
 Define minimal interfaces to allow swapping implementations without touching
