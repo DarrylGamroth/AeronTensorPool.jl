@@ -131,6 +131,15 @@ Each agent follows the same organization for readability:
 - `scripts/run_tests.jl` / `scripts/run_tests.sh`: test runners
 - `scripts/tp_tool.jl`: control-plane CLI helpers
 
+## Common commands
+- Run all Julia tests: `julia --project -e 'using Pkg; Pkg.test()'`
+- Run benchmarks: `julia --project scripts/run_benchmarks.jl`
+- Launch media driver (IPC): `julia --project scripts/run_media_driver.jl`
+- Launch driver from config: `julia --project scripts/run_driver.jl docs/examples/driver_integration_example.toml`
+- Run role from config: `julia --project scripts/run_role.jl <producer|consumer|supervisor|driver|bridge> <config_path>`
+- Run C unit tests: `cmake -S c -B c/build -DTP_BUILD_TESTS=ON -DTP_BUILD_INTEGRATION_TESTS=ON && cmake --build c/build && ctest --test-dir c/build -E 'tp_integration_'`
+- Run C integration tests (requires running driver): `ctest --test-dir c/build -R tp_integration_`
+
 ## Codegen
 - Regenerate SBE codecs with `julia --project -e 'using Pkg; Pkg.build("AeronTensorPool")'`.
 
