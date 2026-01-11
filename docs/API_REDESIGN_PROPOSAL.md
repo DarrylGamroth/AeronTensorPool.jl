@@ -6,6 +6,10 @@ kitchen-sink examples (`scripts/example_producer.jl`,
 `scripts/example_consumer.jl`). No code changes are implied; this is a design
 target.
 
+The SHM_* specification files in `docs/` are authoritative for implementation
+details. If any ambiguity arises, default to Aeron-style API choices unless a
+spec explicitly states otherwise.
+
 ## Goals
 
 - Idiomatic Julia (no fluent/builder chaining).
@@ -170,6 +174,43 @@ the entry representation opaque.
   REPL diagnostics (keep them concise and non-allocating in hot paths).
 - Consider a `LowLevel` namespace for request/poll/claim helpers to keep the
   primary API surface small.
+
+## Phased Implementation Plan
+
+Phase 0 — Decisions & Doc Updates
+- Replace any fragment terminology with `MessageHandler` / `ControlledMessageHandler`.
+- Keep programmatic API only; remove config-based examples.
+- Lock in control-plane polling split (attach/detach/revoke/shutdown).
+
+Phase 1 — Core Types & Lifecycle
+- Introduce `ClientConductor` as the per-client agent loop.
+- Standardize on `Base.close` for all user-facing types; ensure idempotency.
+- Add `handle_status(handle)` and `poll!(handle, fragment_limit)`.
+
+Phase 2 — Attach API + Discovery
+- Implement kwargs-based `attach_producer/attach_consumer` with defaults from
+  `STREAM_ID_CONVENTIONS.md`.
+- Add overloads: `attach_producer(client, entry::DiscoveryEntry; ...)`.
+- Enforce accessor-only access to user-facing types.
+
+Phase 3 — Callbacks & Type Stability
+- Implement `ClientCallbacks{F1,F2,F3,F4}` with functor defaults.
+- Add `CallbackAction` and controlled message handling semantics.
+- Parameterize handles on callback types to avoid boxing.
+
+Phase 4 — QoS/Metadata Ergonomics
+- Unify `set_metadata_attribute!` with multiple dispatch/varargs.
+- Add `poll_qos!(handle)` returning a concrete snapshot or `nothing`.
+- Define `MetadataStore` and `QosSink` interfaces.
+
+Phase 5 — Interface Seams
+- Implement `ControlPlaneTransport`, `SHMBackend`, `CounterBackend` seams.
+- Provide Aeron/SBE/SHM implementations behind these interfaces.
+
+Phase 6 — Validation & Performance
+- Add zero-allocation checks for hot-path entrypoints.
+- Add `@code_warntype` checks for key APIs.
+- Update examples to use programmatic + discovery-entry flows only.
 
 ## Lessons Incorporated
 
