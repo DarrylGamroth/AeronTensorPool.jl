@@ -346,7 +346,10 @@ Julia-ish pseudocode).
 
 ```
 send_request!(transport, msg) -> correlation_id::Int64
-poll_response!(transport, correlation_id::Int64, now_ns::UInt64) -> Union{AttachResponse,Nothing}
+poll_attach_response!(transport, correlation_id::Int64, now_ns::UInt64) -> Union{AttachResponse,Nothing}
+poll_detach_response!(transport, correlation_id::Int64, now_ns::UInt64) -> Union{DetachResponse,Nothing}
+poll_lease_revoked!(transport, now_ns::UInt64) -> Union{LeaseRevoked,Nothing}
+poll_driver_shutdown!(transport, now_ns::UInt64) -> Union{DriverShutdown,Nothing}
 send_keepalive!(transport, lease_id::UInt64, now_ns::UInt64) -> Bool
 ```
 
