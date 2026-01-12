@@ -255,6 +255,17 @@ Logging controls:
 Default output is structured JSON to stdout. For custom backends (file, logfmt, etc.),
 set a backend in code via `TPLog.set_backend!` or `TPLog.set_json_backend!`.
 
+Example (logfmt to a file):
+
+```julia
+using AeronTensorPool
+using LoggingExtras, LoggingFormats
+
+io = open("tp.log", "a")
+logger = FormatLogger(LoggingFormats.LogFmt(), io)
+TPLog.set_backend!(logger)
+```
+
 ---
 
 ## CLI Tools
