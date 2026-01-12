@@ -198,99 +198,14 @@ close(client)
 close(ctx)
 ```
 
-## C ↔ Julia Interop Helpers
+## Interop Helpers
 
-These scripts align the C client env vars with a driver config and provide
-end-to-end smoke checks.
+These scripts align interop environment variables with a driver config.
 
-### Export interop env (shared between C and Julia)
+### Export interop env
 
 ```bash
 eval "$(scripts/interop_env.sh docs/examples/driver_interop_example.toml docs/examples/interop_env_example.toml)"
-```
-
-### C integration smoke (attach + claim + commit + read)
-
-```bash
-scripts/run_c_integration_smoke.sh docs/examples/driver_integration_example.toml c/build
-```
-
-### Interop sweep (driver + C smoke + Julia consumer/producer)
-
-```bash
-scripts/run_interop_all.sh docs/examples/driver_interop_example.toml c/build
-```
-
-Defaults:
-- `TP_INTEROP_USE_EMBEDDED=1` (starts a standalone MediaDriver via `scripts/run_media_driver.jl` with a temp `AERON_DIR`)
-- `TP_INTEROP_TIMEOUT_S=30`
-
-### C metadata/QoS example notes
-
-The C examples can emit QoS and metadata when the following environment
-variables are set before running `tp_producer_example` / `tp_consumer_example`:
-
-- `TP_METADATA_CHANNEL`, `TP_METADATA_STREAM_ID` to enable metadata publish/consume
-- `TP_QOS_CHANNEL`, `TP_QOS_STREAM_ID` to enable QoS publications
-- `TP_QOS_INTERVAL_MS` to control periodic QoS/keepalive cadence
-- `TP_PATTERN=interop` to enable the interop payload pattern and validation
-- `TP_FAIL_ON_MISMATCH=1` to fail fast on payload mismatches (Julia consumer example)
-
-Metadata versions are auto‑incremented by the producer; use
-`tp_producer_metadata_version()` to fetch the current value for frame headers.
-
-Julia examples also honor `TP_PATTERN=interop` for the same payload pattern and validation.
-
-### Additional C examples
-
-- `tp_discovery_example`: uses the discovery request/response streams.
-- `tp_qos_monitor_example`: reads QoS snapshots for a producer/consumer.
-- `tp_consumer_progress_example`: polls `FrameProgress`.
-- `tp_consumer_rate_limit_example`: requests per-consumer streams + max rate.
-- `tp_detach_example`: issues a driver detach with a lease id.
-- `tp_reattach_example`: detaches and reattaches a producer.
-- `tp_invoker_example`: runs the client in invoker mode.
-
-#### Per-consumer rate-limit env (C)
-
-`tp_consumer_rate_limit_example` uses:
-- `TP_CONSUMER_DESCRIPTOR_CHANNEL`, `TP_CONSUMER_DESCRIPTOR_STREAM_ID`
-- `TP_CONSUMER_CONTROL_CHANNEL`, `TP_CONSUMER_CONTROL_STREAM_ID`
-- `TP_CONSUMER_MAX_RATE_HZ` (optional)
-- `TP_CONSUMER_MODE` (optional; defaults to stream)
-
-### C example quickstart
-
-Build:
-
-```bash
-cmake -S c -B c/build -DTP_USE_BUNDLED_AERON=ON -DTP_BUILD_TESTS=ON -DTP_BUILD_INTEGRATION_TESTS=ON
-cmake --build c/build
-```
-
-Common env vars:
-- `TP_AERON_DIR` (optional)
-- `TP_CONTROL_CHANNEL`, `TP_CONTROL_STREAM_ID`
-- `TP_DESCRIPTOR_CHANNEL`, `TP_DESCRIPTOR_STREAM_ID`
-- `TP_STREAM_ID`
-
-Example binaries (under `c/build/`):
-- `tp_producer_example`, `tp_consumer_example`
-- `tp_discovery_example`, `tp_qos_monitor_example`
-- `tp_consumer_progress_example`, `tp_consumer_rate_limit_example`
-- `tp_detach_example`, `tp_reattach_example`
-- `tp_invoker_example`
-
-Integration test runner:
-
-```bash
-scripts/run_c_integration_tests.sh docs/examples/driver_integration_example.toml c/build
-```
-
-### Cross-check C ↔ Julia (C producer → Julia consumer, Julia producer → C consumer)
-
-```bash
-scripts/run_interop_crosscheck.sh docs/examples/driver_interop_example.toml c/build
 ```
 
 ### Inspect endpoints and live attach response
