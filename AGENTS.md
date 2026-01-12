@@ -125,8 +125,6 @@ Each agent follows the same organization for readability:
 - Julia naming: prefer fully qualified names in tests and agent code to avoid ambiguity from unqualified imports.
 
 ## Scripts
-- `scripts/run_role.jl`: run a single role with a config
-- `scripts/run_all.sh` / `scripts/run_all_driver.sh`: multi-role local runs
 - `scripts/run_driver.jl`: run the driver from a config
 - `scripts/run_driver_smoke.jl`, `scripts/run_system_smoke.jl`: smoke tests
 - `scripts/run_benchmarks.jl`: benchmark runner
@@ -138,7 +136,6 @@ Each agent follows the same organization for readability:
 - Run benchmarks: `julia --project scripts/run_benchmarks.jl`
 - Launch media driver (IPC): `julia --project scripts/run_media_driver.jl`
 - Launch driver from config: `julia --project scripts/run_driver.jl config/driver_integration_example.toml`
-- Run role from config: `julia --project scripts/run_role.jl <producer|consumer|supervisor|driver|bridge> <config_path>`
 
 ## Codegen
 - Regenerate SBE codecs with `julia --project -e 'using Pkg; Pkg.build("AeronTensorPool")'`.

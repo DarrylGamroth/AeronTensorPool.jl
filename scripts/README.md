@@ -3,7 +3,7 @@
 Quick reference for the scripts under `scripts/`. Most scripts accept a config path as the
 first argument; defaults are shown below.
 
-## Driver and roles
+## Driver
 
 - `example_driver.jl`  
   Starts the driver.  
@@ -12,10 +12,6 @@ first argument; defaults are shown below.
 - `run_driver.jl`  
   Starts the driver from a config.  
   Usage: `julia --project scripts/run_driver.jl config/driver_integration_example.toml`
-
-- `run_role.jl`  
-  Runs a single role (`producer|consumer|supervisor|driver|bridge`) from a config.  
-  Usage: `julia --project scripts/run_role.jl producer config/driver_integration_example.toml`
 
 ## Producer/consumer examples
 

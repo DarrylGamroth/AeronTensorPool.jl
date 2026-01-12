@@ -33,7 +33,6 @@ For a combined wire + driver overview, see `docs/USER_GUIDE.md`.
 - `src/config`: TOML/env config loading and path resolution.
 - `src/agents/<role>`: role implementation split into `state.jl`, `mapping.jl`, `frames.jl`, `proxy.jl`, `handlers.jl`, and orchestration glue. Bridge adds `assembly.jl` and `adapters.jl`.
 - `src/agents`: Agent.jl integration for each role.
-- `scripts/run_role.jl bridge` expects `bridge`, `consumer`, and `producer` sections in the same config file.
 
 ## 3. Shared Constants (must match spec)
 - superblock_size = 64
@@ -248,9 +247,7 @@ end
 - Tooling: `scripts/run_tests.sh` wraps the full test run for CI/local workflows.
 - Control CLI: `scripts/tp_tool.jl send-consumer-config` can push ConsumerConfig on the control stream.
 - Driver CLI: `scripts/tp_tool.jl driver-attach|driver-keepalive|driver-detach` exercise the driver control plane.
-- Role runner: `scripts/run_role.jl <producer|consumer|supervisor> [config]` starts a single agent with polling loop.
-- Multi-role runner: `scripts/run_all.sh <config>` launches producer/consumer/supervisor in one shell with a shared config.
-- Driver multi-role runner: `scripts/run_all_driver.sh <config>` launches driver + supervisor + producer + consumer.
+- Notes: use `scripts/example_driver.jl`, `scripts/example_producer.jl`, and `scripts/example_consumer.jl` for simple end-to-end runs.
 - System smoke test: `scripts/run_system_smoke.jl [config] [timeout_s]` runs a full in-process system using an embedded media driver.
 - Driver smoke test: `scripts/run_driver_smoke.jl` runs an embedded media driver plus the SHM driver and exercises attach/keepalive/detach via the CLI.
 - Optional CI/system test: `TP_RUN_SYSTEM_SMOKE=true julia --project -e 'using Pkg; Pkg.test()'` runs the end-to-end smoke test.
@@ -418,7 +415,6 @@ profile = "raw_profile"
 - Schema/version mismatches are rejected at decode time; bridge does not attempt to coerce unknown templates.
 - Bridge backpressure: `try_claim` failure drops chunks and increments bridge counters (no retries in hot path).
 - RateLimiter/Tap may suppress progress for dropped frames; must keep seq identity and follow same seq_commit rules on republished descriptors.
-- Tooling: `scripts/run_role.jl bridge <config>` runs a multi-mapping bridge agent from TOML config.
 
 ## 23. Device DMA integration (zero-copy)
 - Use the producer to allocate payload pools, then register each payload slot with your device SDK for DMA writes.
