@@ -304,7 +304,7 @@ function main()
         exit(1)
     end
 
-    driver_cfg = length(ARGS) >= 1 ? ARGS[1] : "docs/examples/driver_integration_example.toml"
+    driver_cfg = length(ARGS) >= 1 ? ARGS[1] : "config/driver_integration_example.toml"
     consumer_cfg = length(ARGS) >= 2 ? ARGS[2] : "config/defaults.toml"
     count = length(ARGS) >= 3 ? parse(Int, ARGS[3]) : 0
 

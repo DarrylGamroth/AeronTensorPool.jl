@@ -166,7 +166,7 @@ Connect to the driver:
 ```julia
 using AeronTensorPool
 
-driver_cfg = load_driver_config("docs/examples/driver_integration_example.toml")
+driver_cfg = load_driver_config("config/driver_integration_example.toml")
 ctx = TensorPoolContext(driver_cfg.endpoints)
 client = connect(ctx)
 ```
@@ -203,14 +203,14 @@ close(client)
 Driver:
 
 ```bash
-julia --project scripts/example_driver.jl docs/examples/driver_integration_example.toml
+julia --project scripts/example_driver.jl config/driver_integration_example.toml
 ```
 
 Producer:
 
 ```bash
 julia --project scripts/example_producer.jl \
-  docs/examples/driver_integration_example.toml \
+  config/driver_integration_example.toml \
   config/defaults.toml \
   0 1048576
 ```
@@ -219,14 +219,14 @@ Consumer:
 
 ```bash
 julia --project scripts/example_consumer.jl \
-  docs/examples/driver_integration_example.toml \
+  config/driver_integration_example.toml \
   config/defaults.toml \
   0
 ```
 
 ## Camera pipeline example
 
-See `docs/examples/driver_camera_example.toml` for a three‑camera pipeline with
+See `config/driver_camera_example.toml` for a three‑camera pipeline with
 raw and processed streams. The driver owns SHM pools and assigns profiles; each
 processor consumes one stream and produces another.
 

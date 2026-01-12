@@ -1,0 +1,18 @@
+[rate_limiter]
+instance_id = "rate-limiter-example"
+descriptor_channel = "aeron:ipc?term-length=1m"
+descriptor_stream_id = 1100
+control_channel = "aeron:ipc?term-length=1m"
+source_control_stream_id = 1000
+dest_control_stream_id = 1001
+qos_channel = "aeron:ipc?term-length=1m"
+source_qos_stream_id = 1200
+dest_qos_stream_id = 1201
+forward_metadata = true
+forward_progress = false
+forward_qos = false
+max_rate_hz = 0
+
+[[mappings]]
+source_stream_id = 10000
+dest_stream_id = 10100

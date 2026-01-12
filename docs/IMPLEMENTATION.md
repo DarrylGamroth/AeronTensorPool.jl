@@ -264,7 +264,7 @@ end
   - Suggested types (task-based): `AttachRequestProxy`, `KeepaliveProxy`, `DetachRequestProxy`, `DriverResponseAdapter`.
 - Client responses should be polled (Aeron-style), not callback-based.
 - Producers/consumers MUST treat SHM URIs, layout_version, nslots, and pool definitions as authoritative from the driver.
-- Example (driver TOML; see Driver Spec §16 and `docs/examples/driver_camera_example.toml`):
+- Example (driver TOML; see Driver Spec §16 and `config/driver_camera_example.toml`):
 
 ```toml
 [driver]

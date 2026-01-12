@@ -137,7 +137,7 @@ Each agent follows the same organization for readability:
 - Run all Julia tests: `julia --project -e 'using Pkg; Pkg.test()'`
 - Run benchmarks: `julia --project scripts/run_benchmarks.jl`
 - Launch media driver (IPC): `julia --project scripts/run_media_driver.jl`
-- Launch driver from config: `julia --project scripts/run_driver.jl docs/examples/driver_integration_example.toml`
+- Launch driver from config: `julia --project scripts/run_driver.jl config/driver_integration_example.toml`
 - Run role from config: `julia --project scripts/run_role.jl <producer|consumer|supervisor|driver|bridge> <config_path>`
 
 ## Codegen

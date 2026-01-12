@@ -8,8 +8,8 @@ Normative references:
  - Stream ID guidance: `docs/STREAM_ID_CONVENTIONS.md`
 
 Examples:
-- Driver: `docs/examples/driver_camera_example.toml`, `docs/examples/driver_integration_example.toml`
-- Bridge: `docs/examples/bridge_config_example.toml`
+- Driver: `config/driver_camera_example.toml`, `config/driver_integration_example.toml`
+- Bridge: `config/bridge_config_example.toml`
 - Example defaults (producer/consumer/supervisor): `config/defaults.toml`
 
 ---

@@ -45,7 +45,7 @@ function main()
         usage()
         exit(1)
     end
-    driver_cfg = length(ARGS) >= 1 ? ARGS[1] : "docs/examples/driver_integration_example.toml"
+    driver_cfg = length(ARGS) >= 1 ? ARGS[1] : "config/driver_integration_example.toml"
     producer_cfg = length(ARGS) >= 2 ? ARGS[2] : "config/defaults.toml"
     run_reattach(driver_cfg, producer_cfg)
     return nothing

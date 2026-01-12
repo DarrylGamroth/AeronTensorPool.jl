@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-config_path="${1:-docs/examples/driver_integration_example.toml}"
+config_path="${1:-config/driver_integration_example.toml}"
 interop_path="${2:-}"
 
 if [[ ! -f "$config_path" ]]; then

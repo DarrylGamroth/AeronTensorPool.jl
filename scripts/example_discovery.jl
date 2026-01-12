@@ -46,7 +46,7 @@ function main()
         usage()
         exit(1)
     end
-    driver_cfg = length(ARGS) >= 1 ? ARGS[1] : "docs/examples/driver_integration_example.toml"
+    driver_cfg = length(ARGS) >= 1 ? ARGS[1] : "config/driver_integration_example.toml"
     run_discovery(driver_cfg)
     return nothing
 end

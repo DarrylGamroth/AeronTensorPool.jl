@@ -457,7 +457,7 @@ Stream fields:
 - `streams.<name>.stream_id` (uint32): stream identifier.
 - `streams.<name>.profile` (string): profile name.
 
-See `docs/examples/driver_camera_example.toml` for a concrete example.
+See `config/driver_camera_example.toml` for a concrete example.
 
 ---
 

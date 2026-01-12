@@ -243,7 +243,7 @@ Each `mappings` entry:
 
 The bridge control channel carries `ShmPoolAnnounce`, `QosProducer`, `QosConsumer`, and `FrameProgress` messages from the main wire schema (id=900) alongside bridge-specific messages (schema id=902).
 
-Example config: `docs/examples/bridge_config_example.toml`.
+Example config: `config/bridge_config_example.toml`.
 
 ---
 

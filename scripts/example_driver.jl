@@ -57,7 +57,7 @@ function run_agent(config_path::String)
 end
 
 function main()
-    config_path = length(ARGS) >= 1 ? ARGS[1] : "docs/examples/driver_integration_example.toml"
+    config_path = length(ARGS) >= 1 ? ARGS[1] : "config/driver_integration_example.toml"
     launch_driver = parse(Bool, get(ENV, "LAUNCH_MEDIA_DRIVER", "false"))
 
     if launch_driver
