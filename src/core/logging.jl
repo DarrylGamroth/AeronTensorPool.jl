@@ -31,6 +31,7 @@ macro tp_debug(args...)
         return quote
             if TPLog.module_enabled($mod)
                 Base.@debug $(map(esc, args)...)
+                Base.flush(stdout)
             end
             nothing
         end
@@ -44,6 +45,7 @@ macro tp_info(args...)
         return quote
             if TPLog.module_enabled($mod)
                 Base.@info $(map(esc, args)...)
+                Base.flush(stdout)
             end
             nothing
         end
@@ -57,6 +59,7 @@ macro tp_warn(args...)
         return quote
             if TPLog.module_enabled($mod)
                 Base.@warn $(map(esc, args)...)
+                Base.flush(stdout)
             end
             nothing
         end
@@ -70,6 +73,7 @@ macro tp_error(args...)
         return quote
             if TPLog.module_enabled($mod)
                 Base.@error $(map(esc, args)...)
+                Base.flush(stdout)
             end
             nothing
         end

@@ -10,6 +10,16 @@ Arguments:
 Returns:
 - `true` if the claim was committed, `false` otherwise.
 """
+@inline function publication_result_name(position::Int64)
+    position == Aeron.PUBLICATION_NOT_CONNECTED && return :not_connected
+    position == Aeron.PUBLICATION_BACK_PRESSURED && return :back_pressured
+    position == Aeron.PUBLICATION_ADMIN_ACTION && return :admin_action
+    position == Aeron.PUBLICATION_CLOSED && return :closed
+    position == Aeron.PUBLICATION_MAX_POSITION_EXCEEDED && return :max_position_exceeded
+    position == Aeron.PUBLICATION_ERROR && return :error
+    return :unknown
+end
+
 function with_claimed_buffer!(
     fill_fn,
     pub::Aeron.Publication,
@@ -17,12 +27,17 @@ function with_claimed_buffer!(
     length::Int,
 )
     position = Aeron.try_claim(pub, length, claim)
-    if position > 0
+    if position >= 0
         buf = Aeron.buffer(claim)
         fill_fn(buf)
         Aeron.commit(claim)
         return true
     end
+    @tp_debug "with_claimed_buffer failed" position = position result = publication_result_name(position) length =
+        length max_payload_length =
+        Aeron.max_payload_length(pub) max_message_length = Aeron.max_message_length(pub) connected =
+        Aeron.is_connected(pub) channel_status = Aeron.channel_status(pub) channel_status_indicator_id =
+        Aeron.channel_status_indicator_id(pub) channel = Aeron.channel(pub) stream_id = Aeron.stream_id(pub)
     return false
 end
 

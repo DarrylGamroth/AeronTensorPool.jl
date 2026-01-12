@@ -45,6 +45,10 @@ function init_driver_client(
 )
     pub = Aeron.add_publication(client, control_channel, control_stream_id)
     sub = Aeron.add_subscription(client, control_channel, control_stream_id)
+    @tp_info "Driver client control endpoints" role = role client_id = client_id channel = control_channel stream_id =
+        control_stream_id pub_max_payload = Aeron.max_payload_length(pub) pub_max_message =
+        Aeron.max_message_length(pub) pub_channel_status_indicator_id = Aeron.channel_status_indicator_id(pub) sub_channel_status_indicator_id =
+        Aeron.channel_status_indicator_id(sub)
     poller = DriverResponsePoller(sub)
     set_interval!(poller.attach_purge_timer, attach_purge_interval_ns)
     return DriverClientState(
@@ -114,7 +118,11 @@ function send_attach_request!(
         publish_mode = publish_mode,
         require_hugepages = require_hugepages,
     )
-    sent || return Int64(0)
+    if !sent
+        @tp_warn "attach request send failed" correlation_id = correlation_id stream_id = stream_id client_id =
+            state.client_id role = state.role
+        return Int64(0)
+    end
     return correlation_id
 end
 
@@ -153,14 +161,17 @@ function driver_client_do_work!(state::DriverClientState, now_ns::UInt64)
         if poller.attach_purge_active && expired(poller.attach_purge_timer, now_ns)
             empty!(poller.attach_by_correlation)
             poller.attach_purge_active = false
+            @tp_warn "attach response cache purged"
         end
     end
     if poller.last_revoke !== nothing && poller.last_revoke.lease_id == state.lease_id
         state.revoked = true
         state.lease_id = UInt64(0)
+        @tp_warn "driver lease revoked" lease_id = poller.last_revoke.lease_id reason = poller.last_revoke.reason
     end
     if poller.last_shutdown !== nothing
         state.shutdown = true
+        @tp_warn "driver shutdown received" reason = poller.last_shutdown.reason
     end
 
     if state.lease_id != 0 && due!(state.keepalive_timer, now_ns)
@@ -180,8 +191,6 @@ function driver_client_do_work!(state::DriverClientState, now_ns::UInt64)
             @tp_warn "Driver keepalive failed" client_id = state.client_id role = state.role lease_id = state.lease_id stream_id =
                 state.stream_id
             state.keepalive_failed = true
-            state.revoked = true
-            state.lease_id = UInt64(0)
         end
     end
     return work_count
@@ -214,4 +223,43 @@ function poll_attach!(
         return attach
     end
     return nothing
+end
+
+"""
+Poll for any attach response matching a list of correlation ids.
+
+Arguments:
+- `state`: driver client state.
+- `correlation_ids`: pending correlation ids to match.
+- `now_ns`: current time in nanoseconds.
+
+Returns:
+- `AttachResponse` for the first matching id, otherwise `nothing`.
+"""
+function poll_attach_any!(
+    state::DriverClientState,
+    correlation_ids::AbstractVector{Int64},
+    now_ns::UInt64,
+)
+    driver_client_do_work!(state, now_ns)
+    for correlation_id in correlation_ids
+        attach = get(state.poller.attach_by_correlation, correlation_id, nothing)
+        if attach !== nothing
+            delete!(state.poller.attach_by_correlation, correlation_id)
+            if isempty(state.poller.attach_by_correlation)
+                state.poller.attach_purge_active = false
+            end
+            apply_attach!(state, attach)
+            return attach
+        end
+    end
+    return nothing
+end
+
+function poll_attach_any!(
+    state::DriverClientState,
+    correlation_id::Int64,
+    now_ns::UInt64,
+)
+    return poll_attach_any!(state, (correlation_id,), now_ns)
 end

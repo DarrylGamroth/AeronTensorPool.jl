@@ -14,11 +14,24 @@ function init_consumer(config::ConsumerConfig; client::Aeron.Client)
     announce_join_ns = UInt64(Clocks.time_nanos(clock))
 
     pub_control = Aeron.add_publication(client, config.aeron_uri, config.control_stream_id)
+    @tp_info "Consumer control publication ready" stream_id = config.control_stream_id channel =
+        Aeron.channel(pub_control) max_payload_length = Aeron.max_payload_length(pub_control) max_message_length =
+        Aeron.max_message_length(pub_control) channel_status_indicator_id =
+        Aeron.channel_status_indicator_id(pub_control)
     pub_qos = Aeron.add_publication(client, config.aeron_uri, config.qos_stream_id)
+    @tp_info "Consumer qos publication ready" stream_id = config.qos_stream_id channel = Aeron.channel(pub_qos) max_payload_length =
+        Aeron.max_payload_length(pub_qos) max_message_length = Aeron.max_message_length(pub_qos) channel_status_indicator_id =
+        Aeron.channel_status_indicator_id(pub_qos)
 
     sub_descriptor = Aeron.add_subscription(client, config.aeron_uri, config.descriptor_stream_id)
+    @tp_info "Consumer descriptor subscription ready" stream_id = config.descriptor_stream_id channel =
+        Aeron.channel(sub_descriptor) channel_status_indicator_id = Aeron.channel_status_indicator_id(sub_descriptor)
     sub_control = Aeron.add_subscription(client, config.aeron_uri, config.control_stream_id)
+    @tp_info "Consumer control subscription ready" stream_id = config.control_stream_id channel =
+        Aeron.channel(sub_control) channel_status_indicator_id = Aeron.channel_status_indicator_id(sub_control)
     sub_qos = Aeron.add_subscription(client, config.aeron_uri, config.qos_stream_id)
+    @tp_info "Consumer qos subscription ready" stream_id = config.qos_stream_id channel =
+        Aeron.channel(sub_qos) channel_status_indicator_id = Aeron.channel_status_indicator_id(sub_qos)
     sub_progress = nothing
 
     timer_set = TimerSet(

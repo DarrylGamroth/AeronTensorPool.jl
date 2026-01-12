@@ -188,17 +188,30 @@ function init_producer_from_attach(
         driver_config.descriptor_stream_id control_stream_id = driver_config.control_stream_id qos_stream_id =
         driver_config.qos_stream_id metadata_stream_id = driver_config.metadata_stream_id
     pub_descriptor = Aeron.add_publication(client, driver_config.aeron_uri, driver_config.descriptor_stream_id)
-    @tp_info "Producer publication ready" stream_id = driver_config.descriptor_stream_id
+    @tp_info "Producer publication ready" stream_id = driver_config.descriptor_stream_id channel =
+        Aeron.channel(pub_descriptor) max_payload_length = Aeron.max_payload_length(pub_descriptor) max_message_length =
+        Aeron.max_message_length(pub_descriptor) channel_status_indicator_id =
+        Aeron.channel_status_indicator_id(pub_descriptor)
     pub_control = Aeron.add_publication(client, driver_config.aeron_uri, driver_config.control_stream_id)
-    @tp_info "Producer control publication ready" stream_id = driver_config.control_stream_id
+    @tp_info "Producer control publication ready" stream_id = driver_config.control_stream_id channel =
+        Aeron.channel(pub_control) max_payload_length = Aeron.max_payload_length(pub_control) max_message_length =
+        Aeron.max_message_length(pub_control) channel_status_indicator_id =
+        Aeron.channel_status_indicator_id(pub_control)
     pub_qos = Aeron.add_publication(client, driver_config.aeron_uri, driver_config.qos_stream_id)
-    @tp_info "Producer qos publication ready" stream_id = driver_config.qos_stream_id
+    @tp_info "Producer qos publication ready" stream_id = driver_config.qos_stream_id channel =
+        Aeron.channel(pub_qos) max_payload_length = Aeron.max_payload_length(pub_qos) max_message_length =
+        Aeron.max_message_length(pub_qos) channel_status_indicator_id = Aeron.channel_status_indicator_id(pub_qos)
     pub_metadata = Aeron.add_publication(client, driver_config.aeron_uri, driver_config.metadata_stream_id)
-    @tp_info "Producer metadata publication ready" stream_id = driver_config.metadata_stream_id
+    @tp_info "Producer metadata publication ready" stream_id = driver_config.metadata_stream_id channel =
+        Aeron.channel(pub_metadata) max_payload_length = Aeron.max_payload_length(pub_metadata) max_message_length =
+        Aeron.max_message_length(pub_metadata) channel_status_indicator_id =
+        Aeron.channel_status_indicator_id(pub_metadata)
     sub_control = Aeron.add_subscription(client, driver_config.aeron_uri, driver_config.control_stream_id)
-    @tp_info "Producer control subscription ready" stream_id = driver_config.control_stream_id
+    @tp_info "Producer control subscription ready" stream_id = driver_config.control_stream_id channel =
+        Aeron.channel(sub_control) channel_status_indicator_id = Aeron.channel_status_indicator_id(sub_control)
     sub_qos = Aeron.add_subscription(client, driver_config.aeron_uri, driver_config.qos_stream_id)
-    @tp_info "Producer qos subscription ready" stream_id = driver_config.qos_stream_id
+    @tp_info "Producer qos subscription ready" stream_id = driver_config.qos_stream_id channel =
+        Aeron.channel(sub_qos) channel_status_indicator_id = Aeron.channel_status_indicator_id(sub_qos)
 
     timer_set = TimerSet(
         (PolledTimer(driver_config.announce_interval_ns), PolledTimer(driver_config.qos_interval_ns)),
@@ -253,12 +266,13 @@ function init_producer_from_attach(
         Dict{UInt32, ProducerConsumerStream}(),
         true,
         false,
-        false,
+        true,
         UInt32(0),
         "",
         "",
         MetadataAttribute[],
         false,
     )
+    emit_announce!(state)
     return state
 end

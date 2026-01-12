@@ -56,7 +56,9 @@ For a combined wire + driver overview, see `docs/IMPLEMENTATION_GUIDE.md`.
 6) Publish FrameDescriptor; optional FrameProgress COMPLETE
 
 Implementation notes:
-- On startup, producers SHOULD wait for descriptor publication connectivity before publishing. `try_claim` returns `-1` until at least one subscriber is connected.
+- Aeron `try_claim`/`offer` returns NOT_CONNECTED when no subscribers are present; this is an expected transient state as consumers come and go. Producers MUST treat it as a retryable condition, not a fatal error.
+- `publication_is_connected`/`channel_status` are observability hints only; do not gate correctness on them.
+- Debug logging: `@tp_debug` uses `Base.@debug`, so set `JULIA_DEBUG=all` (or a narrower module filter) when you want debug-level output.
 
 ## 5. Consumer Flow (spec §15.19)
 1) Validate epoch from FrameDescriptor; compute header_index
@@ -295,7 +297,7 @@ pool_id = 1
 stride_bytes = 1048576
 
 [streams.cam1]
-stream_id = 1001
+stream_id = 10000
 profile = "raw_profile"
 
 ```

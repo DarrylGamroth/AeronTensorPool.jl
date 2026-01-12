@@ -2,6 +2,7 @@ module AeronUtils
 
 using ..Aeron
 using ..Core
+using ..Core.TPLog: @tp_debug, @tp_info, @tp_warn, @tp_error
 
 include("aeron_utils.jl")
 include("errors.jl")

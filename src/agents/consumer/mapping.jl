@@ -134,11 +134,14 @@ function map_from_attach_response!(state::ConsumerState, attach::AttachResponse)
        attach.header_nslots == ShmAttachResponse.headerNslots_null_value(ShmAttachResponse.Decoder) ||
        attach.header_slot_bytes == ShmAttachResponse.headerSlotBytes_null_value(ShmAttachResponse.Decoder) ||
        attach.max_dims == ShmAttachResponse.maxDims_null_value(ShmAttachResponse.Decoder)
+        @tp_warn "attach response missing required fields" stream_id = attach.stream_id
         return false
     end
     isempty(view(attach.header_region_uri)) && return false
     attach.pool_count > 0 || return false
     attach.header_slot_bytes == UInt16(HEADER_SLOT_BYTES) || return false
+    @tp_info "consumer attach mapping" stream_id = attach.stream_id epoch = attach.epoch header_nslots =
+        attach.header_nslots pool_count = attach.pool_count
     header_nslots = attach.header_nslots
 
     payload_mmaps = Dict{UInt16, Vector{UInt8}}()
@@ -149,10 +152,14 @@ function map_from_attach_response!(state::ConsumerState, attach::AttachResponse)
     header_parsed = parse_shm_uri(header_uri)
     require_hugepages = state.config.require_hugepages
     if require_hugepages && !is_hugetlbfs_path(header_parsed.path)
+        @tp_warn "attach header hugepage path invalid" path = header_parsed.path
         return false
     end
     hugepage_size = require_hugepages ? hugepage_size_bytes() : 0
-    require_hugepages && hugepage_size == 0 && return false
+    if require_hugepages && hugepage_size == 0
+        @tp_warn "attach header hugepage size unavailable"
+        return false
+    end
 
     header_mmap = mmap_shm(header_uri, SUPERBLOCK_SIZE + HEADER_SLOT_BYTES * Int(header_nslots))
     if state.config.mlock_shm
@@ -176,7 +183,10 @@ function map_from_attach_response!(state::ConsumerState, attach::AttachResponse)
         expected_region_type = RegionType.HEADER_RING,
         expected_pool_id = UInt16(0),
     )
-    header_ok || return false
+    if !header_ok
+        @tp_warn "attach header superblock invalid" stream_id = attach.stream_id epoch = attach.epoch
+        return false
+    end
 
     for i in 1:attach.pool_count
         pool = attach.pools[i]
@@ -186,6 +196,7 @@ function map_from_attach_response!(state::ConsumerState, attach::AttachResponse)
         pool_parsed = parse_shm_uri(pool_uri)
         pool_require_hugepages = pool_parsed.require_hugepages || require_hugepages
         if pool_require_hugepages && !is_hugetlbfs_path(pool_parsed.path)
+            @tp_warn "attach pool hugepage path invalid" pool_id = pool.pool_id path = pool_parsed.path
             return false
         end
         validate_stride(
@@ -214,7 +225,10 @@ function map_from_attach_response!(state::ConsumerState, attach::AttachResponse)
             expected_region_type = RegionType.PAYLOAD_POOL,
             expected_pool_id = pool.pool_id,
         )
-        pool_ok || return false
+        if !pool_ok
+            @tp_warn "attach pool superblock invalid" pool_id = pool.pool_id stride_bytes = pool.stride_bytes
+            return false
+        end
 
         payload_mmaps[pool.pool_id] = pool_mmap
         stride_bytes[pool.pool_id] = pool.stride_bytes
@@ -234,6 +248,7 @@ function map_from_attach_response!(state::ConsumerState, attach::AttachResponse)
     state.metrics.remap_count += 1
     attach.max_dims == UInt8(MAX_DIMS) || return false
     state.config.expected_layout_version = attach.layout_version
+    @tp_info "consumer attach mapped" stream_id = attach.stream_id epoch = attach.epoch pools = attach.pool_count
     return true
 end
 
@@ -344,6 +359,8 @@ function handle_shm_pool_announce!(state::ConsumerState, msg::ShmPoolAnnounce.De
     if announce_ts == 0
         return false
     end
+    @tp_info "consumer announce received" stream_id = ShmPoolAnnounce.streamId(msg) epoch =
+        ShmPoolAnnounce.epoch(msg) layout_version = ShmPoolAnnounce.layoutVersion(msg) clock_domain = clock_domain
 
     if clock_domain == ClockDomain.MONOTONIC
         if announce_ts + state.config.announce_freshness_ns < state.announce_join_ns ||
@@ -357,11 +374,15 @@ function handle_shm_pool_announce!(state::ConsumerState, msg::ShmPoolAnnounce.De
     end
 
     if state.mappings.mapped_epoch != 0 && ShmPoolAnnounce.epoch(msg) != state.mappings.mapped_epoch
+        @tp_warn "announce epoch change; remapping" old_epoch = state.mappings.mapped_epoch new_epoch =
+            ShmPoolAnnounce.epoch(msg)
         reset_mappings!(state)
     end
 
     if state.mappings.header_mmap === nothing
         ok = map_from_announce!(state, msg)
+        ok || @tp_warn "announce mapping failed" stream_id = ShmPoolAnnounce.streamId(msg) epoch =
+            ShmPoolAnnounce.epoch(msg)
         if !ok && !isempty(state.config.payload_fallback_uri)
             state.config.use_shm = false
             reset_mappings!(state)
@@ -372,11 +393,14 @@ function handle_shm_pool_announce!(state::ConsumerState, msg::ShmPoolAnnounce.De
 
     validation = validate_mapped_superblocks!(state, msg)
     if validation != :ok
+        @tp_warn "announce validation failed" reason = validation
         reset_mappings!(state)
         if validation == :pid_changed
             return false
         end
         ok = map_from_announce!(state, msg)
+        ok || @tp_warn "announce remap failed" stream_id = ShmPoolAnnounce.streamId(msg) epoch =
+            ShmPoolAnnounce.epoch(msg)
         if !ok && !isempty(state.config.payload_fallback_uri)
             state.config.use_shm = false
             reset_mappings!(state)

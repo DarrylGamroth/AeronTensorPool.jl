@@ -32,23 +32,33 @@ function await_attach_response(
     retry_interval_ns::UInt64 = client.context.attach_retry_interval_ns,
     retry_fn::Union{Nothing, Function} = nothing,
 )
+    pending = Int64[correlation_id]
     deadline = UInt64(time_ns()) + timeout_ns
     last_retry_ns = UInt64(time_ns())
     while UInt64(time_ns()) < deadline
         do_work(client)
         now_ns = UInt64(time_ns())
+        attach = Control.poll_attach_any!(driver_client, pending, now_ns)
+        if attach !== nothing
+            @tp_info "attach response received" correlation_id = attach.correlation_id code = attach.code lease_id =
+                attach.lease_id
+            attach.code == DriverResponseCode.OK || throw(AttachRejectedError(String(attach.error_message)))
+            return attach
+        end
         if now_ns - last_retry_ns > retry_interval_ns
             if retry_fn !== nothing
+                old_id = pending[end]
                 new_id = retry_fn()
-                new_id != 0 && (correlation_id = new_id)
+                if new_id != 0
+                    push!(pending, new_id)
+                    @tp_debug "attach retry" old_correlation_id = old_id correlation_id = new_id pending = length(pending)
+                end
             end
             last_retry_ns = now_ns
         end
-        attach = Control.poll_attach!(driver_client, correlation_id, now_ns)
-        attach === nothing && (yield(); continue)
-        attach.code == DriverResponseCode.OK || throw(AttachRejectedError(String(attach.error_message)))
-        return attach
+        yield()
     end
+    @tp_warn "attach response timed out" correlation_id = correlation_id timeout_ns = timeout_ns
     throw(AttachTimeoutError("attach timed out"))
 end
 
@@ -62,6 +72,8 @@ function request_attach_consumer(
     control_channel::AbstractString = client.context.control_channel,
     control_stream_id::Int32 = client.context.control_stream_id,
 )
+    @tp_info "request attach consumer" stream_id = stream_id client_id = settings.consumer_id control_channel =
+        control_channel control_stream_id = control_stream_id
     driver_client = init_driver_client_for_context(
         client,
         DriverRole.CONSUMER;
@@ -90,6 +102,8 @@ function request_attach_producer(
     control_channel::AbstractString = client.context.control_channel,
     control_stream_id::Int32 = client.context.control_stream_id,
 )
+    @tp_info "request attach producer" stream_id = stream_id client_id = config.producer_id control_channel =
+        control_channel control_stream_id = control_stream_id
     driver_client = init_driver_client_for_context(
         client,
         DriverRole.PRODUCER;

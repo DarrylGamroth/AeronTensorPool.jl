@@ -146,8 +146,12 @@ function handle_driver_response!(poller::DriverResponsePoller, buffer::AbstractV
         snapshot_attach_response!(poller.attach_response, poller.attach_decoder)
         @tp_info "attach response" correlation_id = poller.attach_response.correlation_id code =
             poller.attach_response.code lease_id = poller.attach_response.lease_id
-        poller.last_attach = poller.attach_response
-        poller.attach_by_correlation[poller.attach_response.correlation_id] = poller.attach_response
+        correlation_id = poller.attach_response.correlation_id
+        entry = get!(poller.attach_by_correlation, correlation_id) do
+            AttachResponse()
+        end
+        copy_attach_response!(entry, poller.attach_response)
+        poller.last_attach = entry
         poller.attach_purge_touch = true
     elseif template_id == TEMPLATE_SHM_DETACH_RESPONSE
         ShmDetachResponse.wrap!(poller.detach_decoder, buffer, 0; header = header)
@@ -259,6 +263,32 @@ function snapshot_attach_response!(resp::AttachResponse, msg::ShmAttachResponse.
     copyto!(resp.header_region_uri, ShmAttachResponse.headerRegionUri(msg, StringView))
     copyto!(resp.error_message, ShmAttachResponse.errorMessage(msg, StringView))
     return resp
+end
+
+function copy_attach_response!(dst::AttachResponse, src::AttachResponse)
+    dst.correlation_id = src.correlation_id
+    dst.code = src.code
+    dst.lease_id = src.lease_id
+    dst.lease_expiry_ns = src.lease_expiry_ns
+    dst.stream_id = src.stream_id
+    dst.epoch = src.epoch
+    dst.layout_version = src.layout_version
+    dst.header_nslots = src.header_nslots
+    dst.header_slot_bytes = src.header_slot_bytes
+    dst.max_dims = src.max_dims
+    copyto!(dst.header_region_uri, view(src.header_region_uri))
+    dst.pool_count = src.pool_count
+    ensure_pool_capacity!(dst.pools, src.pool_count)
+    for i in 1:src.pool_count
+        src_pool = src.pools[i]
+        dst_pool = dst.pools[i]
+        dst_pool.pool_id = src_pool.pool_id
+        dst_pool.pool_nslots = src_pool.pool_nslots
+        dst_pool.stride_bytes = src_pool.stride_bytes
+        copyto!(dst_pool.region_uri, view(src_pool.region_uri))
+    end
+    copyto!(dst.error_message, view(src.error_message))
+    return dst
 end
 
 function snapshot_detach_response!(resp::DetachResponse, msg::ShmDetachResponse.Decoder)

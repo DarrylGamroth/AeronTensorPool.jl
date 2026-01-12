@@ -5,7 +5,7 @@ descriptor_stream_id = 1100
 control_stream_id = 1000
 qos_stream_id = 1200
 metadata_stream_id = 1300
-stream_id = 1
+stream_id = 10000
 producer_id = 1
 layout_version = 1
 nslots = 1024
@@ -30,7 +30,7 @@ aeron_uri = "aeron:ipc?term-length=4m"
 descriptor_stream_id = 1100
 control_stream_id = 1000
 qos_stream_id = 1200
-stream_id = 1
+stream_id = 10000
 consumer_id = 1
 expected_layout_version = 1
 mode = "STREAM"
@@ -52,6 +52,6 @@ aeron_dir = ""
 aeron_uri = "aeron:ipc?term-length=4m"
 control_stream_id = 1000
 qos_stream_id = 1200
-stream_id = 1
+stream_id = 10000
 liveness_timeout_ns = 5000000000
 liveness_check_interval_ns = 1000000000
