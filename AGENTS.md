@@ -10,7 +10,8 @@ match the current code layout in `src/` and the wire/driver specs in `docs/`.
 - Bridge spec: `docs/SHM_Aeron_UDP_Bridge_Spec_v1.0.md`
 - Discovery spec: `docs/SHM_Discovery_Service_Spec_v_1.0.md`
 - Rate limiter spec: `docs/SHM_RateLimiter_Spec_v1.0.md`
-- Implementation guides: `docs/IMPLEMENTATION.md`, `docs/IMPLEMENTATION_GUIDE.md`
+- Implementation notes: `docs/IMPLEMENTATION.md`
+- User guide (quickstart + integration examples): `docs/USER_GUIDE.md`
 - Stream ID conventions (authoritative for defaults/ranges): `docs/STREAM_ID_CONVENTIONS.md`
 
 ## Design constraints
@@ -138,8 +139,6 @@ Each agent follows the same organization for readability:
 - Launch media driver (IPC): `julia --project scripts/run_media_driver.jl`
 - Launch driver from config: `julia --project scripts/run_driver.jl docs/examples/driver_integration_example.toml`
 - Run role from config: `julia --project scripts/run_role.jl <producer|consumer|supervisor|driver|bridge> <config_path>`
-- Run C unit tests: `cmake -S c -B c/build -DTP_BUILD_TESTS=ON -DTP_BUILD_INTEGRATION_TESTS=ON && cmake --build c/build && ctest --test-dir c/build -E 'tp_integration_'`
-- Run C integration tests (requires running driver): `ctest --test-dir c/build -R tp_integration_`
 
 ## Codegen
 - Regenerate SBE codecs with `julia --project -e 'using Pkg; Pkg.build("AeronTensorPool")'`.
