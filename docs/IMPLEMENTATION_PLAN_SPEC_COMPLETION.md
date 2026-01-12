@@ -70,10 +70,12 @@ Tasks:
 Goal: clarify and enforce consumer mode behavior.
 
 Tasks:
-1. Decide whether `Mode.RATE_LIMITED` is informational or functional.
-2. If functional: enforce drop policy or gating in `should_process`.
-3. If informational: update spec/docs to say it is advisory only.
-4. Add tests matching the final decision.
+1. Treat `Mode.RATE_LIMITED` as a **consumer request** for reduced-rate delivery.
+2. Add consumer option `enforce_rate_limit_on_shared` (default: false).
+3. When `enforce_rate_limit_on_shared=true`, apply a local drop policy in `should_process`
+   using `max_rate_hz` while still honoring per-consumer streams if granted.
+4. Document that local rate limiting is optional and consumer-controlled.
+5. Add tests for both behaviors (enforced vs advisory).
 
 ## Phase 6: Aeron Connection Helpers (Documentation)
 
