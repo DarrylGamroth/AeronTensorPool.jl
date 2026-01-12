@@ -159,6 +159,85 @@ Never block on incomplete frames; drop and continue.
 
 ---
 
+## Quickstart (minimal)
+
+Connect to the driver:
+
+```julia
+using AeronTensorPool
+
+driver_cfg = load_driver_config("docs/examples/driver_integration_example.toml")
+ctx = TensorPoolContext(driver_cfg.endpoints)
+client = connect(ctx)
+```
+
+Attach producer/consumer:
+
+```julia
+producer_cfg = load_producer_config("config/defaults.toml")
+producer = attach_producer(client, producer_cfg)
+
+consumer_cfg = load_consumer_config("config/defaults.toml")
+consumer = attach_consumer(client, consumer_cfg)
+```
+
+Publish a frame:
+
+```julia
+payload = fill(UInt8(1), 1024)
+shape = Int32[1024]
+strides = Int32[1]
+offer_frame!(producer, payload, shape, strides, Dtype.UINT8, UInt32(0))
+```
+
+Cleanup:
+
+```julia
+close(producer)
+close(consumer)
+close(client)
+```
+
+## Integration examples (Driver + app agents)
+
+Driver:
+
+```bash
+julia --project scripts/example_driver.jl docs/examples/driver_integration_example.toml
+```
+
+Producer:
+
+```bash
+julia --project scripts/example_producer.jl \
+  docs/examples/driver_integration_example.toml \
+  config/defaults.toml \
+  0 1048576
+```
+
+Consumer:
+
+```bash
+julia --project scripts/example_consumer.jl \
+  docs/examples/driver_integration_example.toml \
+  config/defaults.toml \
+  0
+```
+
+## Camera pipeline example
+
+See `docs/examples/driver_camera_example.toml` for a three‑camera pipeline with
+raw and processed streams. The driver owns SHM pools and assigns profiles; each
+processor consumes one stream and produces another.
+
+## Use cases
+
+- **Embed in a server**: run producer/consumer agents inside your app loop and
+  call `offer_frame!` or `try_claim_slot!` + `commit_slot!` as frames arrive.
+- **Device DMA into SHM**: claim slots and register their pointers with the SDK.
+- **Metadata**: use `announce_data_source!` and `set_metadata_attribute!` to
+  publish stream metadata; consumers read `meta_version` from frames.
+
 ## Logging
 
 Logging is disabled by default. Enable it with:
@@ -167,7 +246,11 @@ Logging is disabled by default. Enable it with:
 - `TP_LOG_LEVEL=10|20|30|40`
 - `TP_LOG_MODULES=Producer,Consumer,Driver` (optional module filter)
 
-See `docs/LOGGING.md` for details.
+Logging controls:
+
+- `TP_LOG=1`
+- `TP_LOG_LEVEL` (`10` debug, `20` info, `30` warn, `40` error)
+- `TP_LOG_MODULES=Producer,Consumer,Driver` (optional module filter)
 
 ---
 
@@ -271,7 +354,6 @@ Consumers attach locally to the receiver’s SHM, not to the remote producer.
 ## 14. Where to go next
 
 - Driver configuration: `docs/IMPLEMENTATION.md`
-- Client quickstart: `docs/CLIENT_QUICKSTART.md`
 - Wire details: `docs/SHM_Tensor_Pool_Wire_Spec_v1.1.md`
 - Discovery: `docs/SHM_Discovery_Service_Spec_v_1.0.md`
 - Bridge: `docs/SHM_Aeron_UDP_Bridge_Spec_v1.0.md`

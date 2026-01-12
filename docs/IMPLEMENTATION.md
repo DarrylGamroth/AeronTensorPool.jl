@@ -2,9 +2,9 @@
 
 This guide maps the wire spec to concrete implementation steps in Julia using Aeron.jl, SBE.jl, and Agent.jl. It stays implementation-oriented and references the spec for normative rules.
 
-Note: Initial driver and client implementations are in Julia. A C client is planned next, so API and protocol decisions should remain C-friendly. The driver can remain Julia-only.
+Note: Initial driver and client implementations are in Julia. The wire/driver specs are language-neutral and should remain implementable across languages.
 
-For a combined wire + driver overview, see `docs/IMPLEMENTATION_GUIDE.md`.
+For a combined wire + driver overview, see `docs/USER_GUIDE.md`.
 
 ## 1. Dependencies
 - Aeron driver/runtime: align with Aeron.jl supported version.
@@ -316,7 +316,7 @@ profile = "raw_profile"
 - See `docs/OPERATIONAL_PLAYBOOK.md` for startup order, tuning guidance, and failure playbooks.
 
 ## 18. Integration examples
-- See `docs/INTEGRATION_EXAMPLES.md` for BGAPI2 buffer registration and invoker-mode integration.
+- See `docs/USER_GUIDE.md` for BGAPI2 buffer registration and invoker-mode integration.
 
 ## 19. Documentation pipeline
 - Plan: add docstrings to all public API functions and generate a Documenter.jl site that references the spec and these examples.
