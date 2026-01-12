@@ -252,6 +252,9 @@ Logging controls:
 - `TP_LOG_LEVEL` (`10` debug, `20` info, `30` warn, `40` error)
 - `TP_LOG_MODULES=Producer,Consumer,Driver` (optional module filter)
 
+Default output is structured JSON to stdout. For custom backends (file, logfmt, etc.),
+set a backend in code via `TPLog.set_backend!` or `TPLog.set_json_backend!`.
+
 ---
 
 ## CLI Tools
