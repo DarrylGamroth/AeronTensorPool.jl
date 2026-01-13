@@ -43,9 +43,8 @@ Status: in progress.
   - `descriptor_stream_id`: 1100
   - `dataset_root`: "./recordings"
   - `segment_max_bytes`: 17179869184 (16 GiB)
-  - `on_disk_ring_scale`: 256 (power-of-two multiplier vs live rings)
-  - `header_nslots`: 0 (derive from live * scale when 0)
-  - `pool_nslots`: 0 (derive from live * scale per pool when 0)
+  - `header_nslots`: 0 (auto-size from `segment_max_bytes` when 0)
+  - `pool_nslots`: 0 (auto-size from `segment_max_bytes` when 0)
   - `checksum_alg`: "crc32"
   - `frame_batch_rows`: 5000
   - `frame_batch_ms`: 100
