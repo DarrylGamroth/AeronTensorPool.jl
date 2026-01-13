@@ -135,7 +135,7 @@ Correctness legend:
 | 5.2 Chunking Rules | Implemented | Compliant | Chunk sizing/segmentation covered by integration tests. |
 | 5.3 Loss Handling | Implemented | Compliant | Drop + backpressure tests. |
 | 5.3a Frame Assembly Timeout | Implemented | Compliant | Assembly timeout tests. |
-| 5.4 Integrity | Partial | Needs Review | No checksum validation (optional). |
+| 5.4 Integrity | Partial | Needs Review | Optional checksum not implemented; deferred by design. |
 | 6. Receiver Re-materialization | Implemented | Compliant | Re-materialization + descriptor publish tests. |
 | 7. Descriptor Semantics | Implemented | Compliant | Seq preservation tests. |
 | 7.1 Metadata Forwarding | Implemented | Compliant | Metadata forwarding tests. |
