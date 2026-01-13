@@ -60,7 +60,7 @@ function timestamp_required_time(rule::TimestampMergeRule, out_time::UInt64, lat
             required_in = out_time + UInt64(offset)
         else
             neg = UInt64(-offset)
-            out_time < neg + lateness_ns && return nothing
+            out_time < neg && return nothing
             required_in = out_time - neg
         end
         return saturating_sub_u64(required_in, lateness_ns)
@@ -69,8 +69,7 @@ function timestamp_required_time(rule::TimestampMergeRule, out_time::UInt64, lat
         window === nothing && return nothing
         window == 0 && return nothing
         out_time < window && return nothing
-        required = out_time - window
-        return saturating_sub_u64(required, lateness_ns)
+        return saturating_sub_u64(out_time, lateness_ns)
     end
     return nothing
 end

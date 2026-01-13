@@ -134,7 +134,7 @@ const Merge = AeronTensorPool.ShmTensorpoolMerge
             UInt64(1),
             nothing,
             Merge.ClockDomain.MONOTONIC,
-            UInt64(0),
+            UInt64(10_000_000),
             rules,
         )
         @test apply_timestamp_merge_map!(state, map)
