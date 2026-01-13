@@ -23,6 +23,12 @@ first argument; defaults are shown below.
   Runs a two-bridge chain test (embedded MediaDriver).  
   Usage: `julia --project scripts/run_bridge_chain.jl [config/bridge_chain_a_example.toml] [config/bridge_chain_b_example.toml] [duration_s]`
 
+## Rate limiter
+
+- `run_rate_limiter.jl`  
+  Starts the rate limiter from a config.  
+  Usage: `julia --project scripts/run_rate_limiter.jl config/rate_limiter_example.toml`
+
 ## Producer/consumer examples
 
 - `example_producer.jl`  

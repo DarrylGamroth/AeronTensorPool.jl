@@ -1,0 +1,30 @@
+[rate_limiter]
+instance_id = "rate-limiter-01"
+aeron_dir = ""
+aeron_uri = "aeron:ipc?term-length=4m"
+shm_base_dir = "/dev/shm"
+driver_control_channel = "aeron:ipc"
+driver_control_stream_id = 1000
+descriptor_channel = "aeron:ipc"
+descriptor_stream_id = 1100
+control_channel = "aeron:ipc?term-length=1m"
+control_stream_id = 1000
+qos_channel = "aeron:ipc?term-length=1m"
+qos_stream_id = 1200
+metadata_channel = "aeron:ipc?term-length=1m"
+metadata_stream_id = 1300
+forward_metadata = true
+forward_progress = false
+forward_qos = false
+max_rate_hz = 0
+source_control_stream_id = 1000
+dest_control_stream_id = 1000
+source_qos_stream_id = 1200
+dest_qos_stream_id = 1200
+
+[[mappings]]
+source_stream_id = 10000
+dest_stream_id = 11000
+profile = "default"
+metadata_stream_id = 11000
+max_rate_hz = 30

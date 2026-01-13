@@ -334,6 +334,12 @@ If the producer cannot honor a per‑consumer stream:
 
 For shared reduced-rate streams, use the RateLimiter agent.
 
+Example:
+
+```bash
+julia --project scripts/run_rate_limiter.jl config/rate_limiter_example.toml
+```
+
 ---
 
 ## 11. Bridge (remote consumers)
