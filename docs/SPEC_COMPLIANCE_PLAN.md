@@ -12,10 +12,11 @@ Severity legend:
 
 ## Critical
 
-0) Review spec schema changes and regenerate codecs (wire/control/bridge/discovery)
+0) Review spec schema changes and regenerate codecs (wire/control/bridge/discovery) (done)
 - Reason: schema changes must be applied before code changes.
 - Required: review spec appendix sections for schema deltas, update `wire-schema.xml` (and related schema files), then regenerate SBE outputs.
 - Verify: generated constants, template IDs, and block lengths match the spec.
+  - Status: updated `schemas/wire-schema.xml` and regenerated codecs (`src/gen/ShmTensorpoolControl.jl`).
 
 1) Fix canonical SHM directory layout (Wire §15.21a.3)
 - Matrix: `SHM_Tensor_Pool_Wire_Spec_v1.2.md` → 15.21a.3 (Noncompliant)

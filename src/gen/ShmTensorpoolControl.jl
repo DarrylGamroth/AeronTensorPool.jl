@@ -5407,11 +5407,11 @@ end
 @inline function wrap!(m::Encoder{T}, buffer::T, offset::Integer) where T
         m.buffer = buffer
         m.offset = Int64(offset)
-        m.position_ptr[] = m.offset + UInt16(33)
+        m.position_ptr[] = m.offset + UInt16(29)
         return m
     end
 @inline function wrap_and_apply_header!(m::Encoder, buffer::AbstractArray, offset::Integer = 0; header = MessageHeader.Encoder(buffer, offset))
-        MessageHeader.blockLength!(header, UInt16(33))
+        MessageHeader.blockLength!(header, UInt16(29))
         MessageHeader.templateId!(header, UInt16(11))
         MessageHeader.schemaId!(header, UInt16(900))
         MessageHeader.version!(header, UInt16(1))
@@ -5433,10 +5433,10 @@ sbe_position!(m::AbstractFrameProgress, position) = begin
         m.position_ptr[] = position
     end
 sbe_block_length(::AbstractFrameProgress) = begin
-        UInt16(33)
+        UInt16(29)
     end
 sbe_block_length(::Type{<:AbstractFrameProgress}) = begin
-        UInt16(33)
+        UInt16(29)
     end
 sbe_template_id(::AbstractFrameProgress) = begin
         UInt16(11)
@@ -5463,7 +5463,7 @@ sbe_acting_block_length(m::Decoder) = begin
         m.acting_block_length
     end
 sbe_acting_block_length(::Encoder) = begin
-        UInt16(33)
+        UInt16(29)
     end
 sbe_acting_version(m::Decoder) = begin
         m.acting_version
@@ -5617,147 +5617,79 @@ begin
     export epoch, epoch!
 end
 begin
-    frameId_id(::AbstractFrameProgress) = begin
+    seq_id(::AbstractFrameProgress) = begin
             UInt16(3)
         end
-    frameId_id(::Type{<:AbstractFrameProgress}) = begin
+    seq_id(::Type{<:AbstractFrameProgress}) = begin
             UInt16(3)
         end
-    frameId_since_version(::AbstractFrameProgress) = begin
+    seq_since_version(::AbstractFrameProgress) = begin
             UInt16(0)
         end
-    frameId_since_version(::Type{<:AbstractFrameProgress}) = begin
+    seq_since_version(::Type{<:AbstractFrameProgress}) = begin
             UInt16(0)
         end
-    frameId_in_acting_version(m::AbstractFrameProgress) = begin
+    seq_in_acting_version(m::AbstractFrameProgress) = begin
             sbe_acting_version(m) >= UInt16(0)
         end
-    frameId_encoding_offset(::AbstractFrameProgress) = begin
+    seq_encoding_offset(::AbstractFrameProgress) = begin
             Int(12)
         end
-    frameId_encoding_offset(::Type{<:AbstractFrameProgress}) = begin
+    seq_encoding_offset(::Type{<:AbstractFrameProgress}) = begin
             Int(12)
         end
-    frameId_encoding_length(::AbstractFrameProgress) = begin
+    seq_encoding_length(::AbstractFrameProgress) = begin
             Int(8)
         end
-    frameId_encoding_length(::Type{<:AbstractFrameProgress}) = begin
+    seq_encoding_length(::Type{<:AbstractFrameProgress}) = begin
             Int(8)
         end
-    frameId_null_value(::AbstractFrameProgress) = begin
+    seq_null_value(::AbstractFrameProgress) = begin
             UInt64(18446744073709551615)
         end
-    frameId_null_value(::Type{<:AbstractFrameProgress}) = begin
+    seq_null_value(::Type{<:AbstractFrameProgress}) = begin
             UInt64(18446744073709551615)
         end
-    frameId_min_value(::AbstractFrameProgress) = begin
+    seq_min_value(::AbstractFrameProgress) = begin
             UInt64(0)
         end
-    frameId_min_value(::Type{<:AbstractFrameProgress}) = begin
+    seq_min_value(::Type{<:AbstractFrameProgress}) = begin
             UInt64(0)
         end
-    frameId_max_value(::AbstractFrameProgress) = begin
+    seq_max_value(::AbstractFrameProgress) = begin
             UInt64(18446744073709551614)
         end
-    frameId_max_value(::Type{<:AbstractFrameProgress}) = begin
+    seq_max_value(::Type{<:AbstractFrameProgress}) = begin
             UInt64(18446744073709551614)
         end
 end
 begin
-    function frameId_meta_attribute(::AbstractFrameProgress, meta_attribute)
+    function seq_meta_attribute(::AbstractFrameProgress, meta_attribute)
         meta_attribute === :presence && return Symbol("required")
         meta_attribute === :semanticType && return Symbol("")
         return Symbol("")
     end
-    function frameId_meta_attribute(::Type{<:AbstractFrameProgress}, meta_attribute)
+    function seq_meta_attribute(::Type{<:AbstractFrameProgress}, meta_attribute)
         meta_attribute === :presence && return Symbol("required")
         meta_attribute === :semanticType && return Symbol("")
         return Symbol("")
     end
 end
 begin
-    @inline function frameId(m::Decoder)
+    @inline function seq(m::Decoder)
             return decode_value(UInt64, m.buffer, m.offset + 12)
         end
-    @inline frameId!(m::Encoder, val) = begin
+    @inline seq!(m::Encoder, val) = begin
                 encode_value(UInt64, m.buffer, m.offset + 12, val)
             end
-    export frameId, frameId!
-end
-begin
-    headerIndex_id(::AbstractFrameProgress) = begin
-            UInt16(4)
-        end
-    headerIndex_id(::Type{<:AbstractFrameProgress}) = begin
-            UInt16(4)
-        end
-    headerIndex_since_version(::AbstractFrameProgress) = begin
-            UInt16(0)
-        end
-    headerIndex_since_version(::Type{<:AbstractFrameProgress}) = begin
-            UInt16(0)
-        end
-    headerIndex_in_acting_version(m::AbstractFrameProgress) = begin
-            sbe_acting_version(m) >= UInt16(0)
-        end
-    headerIndex_encoding_offset(::AbstractFrameProgress) = begin
-            Int(20)
-        end
-    headerIndex_encoding_offset(::Type{<:AbstractFrameProgress}) = begin
-            Int(20)
-        end
-    headerIndex_encoding_length(::AbstractFrameProgress) = begin
-            Int(4)
-        end
-    headerIndex_encoding_length(::Type{<:AbstractFrameProgress}) = begin
-            Int(4)
-        end
-    headerIndex_null_value(::AbstractFrameProgress) = begin
-            UInt32(4294967295)
-        end
-    headerIndex_null_value(::Type{<:AbstractFrameProgress}) = begin
-            UInt32(4294967295)
-        end
-    headerIndex_min_value(::AbstractFrameProgress) = begin
-            UInt32(0)
-        end
-    headerIndex_min_value(::Type{<:AbstractFrameProgress}) = begin
-            UInt32(0)
-        end
-    headerIndex_max_value(::AbstractFrameProgress) = begin
-            UInt32(4294967294)
-        end
-    headerIndex_max_value(::Type{<:AbstractFrameProgress}) = begin
-            UInt32(4294967294)
-        end
-end
-begin
-    function headerIndex_meta_attribute(::AbstractFrameProgress, meta_attribute)
-        meta_attribute === :presence && return Symbol("required")
-        meta_attribute === :semanticType && return Symbol("")
-        return Symbol("")
-    end
-    function headerIndex_meta_attribute(::Type{<:AbstractFrameProgress}, meta_attribute)
-        meta_attribute === :presence && return Symbol("required")
-        meta_attribute === :semanticType && return Symbol("")
-        return Symbol("")
-    end
-end
-begin
-    @inline function headerIndex(m::Decoder)
-            return decode_value(UInt32, m.buffer, m.offset + 20)
-        end
-    @inline headerIndex!(m::Encoder, val) = begin
-                encode_value(UInt32, m.buffer, m.offset + 20, val)
-            end
-    export headerIndex, headerIndex!
+    export seq, seq!
 end
 begin
     payloadBytesFilled_id(::AbstractFrameProgress) = begin
-            UInt16(5)
+            UInt16(4)
         end
     payloadBytesFilled_id(::Type{<:AbstractFrameProgress}) = begin
-            UInt16(5)
+            UInt16(4)
         end
     payloadBytesFilled_since_version(::AbstractFrameProgress) = begin
             UInt16(0)
@@ -5769,10 +5701,10 @@ begin
             sbe_acting_version(m) >= UInt16(0)
         end
     payloadBytesFilled_encoding_offset(::AbstractFrameProgress) = begin
-            Int(24)
+            Int(20)
         end
     payloadBytesFilled_encoding_offset(::Type{<:AbstractFrameProgress}) = begin
-            Int(24)
+            Int(20)
         end
     payloadBytesFilled_encoding_length(::AbstractFrameProgress) = begin
             Int(8)
@@ -5813,19 +5745,19 @@ begin
 end
 begin
     @inline function payloadBytesFilled(m::Decoder)
-            return decode_value(UInt64, m.buffer, m.offset + 24)
+            return decode_value(UInt64, m.buffer, m.offset + 20)
         end
     @inline payloadBytesFilled!(m::Encoder, val) = begin
-                encode_value(UInt64, m.buffer, m.offset + 24, val)
+                encode_value(UInt64, m.buffer, m.offset + 20, val)
             end
     export payloadBytesFilled, payloadBytesFilled!
 end
 begin
     state_id(::AbstractFrameProgress) = begin
-            UInt16(6)
+            UInt16(5)
         end
     state_id(::Type{<:AbstractFrameProgress}) = begin
-            UInt16(6)
+            UInt16(5)
         end
     state_since_version(::AbstractFrameProgress) = begin
             UInt16(0)
@@ -5837,10 +5769,10 @@ begin
             sbe_acting_version(m) >= UInt16(0)
         end
     state_encoding_offset(::AbstractFrameProgress) = begin
-            Int(32)
+            Int(28)
         end
     state_encoding_offset(::Type{<:AbstractFrameProgress}) = begin
-            Int(32)
+            Int(28)
         end
     state_encoding_length(::AbstractFrameProgress) = begin
             Int(1)
@@ -5881,14 +5813,14 @@ begin
 end
 begin
     @inline function state(m::Decoder, ::Type{Integer})
-            return decode_value(UInt8, m.buffer, m.offset + 32)
+            return decode_value(UInt8, m.buffer, m.offset + 28)
         end
     @inline function state(m::Decoder)
-            raw = decode_value(UInt8, m.buffer, m.offset + 32)
+            raw = decode_value(UInt8, m.buffer, m.offset + 28)
             return FrameProgressState.SbeEnum(raw)
         end
     @inline function state!(m::Encoder, value::FrameProgressState.SbeEnum)
-            encode_value(UInt8, m.buffer, m.offset + 32, UInt8(value))
+            encode_value(UInt8, m.buffer, m.offset + 28, UInt8(value))
         end
     export state, state!
 end
@@ -8926,11 +8858,11 @@ end
 @inline function wrap!(m::Encoder{T}, buffer::T, offset::Integer) where T
         m.buffer = buffer
         m.offset = Int64(offset)
-        m.position_ptr[] = m.offset + UInt16(36)
+        m.position_ptr[] = m.offset + UInt16(40)
         return m
     end
 @inline function wrap_and_apply_header!(m::Encoder, buffer::AbstractArray, offset::Integer = 0; header = MessageHeader.Encoder(buffer, offset))
-        MessageHeader.blockLength!(header, UInt16(36))
+        MessageHeader.blockLength!(header, UInt16(40))
         MessageHeader.templateId!(header, UInt16(4))
         MessageHeader.schemaId!(header, UInt16(900))
         MessageHeader.version!(header, UInt16(1))
@@ -8952,10 +8884,10 @@ sbe_position!(m::AbstractFrameDescriptor, position) = begin
         m.position_ptr[] = position
     end
 sbe_block_length(::AbstractFrameDescriptor) = begin
-        UInt16(36)
+        UInt16(40)
     end
 sbe_block_length(::Type{<:AbstractFrameDescriptor}) = begin
-        UInt16(36)
+        UInt16(40)
     end
 sbe_template_id(::AbstractFrameDescriptor) = begin
         UInt16(4)
@@ -8982,7 +8914,7 @@ sbe_acting_block_length(m::Decoder) = begin
         m.acting_block_length
     end
 sbe_acting_block_length(::Encoder) = begin
-        UInt16(36)
+        UInt16(40)
     end
 sbe_acting_version(m::Decoder) = begin
         m.acting_version
@@ -9204,79 +9136,11 @@ begin
     export seq, seq!
 end
 begin
-    headerIndex_id(::AbstractFrameDescriptor) = begin
-            UInt16(4)
-        end
-    headerIndex_id(::Type{<:AbstractFrameDescriptor}) = begin
-            UInt16(4)
-        end
-    headerIndex_since_version(::AbstractFrameDescriptor) = begin
-            UInt16(0)
-        end
-    headerIndex_since_version(::Type{<:AbstractFrameDescriptor}) = begin
-            UInt16(0)
-        end
-    headerIndex_in_acting_version(m::AbstractFrameDescriptor) = begin
-            sbe_acting_version(m) >= UInt16(0)
-        end
-    headerIndex_encoding_offset(::AbstractFrameDescriptor) = begin
-            Int(20)
-        end
-    headerIndex_encoding_offset(::Type{<:AbstractFrameDescriptor}) = begin
-            Int(20)
-        end
-    headerIndex_encoding_length(::AbstractFrameDescriptor) = begin
-            Int(4)
-        end
-    headerIndex_encoding_length(::Type{<:AbstractFrameDescriptor}) = begin
-            Int(4)
-        end
-    headerIndex_null_value(::AbstractFrameDescriptor) = begin
-            UInt32(4294967295)
-        end
-    headerIndex_null_value(::Type{<:AbstractFrameDescriptor}) = begin
-            UInt32(4294967295)
-        end
-    headerIndex_min_value(::AbstractFrameDescriptor) = begin
-            UInt32(0)
-        end
-    headerIndex_min_value(::Type{<:AbstractFrameDescriptor}) = begin
-            UInt32(0)
-        end
-    headerIndex_max_value(::AbstractFrameDescriptor) = begin
-            UInt32(4294967294)
-        end
-    headerIndex_max_value(::Type{<:AbstractFrameDescriptor}) = begin
-            UInt32(4294967294)
-        end
-end
-begin
-    function headerIndex_meta_attribute(::AbstractFrameDescriptor, meta_attribute)
-        meta_attribute === :presence && return Symbol("required")
-        meta_attribute === :semanticType && return Symbol("")
-        return Symbol("")
-    end
-    function headerIndex_meta_attribute(::Type{<:AbstractFrameDescriptor}, meta_attribute)
-        meta_attribute === :presence && return Symbol("required")
-        meta_attribute === :semanticType && return Symbol("")
-        return Symbol("")
-    end
-end
-begin
-    @inline function headerIndex(m::Decoder)
-            return decode_value(UInt32, m.buffer, m.offset + 20)
-        end
-    @inline headerIndex!(m::Encoder, val) = begin
-                encode_value(UInt32, m.buffer, m.offset + 20, val)
-            end
-    export headerIndex, headerIndex!
-end
-begin
     timestampNs_id(::AbstractFrameDescriptor) = begin
-            UInt16(5)
+            UInt16(4)
         end
     timestampNs_id(::Type{<:AbstractFrameDescriptor}) = begin
-            UInt16(5)
+            UInt16(4)
         end
     timestampNs_since_version(::AbstractFrameDescriptor) = begin
             UInt16(0)
@@ -9288,10 +9152,10 @@ begin
             sbe_acting_version(m) >= UInt16(0)
         end
     timestampNs_encoding_offset(::AbstractFrameDescriptor) = begin
-            Int(24)
+            Int(20)
         end
     timestampNs_encoding_offset(::Type{<:AbstractFrameDescriptor}) = begin
-            Int(24)
+            Int(20)
         end
     timestampNs_encoding_length(::AbstractFrameDescriptor) = begin
             Int(8)
@@ -9332,19 +9196,19 @@ begin
 end
 begin
     @inline function timestampNs(m::Decoder)
-            return decode_value(UInt64, m.buffer, m.offset + 24)
+            return decode_value(UInt64, m.buffer, m.offset + 20)
         end
     @inline timestampNs!(m::Encoder, val) = begin
-                encode_value(UInt64, m.buffer, m.offset + 24, val)
+                encode_value(UInt64, m.buffer, m.offset + 20, val)
             end
     export timestampNs, timestampNs!
 end
 begin
     metaVersion_id(::AbstractFrameDescriptor) = begin
-            UInt16(6)
+            UInt16(5)
         end
     metaVersion_id(::Type{<:AbstractFrameDescriptor}) = begin
-            UInt16(6)
+            UInt16(5)
         end
     metaVersion_since_version(::AbstractFrameDescriptor) = begin
             UInt16(0)
@@ -9356,10 +9220,10 @@ begin
             sbe_acting_version(m) >= UInt16(0)
         end
     metaVersion_encoding_offset(::AbstractFrameDescriptor) = begin
-            Int(32)
+            Int(28)
         end
     metaVersion_encoding_offset(::Type{<:AbstractFrameDescriptor}) = begin
-            Int(32)
+            Int(28)
         end
     metaVersion_encoding_length(::AbstractFrameDescriptor) = begin
             Int(4)
@@ -9400,12 +9264,80 @@ begin
 end
 begin
     @inline function metaVersion(m::Decoder)
-            return decode_value(UInt32, m.buffer, m.offset + 32)
+            return decode_value(UInt32, m.buffer, m.offset + 28)
         end
     @inline metaVersion!(m::Encoder, val) = begin
-                encode_value(UInt32, m.buffer, m.offset + 32, val)
+                encode_value(UInt32, m.buffer, m.offset + 28, val)
             end
     export metaVersion, metaVersion!
+end
+begin
+    traceId_id(::AbstractFrameDescriptor) = begin
+            UInt16(6)
+        end
+    traceId_id(::Type{<:AbstractFrameDescriptor}) = begin
+            UInt16(6)
+        end
+    traceId_since_version(::AbstractFrameDescriptor) = begin
+            UInt16(0)
+        end
+    traceId_since_version(::Type{<:AbstractFrameDescriptor}) = begin
+            UInt16(0)
+        end
+    traceId_in_acting_version(m::AbstractFrameDescriptor) = begin
+            sbe_acting_version(m) >= UInt16(0)
+        end
+    traceId_encoding_offset(::AbstractFrameDescriptor) = begin
+            Int(32)
+        end
+    traceId_encoding_offset(::Type{<:AbstractFrameDescriptor}) = begin
+            Int(32)
+        end
+    traceId_encoding_length(::AbstractFrameDescriptor) = begin
+            Int(8)
+        end
+    traceId_encoding_length(::Type{<:AbstractFrameDescriptor}) = begin
+            Int(8)
+        end
+    traceId_null_value(::AbstractFrameDescriptor) = begin
+            UInt64(18446744073709551615)
+        end
+    traceId_null_value(::Type{<:AbstractFrameDescriptor}) = begin
+            UInt64(18446744073709551615)
+        end
+    traceId_min_value(::AbstractFrameDescriptor) = begin
+            UInt64(0)
+        end
+    traceId_min_value(::Type{<:AbstractFrameDescriptor}) = begin
+            UInt64(0)
+        end
+    traceId_max_value(::AbstractFrameDescriptor) = begin
+            UInt64(18446744073709551614)
+        end
+    traceId_max_value(::Type{<:AbstractFrameDescriptor}) = begin
+            UInt64(18446744073709551614)
+        end
+end
+begin
+    function traceId_meta_attribute(::AbstractFrameDescriptor, meta_attribute)
+        meta_attribute === :presence && return Symbol("optional")
+        meta_attribute === :semanticType && return Symbol("")
+        return Symbol("")
+    end
+    function traceId_meta_attribute(::Type{<:AbstractFrameDescriptor}, meta_attribute)
+        meta_attribute === :presence && return Symbol("optional")
+        meta_attribute === :semanticType && return Symbol("")
+        return Symbol("")
+    end
+end
+begin
+    @inline function traceId(m::Decoder)
+            return decode_value(UInt64, m.buffer, m.offset + 32)
+        end
+    @inline traceId!(m::Encoder, val) = begin
+                encode_value(UInt64, m.buffer, m.offset + 32, val)
+            end
+    export traceId, traceId!
 end
 @inline function sbe_decoded_length(m::AbstractFrameDescriptor)
         skipper = Decoder(typeof(sbe_buffer(m)))
