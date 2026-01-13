@@ -34,6 +34,7 @@ include("apps/Apps.jl")
 using .Core
 using .Core.TPLog
 using .Agents
+using .Agents.RateLimiter
 using .Timers
 using .Shm
 using .AeronUtils
@@ -183,6 +184,13 @@ export AeronInitError,
     QosConsumer,
     QosProducer,
     RegionType,
+    RateLimiterConfig,
+    RateLimiterMapping,
+    RateLimiterState,
+    RateLimiterAgent,
+    load_rate_limiter_config,
+    init_rate_limiter,
+    rate_limiter_do_work!,
     SUPERBLOCK_SIZE,
     ShmAttachRequest,
     ShmAttachResponse,

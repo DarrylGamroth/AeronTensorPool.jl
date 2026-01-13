@@ -6,6 +6,7 @@ include("supervisor/Supervisor.jl")
 include("bridge/Bridge.jl")
 include("discovery/Discovery.jl")
 include("discovery/DiscoveryRegistry.jl")
+include("ratelimiter/RateLimiter.jl")
 
 using .Producer: PayloadPoolConfig,
     ProducerConfig,
@@ -54,6 +55,11 @@ using .Discovery: DiscoveryProviderState,
 
 using .DiscoveryRegistry: DiscoveryRegistryState,
     DiscoveryRegistryAgent
+
+using .RateLimiter: RateLimiterMapping,
+    RateLimiterConfig,
+    RateLimiterState,
+    RateLimiterAgent
 
 using ..Driver: DriverAgent
 
@@ -104,6 +110,10 @@ export Producer,
     DiscoveryRegistryState,
     DiscoveryAgent,
     DiscoveryRegistryAgent,
+    RateLimiterMapping,
+    RateLimiterConfig,
+    RateLimiterState,
+    RateLimiterAgent,
     DriverAgent
 
 end
