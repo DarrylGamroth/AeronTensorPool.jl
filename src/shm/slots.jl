@@ -137,5 +137,5 @@ function validate_stride(
     _ = hugepage_size
 
     stride_bytes >= UInt32(64) || return false
-    return ispow2_u32(stride_bytes)
+    return ispow2_u32(stride_bytes) & ((stride_bytes & UInt32(0x3f)) == UInt32(0))
 end

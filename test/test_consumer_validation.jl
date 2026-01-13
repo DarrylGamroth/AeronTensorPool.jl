@@ -2,6 +2,7 @@
     @test Consumer.validate_stride(UInt32(4096); require_hugepages = false)
     @test !Consumer.validate_stride(UInt32(5000); require_hugepages = false)
     @test Consumer.validate_stride(UInt32(4096); require_hugepages = true)
+    @test !Consumer.validate_stride(UInt32(96); require_hugepages = false)
     @test !Consumer.validate_stride(UInt32(32); require_hugepages = false)
 
     fields = SuperblockFields(
