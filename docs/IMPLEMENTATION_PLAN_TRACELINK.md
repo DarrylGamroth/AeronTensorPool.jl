@@ -69,7 +69,7 @@ Status: completed.
   - `enable_tracing!(producer_state; node_id, generator)`
   - `trace_id_for_output!(...)` and `emit_tracelink!(...)`
 
-Status: in progress.
+Status: in progress (helpers added; integration hooks still minimal).
 
 ---
 
@@ -83,7 +83,7 @@ Status: in progress.
 - Allocation tests:
   - Trace ID generation and TraceLinkSet emission are zero‑alloc after init.
 
-Status: in progress.
+Status: in progress (unit/alloc tests present; integration pending).
 
 ---
 

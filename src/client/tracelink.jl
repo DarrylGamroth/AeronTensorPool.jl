@@ -73,6 +73,14 @@ function TraceLinkPublisher(state::ProducerState)
 end
 
 """
+Tracing context for producer-side TraceLink usage.
+"""
+struct TraceLinkContext
+    generator::TraceIdGenerator
+    publisher::TraceLinkPublisher
+end
+
+"""
 Update the epoch used by a TraceLinkPublisher.
 """
 function update_epoch!(publisher::TraceLinkPublisher, epoch::UInt64)
@@ -99,6 +107,8 @@ end
 Encode TraceLinkSet fields into an encoder.
 
 Returns `true` if the input was valid, `false` otherwise.
+
+Note: callers must wrap the encoder (e.g., via `wrap_and_apply_header!`) before calling.
 """
 function encode_tracelink_set!(
     encoder::TraceLinkSet.Encoder,
@@ -120,6 +130,90 @@ function encode_tracelink_set!(
         TraceLinkSet.Parents.traceId!(entry, parent_id)
     end
     return true
+end
+
+"""
+Resolve a node ID from explicit input or a driver client.
+"""
+function resolve_node_id(
+    node_id::Union{UInt32, Nothing},
+    driver_client::Union{DriverClientState, Nothing},
+)
+    if !isnothing(node_id)
+        return node_id
+    end
+    if !isnothing(driver_client) && driver_client.node_id != 0
+        return driver_client.node_id
+    end
+    throw(ArgumentError("node_id missing; pass node_id explicitly or attach to a driver that assigns one"))
+end
+
+"""
+Create TraceLink generator/publisher pair for a producer handle.
+"""
+function enable_tracing!(
+    handle::ProducerHandle;
+    node_id::Union{UInt32, Nothing} = nothing,
+    clock::Clocks.AbstractClock = Clocks.EpochClock(),
+)
+    resolved = resolve_node_id(node_id, handle.driver_client)
+    generator = TraceIdGenerator(resolved, clock)
+    publisher = TraceLinkPublisher(handle)
+    return TraceLinkContext(generator, publisher)
+end
+
+"""
+Create TraceLink generator/publisher pair for a producer state.
+"""
+function enable_tracing!(
+    state::ProducerState;
+    node_id::Union{UInt32, Nothing} = nothing,
+    clock::Clocks.AbstractClock = Clocks.EpochClock(),
+)
+    resolved = resolve_node_id(node_id, state.driver_client)
+    generator = TraceIdGenerator(resolved, clock)
+    publisher = TraceLinkPublisher(state)
+    return TraceLinkContext(generator, publisher)
+end
+
+"""
+Return the output trace ID for the given parents.
+
+For 1→1 flows, the parent trace ID is reused; for N→1 flows, a new trace ID is minted.
+Returns 0 on invalid parents.
+"""
+function trace_id_for_output!(generator::TraceIdGenerator, parents::AbstractVector{UInt64})
+    valid_trace_parents(parents) || return UInt64(0)
+    if length(parents) == 1
+        return parents[1]
+    end
+    return next_trace_id!(generator)
+end
+
+"""
+Return a new trace ID for a multi-parent merge.
+"""
+function new_trace_id_from_parents!(generator::TraceIdGenerator, parents::AbstractVector{UInt64})
+    valid_trace_parents(parents) || return UInt64(0)
+    length(parents) > 1 || return parents[1]
+    return next_trace_id!(generator)
+end
+
+"""
+Reuse a trace ID for 1→1 processing.
+"""
+reuse_trace_id(trace_id::UInt64) = trace_id
+
+"""
+Emit a TraceLinkSet message with minimal validation.
+"""
+function emit_tracelink!(
+    publisher::TraceLinkPublisher,
+    seq::UInt64,
+    trace_id::UInt64,
+    parents::AbstractVector{UInt64},
+)
+    return emit_tracelink_set!(publisher, seq, trace_id, parents)
 end
 
 """
@@ -162,7 +256,7 @@ function emit_tracelink_set!(
     trace_id == 0 && return false
     valid_trace_parents(parents) || return false
     parent_count = length(parents)
-    msg_len = MESSAGE_HEADER_LEN +
+    msg_len = TRACELINK_MESSAGE_HEADER_LEN +
         Int(TraceLinkSet.sbe_block_length(TraceLinkSet.Decoder)) +
         Int(TraceLinkSet.Parents.sbe_header_size(TraceLinkSet.Parents.Decoder)) +
         parent_count * Int(TraceLinkSet.Parents.sbe_block_length(TraceLinkSet.Parents.Decoder))

@@ -6,7 +6,7 @@
     @test id2 > id1
 
     parents = UInt64[UInt64(10), UInt64(20)]
-    msg_len = AeronTensorPool.MESSAGE_HEADER_LEN +
+    msg_len = AeronTensorPool.TRACELINK_MESSAGE_HEADER_LEN +
         Int(TraceLinkSet.sbe_block_length(TraceLinkSet.Decoder)) +
         Int(TraceLinkSet.Parents.sbe_header_size(TraceLinkSet.Parents.Decoder)) +
         length(parents) * Int(TraceLinkSet.Parents.sbe_block_length(TraceLinkSet.Parents.Decoder))
