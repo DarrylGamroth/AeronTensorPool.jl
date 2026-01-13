@@ -45,6 +45,9 @@ const DiscoveryRequest = ShmTensorpoolDiscovery.DiscoveryRequest
 const DiscoveryResponse = ShmTensorpoolDiscovery.DiscoveryResponse
 const DiscoveryStatus = ShmTensorpoolDiscovery.DiscoveryStatus
 
+const TraceLinkMessageHeader = ShmTensorpoolTraceLink.MessageHeader
+const TraceLinkSet = ShmTensorpoolTraceLink.TraceLinkSet
+
 const MESSAGE_HEADER_LEN = Int(MessageHeader.sbe_encoded_length(MessageHeader.Decoder))
 const DRIVER_MESSAGE_HEADER_LEN =
     Int(DriverMessageHeader.sbe_encoded_length(DriverMessageHeader.Decoder))

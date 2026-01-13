@@ -21,6 +21,8 @@ include("gen/ShmTensorpoolDiscovery.jl")
 using .ShmTensorpoolDiscovery
 include("gen/ShmTensorpoolMerge.jl")
 using .ShmTensorpoolMerge
+include("gen/ShmTensorpoolTraceLink.jl")
+using .ShmTensorpoolTraceLink
 
 include("timers/Timers.jl")
 include("core/Core.jl")
@@ -149,6 +151,12 @@ export AeronInitError,
     set_metadata_attributes!,
     delete_metadata_attribute!,
     set_metadata!,
+    TraceIdGenerator,
+    TraceLinkPublisher,
+    emit_tracelink_set!,
+    next_trace_id!,
+    encode_tracelink_set!,
+    decode_tracelink_set!,
     DriverRole,
     DriverShmConfig,
     DriverShutdown,
@@ -159,6 +167,7 @@ export AeronInitError,
     FixedString,
     FrameDescriptor,
     FrameProgress,
+    TraceLinkSet,
     HEADER_SLOT_BYTES,
     KeepaliveProxy,
     LeaseRevoked,
@@ -167,6 +176,7 @@ export AeronInitError,
     MajorOrder,
     MessageHeader,
     Mode,
+    TraceLinkMessageHeader,
     PayloadPoolConfig,
     PayloadView,
     PolledTimer,

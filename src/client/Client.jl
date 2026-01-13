@@ -13,6 +13,7 @@ using ..Agents
 using ..ShmTensorpoolControl
 using ..StringViews
 using Clocks
+using SnowflakeId
 using UnsafeArrays
 import ..Agents.Producer: offer_frame!, try_claim_slot!, try_claim_slot_by_size!, commit_slot!, with_claimed_slot!, announce_data_source!, metadata_version, set_metadata_attribute!, set_metadata_attributes!, delete_metadata_attribute!, set_metadata!
 
@@ -23,6 +24,7 @@ include("discovery.jl")
 include("attach.jl")
 include("qos_monitor.jl")
 include("metadata.jl")
+include("tracelink.jl")
 
 export DriverClientState,
     TensorPoolContext,
@@ -71,6 +73,12 @@ export DriverClientState,
     set_metadata_attributes!,
     delete_metadata_attribute!,
     set_metadata!,
+    TraceIdGenerator,
+    TraceLinkPublisher,
+    next_trace_id!,
+    encode_tracelink_set!,
+    decode_tracelink_set!,
+    emit_tracelink_set!,
     offer_frame!,
     try_claim_slot!,
     try_claim_slot_by_size!,

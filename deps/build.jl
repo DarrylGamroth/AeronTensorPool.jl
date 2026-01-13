@@ -29,6 +29,11 @@ function regen_sbe()
             joinpath(root, "src", "gen", "ShmTensorpoolMerge.jl");
             module_name="ShmTensorpoolMerge",
         )
+        SBE.generate(
+            joinpath(root, "schemas", "trace-link-schema.xml"),
+            joinpath(root, "src", "gen", "ShmTensorpoolTraceLink.jl");
+            module_name="ShmTensorpoolTraceLink",
+        )
     end
 end
 

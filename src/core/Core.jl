@@ -4,6 +4,7 @@ using ..ShmTensorpoolControl
 using ..ShmTensorpoolDriver
 using ..ShmTensorpoolBridge
 using ..ShmTensorpoolDiscovery
+using ..ShmTensorpoolTraceLink
 using ..SBE
 include("logging.jl")
 using .TPLog
@@ -69,6 +70,8 @@ export TensorPoolError,
     DiscoveryRequest,
     DiscoveryResponse,
     DiscoveryStatus,
+    TraceLinkMessageHeader,
+    TraceLinkSet,
     MESSAGE_HEADER_LEN,
     DRIVER_MESSAGE_HEADER_LEN,
     BRIDGE_MESSAGE_HEADER_LEN,
