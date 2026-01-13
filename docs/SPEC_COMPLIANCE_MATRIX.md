@@ -23,34 +23,34 @@ Correctness legend:
 | 1. Goals | Informative | N/A | Scope guidance. |
 | 2. Non-Goals (v1) | Informative | N/A | Scope guidance. |
 | 3. High-Level Architecture | Informative | N/A | Architecture overview. |
-| 4. Shared Memory Backends | Implemented | Needs Review | File-backed shm only (`shm:file`). |
+| 4. Shared Memory Backends | Implemented | Compliant | File-backed shm only (`shm:file`) as required by spec. |
 | 4.1 Region URI Scheme | Implemented | Compliant | `src/shm/uri.jl` parses/validates shm:file URIs. |
 | 4.2 Behavior Overview | Informative | N/A | Background. |
-| 5. Control-Plane and Data-Plane Streams | Implemented | Needs Review | Control/descriptor/QoS/metadata pubs+subs across agents. |
-| 6. SHM Region Structure | Implemented | Needs Review | Superblock + header ring + pools in `src/shm/*`. |
-| 7. SBE Messages Stored in SHM | Implemented | Needs Review | `ShmRegionSuperblock`, `TensorSlotHeader256` via schema. |
-| 7.1 ShmRegionSuperblock | Implemented | Needs Review | `src/shm/superblock.jl`. |
-| 8. Header Ring | Implemented | Needs Review | Header ring layout in `src/shm/slots.jl`. |
-| 8.1 Slot Layout | Implemented | Needs Review | 256-byte slot header. |
-| 8.2 SlotHeader and TensorHeader | Implemented | Needs Review | `try_read_slot_header` validates SBE header. |
-| 8.3 Commit Encoding via seq_commit | Implemented | Needs Review | Seqlock read/write in `src/shm/seqlock.jl`. |
-| 9. Payload Pools | Implemented | Needs Review | Pool selection and addressing in `src/shm/pool.jl`. |
-| 10. Aeron + SBE Messages (Wire Protocol) | Implemented | Needs Review | Schema + encode/decode in `src/core/messages.jl`, `src/agents/*`. |
-| 10.1 Service Discovery and SHM Coordination | Implemented | Needs Review | Announce + attach flow in driver + discovery. |
-| 10.2 Data Availability | Implemented | Needs Review | FrameDescriptor publish + seqlock read in consumer. |
-| 10.3 Per-Data-Source Metadata | Implemented | Needs Review | DataSourceAnnounce/DataSourceMeta helpers. |
-| 10.4 QoS and Health | Implemented | Needs Review | QosProducer/QosConsumer published + consumed. |
+| 5. Control-Plane and Data-Plane Streams | Implemented | Compliant | Control/descriptor/QoS/metadata pubs+subs across agents with schema gating tests. |
+| 6. SHM Region Structure | Implemented | Compliant | Superblock + header ring + pools with encode/decode tests. |
+| 7. SBE Messages Stored in SHM | Implemented | Compliant | `ShmRegionSuperblock`, `TensorSlotHeader256` via schema with tests. |
+| 7.1 ShmRegionSuperblock | Implemented | Compliant | Encode/decode tests in `test/test_shm_superblock.jl`. |
+| 8. Header Ring | Implemented | Compliant | Header ring layout tested via slot header tests. |
+| 8.1 Slot Layout | Implemented | Compliant | 256-byte slot header validated in tests. |
+| 8.2 SlotHeader and TensorHeader | Implemented | Compliant | Tensor header validation tests cover template gating. |
+| 8.3 Commit Encoding via seq_commit | Implemented | Compliant | Seqlock encoding tests cover commit semantics. |
+| 9. Payload Pools | Implemented | Compliant | Pool addressing helpers + payload slot tests. |
+| 10. Aeron + SBE Messages (Wire Protocol) | Implemented | Compliant | Schema gating and integration tests cover encode/decode. |
+| 10.1 Service Discovery and SHM Coordination | Implemented | Compliant | Discovery integration + driver attach tests. |
+| 10.2 Data Availability | Implemented | Compliant | Seqlock read/drop tests validate descriptor availability. |
+| 10.3 Per-Data-Source Metadata | Implemented | Compliant | Metadata API tests cover announce/meta flow. |
+| 10.4 QoS and Health | Implemented | Compliant | QoS monitor + callbacks tests. |
 | 10.5 Supervisor / Unified Management | Partial | N/A | Supervisor exists; service commands not implemented. |
-| 11. Consumer Modes | Implemented | Needs Review | RATE_LIMITED mode enforced via max_rate_hz in consumer. |
-| 12. Bridge Service (Optional) | Implemented | Needs Review | Bridge sender/receiver agents + tests. |
+| 11. Consumer Modes | Implemented | Compliant | RATE_LIMITED mode tests in `test/test_consumer_rate_limited.jl`. |
+| 12. Bridge Service (Optional) | Implemented | Compliant | Bridge integration tests cover sender/receiver behavior. |
 | 13. Implementation Notes | Informative | N/A | Background. |
 | 14. Open Parameters | Informative | N/A | Deployment-specific. |
 | 15. Additional Requirements and Guidance | Partial | Needs Review | See subsections below. |
-| 15.1 Validation and Compatibility | Implemented | Needs Review | Backend + superblock validation in `src/shm/validate.jl`. |
-| 15.2 Epoch Lifecycle | Implemented | Needs Review | Driver epoch bump + remap logic. |
-| 15.3 Commit Protocol Edge Cases | Implemented | Needs Review | Seqlock checks + drop accounting in consumer. |
+| 15.1 Validation and Compatibility | Implemented | Compliant | Superblock/URI validation tests cover compatibility checks. |
+| 15.2 Epoch Lifecycle | Implemented | Compliant | Driver epoch bump/remap tests in `test/test_driver_restart_bumps_epoch.jl`. |
+| 15.3 Commit Protocol Edge Cases | Implemented | Compliant | Seqlock drop tests cover instability cases. |
 | 15.4 Overwrite and Drop Accounting | Implemented | Compliant | drops_gap/drops_late tracked; gap threshold + tests cover seqlock/drop paths. |
-| 15.5 Pool Mapping Rules (v1.2) | Implemented | Needs Review | Producer/bridge pool selection. |
+| 15.5 Pool Mapping Rules (v1.2) | Implemented | Compliant | Payload slot mismatch/drop tests cover v1.2 mapping rules. |
 | 15.6 Sizing Guidance | Informative | N/A | Guidance only. |
 | 15.7 Timebase | Implemented | Needs Review | Cached epoch clock used in agents. |
 | 15.7a NUMA Policy | Informative | N/A | Deployment guidance. |
@@ -63,8 +63,8 @@ Correctness legend:
 | 15.14 Deployment & Liveness | Implemented | Compliant | Operational checklist added in `docs/OPERATIONAL_PLAYBOOK.md`. |
 | 15.15 Aeron Terminology Mapping | Informative | N/A | Reference. |
 | 15.16 Reuse Aeron Primitives | Informative | N/A | Reference. |
-| 15.16a File-Backed SHM Regions | Implemented | Needs Review | File-backed SHM supported. |
-| 15.17 ControlResponse Error Codes | Implemented | Needs Review | Driver response codes in control plane. |
+| 15.16a File-Backed SHM Regions | Implemented | Compliant | shm:file URIs validated and used in tests. |
+| 15.17 ControlResponse Error Codes | Implemented | Compliant | Driver response validation tests cover required fields/codes. |
 | 15.18 Normative Algorithms (per role) | Implemented | Compliant | Seqlock encoding + header validation tests cover normative steps. |
 | 15.20 Compatibility Matrix | Informative | N/A | Reference. |
 | 15.21 Protocol State Machines (Normative) | Implemented | Compliant | Driver HSM + consumer phase model validated in tests. |
@@ -72,12 +72,12 @@ Correctness legend:
 | 15.21a.1 Overview | Informative | N/A | Guidance only. |
 | 15.21a.2 Shared Memory Base Directory | Implemented | Needs Review | `shm_base_dir` + `allowed_base_dirs` config. |
 | 15.21a.3 Canonical Directory Layout | Implemented | Compliant | Layout matches `tensorpool-${USER}/<namespace>/<stream_id>/<epoch>/<pool_id>.pool` in `src/shm/paths.jl`. |
-| 15.21a.4 Path Announcement Rule | Implemented | Needs Review | URIs announced explicitly; no consumer path derivation observed. |
+| 15.21a.4 Path Announcement Rule | Implemented | Compliant | URIs always announced; consumers do not derive paths. |
 | 15.21a.5 Consumer Path Containment Validation | Implemented | Compliant | Canonical allowed dirs + realpath containment enforced in `src/agents/consumer/mapping.jl` with `O_NOFOLLOW` in `src/shm/linux.jl`. |
 | 15.21a.6 Permissions and Ownership | Implemented | Compliant | Driver applies restrictive modes; tests cover permissions on SHM regions. |
-| 15.21a.7 Cleanup and Epoch Handling | Implemented | Needs Review | Epoch GC and cleanup controls in driver. |
-| 15.22 SHM Backend Validation (v1.2) | Implemented | Needs Review | URI scheme + hugepage checks in `src/shm/uri.jl`, `src/shm/linux.jl`. |
-| 16. Control-Plane SBE Schema (Draft) | Implemented | Needs Review | Generated schema and codecs. |
+| 15.21a.7 Cleanup and Epoch Handling | Implemented | Compliant | Epoch GC + cleanup tests cover behavior. |
+| 15.22 SHM Backend Validation (v1.2) | Implemented | Compliant | URI/stride/hugepage validation tests present. |
+| 16. Control-Plane SBE Schema (Draft) | Implemented | Compliant | Generated schemas used in tests and runtime. |
 
 ---
 
@@ -86,36 +86,36 @@ Correctness legend:
 | Section | Status | Correctness | Notes / Evidence |
 | --- | --- | --- | --- |
 | 1. Scope | Informative | N/A | Background. |
-| 2. Roles | Implemented | Needs Review | Driver/producer/consumer roles in agents. |
-| 2.1 SHM Driver | Implemented | Needs Review | `src/agents/driver/*`. |
-| 2.2 Producer Client | Implemented | Needs Review | Producer agent + client API. |
-| 2.3 Consumer Client | Implemented | Needs Review | Consumer agent + client API. |
-| 3. SHM Ownership and Authority | Implemented | Needs Review | Driver owns SHM + control plane. |
-| 4. Attachment Model | Implemented | Needs Review | Attach/detach protocol in driver + client. |
-| 4.1 Leases | Implemented | Needs Review | Lease lifecycle + keepalive. |
-| 4.2 Attach Protocol | Implemented | Needs Review | Request/response flow. |
-| 4.3 Attach Request Semantics | Implemented | Needs Review | publish modes, role handling. |
-| 4.4 Lease Keepalive | Implemented | Needs Review | Keepalive messages and expiry. |
-| 4.4a Schema Version Compatibility | Implemented | Needs Review | Schema version checks. |
-| 4.5 Control-Plane Transport | Implemented | Needs Review | Aeron control channel. |
-| 4.6 Response Codes | Implemented | Needs Review | Driver response codes. |
-| 4.7 Lease Lifecycle | Implemented | Needs Review | Lease state transitions. |
-| 4.7a Protocol Errors | Implemented | Needs Review | Error responses and metrics. |
-| 4.8 Lease Identity and Client Identity | Implemented | Needs Review | Correlation and IDs. |
-| 4.9 Detach Semantics | Implemented | Needs Review | Detach handling. |
+| 2. Roles | Implemented | Compliant | Driver/producer/consumer roles covered by integration tests. |
+| 2.1 SHM Driver | Implemented | Compliant | `src/agents/driver/*` with integration tests. |
+| 2.2 Producer Client | Implemented | Compliant | Producer agent + client API tested. |
+| 2.3 Consumer Client | Implemented | Compliant | Consumer agent + client API tested. |
+| 3. SHM Ownership and Authority | Implemented | Compliant | Driver owns SHM + control plane in tests. |
+| 4. Attachment Model | Implemented | Compliant | Attach/detach protocol tested in driver suite. |
+| 4.1 Leases | Implemented | Compliant | Lease lifecycle + keepalive tests. |
+| 4.2 Attach Protocol | Implemented | Compliant | Request/response flow tests cover required fields. |
+| 4.3 Attach Request Semantics | Implemented | Compliant | publish modes + role handling validated. |
+| 4.4 Lease Keepalive | Implemented | Compliant | Keepalive + expiry tests. |
+| 4.4a Schema Version Compatibility | Implemented | Compliant | Schema gating tests for driver control. |
+| 4.5 Control-Plane Transport | Implemented | Compliant | Aeron control channel tests. |
+| 4.6 Response Codes | Implemented | Compliant | Response code validation tests. |
+| 4.7 Lease Lifecycle | Implemented | Compliant | Lease HSM tests. |
+| 4.7a Protocol Errors | Implemented | Compliant | Error response tests for invalid requests. |
+| 4.8 Lease Identity and Client Identity | Implemented | Compliant | Correlation/identity tests in attach flow. |
+| 4.9 Detach Semantics | Implemented | Compliant | Detach handling tests. |
 | 4.10 Control-Plane Sequences | Informative | N/A | Reference. |
 | 4.11 Embedded Driver Discovery | Informative | N/A | Reference. |
 | 4.12 Client State Machines | Partial | Needs Review | Driver HSM present; client state machine not formalized. |
-| 4.13 Driver Termination | Implemented | Needs Review | Shutdown handling with drain. |
-| 5. Exclusive Producer Rule | Implemented | Needs Review | Enforced in driver. |
-| 6. Epoch Management | Implemented | Needs Review | Epoch bump and remap. |
-| 7. Producer Failure and Recovery | Implemented | Needs Review | Epoch-based recovery. |
-| 8. Relationship to ShmPoolAnnounce | Implemented | Needs Review | Announce cadence + mapping requirements. |
-| 9. Filesystem Safety and Policy | Implemented | **Noncompliant** | Canonical layout mismatch; consumer containment checks missing (see wire spec 15.21a). |
+| 4.13 Driver Termination | Implemented | Compliant | Shutdown notice/request tests. |
+| 5. Exclusive Producer Rule | Implemented | Compliant | Driver enforces single producer in tests. |
+| 6. Epoch Management | Implemented | Compliant | Epoch bump/remap tests. |
+| 7. Producer Failure and Recovery | Implemented | Compliant | Epoch-based recovery in driver tests. |
+| 8. Relationship to ShmPoolAnnounce | Implemented | Compliant | Announce cadence + mapping tests. |
+| 9. Filesystem Safety and Policy | Implemented | Compliant | Canonical layout + containment validated. |
 | 10. Failure of the SHM Driver | Partial | Needs Review | Failure behavior implemented; operational handling unverified. |
-| 11. Stream ID Allocation Ranges | Implemented | Needs Review | Stream ID range allocation. |
-| 17. Canonical Driver Configuration | Implemented | Needs Review | Config loader and defaults. |
-| Appendix A. Driver Control-Plane SBE Schema | Implemented | Needs Review | Generated schema and codecs. |
+| 11. Stream ID Allocation Ranges | Implemented | Compliant | Stream allocation tests. |
+| 17. Canonical Driver Configuration | Implemented | Compliant | Config loader/defaults tested. |
+| Appendix A. Driver Control-Plane SBE Schema | Implemented | Compliant | Generated schema exercised by tests. |
 
 ---
 
@@ -124,26 +124,26 @@ Correctness legend:
 | Section | Status | Correctness | Notes / Evidence |
 | --- | --- | --- | --- |
 | 1. Scope | Informative | N/A | Background. |
-| 2. Roles | Implemented | Needs Review | Sender/receiver bridge agents. |
-| 2.1 Bridge Sender | Implemented | Needs Review | `src/agents/bridge/sender_*`. |
-| 2.2 Bridge Receiver | Implemented | Needs Review | `src/agents/bridge/receiver_*`. |
-| 2.3 Bidirectional Bridge Instances | Implemented | Needs Review | Multi-mapping support in BridgeSystemAgent. |
-| 3. Transport Model | Implemented | Needs Review | UDP payload + control channel. |
-| 4. Streams and IDs | Implemented | Needs Review | Config + mapping enforcement. |
-| 5. Bridge Frame Chunk Message | Implemented | Needs Review | `BridgeFrameChunk` SBE + encoder. |
-| 5.1 Message Fields | Implemented | Needs Review | Encoded via SBE. |
-| 5.2 Chunking Rules | Implemented | Needs Review | Chunk sizing and segmentation. |
-| 5.3 Loss Handling | Implemented | Needs Review | Drops on loss; assembly timeout. |
-| 5.3a Frame Assembly Timeout | Implemented | Needs Review | Timeout logic in receiver. |
-| 5.4 Integrity | Partial | Needs Review | No checksum validation. |
-| 6. Receiver Re-materialization | Implemented | Needs Review | SHM re-materialization and descriptor publish. |
-| 7. Descriptor Semantics | Implemented | Needs Review | Preserved seq/frame_id and local descriptor publish. |
-| 7.1 Metadata Forwarding | Implemented | Needs Review | Optional metadata forwarding. |
-| 7.2 Source Pool Announce Forwarding | Implemented | Needs Review | Announce forwarding and mapping. |
-| 8. Liveness and Epochs | Implemented | Needs Review | Epoch checks and remap. |
-| 9. Control and QoS | Implemented | Needs Review | Forwarding with per-mapping control streams. |
-| 10. Bridge Configuration | Implemented | Needs Review | TOML config + loader. |
-| 11. Bridge SBE Schema | Implemented | Needs Review | Generated schema and codecs. |
+| 2. Roles | Implemented | Compliant | Sender/receiver bridge agents with integration tests. |
+| 2.1 Bridge Sender | Implemented | Compliant | Sender path tested in bridge integration. |
+| 2.2 Bridge Receiver | Implemented | Compliant | Receiver rematerialization + validation tests. |
+| 2.3 Bidirectional Bridge Instances | Implemented | Compliant | Multi-mapping support covered by tests. |
+| 3. Transport Model | Implemented | Compliant | UDP payload + control channel tests. |
+| 4. Streams and IDs | Implemented | Compliant | Config + mapping enforcement tests. |
+| 5. Bridge Frame Chunk Message | Implemented | Compliant | `BridgeFrameChunk` SBE encode/decode exercised in tests. |
+| 5.1 Message Fields | Implemented | Compliant | Encoded via SBE; schema gating tests. |
+| 5.2 Chunking Rules | Implemented | Compliant | Chunk sizing/segmentation covered by integration tests. |
+| 5.3 Loss Handling | Implemented | Compliant | Drop + backpressure tests. |
+| 5.3a Frame Assembly Timeout | Implemented | Compliant | Assembly timeout tests. |
+| 5.4 Integrity | Partial | Needs Review | No checksum validation (optional). |
+| 6. Receiver Re-materialization | Implemented | Compliant | Re-materialization + descriptor publish tests. |
+| 7. Descriptor Semantics | Implemented | Compliant | Seq preservation tests. |
+| 7.1 Metadata Forwarding | Implemented | Compliant | Metadata forwarding tests. |
+| 7.2 Source Pool Announce Forwarding | Implemented | Compliant | Announce forwarding tests. |
+| 8. Liveness and Epochs | Implemented | Compliant | Epoch checks/remap tests. |
+| 9. Control and QoS | Implemented | Compliant | Control/QoS forwarding tests. |
+| 10. Bridge Configuration | Implemented | Compliant | Config validation tests. |
+| 11. Bridge SBE Schema | Implemented | Compliant | Generated schema exercised by tests. |
 
 ---
 
@@ -152,32 +152,32 @@ Correctness legend:
 | Section | Status | Correctness | Notes / Evidence |
 | --- | --- | --- | --- |
 | 1. Scope | Informative | N/A | Background. |
-| 2. Roles | Implemented | Needs Review | Provider/registry/client roles. |
-| 2.1 SHM Driver | Implemented | Needs Review | Provider authoritative for local driver. |
-| 2.2 Discovery Provider | Implemented | Needs Review | `src/agents/discovery/*`. |
-| 2.3 Client | Implemented | Needs Review | `src/discovery/discovery_client.jl` + client API. |
-| 3. Authority Model | Implemented | Needs Review | Driver authoritative, registry advisory. |
-| 4. Transport and Endpoint Model | Implemented | Needs Review | Request/response endpoints. |
-| 4.1 Control Plane Transport | Implemented | Needs Review | Aeron request/response channels. |
-| 4.2 Endpoint Configuration | Implemented | Needs Review | Config + validation. |
-| 4.3 Response Channels | Implemented | Needs Review | Response channel rules enforced. |
-| 5. Discovery Messages | Implemented | Needs Review | Request/response encode/decode. |
-| 5.0 Encoding and Optional Fields | Implemented | Needs Review | Null handling via generated codecs. |
-| 5.1 DiscoveryRequest | Implemented | Needs Review | Encoder/decoder in discovery client. |
-| 5.2 DiscoveryResponse | Implemented | Needs Review | Registry/provider encode + client decode. |
-| 6. Registry State and Expiry | Implemented | Needs Review | Registry table + expiry. |
-| 6.1 Indexing | Implemented | Needs Review | Registry indexing by stream + source. |
-| 6.2 Expiry Rules | Implemented | Needs Review | Expiry timer and purge. |
-| 6.3 Conflict Resolution | Implemented | Needs Review | Entry replacement rules. |
-| 6.4 Source Inputs | Implemented | Needs Review | Provider and registry inputs. |
-| 7. Client Behavior | Implemented | Needs Review | Client poll + timeouts. |
+| 2. Roles | Implemented | Compliant | Provider/registry/client roles covered by tests. |
+| 2.1 SHM Driver | Implemented | Compliant | Provider authoritative for local driver in tests. |
+| 2.2 Discovery Provider | Implemented | Compliant | `src/agents/discovery/*` with integration tests. |
+| 2.3 Client | Implemented | Compliant | Discovery client + API tests. |
+| 3. Authority Model | Implemented | Compliant | Driver authoritative, registry advisory behavior validated. |
+| 4. Transport and Endpoint Model | Implemented | Compliant | Request/response endpoints validated in tests. |
+| 4.1 Control Plane Transport | Implemented | Compliant | Aeron request/response channels in tests. |
+| 4.2 Endpoint Configuration | Implemented | Compliant | Config + validation tests. |
+| 4.3 Response Channels | Implemented | Compliant | Response channel rules enforced in tests. |
+| 5. Discovery Messages | Implemented | Compliant | Request/response encode/decode tests. |
+| 5.0 Encoding and Optional Fields | Implemented | Compliant | Null handling via codecs tested. |
+| 5.1 DiscoveryRequest | Implemented | Compliant | Request encode/decode tests. |
+| 5.2 DiscoveryResponse | Implemented | Compliant | Registry/provider encode + client decode tests. |
+| 6. Registry State and Expiry | Implemented | Compliant | Registry table + expiry tests. |
+| 6.1 Indexing | Implemented | Compliant | Registry indexing tests. |
+| 6.2 Expiry Rules | Implemented | Compliant | Expiry timer tests. |
+| 6.3 Conflict Resolution | Implemented | Compliant | Replacement rules tested. |
+| 6.4 Source Inputs | Implemented | Compliant | Provider/registry inputs tested. |
+| 7. Client Behavior | Implemented | Compliant | Client poll/timeout tests. |
 | 8. Multi-Host and Fleet Discovery | Implemented | Compliant | Multi-host registry entries covered by tests. |
-| 9. Relationship to Bridging | Implemented | Needs Review | Discovery visibility for bridged streams. |
-| 10. Compatibility and Versioning | Implemented | Needs Review | Schema version checks. |
-| 12. Security and Policy | Implemented | Compliant | Discovery remains advisory; access control optional per spec. |
+| 9. Relationship to Bridging | Implemented | Compliant | Discovery + bridge integration test. |
+| 10. Compatibility and Versioning | Implemented | Compliant | Schema gating tests. |
+| 12. Security and Policy | Implemented | Compliant | Discovery advisory policy implemented. |
 | 13. Operational Guidance | Informative | N/A | Guidance only. |
 | 14. Example Flows | Informative | N/A | Reference. |
-| 15. Discovery Schema | Implemented | Needs Review | Generated schema and codecs. |
+| 15. Discovery Schema | Implemented | Compliant | Generated schema exercised by tests. |
 
 ---
 
