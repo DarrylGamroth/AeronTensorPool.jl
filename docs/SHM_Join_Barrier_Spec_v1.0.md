@@ -38,6 +38,10 @@ Normative.
 - LatestValueJoinBarrier: A JoinBarrier that uses the most recent observed input
   from each stream without requiring aligned sequences or timestamps.
 - Observed time: Latest timestamp observed via FrameDescriptor or SlotHeader.
+- Processed time: Latest timestamp processed by the join stage for a stream,
+  using the rule's declared timestamp source (FrameDescriptor or SlotHeader).
+  When multiple outputs are emitted per input frame, processed_time SHOULD
+  advance only when the input frame is actually consumed by the join stage.
 - Timestamp source: The field used to read timestamps (FrameDescriptor or
   SlotHeader).
 - MergeMap authority: The producer or supervisor responsible for publishing
@@ -118,7 +122,8 @@ in_time = out_time + offset_ns
 
 The offset MUST be encoded as a signed 64-bit integer. If `out_time + offset_ns`
 would be negative for a given `out_time`, TimestampJoinBarrier MUST treat the
-rule as not ready until `out_time >= -offset_ns + lateness_ns` (clamped to 0).
+rule as not ready until `out_time >= -offset_ns` (clamped to 0). Lateness is
+applied only in the readiness inequality in §8.1.
 
 #### 6.3.2 Timestamp Window Rule
 
@@ -251,7 +256,7 @@ applied only in the readiness inequality above.
 - Non-monotonic timestamps within a stream can stall readiness or mis-order
   joins; such streams should be rejected for timestamp joins.
 - If timestamps are missing (null) for a stream, the join will remain not ready.
-- Timestamps from `FrameDescriptor` and `TensorHeader` may reflect different
+- Timestamps from `FrameDescriptor` and `SlotHeader` may reflect different
   capture points; pick one source per rule to avoid skew.
 - Timestamp-based joins may require buffering/reordering to tolerate jitter,
   which can conflict with zero-allocation hot paths.
@@ -642,13 +647,14 @@ Rules:
 ```
 cam: OFFSET_NS = 0
 imu: WINDOW_NS = 10_000_000
+latenessNs = 10_000_000
 ```
 
 Readiness:
 
 ```
 observed_time[cam] >= out_time
-observed_time[imu] >= out_time - 10_000_000
+observed_time[imu] >= out_time - lateness_ns
 ```
 
 Result: The join selects the newest IMU sample within the window and emits
