@@ -34,6 +34,29 @@ Status: in progress.
 - Add recorder config struct and loader (likely `src/config/recorder.jl`).
 - Add example config under `config/recorder_example.toml`.
 - Document config keys in `docs/CONFIG_REFERENCE.md`.
+- Config keys (proposed defaults):
+  - `instance_id`: "recorder-01"
+  - `aeron_dir`: ""
+  - `aeron_uri`: "aeron:ipc?term-length=4m"
+  - `shm_base_dir`: "/dev/shm"
+  - `descriptor_channel`: "aeron:ipc"
+  - `descriptor_stream_id`: 1100
+  - `dataset_root`: "./recordings"
+  - `segment_max_bytes`: 17179869184 (16 GiB)
+  - `on_disk_ring_scale`: 256 (power-of-two multiplier vs live rings)
+  - `header_nslots`: 0 (derive from live * scale when 0)
+  - `pool_nslots`: 0 (derive from live * scale per pool when 0)
+  - `checksum_alg`: "crc32"
+  - `frame_batch_rows`: 5000
+  - `frame_batch_ms`: 100
+  - `wal_checkpoint_ms`: 1000
+  - `sqlite_busy_timeout_ms`: 2000
+  - `sqlite_synchronous`: "NORMAL"
+  - `retention_max_bytes`: 0 (disabled unless set)
+- Per-stream overrides (optional `[[streams]]` list):
+  - `stream_id` (required)
+  - `descriptor_channel`, `descriptor_stream_id` (optional overrides)
+  - `header_nslots`, `pool_nslots`, `segment_max_bytes` (optional overrides)
 - Validate invariants:
   - `segment_max_bytes` >= sum of region sizes.
   - `header_nslots` and `pool_nslots` are powers of two.
