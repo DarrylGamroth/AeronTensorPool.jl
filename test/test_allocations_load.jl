@@ -75,9 +75,9 @@
             FrameDescriptor.streamId!(enc, UInt32(1))
             FrameDescriptor.epoch!(enc, UInt64(2))
             FrameDescriptor.seq!(enc, UInt64(i))
-            FrameDescriptor.headerIndex!(enc, UInt32(0))
             FrameDescriptor.timestampNs!(enc, UInt64(4))
             FrameDescriptor.metaVersion!(enc, UInt32(1))
+            FrameDescriptor.traceId!(enc, UInt64(0))
         end
         return nothing
     end

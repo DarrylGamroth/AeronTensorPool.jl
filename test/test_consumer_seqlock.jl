@@ -73,23 +73,23 @@
                 true,
                 true,
                 false,
-            UInt16(0),
-            "",
-            "",
-            String[],
-            false,
+                UInt16(0),
+                "",
+                dir,
+                String[],
+                false,
                 UInt32(250),
                 UInt32(65536),
-            UInt32(0),
-            UInt64(1_000_000_000),
-            UInt64(1_000_000_000),
-            UInt64(3_000_000_000),
-            "",
-            UInt32(0),
-            "",
-            UInt32(0),
+                UInt32(0),
+                UInt64(1_000_000_000),
+                UInt64(1_000_000_000),
+                UInt64(3_000_000_000),
+                "",
+                UInt32(0),
+                "",
+                UInt32(0),
                 false,
-        )
+            )
             state = Consumer.init_consumer(consumer_cfg; client = client)
             try
 
@@ -122,9 +122,9 @@
             FrameDescriptor.streamId!(desc_enc, stream_id)
             FrameDescriptor.epoch!(desc_enc, epoch)
             FrameDescriptor.seq!(desc_enc, UInt64(1))
-            FrameDescriptor.headerIndex!(desc_enc, UInt32(0))
             FrameDescriptor.timestampNs!(desc_enc, UInt64(0))
             FrameDescriptor.metaVersion!(desc_enc, UInt32(1))
+            FrameDescriptor.traceId!(desc_enc, UInt64(0))
             desc_header = MessageHeader.Decoder(desc_buf, 0)
             desc_dec = FrameDescriptor.Decoder(Vector{UInt8})
             FrameDescriptor.wrap!(desc_dec, desc_buf, 0; header = desc_header)

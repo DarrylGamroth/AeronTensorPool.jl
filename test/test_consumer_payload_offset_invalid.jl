@@ -77,7 +77,7 @@ using Test
                 false,
                 UInt16(0),
                 "",
-                "",
+                dir,
                 String[],
                 false,
                 UInt32(250),
@@ -122,15 +122,17 @@ using Test
                 FrameDescriptor.wrap_and_apply_header!(desc_enc, desc_buf, 0)
                 FrameDescriptor.streamId!(desc_enc, stream_id)
                 FrameDescriptor.epoch!(desc_enc, epoch)
-                FrameDescriptor.seq!(desc_enc, UInt64(1))
-                FrameDescriptor.headerIndex!(desc_enc, UInt32(0))
+                seq = UInt64(1)
+                FrameDescriptor.seq!(desc_enc, seq)
                 FrameDescriptor.timestampNs!(desc_enc, UInt64(0))
                 FrameDescriptor.metaVersion!(desc_enc, UInt32(1))
+                FrameDescriptor.traceId!(desc_enc, UInt64(0))
                 desc_header = MessageHeader.Decoder(desc_buf, 0)
                 desc_dec = FrameDescriptor.Decoder(Vector{UInt8})
                 FrameDescriptor.wrap!(desc_dec, desc_buf, 0; header = desc_header)
 
-                header_offset = header_slot_offset(UInt32(0))
+                header_index = UInt32(seq & UInt64(nslots - 1))
+                header_offset = header_slot_offset(header_index)
                 slot_enc = SlotHeaderMsg.Encoder(Vector{UInt8})
                 tensor_enc = TensorHeaderMsg.Encoder(Vector{UInt8})
                 wrap_slot_header!(slot_enc, header_mmap, header_offset)
@@ -140,7 +142,7 @@ using Test
                     UInt64(1),
                     UInt32(0),
                     UInt32(16),
-                    UInt32(0),
+                    header_index,
                     UInt32(4),
                     UInt16(1),
                     Dtype.UINT8,

@@ -102,14 +102,12 @@ using Test
 
                 received = Ref(false)
                 desc_seq = Ref(UInt64(0))
-                desc_header_index = Ref(UInt32(0))
                 desc_handler = Aeron.FragmentHandler(nothing) do _, buffer, _
                     header = MessageHeader.Decoder(buffer, 0)
                     MessageHeader.templateId(header) == AeronTensorPool.TEMPLATE_FRAME_DESCRIPTOR || return nothing
                     desc = FrameDescriptor.Decoder(UnsafeArrays.UnsafeArray{UInt8, 1})
                     FrameDescriptor.wrap!(desc, buffer, 0; header = header)
                     desc_seq[] = FrameDescriptor.seq(desc)
-                    desc_header_index[] = FrameDescriptor.headerIndex(desc)
                     received[] = true
                     return nothing
                 end
@@ -122,7 +120,8 @@ using Test
                 @test ok
                 @test desc_seq[] == UInt64(5)
 
-                header_offset = header_slot_offset(desc_header_index[])
+                header_index = UInt32(desc_seq[] & (UInt64(producer_state.config.nslots) - 1))
+                header_offset = header_slot_offset(header_index)
                 commit_ptr = header_commit_ptr_from_offset(producer_state.mappings.header_mmap, header_offset)
                 commit = seqlock_read_begin(commit_ptr)
                 @test seqlock_is_committed(commit)

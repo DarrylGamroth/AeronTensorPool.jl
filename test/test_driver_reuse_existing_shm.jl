@@ -14,7 +14,7 @@ using Test
             "aeron:ipc",
             15002,
         )
-        shm = DriverShmConfig(base_dir, false, UInt32(4096), "660", [base_dir])
+        shm = DriverShmConfig(base_dir, "default", false, UInt32(4096), "660", [base_dir])
         policies = DriverPolicyConfig(false, "raw", UInt32(100), UInt32(10_000), UInt32(3), true, true, false, true, UInt32(2000), "")
         profile = DriverProfileConfig(
             "raw",
@@ -44,8 +44,8 @@ using Test
 
         header_uri, pool_uris = AeronTensorPool.canonical_shm_paths(
             base_dir,
-            "stream-5001",
-            endpoints.instance_id,
+            "default",
+            UInt32(5001),
             stream_state.epoch,
             [UInt16(1)],
         )

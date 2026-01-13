@@ -76,7 +76,7 @@
                 false,
                 UInt16(0),
                 "",
-                "",
+                dir,
                 String[],
                 false,
                 UInt32(250),

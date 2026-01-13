@@ -91,9 +91,9 @@ using UnsafeArrays
             FrameDescriptor.streamId!(enc, consumer_state.config.stream_id)
             FrameDescriptor.epoch!(enc, UInt64(1))
             FrameDescriptor.seq!(enc, UInt64(1))
-            FrameDescriptor.headerIndex!(enc, UInt32(0))
             FrameDescriptor.timestampNs!(enc, UInt64(0))
             FrameDescriptor.metaVersion!(enc, UInt32(1))
+            FrameDescriptor.traceId!(enc, UInt64(0))
         end
         @test sent_desc
         ok_desc = wait_for() do

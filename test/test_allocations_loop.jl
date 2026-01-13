@@ -74,12 +74,9 @@
                         AeronTensorPool.FrameDescriptor.streamId!(desc_enc, producer_cfg.stream_id)
                         AeronTensorPool.FrameDescriptor.epoch!(desc_enc, UInt64(1))
                         AeronTensorPool.FrameDescriptor.seq!(desc_enc, UInt64(i - 1))
-                        AeronTensorPool.FrameDescriptor.headerIndex!(
-                            desc_enc,
-                            UInt32((i - 1) & (producer_cfg.nslots - 1)),
-                        )
                         AeronTensorPool.FrameDescriptor.timestampNs!(desc_enc, UInt64(0))
                         AeronTensorPool.FrameDescriptor.metaVersion!(desc_enc, UInt32(0))
+                        AeronTensorPool.FrameDescriptor.traceId!(desc_enc, UInt64(0))
                         header = AeronTensorPool.MessageHeader.Decoder(desc_buf, 0)
                         AeronTensorPool.FrameDescriptor.wrap!(desc_dec, desc_buf, 0; header = header)
                         Consumer.try_read_frame!(consumer, desc_dec)

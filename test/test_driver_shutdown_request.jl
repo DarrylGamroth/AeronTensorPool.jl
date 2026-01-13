@@ -13,7 +13,7 @@ using Test
             "aeron:ipc",
             1200,
         )
-        shm = DriverShmConfig(base_dir, false, UInt32(4096), "660", [base_dir])
+        shm = DriverShmConfig(base_dir, "default", false, UInt32(4096), "660", [base_dir])
         policies = DriverPolicyConfig(true, "raw", UInt32(100), UInt32(10_000), UInt32(3), false, false, false, false, UInt32(1), "secret")
         profile = DriverProfileConfig(
             "raw",

@@ -71,15 +71,15 @@
     FrameDescriptor.streamId!(desc_enc, UInt32(1))
     FrameDescriptor.epoch!(desc_enc, UInt64(2))
     FrameDescriptor.seq!(desc_enc, UInt64(3))
-    FrameDescriptor.headerIndex!(desc_enc, UInt32(0))
     FrameDescriptor.timestampNs!(desc_enc, UInt64(4))
     FrameDescriptor.metaVersion!(desc_enc, UInt32(1))
+    FrameDescriptor.traceId!(desc_enc, UInt64(0))
     @test @allocated(begin
         FrameDescriptor.streamId!(desc_enc, UInt32(1))
         FrameDescriptor.epoch!(desc_enc, UInt64(2))
         FrameDescriptor.seq!(desc_enc, UInt64(3))
-        FrameDescriptor.headerIndex!(desc_enc, UInt32(0))
         FrameDescriptor.timestampNs!(desc_enc, UInt64(4))
         FrameDescriptor.metaVersion!(desc_enc, UInt32(1))
+        FrameDescriptor.traceId!(desc_enc, UInt64(0))
     end) == 0
 end

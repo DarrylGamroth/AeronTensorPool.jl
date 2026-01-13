@@ -67,22 +67,13 @@
             FrameProgress.wrap_and_apply_header!(enc, buffer, 0)
             FrameProgress.streamId!(enc, mapping.dest_stream_id)
             FrameProgress.epoch!(enc, UInt64(1))
-            FrameProgress.frameId!(enc, UInt64(5))
+            FrameProgress.seq!(enc, UInt64(5))
             FrameProgress.payloadBytesFilled!(enc, UInt64(100))
             FrameProgress.state!(enc, AeronTensorPool.ShmTensorpoolControl.FrameProgressState.COMPLETE)
 
-            local_index = UInt32(UInt64(5) & (UInt64(producer.config.nslots) - 1))
-            FrameProgress.headerIndex!(enc, local_index + UInt32(1))
             dec = FrameProgress.Decoder(Vector{UInt8})
             FrameProgress.wrap!(dec, buffer, 0; header = MessageHeader.Decoder(buffer, 0))
             @test Bridge.bridge_publish_progress!(receiver, dec) == true
-
-            FrameProgress.headerIndex!(enc, local_index)
-            FrameProgress.wrap!(dec, buffer, 0; header = MessageHeader.Decoder(buffer, 0))
-            ok = wait_for() do
-                Bridge.bridge_publish_progress!(receiver, dec)
-            end
-            @test ok
 
             close(sub)
         end

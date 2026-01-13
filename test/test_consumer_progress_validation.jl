@@ -21,10 +21,10 @@ using AeronTensorPool.Consumer
             state.mappings.progress_last_frame = fill(UInt64(0), nslots)
             state.mappings.progress_last_bytes = fill(UInt64(0), nslots)
 
-            header_index = UInt32(0)
+            seq = UInt64(5)
+            header_index = UInt32(seq & UInt64(nslots - 1))
             header_offset = header_slot_offset(header_index)
             commit_ptr = header_commit_ptr_from_offset(header_mmap, header_offset)
-            seq = UInt64(5)
 
             slot_enc = SlotHeaderMsg.Encoder(Vector{UInt8})
             tensor_enc = TensorHeaderMsg.Encoder(Vector{UInt8})
@@ -54,8 +54,7 @@ using AeronTensorPool.Consumer
             FrameProgress.wrap_and_apply_header!(enc, buf, 0)
             FrameProgress.streamId!(enc, cfg.stream_id)
             FrameProgress.epoch!(enc, UInt64(1))
-            FrameProgress.frameId!(enc, seq)
-            FrameProgress.headerIndex!(enc, header_index)
+            FrameProgress.seq!(enc, seq)
             FrameProgress.payloadBytesFilled!(enc, UInt64(8))
             FrameProgress.state!(enc, AeronTensorPool.ShmTensorpoolControl.FrameProgressState.PROGRESS)
 

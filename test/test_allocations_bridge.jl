@@ -149,9 +149,9 @@
             FrameDescriptor.streamId!(desc_enc, UInt32(1))
             FrameDescriptor.epoch!(desc_enc, UInt64(1))
             FrameDescriptor.seq!(desc_enc, UInt64(0))
-            FrameDescriptor.headerIndex!(desc_enc, UInt32(0))
             FrameDescriptor.timestampNs!(desc_enc, UInt64(time_ns()))
             FrameDescriptor.metaVersion!(desc_enc, UInt32(0))
+            FrameDescriptor.traceId!(desc_enc, UInt64(0))
             desc_dec = FrameDescriptor.Decoder(Vector{UInt8})
             FrameDescriptor.wrap!(desc_dec, desc_buf, 0; header = MessageHeader.Decoder(desc_buf, 0))
 

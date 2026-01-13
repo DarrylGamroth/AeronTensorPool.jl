@@ -51,7 +51,7 @@
                 false,
                 UInt16(0),
                 "aeron:udp?endpoint=127.0.0.1:14000",
-                "",
+                dir,
                 String[],
                 false,
                 UInt32(250),
@@ -179,7 +179,7 @@
 
                     bad_pool_uri = "shm:file?path=$(pool_path2)|require_hugepages=true"
 
-                    fallback_cfg = ConsumerConfig(
+            fallback_cfg = ConsumerConfig(
                         Aeron.MediaDriver.aeron_dir(driver),
                         "aeron:ipc",
                         Int32(12022),
@@ -194,10 +194,10 @@
                         true,
                         true,
                         false,
-                        UInt16(0),
-                        "aeron:udp?endpoint=127.0.0.1:14000",
-                        "",
-                        String[],
+                UInt16(0),
+                "aeron:udp?endpoint=127.0.0.1:14000",
+                dir,
+                String[],
                         false,
                         UInt32(250),
                         UInt32(65536),
