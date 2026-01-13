@@ -117,6 +117,9 @@ Optional keys and defaults:
 - `rate_limiter.qos_channel` (string): local IPC QoS channel. Default: `"aeron:ipc?term-length=1m"`.
 - `rate_limiter.source_qos_stream_id` (uint32): source QoS stream ID to subscribe. Default: `0` (disabled).
 - `rate_limiter.dest_qos_stream_id` (uint32): destination QoS stream ID for forwarded QoS. Default: `0` (disabled).
+- `rate_limiter.shm_base_dir` (string): base directory for SHM validation. Default: `"/dev/shm"`.
+- `rate_limiter.driver_control_channel` (string): driver control channel for attach. Default: `rate_limiter.control_channel`.
+- `rate_limiter.driver_control_stream_id` (uint32): driver control stream ID for attach. Default: `rate_limiter.control_stream_id`.
 
 When `rate_limiter.forward_progress=true`, `rate_limiter.source_control_stream_id` and `rate_limiter.dest_control_stream_id` MUST be nonzero; otherwise the rate limiter MUST fail fast or disable progress forwarding with an error. When `rate_limiter.forward_qos=true`, `rate_limiter.source_qos_stream_id` and `rate_limiter.dest_qos_stream_id` MUST be nonzero; otherwise the rate limiter MUST fail fast or disable QoS forwarding with an error. Forwarding MUST NOT start when required IDs are zero.
 
