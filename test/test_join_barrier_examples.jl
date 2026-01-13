@@ -4,7 +4,7 @@ using AeronTensorPool
 const Merge = AeronTensorPool.ShmTensorpoolMerge
 
 @testset "JoinBarrier spec examples" begin
-    @testset "Aligned join (11.1)" begin
+    @testset "Aligned join (Appendix A.3.1)" begin
         config = JoinBarrierConfig(UInt32(9000), SEQUENCE, false, false)
         state = JoinBarrierState(config)
         rules = SequenceMergeRule[
@@ -20,7 +20,7 @@ const Merge = AeronTensorPool.ShmTensorpoolMerge
         @test result.ready
     end
 
-    @testset "Offset compensation (11.2)" begin
+    @testset "Offset compensation (Appendix A.3.2)" begin
         config = JoinBarrierConfig(UInt32(9001), SEQUENCE, false, false)
         state = JoinBarrierState(config)
         rules = SequenceMergeRule[
@@ -40,7 +40,7 @@ const Merge = AeronTensorPool.ShmTensorpoolMerge
         @test result.ready
     end
 
-    @testset "Sliding window (11.3)" begin
+    @testset "Sliding window (Appendix A.3.3)" begin
         config = JoinBarrierConfig(UInt32(9002), SEQUENCE, false, false)
         state = JoinBarrierState(config)
         rules = SequenceMergeRule[
@@ -58,7 +58,7 @@ const Merge = AeronTensorPool.ShmTensorpoolMerge
         @test result.ready
     end
 
-    @testset "Timestamp offset join (11.4)" begin
+    @testset "Timestamp offset join (Appendix A.4.1)" begin
         config = JoinBarrierConfig(UInt32(9003), TIMESTAMP, false, false)
         state = JoinBarrierState(config)
         rules = TimestampMergeRule[
@@ -110,7 +110,7 @@ const Merge = AeronTensorPool.ShmTensorpoolMerge
         @test result.ready
     end
 
-    @testset "Input-driven timestamp join (11.6)" begin
+    @testset "Input-driven timestamp join (Appendix A.4.2)" begin
         config = JoinBarrierConfig(UInt32(9004), TIMESTAMP, false, false)
         state = JoinBarrierState(config)
         rules = TimestampMergeRule[
@@ -162,7 +162,7 @@ const Merge = AeronTensorPool.ShmTensorpoolMerge
         @test result.ready
     end
 
-    @testset "Stale input degradation (11.8)" begin
+    @testset "Stale input degradation (Appendix A.5.1)" begin
         config = JoinBarrierConfig(UInt32(9005), SEQUENCE, false, false)
         state = JoinBarrierState(config)
         rules = SequenceMergeRule[
