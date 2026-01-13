@@ -7,6 +7,7 @@ This guide is an end-to-end, practical walkthrough for using the SHM Tensor Pool
 - Driver model: `docs/SHM_Driver_Model_Spec_v1.0.md`
 - Discovery: `docs/SHM_Discovery_Service_Spec_v_1.0.md`
 - Bridge: `docs/SHM_Aeron_UDP_Bridge_Spec_v1.0.md`
+- Join barrier: `docs/SHM_Join_Barrier_Spec_v1.0.md`
 - Stream IDs: `docs/STREAM_ID_CONVENTIONS.md`
 
 ---
@@ -159,6 +160,46 @@ Consumer loop (typical path):
 If you need custom validation, use the `ConsumerFrameView` (header + payload view) from the callback.
 
 Never block on incomplete frames; drop and continue.
+
+---
+
+## 8. Join barrier (optional)
+
+JoinBarrier gates multi-input synchronization without blocking on SHM commit. It is programmatic (no TOML). You apply a MergeMap (sequence or timestamp) and then update observed cursors as descriptors arrive.
+
+Sequence example:
+
+```julia
+using AeronTensorPool
+const Merge = AeronTensorPool.ShmTensorpoolMerge
+
+config = JoinBarrierConfig(UInt32(9000), SEQUENCE, false, false)
+state = JoinBarrierState(config)
+
+rules = SequenceMergeRule[
+    SequenceMergeRule(UInt32(10001), Merge.MergeRuleType.OFFSET, Int32(0), nothing),
+    SequenceMergeRule(UInt32(10002), Merge.MergeRuleType.OFFSET, Int32(0), nothing),
+]
+map = SequenceMergeMap(UInt32(9000), UInt64(1), UInt64(1_000_000), rules)
+apply_sequence_merge_map!(state, map)
+
+update_observed_seq!(state, UInt32(10001), UInt64(5), UInt64(0))
+update_observed_seq!(state, UInt32(10002), UInt64(5), UInt64(0))
+
+result = join_barrier_ready!(state, UInt64(5), UInt64(0))
+if result.ready
+    # Safe to attempt processing out_seq.
+end
+```
+
+Optional Agent wrapper (for polling merge-map control messages + descriptors):
+
+```julia
+agent = JoinBarrierAgent(state; control_sub = control_sub, descriptor_subs = [sub_a, sub_b])
+Agent.do_work(agent)
+```
+
+Timestamp mode uses `TimestampMergeMap` with `ClockDomain`/`TimestampSource`, and latest-value mode uses the most recent observed inputs without sequence alignment.
 
 ---
 

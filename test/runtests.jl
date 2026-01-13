@@ -94,6 +94,10 @@ include("test_bridge_discovery_integration.jl")
 include("test_full_stack_driver_mode.jl")
 include("test_client_api.jl")
 include("test_rate_limiter_end_to_end.jl")
+include("test_join_barrier_sequence.jl")
+include("test_join_barrier_timestamp.jl")
+include("test_join_barrier_latest.jl")
+include("test_join_barrier_codec.jl")
 if get(ENV, "TP_RUN_SYSTEM_SMOKE", "false") == "true"
     include("test_system_smoke.jl")
 end

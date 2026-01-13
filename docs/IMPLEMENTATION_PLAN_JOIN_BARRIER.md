@@ -20,7 +20,7 @@ Status: completed.
 - Define mapping/criteria types (stream_id, role, quorum, timeout, epoch policy, etc.).
 - Validate config invariants (nonzero streams, quorum > 0, timeouts sensible) in constructors/helpers.
 
-Status: pending.
+Status: completed.
 
 ---
 
@@ -29,7 +29,7 @@ Status: pending.
 - Define handler entry points for MergeMap announce/request, descriptors, and cursor updates.
 - Keep Aeron specifics outside the core to allow embedding in other runtimes.
 
-Status: pending.
+Status: completed.
 
 ---
 
@@ -39,7 +39,7 @@ Status: pending.
 - Handle timeouts, retries, and stale participants.
 - Reset on epoch changes and handle disconnects.
 
-Status: pending.
+Status: completed.
 
 ---
 
@@ -48,7 +48,7 @@ Status: pending.
 - Ensure cached clock usage (single `fetch!` per cycle).
 - Clean shutdown and resource release.
 
-Status: pending.
+Status: completed.
 
 ---
 
@@ -57,7 +57,7 @@ Status: pending.
 - Integration tests with driver + producer/consumer showing join gating.
 - Allocation tests for hot paths after init.
 
-Status: pending.
+Status: completed.
 
 ---
 
@@ -65,4 +65,4 @@ Status: pending.
 - Add programmatic usage example (no TOML loader).
 - Update `USER_GUIDE.md` and any relevant docs to reference Join Barrier.
 
-Status: pending.
+Status: completed.
