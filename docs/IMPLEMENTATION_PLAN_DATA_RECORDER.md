@@ -11,8 +11,8 @@ spec while keeping hot paths type-stable and zero-allocation after init.
 ---
 
 ## Phase 0: Survey and decisions
-- Confirm MVP scope: frames + segments + manifest only, or include metadata,
-  TraceLink ingestion, and EventMessage control in v0.
+- Confirm MVP scope: frames + segments + manifest only; defer metadata,
+  TraceLink ingestion, and EventMessage control to a later phase.
 - Decide dataset layout policy:
   - Per-stream dataset root vs multi-stream shared root.
   - Recorded ring sizes mirror live SHM or allow larger on-disk rings.
@@ -25,7 +25,7 @@ spec while keeping hot paths type-stable and zero-allocation after init.
   - `src/agents/recorder/` with `state.jl`, `handlers.jl`, `init.jl`,
     `lifecycle.jl`, `work.jl`, `segments.jl`, `manifest.jl`.
 
-Status: pending.
+Status: in progress.
 
 ---
 
@@ -70,7 +70,7 @@ Status: pending.
   - Seal before header or any pool ring would wrap.
 - Implement `seal_segment!`:
   - fsync files.
-  - compute checksum if enabled.
+  - compute checksum (enabled by default; algorithm configurable).
   - update SQLite `segments` with `seq_end`, `t_end_ns`, `size_bytes`.
 
 Status: pending.
@@ -154,7 +154,4 @@ Status: pending.
 ---
 
 ## Open questions
-- Should the v0 recorder include metadata + TraceLink ingestion?
 - Should datasets be per-stream or multi-stream by default?
-- Do we default to checksum on seal (CRC32/xxhash) or leave disabled?
-- Should we implement EventMessage control in v0 or defer?
