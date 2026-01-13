@@ -121,7 +121,8 @@ function update_observed_time!(
     now_ns::UInt64,
     clock_domain::Merge.ClockDomain.SbeEnum,
 )
-    return update_observed_time_epoch!(state, stream_id, UInt64(0), source, timestamp_ns, now_ns, clock_domain)
+    epoch = state.active_epoch
+    return update_observed_time_epoch!(state, stream_id, epoch, source, timestamp_ns, now_ns, clock_domain)
 end
 
 function update_observed_time_epoch!(
@@ -174,15 +175,18 @@ function update_processed_time_epoch!(
 end
 
 @inline function update_observed_seq!(state::JoinBarrierState, stream_id::UInt32, seq::UInt64, now_ns::UInt64)
-    return update_observed_seq_epoch!(state, stream_id, UInt64(0), seq, now_ns)
+    epoch = state.active_epoch
+    return update_observed_seq_epoch!(state, stream_id, epoch, seq, now_ns)
 end
 
 @inline function update_processed_seq!(state::JoinBarrierState, stream_id::UInt32, seq::UInt64)
-    return update_processed_seq_epoch!(state, stream_id, UInt64(0), seq)
+    epoch = state.active_epoch
+    return update_processed_seq_epoch!(state, stream_id, epoch, seq)
 end
 
 @inline function update_processed_time!(state::JoinBarrierState, stream_id::UInt32, timestamp_ns::UInt64)
-    return update_processed_time_epoch!(state, stream_id, UInt64(0), timestamp_ns)
+    epoch = state.active_epoch
+    return update_processed_time_epoch!(state, stream_id, epoch, timestamp_ns)
 end
 
 @inline function update_observed_slot_header_time!(
