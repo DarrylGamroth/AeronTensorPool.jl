@@ -4,6 +4,7 @@ Pending frame buffer for rate limiting.
 mutable struct RateLimiterPending
     valid::Bool
     seq::UInt64
+    trace_id::UInt64
     header::SlotHeader
     payload_len::UInt32
     payload_buf::Vector{UInt8}

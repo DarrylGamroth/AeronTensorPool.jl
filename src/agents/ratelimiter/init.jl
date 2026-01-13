@@ -189,6 +189,7 @@ function init_mapping_state(
     pending = RateLimiterPending(
         false,
         UInt64(0),
+        UInt64(0),
         SlotHeader(UInt64(0), UInt64(0), UInt32(0), UInt32(0), UInt32(0), UInt32(0), UInt16(0), TensorHeader(
             Dtype.UNKNOWN,
             MajorOrder.ROW,

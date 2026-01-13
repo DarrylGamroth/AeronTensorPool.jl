@@ -4,13 +4,14 @@ function encode_frame_descriptor!(
     seq::UInt64,
     meta_version::UInt32,
     now_ns::UInt64,
+    trace_id::UInt64,
 )
     FrameDescriptor.streamId!(enc, state.config.stream_id)
     FrameDescriptor.epoch!(enc, state.epoch)
     FrameDescriptor.seq!(enc, seq)
     FrameDescriptor.timestampNs!(enc, now_ns)
     FrameDescriptor.metaVersion!(enc, meta_version)
-    FrameDescriptor.traceId!(enc, UInt64(0))
+    FrameDescriptor.traceId!(enc, trace_id)
     return nothing
 end
 
@@ -24,6 +25,7 @@ Arguments:
 - `strides`: tensor strides (Int32).
 - `dtype`: element type enum.
 - `meta_version`: metadata schema version for this frame.
+- `trace_id`: optional trace ID (0 means unset).
 
 Returns:
 - `true` if the descriptor was published (shared or per-consumer), `false` otherwise.
@@ -35,8 +37,19 @@ function offer_frame!(
     strides::AbstractVector{Int32},
     dtype::Dtype.SbeEnum,
     meta_version::UInt32,
+    ;
+    trace_id::UInt64 = UInt64(0),
 )
-    return offer_frame!(state, payload_data, shape, strides, dtype, meta_version, NOOP_PRODUCER_CALLBACKS)
+    return offer_frame!(
+        state,
+        payload_data,
+        shape,
+        strides,
+        dtype,
+        meta_version,
+        NOOP_PRODUCER_CALLBACKS;
+        trace_id = trace_id,
+    )
 end
 
 """
@@ -50,6 +63,7 @@ Arguments:
 - `dtype`: element type enum.
 - `meta_version`: metadata schema version for this frame.
 - `callbacks`: producer callbacks.
+- `trace_id`: optional trace ID (0 means unset).
 
 Returns:
 - `true` if the descriptor was published (shared or per-consumer), `false` otherwise.
@@ -62,6 +76,8 @@ function offer_frame!(
     dtype::Dtype.SbeEnum,
     meta_version::UInt32,
     callbacks::ProducerCallbacks,
+    ;
+    trace_id::UInt64 = UInt64(0),
 )
     producer_driver_active(state) || return false
 
@@ -109,7 +125,8 @@ function offer_frame!(
         seq = seq,
         header_index = header_index,
         meta_version = meta_version,
-        now_ns = now_ns
+        now_ns = now_ns,
+        trace_id = trace_id
         with_claimed_buffer!(st.runtime.pub_descriptor, st.runtime.descriptor_claim, FRAME_DESCRIPTOR_LEN) do buf
             header = MessageHeader.Encoder(buf, 0)
             MessageHeader.blockLength!(header, FrameDescriptor.sbe_block_length(FrameDescriptor.Decoder))
@@ -117,10 +134,10 @@ function offer_frame!(
             MessageHeader.schemaId!(header, FrameDescriptor.sbe_schema_id(FrameDescriptor.Decoder))
             MessageHeader.version!(header, FrameDescriptor.sbe_schema_version(FrameDescriptor.Decoder))
             FrameDescriptor.wrap!(st.runtime.descriptor_encoder, buf, MESSAGE_HEADER_LEN)
-            encode_frame_descriptor!(st.runtime.descriptor_encoder, st, seq, meta_version, now_ns)
+            encode_frame_descriptor!(st.runtime.descriptor_encoder, st, seq, meta_version, now_ns, trace_id)
         end
     end
-    per_consumer_sent = publish_descriptor_to_consumers!(state, seq, meta_version, now_ns)
+    per_consumer_sent = publish_descriptor_to_consumers!(state, seq, meta_version, now_ns, trace_id)
     (shared_sent || per_consumer_sent) || return false
     callbacks.on_frame_published!(state, seq, header_index)
 
@@ -319,6 +336,7 @@ Arguments:
 - `strides`: tensor strides (Int32).
 - `dtype`: element type enum.
 - `meta_version`: metadata schema version for this frame.
+- `trace_id`: optional trace ID (0 means unset).
 
 Returns:
 - `true` if the descriptor was published (shared or per-consumer), `false` otherwise.
@@ -332,11 +350,12 @@ function with_claimed_slot!(
     strides::AbstractVector{Int32},
     dtype::Dtype.SbeEnum,
     meta_version::UInt32,
+    trace_id::UInt64,
 )
     claim = try_claim_slot!(state, pool_id)
     claim === nothing && return false
     fill_fn(claim)
-    return commit_slot!(state, claim, values_len, shape, strides, dtype, meta_version)
+    return commit_slot!(state, claim, values_len, shape, strides, dtype, meta_version, trace_id)
 end
 
 """
@@ -364,8 +383,9 @@ function with_claimed_slot!(
     strides::AbstractVector{Int32},
     dtype::Dtype.SbeEnum,
     meta_version::UInt32,
+    trace_id::UInt64 = UInt64(0),
 )
-    return with_claimed_slot!(fill_fn, state, pool_id, values_len, shape, strides, dtype, meta_version)
+    return with_claimed_slot!(fill_fn, state, pool_id, values_len, shape, strides, dtype, meta_version, trace_id)
 end
 
 """
@@ -379,6 +399,7 @@ Arguments:
 - `strides`: tensor strides (Int32).
 - `dtype`: element type enum.
 - `meta_version`: metadata schema version for this frame.
+- `trace_id`: optional trace ID (0 means unset).
 
 Returns:
 - `true` if the descriptor was published (shared or per-consumer), `false` otherwise.
@@ -391,6 +412,7 @@ function commit_slot!(
     strides::AbstractVector{Int32},
     dtype::Dtype.SbeEnum,
     meta_version::UInt32,
+    trace_id::UInt64,
 )
     producer_driver_active(state) || return false
     pool = payload_pool_config(state, claim.pool_id)
@@ -431,14 +453,15 @@ function commit_slot!(
         seq = claim.seq,
         header_index = claim.header_index,
         meta_version = meta_version,
-        now_ns = now_ns
+        now_ns = now_ns,
+        trace_id = trace_id
         with_claimed_buffer!(st.runtime.pub_descriptor, st.runtime.descriptor_claim, FRAME_DESCRIPTOR_LEN) do buf
             FrameDescriptor.wrap_and_apply_header!(st.runtime.descriptor_encoder, buf, 0)
-            encode_frame_descriptor!(st.runtime.descriptor_encoder, st, seq, meta_version, now_ns)
+            encode_frame_descriptor!(st.runtime.descriptor_encoder, st, seq, meta_version, now_ns, trace_id)
         end
     end
     per_consumer_sent =
-        publish_descriptor_to_consumers!(state, claim.seq, meta_version, now_ns)
+        publish_descriptor_to_consumers!(state, claim.seq, meta_version, now_ns, trace_id)
     (shared_sent || per_consumer_sent) || return false
 
     if state.supports_progress && should_emit_progress!(state, UInt64(values_len), true)
@@ -471,6 +494,7 @@ function commit_slot!(
     strides::AbstractVector{Int32},
     dtype::Dtype.SbeEnum,
     meta_version::UInt32,
+    trace_id::UInt64 = UInt64(0),
 )
-    return commit_slot!(state, claim, values_len, shape, strides, dtype, meta_version)
+    return commit_slot!(state, claim, values_len, shape, strides, dtype, meta_version, trace_id)
 end

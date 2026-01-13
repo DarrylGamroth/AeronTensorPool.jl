@@ -130,6 +130,9 @@ do_work(handle::ProducerHandle) = Agent.do_work(handle.producer_agent)
 
 """
 Convenience wrapper for publishing a frame via a ProducerHandle.
+
+Keyword arguments:
+- `trace_id`: optional trace ID (0 means unset).
 """
 function offer_frame!(
     handle::ProducerHandle,
@@ -138,8 +141,18 @@ function offer_frame!(
     strides::AbstractVector{Int32},
     dtype::Dtype.SbeEnum,
     meta_version::UInt32,
+    ;
+    trace_id::UInt64 = UInt64(0),
 )
-    return offer_frame!(handle.producer_agent.state, payload, shape, strides, dtype, meta_version)
+    return offer_frame!(
+        handle.producer_agent.state,
+        payload,
+        shape,
+        strides,
+        dtype,
+        meta_version;
+        trace_id = trace_id,
+    )
 end
 
 """
@@ -168,6 +181,9 @@ end
 
 """
 Convenience wrapper for committing a claimed slot via a ProducerHandle.
+
+Keyword arguments:
+- `trace_id`: optional trace ID (0 means unset).
 """
 function commit_slot!(
     handle::ProducerHandle,
@@ -177,6 +193,8 @@ function commit_slot!(
     strides::AbstractVector{Int32},
     dtype::Dtype.SbeEnum,
     meta_version::UInt32,
+    ;
+    trace_id::UInt64 = UInt64(0),
 )
     return commit_slot!(
         handle.producer_agent.state,
@@ -186,11 +204,15 @@ function commit_slot!(
         strides,
         dtype,
         meta_version,
+        trace_id,
     )
 end
 
 """
 Convenience wrapper for with_claimed_slot! via a ProducerHandle.
+
+Keyword arguments:
+- `trace_id`: optional trace ID (0 means unset).
 """
 function with_claimed_slot!(
     fill_fn::Function,
@@ -200,6 +222,8 @@ function with_claimed_slot!(
     strides::AbstractVector{Int32},
     dtype::Dtype.SbeEnum,
     meta_version::UInt32,
+    ;
+    trace_id::UInt64 = UInt64(0),
 )
     return with_claimed_slot!(
         fill_fn,
@@ -209,6 +233,7 @@ function with_claimed_slot!(
         strides,
         dtype,
         meta_version,
+        trace_id,
     )
 end
 

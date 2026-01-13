@@ -293,6 +293,7 @@ end
         oversized_view = ConsumerFrameView(
             mapping_state.pending.header,
             PayloadView(Vector{UInt8}(undef, 1), 0, oversized_len),
+            UInt64(0),
         )
         AeronTensorPool.Agents.RateLimiter.handle_source_frame!(mapping_state, consumer_state, oversized_view)
         @test mapping_state.pending.valid == false

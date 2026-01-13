@@ -19,10 +19,10 @@ function handle_source_frame!(
     payload_len = Int(view.payload.len)
 
     if rate_limit_allow!(mapping_state, now_ns)
-        rematerialize_frame!(mapping_state, header, payload_ptr, payload_len)
+        rematerialize_frame!(mapping_state, header, view.trace_id, payload_ptr, payload_len)
         clear_pending!(mapping_state.pending)
     else
-        if !store_pending!(mapping_state.pending, header, payload_ptr, payload_len)
+        if !store_pending!(mapping_state.pending, header, view.trace_id, payload_ptr, payload_len)
             seq = mapping_state.pending.seq
             clear_pending!(mapping_state.pending)
             @tp_debug "rate limiter dropped pending frame" reason = :pending_too_large seq
@@ -40,7 +40,7 @@ function publish_pending!(mapping_state::RateLimiterMappingState)
     now_ns = UInt64(Clocks.time_nanos(mapping_state.consumer_agent.state.clock))
     if rate_limit_allow!(mapping_state, now_ns)
         ptr = pointer(pending.payload_buf)
-        ok = rematerialize_frame!(mapping_state, pending.header, ptr, Int(pending.payload_len))
+        ok = rematerialize_frame!(mapping_state, pending.header, pending.trace_id, ptr, Int(pending.payload_len))
         if ok
             clear_pending!(pending)
         else

@@ -204,6 +204,7 @@ function publish_descriptor_to_consumers!(
     seq::UInt64,
     meta_version::UInt32,
     now_ns::UInt64,
+    trace_id::UInt64,
 )
     any_sent = false
     for entry in values(state.consumer_streams)
@@ -216,10 +217,11 @@ function publish_descriptor_to_consumers!(
             seq = seq,
             meta_version = meta_version,
             now_ns = now_ns,
+            trace_id = trace_id,
             pub = pub
             with_claimed_buffer!(pub, st.runtime.descriptor_claim, FRAME_DESCRIPTOR_LEN) do buf
                 FrameDescriptor.wrap_and_apply_header!(st.runtime.descriptor_encoder, buf, 0)
-                encode_frame_descriptor!(st.runtime.descriptor_encoder, st, seq, meta_version, now_ns)
+                encode_frame_descriptor!(st.runtime.descriptor_encoder, st, seq, meta_version, now_ns, trace_id)
             end
         end
         if sent

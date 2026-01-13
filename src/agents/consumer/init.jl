@@ -83,6 +83,7 @@ function init_consumer(config::ConsumerConfig; client::Aeron.Client)
                 ),
             ),
             PayloadView(UInt8[], 0, 0),
+            UInt64(0),
         ),
     )
     mappings = ConsumerMappings(

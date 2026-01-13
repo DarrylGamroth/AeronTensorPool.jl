@@ -44,6 +44,7 @@ Clear pending frame state.
 function clear_pending!(pending::RateLimiterPending)
     pending.valid = false
     pending.seq = UInt64(0)
+    pending.trace_id = UInt64(0)
     pending.payload_len = UInt32(0)
     return nothing
 end
@@ -54,6 +55,7 @@ Store a pending frame by copying payload bytes.
 function store_pending!(
     pending::RateLimiterPending,
     header::SlotHeader,
+    trace_id::UInt64,
     payload_ptr::Ptr{UInt8},
     payload_len::Int,
 )
@@ -61,6 +63,7 @@ function store_pending!(
     unsafe_copyto!(pointer(pending.payload_buf), payload_ptr, payload_len)
     pending.header = header
     pending.seq = seqlock_sequence(header.seq_commit)
+    pending.trace_id = trace_id
     pending.payload_len = UInt32(payload_len)
     pending.valid = true
     return true
@@ -73,6 +76,7 @@ function rate_limiter_commit_claim!(
     state::RateLimiterMappingState,
     header::SlotHeader,
     claim::SlotClaim,
+    trace_id::UInt64,
 )
     producer_state = state.producer_agent.state
     Producer.producer_driver_active(producer_state) || return false
@@ -118,13 +122,15 @@ function rate_limiter_commit_claim!(
     shared_sent = let st = producer_state,
         seq = claim.seq,
         meta_version = header.meta_version,
-        now_ns = now_ns
+        now_ns = now_ns,
+        trace_id = trace_id
         with_claimed_buffer!(st.runtime.pub_descriptor, st.runtime.descriptor_claim, FRAME_DESCRIPTOR_LEN) do buf
             FrameDescriptor.wrap_and_apply_header!(st.runtime.descriptor_encoder, buf, 0)
-            Producer.encode_frame_descriptor!(st.runtime.descriptor_encoder, st, seq, meta_version, now_ns)
+            Producer.encode_frame_descriptor!(st.runtime.descriptor_encoder, st, seq, meta_version, now_ns, trace_id)
         end
     end
-    per_consumer_sent = Producer.publish_descriptor_to_consumers!(producer_state, claim.seq, header.meta_version, now_ns)
+    per_consumer_sent =
+        Producer.publish_descriptor_to_consumers!(producer_state, claim.seq, header.meta_version, now_ns, trace_id)
     (shared_sent || per_consumer_sent) || return false
     if producer_state.seq <= claim.seq
         producer_state.seq = claim.seq + 1
@@ -138,6 +144,7 @@ Rematerialize a source frame into the destination producer.
 function rematerialize_frame!(
     state::RateLimiterMappingState,
     header::SlotHeader,
+    trace_id::UInt64,
     payload_ptr::Ptr{UInt8},
     payload_len::Int,
 )
@@ -160,5 +167,5 @@ function rematerialize_frame!(
     payload_len <= claim.stride_bytes || return false
 
     unsafe_copyto!(claim.ptr, payload_ptr, payload_len)
-    return rate_limiter_commit_claim!(state, header, claim)
+    return rate_limiter_commit_claim!(state, header, claim, trace_id)
 end

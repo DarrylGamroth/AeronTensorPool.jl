@@ -191,13 +191,15 @@ function bridge_rematerialize!(
     shared_sent = let st = producer_state,
         seq = seq,
         meta_version = header.meta_version,
-        now_ns = now_ns
+        now_ns = now_ns,
+        trace_id = UInt64(0)
         with_claimed_buffer!(st.runtime.pub_descriptor, st.runtime.descriptor_claim, FRAME_DESCRIPTOR_LEN) do buf
             FrameDescriptor.wrap_and_apply_header!(st.runtime.descriptor_encoder, buf, 0)
-            encode_frame_descriptor!(st.runtime.descriptor_encoder, st, seq, meta_version, now_ns)
+            encode_frame_descriptor!(st.runtime.descriptor_encoder, st, seq, meta_version, now_ns, trace_id)
         end
     end
-    per_consumer_sent = publish_descriptor_to_consumers!(producer_state, seq, header.meta_version, now_ns)
+    per_consumer_sent =
+        publish_descriptor_to_consumers!(producer_state, seq, header.meta_version, now_ns, UInt64(0))
     (shared_sent || per_consumer_sent) || return false
     if producer_state.seq <= seq
         producer_state.seq = seq + 1
@@ -267,13 +269,15 @@ function bridge_commit_claim!(
     shared_sent = let st = producer_state,
         seq = claim.seq,
         meta_version = header.meta_version,
-        now_ns = now_ns
+        now_ns = now_ns,
+        trace_id = UInt64(0)
         with_claimed_buffer!(st.runtime.pub_descriptor, st.runtime.descriptor_claim, FRAME_DESCRIPTOR_LEN) do buf
             FrameDescriptor.wrap_and_apply_header!(st.runtime.descriptor_encoder, buf, 0)
-            encode_frame_descriptor!(st.runtime.descriptor_encoder, st, seq, meta_version, now_ns)
+            encode_frame_descriptor!(st.runtime.descriptor_encoder, st, seq, meta_version, now_ns, trace_id)
         end
     end
-    per_consumer_sent = publish_descriptor_to_consumers!(producer_state, claim.seq, header.meta_version, now_ns)
+    per_consumer_sent =
+        publish_descriptor_to_consumers!(producer_state, claim.seq, header.meta_version, now_ns, UInt64(0))
     (shared_sent || per_consumer_sent) || return false
     if producer_state.seq <= claim.seq
         producer_state.seq = claim.seq + 1

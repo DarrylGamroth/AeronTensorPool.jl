@@ -294,6 +294,7 @@ function try_read_frame!(
     slice.mmap = payload_mmap_vec
     slice.offset = payload_offset
     slice.len = payload_len
+    view.trace_id = FrameDescriptor.traceId(desc)
     return true
 end
 

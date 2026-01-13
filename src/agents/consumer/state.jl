@@ -2,11 +2,12 @@ struct ConsumerHelloHandler end
 struct ConsumerQosHandler end
 
 """
-Decoded frame header and payload view.
+Decoded frame header, payload view, and descriptor trace ID.
 """
 mutable struct ConsumerFrameView
     header::SlotHeader
     payload::PayloadView
+    trace_id::UInt64
 end
 
 """
