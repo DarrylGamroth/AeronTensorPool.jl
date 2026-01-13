@@ -34,13 +34,13 @@ Severity legend:
 
 ## High
 
-3) Implement RATE_LIMITED consumer mode or remove from API (Wire §11)
+3) Implement RATE_LIMITED consumer mode or remove from API (Wire §11) (done)
 - Matrix: `SHM_Tensor_Pool_Wire_Spec_v1.2.md` → 11 (Partial / Noncompliant)
 - Issue: STREAM only; RATE_LIMITED not implemented.
 - Required: implement rate-limited flow (per-consumer streams or policy), or explicitly deprecate in API/docs if out-of-scope.
 - Verify: tests for accepted/declined rate-limit behavior and local drop fallback.
 
-4) Align driver filesystem policy with wire spec (Driver §9)
+4) Align driver filesystem policy with wire spec (Driver §9) (done)
 - Matrix: `SHM_Driver_Model_Spec_v1.0.md` → 9 (Noncompliant due to 15.21a)
 - Issue: driver policy depends on canonical layout + containment rules.
 - Required: update driver path creation and validation to the canonical layout, and reflect in driver docs/config.

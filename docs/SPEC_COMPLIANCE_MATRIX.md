@@ -41,7 +41,7 @@ Correctness legend:
 | 10.3 Per-Data-Source Metadata | Implemented | Needs Review | DataSourceAnnounce/DataSourceMeta helpers. |
 | 10.4 QoS and Health | Implemented | Needs Review | QosProducer/QosConsumer published + consumed. |
 | 10.5 Supervisor / Unified Management | Partial | N/A | Supervisor exists; service commands not implemented. |
-| 11. Consumer Modes | Partial | Noncompliant | RATE_LIMITED mode not implemented (only STREAM). |
+| 11. Consumer Modes | Implemented | Needs Review | RATE_LIMITED mode enforced via max_rate_hz in consumer. |
 | 12. Bridge Service (Optional) | Implemented | Needs Review | Bridge sender/receiver agents + tests. |
 | 13. Implementation Notes | Informative | N/A | Background. |
 | 14. Open Parameters | Informative | N/A | Deployment-specific. |
