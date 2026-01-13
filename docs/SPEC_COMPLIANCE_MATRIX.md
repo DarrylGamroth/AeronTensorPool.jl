@@ -54,7 +54,7 @@ Correctness legend:
 | 15.6 Sizing Guidance | Informative | N/A | Guidance only. |
 | 15.7 Timebase | Implemented | Compliant | Monotonic base clocks validated in `test/test_timebase_clock.jl`. |
 | 15.7a NUMA Policy | Informative | N/A | Deployment guidance. |
-| 15.8 Enum and Type Registry | Not implemented | N/A | Registry not defined. |
+| 15.8 Enum and Type Registry | Implemented | Compliant | Enum values fixed by SBE schema; versioned via schema/layout. |
 | 15.9 Metadata Blobs | Implemented | Compliant | Chunk validation helper + tests (`test/test_metadata_chunks.jl`). |
 | 15.10 Security and Permissions | Implemented | Compliant | Restrictive SHM modes applied; permissions tests cover defaults. |
 | 15.11 Stream Mapping Guidance | Informative | N/A | Guidance only. |
