@@ -10,6 +10,7 @@ Arguments:
 - `lease_id`: lease identifier (or null value).
 - `lease_expiry_ns`: lease expiry timestamp (or null value).
 - `stream_state`: stream state (optional).
+- `node_id`: assigned node ID (optional).
 - `error_message`: optional error message.
 
 Returns:
@@ -23,6 +24,7 @@ function emit_attach_response!(
     stream_state::Union{DriverStreamState, Nothing},
     lease_id::UInt64 = typemax(UInt64),
     lease_expiry_ns::UInt64 = typemax(UInt64),
+    node_id::UInt32 = ShmAttachResponse.nodeId_null_value(ShmAttachResponse.Decoder),
 )
     payload_count = isnothing(stream_state) ? 0 : length(stream_state.profile.payload_pools)
     header_uri_len = isnothing(stream_state) ? 0 : sizeof(stream_state.header_uri)
@@ -50,6 +52,7 @@ function emit_attach_response!(
         code = code,
         lease_id = lease_id,
         lease_expiry_ns = lease_expiry_ns,
+        node_id = node_id,
         stream_state = stream_state,
         error_message = error_message,
         payload_count = payload_count
@@ -67,7 +70,7 @@ function emit_attach_response!(
                 ShmAttachResponse.layoutVersion!(st.runtime.attach_encoder, UInt32(1))
                 ShmAttachResponse.headerNslots!(st.runtime.attach_encoder, stream_state.profile.header_nslots)
                 ShmAttachResponse.headerSlotBytes!(st.runtime.attach_encoder, UInt16(HEADER_SLOT_BYTES))
-                ShmAttachResponse.maxDims!(st.runtime.attach_encoder, stream_state.profile.max_dims)
+                ShmAttachResponse.nodeId!(st.runtime.attach_encoder, node_id)
                 pools_group = ShmAttachResponse.payloadPools!(st.runtime.attach_encoder, payload_count)
                 for pool in stream_state.profile.payload_pools
                     entry = ShmAttachResponse.PayloadPools.next!(pools_group)
@@ -107,9 +110,9 @@ function emit_attach_response!(
                     st.runtime.attach_encoder,
                     ShmAttachResponse.headerSlotBytes_null_value(ShmAttachResponse.Decoder),
                 )
-                ShmAttachResponse.maxDims!(
+                ShmAttachResponse.nodeId!(
                     st.runtime.attach_encoder,
-                    ShmAttachResponse.maxDims_null_value(ShmAttachResponse.Decoder),
+                    ShmAttachResponse.nodeId_null_value(ShmAttachResponse.Decoder),
                 )
                 ShmAttachResponse.payloadPools!(st.runtime.attach_encoder, 0)
                 ShmAttachResponse.headerRegionUri!(st.runtime.attach_encoder, "")

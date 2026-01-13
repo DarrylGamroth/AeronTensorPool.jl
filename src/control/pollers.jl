@@ -21,7 +21,7 @@ mutable struct AttachResponse
     layout_version::UInt32
     header_nslots::UInt32
     header_slot_bytes::UInt16
-    max_dims::UInt8
+    node_id::UInt32
     header_region_uri::FixedString
     pools::Vector{DriverPool}
     pool_count::Int
@@ -189,7 +189,7 @@ function AttachResponse()
         UInt32(0),
         UInt32(0),
         UInt16(0),
-        UInt8(0),
+        ShmAttachResponse.nodeId_null_value(ShmAttachResponse.Decoder),
         FixedString(DRIVER_URI_MAX_BYTES),
         DriverPool[],
         0,
@@ -242,7 +242,7 @@ function snapshot_attach_response!(resp::AttachResponse, msg::ShmAttachResponse.
     resp.layout_version = ShmAttachResponse.layoutVersion(msg)
     resp.header_nslots = ShmAttachResponse.headerNslots(msg)
     resp.header_slot_bytes = ShmAttachResponse.headerSlotBytes(msg)
-    resp.max_dims = ShmAttachResponse.maxDims(msg)
+    resp.node_id = ShmAttachResponse.nodeId(msg)
 
     payload_groups = ShmAttachResponse.payloadPools(msg)
     pool_count = 0
@@ -275,7 +275,7 @@ function copy_attach_response!(dst::AttachResponse, src::AttachResponse)
     dst.layout_version = src.layout_version
     dst.header_nslots = src.header_nslots
     dst.header_slot_bytes = src.header_slot_bytes
-    dst.max_dims = src.max_dims
+    dst.node_id = src.node_id
     copyto!(dst.header_region_uri, view(src.header_region_uri))
     dst.pool_count = src.pool_count
     ensure_pool_capacity!(dst.pools, src.pool_count)

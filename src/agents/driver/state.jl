@@ -9,6 +9,7 @@ mutable struct DriverLease
     lease_id::UInt64
     stream_id::UInt32
     client_id::UInt32
+    node_id::UInt32
     expiry_ns::UInt64
     lifecycle::LeaseLifecycle
     role::DriverRole.SbeEnum
@@ -62,7 +63,9 @@ mutable struct DriverState{ClockT}
     runtime::DriverRuntime
     streams::Dict{UInt32, DriverStreamState}
     leases::Dict{UInt64, DriverLease}
+    assigned_node_ids::Dict{UInt32, UInt64}
     next_lease_id::UInt64
+    next_node_id::UInt32
     next_stream_id::UInt32
     next_descriptor_stream_id::UInt32
     next_control_stream_id::UInt32

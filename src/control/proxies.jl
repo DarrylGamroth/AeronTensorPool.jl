@@ -70,9 +70,9 @@ Arguments (keywords):
 - `client_id`: client identifier.
 - `role`: driver role enum.
 - `expected_layout_version`: expected layout version (default: 0).
-- `max_dims`: ignored by the driver (default: 0).
 - `publish_mode`: publish mode override (optional).
 - `require_hugepages`: hugepage policy (optional).
+- `desired_node_id`: optional node ID request (optional).
 
 Returns:
 - `true` if the message was committed, `false` otherwise.
@@ -84,9 +84,9 @@ function send_attach!(
     client_id::UInt32,
     role::DriverRole.SbeEnum,
     expected_layout_version::UInt32 = UInt32(0),
-    max_dims::UInt8 = UInt8(0),
     publish_mode::Union{DriverPublishMode.SbeEnum, Nothing} = nothing,
     require_hugepages::Union{DriverHugepagesPolicy.SbeEnum, Bool, Nothing} = nothing,
+    desired_node_id::Union{UInt32, Nothing} = nothing,
 )
     msg_len = DRIVER_MESSAGE_HEADER_LEN + Int(ShmAttachRequest.sbe_block_length(ShmAttachRequest.Decoder))
     return let p = proxy,
@@ -95,10 +95,10 @@ function send_attach!(
         client_id = client_id,
         role = role,
         expected_layout_version = expected_layout_version,
-        max_dims = max_dims,
         publish_mode = publish_mode,
-        require_hugepages = require_hugepages
-        @tp_info "send_attach!" correlation_id stream_id client_id role expected_layout_version max_dims publish_mode require_hugepages
+        require_hugepages = require_hugepages,
+        desired_node_id = desired_node_id
+        @tp_info "send_attach!" correlation_id stream_id client_id role expected_layout_version publish_mode require_hugepages desired_node_id
         with_claimed_buffer!(p.pub, p.claim, msg_len) do buf
             ShmAttachRequest.wrap_and_apply_header!(p.encoder, buf, 0)
             ShmAttachRequest.correlationId!(p.encoder, correlation_id)
@@ -106,7 +106,6 @@ function send_attach!(
             ShmAttachRequest.clientId!(p.encoder, client_id)
             ShmAttachRequest.role!(p.encoder, role)
             ShmAttachRequest.expectedLayoutVersion!(p.encoder, expected_layout_version)
-            ShmAttachRequest.maxDims!(p.encoder, max_dims)
 
             if isnothing(publish_mode)
                 ShmAttachRequest.publishMode!(p.encoder, DriverPublishMode.NULL_VALUE)
@@ -115,6 +114,11 @@ function send_attach!(
             end
 
             ShmAttachRequest.requireHugepages!(p.encoder, hugepages_policy_value(require_hugepages))
+            if isnothing(desired_node_id)
+                ShmAttachRequest.desiredNodeId!(p.encoder, ShmAttachRequest.desiredNodeId_null_value(ShmAttachRequest.Decoder))
+            else
+                ShmAttachRequest.desiredNodeId!(p.encoder, desired_node_id)
+            end
         end
     end
 end

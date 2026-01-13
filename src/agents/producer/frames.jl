@@ -359,6 +359,35 @@ function with_claimed_slot!(
 end
 
 """
+Try to claim a payload slot, fill it, and commit the claim.
+
+Arguments:
+- `fill_fn`: callback invoked with `SlotClaim`; must write payload bytes before return.
+- `state`: producer state and runtime resources.
+- `pool_id`: payload pool to claim from.
+- `values_len`: number of payload bytes filled.
+- `shape`: tensor dimensions (Int32).
+- `strides`: tensor strides (Int32).
+- `dtype`: element type enum.
+- `meta_version`: metadata schema version for this frame.
+
+Returns:
+- `true` if the descriptor was published (shared or per-consumer), `false` otherwise.
+"""
+function with_claimed_slot!(
+    fill_fn,
+    state::ProducerState,
+    pool_id::UInt16,
+    values_len::Int,
+    shape::AbstractVector{Int32},
+    strides::AbstractVector{Int32},
+    dtype::Dtype.SbeEnum,
+    meta_version::UInt32,
+)
+    return with_claimed_slot!(fill_fn, state, pool_id, values_len, shape, strides, dtype, meta_version, UInt64(0))
+end
+
+"""
 Try to claim a payload slot, fill it, and commit the claim (keyword wrapper).
 
 Arguments:
@@ -469,6 +498,33 @@ function commit_slot!(
     end
 
     return true
+end
+
+"""
+Commit a SlotClaim after the payload has been filled externally.
+
+Arguments:
+- `state`: producer state and runtime resources.
+- `claim`: slot claim returned from `try_claim_slot!`.
+- `values_len`: number of payload bytes filled.
+- `shape`: tensor dimensions (Int32).
+- `strides`: tensor strides (Int32).
+- `dtype`: element type enum.
+- `meta_version`: metadata schema version for this frame.
+
+Returns:
+- `true` if the descriptor was published (shared or per-consumer), `false` otherwise.
+"""
+function commit_slot!(
+    state::ProducerState,
+    claim::SlotClaim,
+    values_len::Int,
+    shape::AbstractVector{Int32},
+    strides::AbstractVector{Int32},
+    dtype::Dtype.SbeEnum,
+    meta_version::UInt32,
+)
+    return commit_slot!(state, claim, values_len, shape, strides, dtype, meta_version, UInt64(0))
 end
 
 """

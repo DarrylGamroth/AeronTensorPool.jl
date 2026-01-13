@@ -10,6 +10,29 @@ function lease_expiry_ns(state::DriverState, now_ns::UInt64)
     return now_ns + grace_ns
 end
 
+function desired_node_id(msg::ShmAttachRequest.Decoder)
+    node_id = ShmAttachRequest.desiredNodeId(msg)
+    if node_id == ShmAttachRequest.desiredNodeId_null_value(ShmAttachRequest.Decoder)
+        return nothing
+    end
+    return node_id
+end
+
+function allocate_node_id!(state::DriverState, desired::Union{UInt32, Nothing})
+    if isnothing(desired)
+        start = state.next_node_id
+        node_id = start
+        while haskey(state.assigned_node_ids, node_id)
+            node_id = node_id == typemax(UInt32) ? UInt32(1) : node_id + 1
+            node_id == start && return nothing
+        end
+        state.next_node_id = node_id == typemax(UInt32) ? UInt32(1) : node_id + 1
+        return node_id
+    end
+    haskey(state.assigned_node_ids, desired) && return nothing
+    return desired
+end
+
 """
 Handle an incoming ShmAttachRequest.
 
@@ -29,7 +52,7 @@ function handle_attach_request!(state::DriverState, msg::ShmAttachRequest.Decode
     client_id = ShmAttachRequest.clientId(msg)
     role = ShmAttachRequest.role(msg)
     expected_layout_version = ShmAttachRequest.expectedLayoutVersion(msg)
-    _ = ShmAttachRequest.maxDims(msg)
+    requested_node_id = desired_node_id(msg)
 
     publish_mode = ShmAttachRequest.publishMode(msg)
     if publish_mode == DriverPublishMode.NULL_VALUE
@@ -135,7 +158,6 @@ function handle_attach_request!(state::DriverState, msg::ShmAttachRequest.Decode
         )
     end
 
-    # max_dims is fixed by the schema; any nonzero request is ignored.
     isempty(stream_state.profile.payload_pools) &&
         return emit_attach_response!(
             state,
@@ -198,9 +220,20 @@ function handle_attach_request!(state::DriverState, msg::ShmAttachRequest.Decode
 
     now_ns = UInt64(Clocks.time_nanos(state.clock))
     lease_id = next_lease_id!(state)
+    node_id = allocate_node_id!(state, requested_node_id)
+    if node_id === nothing
+        return emit_attach_response!(
+            state,
+            correlation_id,
+            DriverResponseCode.REJECTED,
+            "node_id unavailable",
+            nothing,
+        )
+    end
     expiry_ns = lease_expiry_ns(state, now_ns)
-    lease = DriverLease(lease_id, stream_id, client_id, expiry_ns, LeaseLifecycle(), role)
+    lease = DriverLease(lease_id, stream_id, client_id, node_id, expiry_ns, LeaseLifecycle(), role)
     state.leases[lease_id] = lease
+    state.assigned_node_ids[node_id] = lease_id
 
     if role == DriverRole.PRODUCER
         stream_state.producer_lease_id = lease_id
@@ -210,7 +243,16 @@ function handle_attach_request!(state::DriverState, msg::ShmAttachRequest.Decode
 
     @tp_info "lease attached" lease_id stream_id client_id role expiry_ns
     Hsm.dispatch!(lease.lifecycle, :AttachOk, state.metrics)
-    emit_attach_response!(state, correlation_id, DriverResponseCode.OK, "", stream_state, lease_id, expiry_ns)
+    emit_attach_response!(
+        state,
+        correlation_id,
+        DriverResponseCode.OK,
+        "",
+        stream_state,
+        lease_id,
+        expiry_ns,
+        node_id,
+    )
     emit_driver_announce!(state, stream_state)
     return true
 end
@@ -333,6 +375,7 @@ function revoke_lease!(state::DriverState, lease_id::UInt64, reason::DriverLease
     lease.role == DriverRole.PRODUCER || emit_lease_revoked!(state, lease, reason, now_ns)
     Hsm.dispatch!(lease.lifecycle, :Close, state.metrics)
     delete!(state.leases, lease_id)
+    delete!(state.assigned_node_ids, lease.node_id)
     if !isnothing(stream_state) &&
        stream_state.producer_lease_id == 0 &&
        isempty(stream_state.consumer_lease_ids) &&

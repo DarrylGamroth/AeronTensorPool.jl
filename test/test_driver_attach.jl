@@ -68,7 +68,7 @@ using Test
             @test attach.layout_version != ShmAttachResponse.layoutVersion_null_value(ShmAttachResponse.Decoder)
             @test attach.header_nslots != ShmAttachResponse.headerNslots_null_value(ShmAttachResponse.Decoder)
             @test attach.header_slot_bytes == UInt16(HEADER_SLOT_BYTES)
-            @test attach.max_dims == UInt8(MAX_DIMS)
+            @test attach.node_id != ShmAttachResponse.nodeId_null_value(ShmAttachResponse.Decoder)
             @test !isempty(view(attach.header_region_uri))
             @test attach.pool_count > 0
             producer_lease_id = attach.lease_id

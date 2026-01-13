@@ -71,6 +71,7 @@ function request_attach_consumer(
     stream_id::UInt32 = settings.stream_id,
     control_channel::AbstractString = client.context.control_channel,
     control_stream_id::Int32 = client.context.control_stream_id,
+    desired_node_id::Union{UInt32, Nothing} = nothing,
 )
     @tp_info "request attach consumer" stream_id = stream_id client_id = settings.consumer_id control_channel =
         control_channel control_stream_id = control_stream_id
@@ -85,8 +86,8 @@ function request_attach_consumer(
         driver_client;
         stream_id = stream_id,
         expected_layout_version = settings.expected_layout_version,
-        max_dims = UInt8(MAX_DIMS),
         require_hugepages = settings.require_hugepages,
+        desired_node_id = desired_node_id,
     )
     correlation_id == 0 && throw(AttachRejectedError("attach request send failed"))
     return AttachRequestHandle(driver_client, correlation_id)
@@ -101,6 +102,7 @@ function request_attach_producer(
     stream_id::UInt32 = config.stream_id,
     control_channel::AbstractString = client.context.control_channel,
     control_stream_id::Int32 = client.context.control_stream_id,
+    desired_node_id::Union{UInt32, Nothing} = nothing,
 )
     @tp_info "request attach producer" stream_id = stream_id client_id = config.producer_id control_channel =
         control_channel control_stream_id = control_stream_id
@@ -115,7 +117,7 @@ function request_attach_producer(
         driver_client;
         stream_id = stream_id,
         expected_layout_version = config.layout_version,
-        max_dims = UInt8(MAX_DIMS),
+        desired_node_id = desired_node_id,
     )
     correlation_id == 0 && throw(AttachRejectedError("attach request send failed"))
     return AttachRequestHandle(driver_client, correlation_id)
@@ -139,6 +141,7 @@ function attach_consumer(
     settings::ConsumerConfig;
     discover::Bool = true,
     data_source_name::AbstractString = "",
+    desired_node_id::Union{UInt32, Nothing} = nothing,
     callbacks::Union{ConsumerCallbacks, ClientCallbacks} = Consumer.NOOP_CONSUMER_CALLBACKS,
 )
     stream_id = settings.stream_id
@@ -161,6 +164,7 @@ function attach_consumer(
         stream_id = stream_id,
         control_channel = control_channel,
         control_stream_id = control_stream_id,
+        desired_node_id = desired_node_id,
     )
     attach = await_attach_response(
         client,
@@ -170,8 +174,8 @@ function attach_consumer(
             request.driver_client;
             stream_id = stream_id,
             expected_layout_version = settings.expected_layout_version,
-            max_dims = UInt8(MAX_DIMS),
             require_hugepages = settings.require_hugepages,
+            desired_node_id = desired_node_id,
         ),
     )
     consumer_state = Consumer.init_consumer_from_attach(
@@ -196,6 +200,7 @@ function attach_producer(
     config::ProducerConfig;
     discover::Bool = true,
     data_source_name::AbstractString = "",
+    desired_node_id::Union{UInt32, Nothing} = nothing,
     callbacks::Union{ProducerCallbacks, ClientCallbacks} = Producer.NOOP_PRODUCER_CALLBACKS,
     qos_monitor::Union{AbstractQosMonitor, Nothing} = nothing,
     qos_interval_ns::UInt64 = config.qos_interval_ns,
@@ -219,6 +224,7 @@ function attach_producer(
         stream_id = stream_id,
         control_channel = control_channel,
         control_stream_id = control_stream_id,
+        desired_node_id = desired_node_id,
     )
     attach = await_attach_response(
         client,
@@ -228,7 +234,7 @@ function attach_producer(
             request.driver_client;
             stream_id = stream_id,
             expected_layout_version = config.layout_version,
-            max_dims = UInt8(MAX_DIMS),
+            desired_node_id = desired_node_id,
         ),
     )
     producer_state = Producer.init_producer_from_attach(

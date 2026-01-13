@@ -36,7 +36,7 @@ using Test
                     ShmAttachResponse.layoutVersion!(enc, UInt32(1))
                     ShmAttachResponse.headerNslots!(enc, UInt32(8))
                     ShmAttachResponse.headerSlotBytes!(enc, UInt16(HEADER_SLOT_BYTES))
-                    ShmAttachResponse.maxDims!(enc, UInt8(MAX_DIMS))
+                    ShmAttachResponse.nodeId!(enc, UInt32(1))
                     pools = ShmAttachResponse.payloadPools!(enc, 1)
                     entry = ShmAttachResponse.PayloadPools.next!(pools)
                     ShmAttachResponse.PayloadPools.poolId!(entry, UInt16(1))

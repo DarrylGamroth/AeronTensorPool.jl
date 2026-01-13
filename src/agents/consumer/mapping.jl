@@ -164,8 +164,7 @@ function map_from_attach_response!(state::ConsumerState, attach::AttachResponse)
        attach.epoch == ShmAttachResponse.epoch_null_value(ShmAttachResponse.Decoder) ||
        attach.layout_version == ShmAttachResponse.layoutVersion_null_value(ShmAttachResponse.Decoder) ||
        attach.header_nslots == ShmAttachResponse.headerNslots_null_value(ShmAttachResponse.Decoder) ||
-       attach.header_slot_bytes == ShmAttachResponse.headerSlotBytes_null_value(ShmAttachResponse.Decoder) ||
-       attach.max_dims == ShmAttachResponse.maxDims_null_value(ShmAttachResponse.Decoder)
+       attach.header_slot_bytes == ShmAttachResponse.headerSlotBytes_null_value(ShmAttachResponse.Decoder)
         @tp_warn "attach response missing required fields" stream_id = attach.stream_id
         return false
     end
@@ -282,7 +281,6 @@ function map_from_attach_response!(state::ConsumerState, attach::AttachResponse)
     state.metrics.last_seq_seen = UInt64(0)
     state.metrics.seen_any = false
     state.metrics.remap_count += 1
-    attach.max_dims == UInt8(MAX_DIMS) || return false
     state.config.expected_layout_version = attach.layout_version
     state.phase = MAPPED
     @tp_info "consumer attach mapped" stream_id = attach.stream_id epoch = attach.epoch pools = attach.pool_count

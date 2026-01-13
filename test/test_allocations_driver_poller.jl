@@ -20,7 +20,7 @@
             ShmAttachResponse.layoutVersion!(attach_enc, UInt32(1))
             ShmAttachResponse.headerNslots!(attach_enc, UInt32(8))
             ShmAttachResponse.headerSlotBytes!(attach_enc, UInt16(HEADER_SLOT_BYTES))
-            ShmAttachResponse.maxDims!(attach_enc, UInt8(MAX_DIMS))
+            ShmAttachResponse.nodeId!(attach_enc, UInt32(1))
             pools = ShmAttachResponse.payloadPools!(attach_enc, 1)
             entry = ShmAttachResponse.PayloadPools.next!(pools)
             ShmAttachResponse.PayloadPools.poolId!(entry, UInt16(1))

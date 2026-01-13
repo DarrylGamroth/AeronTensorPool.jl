@@ -47,7 +47,6 @@ using Test
         attach.layout_version = UInt32(1)
         attach.header_nslots = UInt32(8)
         attach.header_slot_bytes = UInt16(HEADER_SLOT_BYTES)
-        attach.max_dims = UInt8(MAX_DIMS)
         attach.pool_count = 1
         empty!(attach.header_region_uri)
         @test !Consumer.map_from_attach_response!(state, attach)

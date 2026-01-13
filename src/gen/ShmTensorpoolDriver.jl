@@ -2862,11 +2862,11 @@ end
 @inline function wrap!(m::Encoder{T}, buffer::T, offset::Integer) where T
         m.buffer = buffer
         m.offset = Int64(offset)
-        m.position_ptr[] = m.offset + UInt16(51)
+        m.position_ptr[] = m.offset + UInt16(54)
         return m
     end
 @inline function wrap_and_apply_header!(m::Encoder, buffer::AbstractArray, offset::Integer = 0; header = MessageHeader.Encoder(buffer, offset))
-        MessageHeader.blockLength!(header, UInt16(51))
+        MessageHeader.blockLength!(header, UInt16(54))
         MessageHeader.templateId!(header, UInt16(2))
         MessageHeader.schemaId!(header, UInt16(901))
         MessageHeader.version!(header, UInt16(1))
@@ -2888,10 +2888,10 @@ sbe_position!(m::AbstractShmAttachResponse, position) = begin
         m.position_ptr[] = position
     end
 sbe_block_length(::AbstractShmAttachResponse) = begin
-        UInt16(51)
+        UInt16(54)
     end
 sbe_block_length(::Type{<:AbstractShmAttachResponse}) = begin
-        UInt16(51)
+        UInt16(54)
     end
 sbe_template_id(::AbstractShmAttachResponse) = begin
         UInt16(2)
@@ -2918,7 +2918,7 @@ sbe_acting_block_length(m::Decoder) = begin
         m.acting_block_length
     end
 sbe_acting_block_length(::Encoder) = begin
-        UInt16(51)
+        UInt16(54)
     end
 sbe_acting_version(m::Decoder) = begin
         m.acting_version
@@ -3552,72 +3552,72 @@ begin
     export headerSlotBytes, headerSlotBytes!
 end
 begin
-    maxDims_id(::AbstractShmAttachResponse) = begin
+    nodeId_id(::AbstractShmAttachResponse) = begin
             UInt16(10)
         end
-    maxDims_id(::Type{<:AbstractShmAttachResponse}) = begin
+    nodeId_id(::Type{<:AbstractShmAttachResponse}) = begin
             UInt16(10)
         end
-    maxDims_since_version(::AbstractShmAttachResponse) = begin
+    nodeId_since_version(::AbstractShmAttachResponse) = begin
             UInt16(0)
         end
-    maxDims_since_version(::Type{<:AbstractShmAttachResponse}) = begin
+    nodeId_since_version(::Type{<:AbstractShmAttachResponse}) = begin
             UInt16(0)
         end
-    maxDims_in_acting_version(m::AbstractShmAttachResponse) = begin
+    nodeId_in_acting_version(m::AbstractShmAttachResponse) = begin
             sbe_acting_version(m) >= UInt16(0)
         end
-    maxDims_encoding_offset(::AbstractShmAttachResponse) = begin
+    nodeId_encoding_offset(::AbstractShmAttachResponse) = begin
             Int(50)
         end
-    maxDims_encoding_offset(::Type{<:AbstractShmAttachResponse}) = begin
+    nodeId_encoding_offset(::Type{<:AbstractShmAttachResponse}) = begin
             Int(50)
         end
-    maxDims_encoding_length(::AbstractShmAttachResponse) = begin
-            Int(1)
+    nodeId_encoding_length(::AbstractShmAttachResponse) = begin
+            Int(4)
         end
-    maxDims_encoding_length(::Type{<:AbstractShmAttachResponse}) = begin
-            Int(1)
+    nodeId_encoding_length(::Type{<:AbstractShmAttachResponse}) = begin
+            Int(4)
         end
-    maxDims_null_value(::AbstractShmAttachResponse) = begin
-            UInt8(255)
+    nodeId_null_value(::AbstractShmAttachResponse) = begin
+            UInt32(4294967295)
         end
-    maxDims_null_value(::Type{<:AbstractShmAttachResponse}) = begin
-            UInt8(255)
+    nodeId_null_value(::Type{<:AbstractShmAttachResponse}) = begin
+            UInt32(4294967295)
         end
-    maxDims_min_value(::AbstractShmAttachResponse) = begin
-            UInt8(0)
+    nodeId_min_value(::AbstractShmAttachResponse) = begin
+            UInt32(0)
         end
-    maxDims_min_value(::Type{<:AbstractShmAttachResponse}) = begin
-            UInt8(0)
+    nodeId_min_value(::Type{<:AbstractShmAttachResponse}) = begin
+            UInt32(0)
         end
-    maxDims_max_value(::AbstractShmAttachResponse) = begin
-            UInt8(254)
+    nodeId_max_value(::AbstractShmAttachResponse) = begin
+            UInt32(4294967294)
         end
-    maxDims_max_value(::Type{<:AbstractShmAttachResponse}) = begin
-            UInt8(254)
+    nodeId_max_value(::Type{<:AbstractShmAttachResponse}) = begin
+            UInt32(4294967294)
         end
 end
 begin
-    function maxDims_meta_attribute(::AbstractShmAttachResponse, meta_attribute)
+    function nodeId_meta_attribute(::AbstractShmAttachResponse, meta_attribute)
         meta_attribute === :presence && return Symbol("optional")
         meta_attribute === :semanticType && return Symbol("")
         return Symbol("")
     end
-    function maxDims_meta_attribute(::Type{<:AbstractShmAttachResponse}, meta_attribute)
+    function nodeId_meta_attribute(::Type{<:AbstractShmAttachResponse}, meta_attribute)
         meta_attribute === :presence && return Symbol("optional")
         meta_attribute === :semanticType && return Symbol("")
         return Symbol("")
     end
 end
 begin
-    @inline function maxDims(m::Decoder)
-            return decode_value(UInt8, m.buffer, m.offset + 50)
+    @inline function nodeId(m::Decoder)
+            return decode_value(UInt32, m.buffer, m.offset + 50)
         end
-    @inline maxDims!(m::Encoder, val) = begin
-                encode_value(UInt8, m.buffer, m.offset + 50, val)
+    @inline nodeId!(m::Encoder, val) = begin
+                encode_value(UInt32, m.buffer, m.offset + 50, val)
             end
-    export maxDims, maxDims!
+    export nodeId, nodeId!
 end
 module PayloadPools
 using SBE: AbstractSbeGroup, PositionPointer, to_string
@@ -5562,11 +5562,11 @@ end
 @inline function wrap!(m::Encoder{T}, buffer::T, offset::Integer) where T
         m.buffer = buffer
         m.offset = Int64(offset)
-        m.position_ptr[] = m.offset + UInt16(24)
+        m.position_ptr[] = m.offset + UInt16(27)
         return m
     end
 @inline function wrap_and_apply_header!(m::Encoder, buffer::AbstractArray, offset::Integer = 0; header = MessageHeader.Encoder(buffer, offset))
-        MessageHeader.blockLength!(header, UInt16(24))
+        MessageHeader.blockLength!(header, UInt16(27))
         MessageHeader.templateId!(header, UInt16(1))
         MessageHeader.schemaId!(header, UInt16(901))
         MessageHeader.version!(header, UInt16(1))
@@ -5588,10 +5588,10 @@ sbe_position!(m::AbstractShmAttachRequest, position) = begin
         m.position_ptr[] = position
     end
 sbe_block_length(::AbstractShmAttachRequest) = begin
-        UInt16(24)
+        UInt16(27)
     end
 sbe_block_length(::Type{<:AbstractShmAttachRequest}) = begin
-        UInt16(24)
+        UInt16(27)
     end
 sbe_template_id(::AbstractShmAttachRequest) = begin
         UInt16(1)
@@ -5618,7 +5618,7 @@ sbe_acting_block_length(m::Decoder) = begin
         m.acting_block_length
     end
 sbe_acting_block_length(::Encoder) = begin
-        UInt16(24)
+        UInt16(27)
     end
 sbe_acting_version(m::Decoder) = begin
         m.acting_version
@@ -5980,79 +5980,11 @@ begin
     export expectedLayoutVersion, expectedLayoutVersion!
 end
 begin
-    maxDims_id(::AbstractShmAttachRequest) = begin
-            UInt16(6)
-        end
-    maxDims_id(::Type{<:AbstractShmAttachRequest}) = begin
-            UInt16(6)
-        end
-    maxDims_since_version(::AbstractShmAttachRequest) = begin
-            UInt16(0)
-        end
-    maxDims_since_version(::Type{<:AbstractShmAttachRequest}) = begin
-            UInt16(0)
-        end
-    maxDims_in_acting_version(m::AbstractShmAttachRequest) = begin
-            sbe_acting_version(m) >= UInt16(0)
-        end
-    maxDims_encoding_offset(::AbstractShmAttachRequest) = begin
-            Int(21)
-        end
-    maxDims_encoding_offset(::Type{<:AbstractShmAttachRequest}) = begin
-            Int(21)
-        end
-    maxDims_encoding_length(::AbstractShmAttachRequest) = begin
-            Int(1)
-        end
-    maxDims_encoding_length(::Type{<:AbstractShmAttachRequest}) = begin
-            Int(1)
-        end
-    maxDims_null_value(::AbstractShmAttachRequest) = begin
-            UInt8(255)
-        end
-    maxDims_null_value(::Type{<:AbstractShmAttachRequest}) = begin
-            UInt8(255)
-        end
-    maxDims_min_value(::AbstractShmAttachRequest) = begin
-            UInt8(0)
-        end
-    maxDims_min_value(::Type{<:AbstractShmAttachRequest}) = begin
-            UInt8(0)
-        end
-    maxDims_max_value(::AbstractShmAttachRequest) = begin
-            UInt8(254)
-        end
-    maxDims_max_value(::Type{<:AbstractShmAttachRequest}) = begin
-            UInt8(254)
-        end
-end
-begin
-    function maxDims_meta_attribute(::AbstractShmAttachRequest, meta_attribute)
-        meta_attribute === :presence && return Symbol("required")
-        meta_attribute === :semanticType && return Symbol("")
-        return Symbol("")
-    end
-    function maxDims_meta_attribute(::Type{<:AbstractShmAttachRequest}, meta_attribute)
-        meta_attribute === :presence && return Symbol("required")
-        meta_attribute === :semanticType && return Symbol("")
-        return Symbol("")
-    end
-end
-begin
-    @inline function maxDims(m::Decoder)
-            return decode_value(UInt8, m.buffer, m.offset + 21)
-        end
-    @inline maxDims!(m::Encoder, val) = begin
-                encode_value(UInt8, m.buffer, m.offset + 21, val)
-            end
-    export maxDims, maxDims!
-end
-begin
     publishMode_id(::AbstractShmAttachRequest) = begin
-            UInt16(7)
+            UInt16(6)
         end
     publishMode_id(::Type{<:AbstractShmAttachRequest}) = begin
-            UInt16(7)
+            UInt16(6)
         end
     publishMode_since_version(::AbstractShmAttachRequest) = begin
             UInt16(0)
@@ -6064,10 +5996,10 @@ begin
             sbe_acting_version(m) >= UInt16(0)
         end
     publishMode_encoding_offset(::AbstractShmAttachRequest) = begin
-            Int(22)
+            Int(21)
         end
     publishMode_encoding_offset(::Type{<:AbstractShmAttachRequest}) = begin
-            Int(22)
+            Int(21)
         end
     publishMode_encoding_length(::AbstractShmAttachRequest) = begin
             Int(1)
@@ -6108,23 +6040,23 @@ begin
 end
 begin
     @inline function publishMode(m::Decoder, ::Type{Integer})
-            return decode_value(UInt8, m.buffer, m.offset + 22)
+            return decode_value(UInt8, m.buffer, m.offset + 21)
         end
     @inline function publishMode(m::Decoder)
-            raw = decode_value(UInt8, m.buffer, m.offset + 22)
+            raw = decode_value(UInt8, m.buffer, m.offset + 21)
             return PublishMode.SbeEnum(raw)
         end
     @inline function publishMode!(m::Encoder, value::PublishMode.SbeEnum)
-            encode_value(UInt8, m.buffer, m.offset + 22, UInt8(value))
+            encode_value(UInt8, m.buffer, m.offset + 21, UInt8(value))
         end
     export publishMode, publishMode!
 end
 begin
     requireHugepages_id(::AbstractShmAttachRequest) = begin
-            UInt16(8)
+            UInt16(7)
         end
     requireHugepages_id(::Type{<:AbstractShmAttachRequest}) = begin
-            UInt16(8)
+            UInt16(7)
         end
     requireHugepages_since_version(::AbstractShmAttachRequest) = begin
             UInt16(0)
@@ -6136,10 +6068,10 @@ begin
             sbe_acting_version(m) >= UInt16(0)
         end
     requireHugepages_encoding_offset(::AbstractShmAttachRequest) = begin
-            Int(23)
+            Int(22)
         end
     requireHugepages_encoding_offset(::Type{<:AbstractShmAttachRequest}) = begin
-            Int(23)
+            Int(22)
         end
     requireHugepages_encoding_length(::AbstractShmAttachRequest) = begin
             Int(1)
@@ -6180,16 +6112,84 @@ begin
 end
 begin
     @inline function requireHugepages(m::Decoder, ::Type{Integer})
-            return decode_value(UInt8, m.buffer, m.offset + 23)
+            return decode_value(UInt8, m.buffer, m.offset + 22)
         end
     @inline function requireHugepages(m::Decoder)
-            raw = decode_value(UInt8, m.buffer, m.offset + 23)
+            raw = decode_value(UInt8, m.buffer, m.offset + 22)
             return HugepagesPolicy.SbeEnum(raw)
         end
     @inline function requireHugepages!(m::Encoder, value::HugepagesPolicy.SbeEnum)
-            encode_value(UInt8, m.buffer, m.offset + 23, UInt8(value))
+            encode_value(UInt8, m.buffer, m.offset + 22, UInt8(value))
         end
     export requireHugepages, requireHugepages!
+end
+begin
+    desiredNodeId_id(::AbstractShmAttachRequest) = begin
+            UInt16(8)
+        end
+    desiredNodeId_id(::Type{<:AbstractShmAttachRequest}) = begin
+            UInt16(8)
+        end
+    desiredNodeId_since_version(::AbstractShmAttachRequest) = begin
+            UInt16(0)
+        end
+    desiredNodeId_since_version(::Type{<:AbstractShmAttachRequest}) = begin
+            UInt16(0)
+        end
+    desiredNodeId_in_acting_version(m::AbstractShmAttachRequest) = begin
+            sbe_acting_version(m) >= UInt16(0)
+        end
+    desiredNodeId_encoding_offset(::AbstractShmAttachRequest) = begin
+            Int(23)
+        end
+    desiredNodeId_encoding_offset(::Type{<:AbstractShmAttachRequest}) = begin
+            Int(23)
+        end
+    desiredNodeId_encoding_length(::AbstractShmAttachRequest) = begin
+            Int(4)
+        end
+    desiredNodeId_encoding_length(::Type{<:AbstractShmAttachRequest}) = begin
+            Int(4)
+        end
+    desiredNodeId_null_value(::AbstractShmAttachRequest) = begin
+            UInt32(4294967295)
+        end
+    desiredNodeId_null_value(::Type{<:AbstractShmAttachRequest}) = begin
+            UInt32(4294967295)
+        end
+    desiredNodeId_min_value(::AbstractShmAttachRequest) = begin
+            UInt32(0)
+        end
+    desiredNodeId_min_value(::Type{<:AbstractShmAttachRequest}) = begin
+            UInt32(0)
+        end
+    desiredNodeId_max_value(::AbstractShmAttachRequest) = begin
+            UInt32(4294967294)
+        end
+    desiredNodeId_max_value(::Type{<:AbstractShmAttachRequest}) = begin
+            UInt32(4294967294)
+        end
+end
+begin
+    function desiredNodeId_meta_attribute(::AbstractShmAttachRequest, meta_attribute)
+        meta_attribute === :presence && return Symbol("optional")
+        meta_attribute === :semanticType && return Symbol("")
+        return Symbol("")
+    end
+    function desiredNodeId_meta_attribute(::Type{<:AbstractShmAttachRequest}, meta_attribute)
+        meta_attribute === :presence && return Symbol("optional")
+        meta_attribute === :semanticType && return Symbol("")
+        return Symbol("")
+    end
+end
+begin
+    @inline function desiredNodeId(m::Decoder)
+            return decode_value(UInt32, m.buffer, m.offset + 23)
+        end
+    @inline desiredNodeId!(m::Encoder, val) = begin
+                encode_value(UInt32, m.buffer, m.offset + 23, val)
+            end
+    export desiredNodeId, desiredNodeId!
 end
 @inline function sbe_decoded_length(m::AbstractShmAttachRequest)
         skipper = Decoder(typeof(sbe_buffer(m)))

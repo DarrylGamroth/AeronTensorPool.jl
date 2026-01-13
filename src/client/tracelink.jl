@@ -14,6 +14,20 @@ function TraceIdGenerator(node_id::Integer, clock::Clocks.AbstractClock = Clocks
 end
 
 """
+Create a TraceIdGenerator using a driver client assigned node ID.
+"""
+function TraceIdGenerator(state::DriverClientState, clock::Clocks.AbstractClock = Clocks.EpochClock())
+    state.node_id != 0 || throw(ArgumentError("driver client node_id not set"))
+    return TraceIdGenerator(state.node_id, clock)
+end
+
+"""
+Create a TraceIdGenerator using a producer handle's driver client node ID.
+"""
+TraceIdGenerator(handle::ProducerHandle, clock::Clocks.AbstractClock = Clocks.EpochClock()) =
+    TraceIdGenerator(handle.driver_client, clock)
+
+"""
 Generate the next trace ID.
 """
 next_trace_id!(generator::TraceIdGenerator) = UInt64(SnowflakeId.next_id(generator.gen))

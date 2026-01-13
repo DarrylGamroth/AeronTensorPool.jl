@@ -164,14 +164,12 @@ function init_producer_from_attach(
        attach.epoch == ShmAttachResponse.epoch_null_value(ShmAttachResponse.Decoder) ||
        attach.layout_version == ShmAttachResponse.layoutVersion_null_value(ShmAttachResponse.Decoder) ||
        attach.header_nslots == ShmAttachResponse.headerNslots_null_value(ShmAttachResponse.Decoder) ||
-       attach.header_slot_bytes == ShmAttachResponse.headerSlotBytes_null_value(ShmAttachResponse.Decoder) ||
-       attach.max_dims == ShmAttachResponse.maxDims_null_value(ShmAttachResponse.Decoder)
+       attach.header_slot_bytes == ShmAttachResponse.headerSlotBytes_null_value(ShmAttachResponse.Decoder)
         throw(ArgumentError("attach response missing required fields"))
     end
     isempty(view(attach.header_region_uri)) && throw(ArgumentError("header_region_uri missing"))
     attach.pool_count > 0 || throw(ArgumentError("attach response missing payload pools"))
     attach.header_slot_bytes == UInt16(HEADER_SLOT_BYTES) || throw(ArgumentError("header_slot_bytes mismatch"))
-    attach.max_dims == UInt8(MAX_DIMS) || throw(ArgumentError("max_dims mismatch"))
 
     driver_config = producer_config_from_attach(config, attach)
     ispow2(driver_config.nslots) || throw(ArgumentError("header nslots must be power of two"))

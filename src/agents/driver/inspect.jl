@@ -24,6 +24,7 @@ struct DriverLeaseSnapshot
     lease_id::UInt64
     stream_id::UInt32
     client_id::UInt32
+    node_id::UInt32
     role::DriverRole.SbeEnum
     expiry_ns::UInt64
     lifecycle::Symbol
@@ -82,6 +83,7 @@ function driver_leases_snapshot(state::DriverState)
                 lease.lease_id,
                 lease.stream_id,
                 lease.client_id,
+                lease.node_id,
                 lease.role,
                 lease.expiry_ns,
                 Hsm.current(lease.lifecycle),

@@ -9,7 +9,7 @@ function valid_attach_response()
     attach.layout_version = UInt32(1)
     attach.header_nslots = UInt32(8)
     attach.header_slot_bytes = UInt16(HEADER_SLOT_BYTES)
-    attach.max_dims = UInt8(MAX_DIMS)
+    attach.node_id = UInt32(1)
     copyto!(attach.header_region_uri, "shm:file?path=/dev/shm/tp_header")
     attach.pools = [DriverPool()]
     attach.pool_count = 1
@@ -81,10 +81,6 @@ end
             @test !Consumer.map_from_attach_response!(state, base)
 
             base = valid_attach_response()
-            base.max_dims = ShmAttachResponse.maxDims_null_value(ShmAttachResponse.Decoder)
-            @test !Consumer.map_from_attach_response!(state, base)
-
-            base = valid_attach_response()
             empty!(base.header_region_uri)
             @test !Consumer.map_from_attach_response!(state, base)
 
@@ -145,10 +141,6 @@ end
 
         base = valid_attach_response()
         base.header_slot_bytes = ShmAttachResponse.headerSlotBytes_null_value(ShmAttachResponse.Decoder)
-        @test_throws ArgumentError Producer.init_producer_from_attach(cfg, base; client = client)
-
-        base = valid_attach_response()
-        base.max_dims = ShmAttachResponse.maxDims_null_value(ShmAttachResponse.Decoder)
         @test_throws ArgumentError Producer.init_producer_from_attach(cfg, base; client = client)
 
         base = valid_attach_response()

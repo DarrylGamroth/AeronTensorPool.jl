@@ -41,7 +41,7 @@ Status: completed.
   2. Driver attach response nodeId (if provided)
   3. Error if tracing enabled and node ID missing
 
-Status: in progress.
+Status: completed.
 
 ---
 

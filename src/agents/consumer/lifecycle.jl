@@ -33,7 +33,6 @@ function handle_driver_events!(state::ConsumerState, now_ns::UInt64)
             dc;
             stream_id = state.config.stream_id,
             expected_layout_version = state.config.expected_layout_version,
-            max_dims = UInt8(0),
             publish_mode = DriverPublishMode.REQUIRE_EXISTING,
             require_hugepages = state.config.require_hugepages,
         )

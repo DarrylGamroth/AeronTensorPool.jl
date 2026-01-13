@@ -12,9 +12,12 @@
         ShmAttachRequest.clientId!(enc, UInt32(3))
         ShmAttachRequest.role!(enc, DriverRole.PRODUCER)
         ShmAttachRequest.expectedLayoutVersion!(enc, UInt32(1))
-        ShmAttachRequest.maxDims!(enc, UInt8(8))
         ShmAttachRequest.publishMode!(enc, DriverPublishMode.REQUIRE_EXISTING)
         ShmAttachRequest.requireHugepages!(enc, DriverHugepagesPolicy.UNSPECIFIED)
+        ShmAttachRequest.desiredNodeId!(
+            enc,
+            ShmAttachRequest.desiredNodeId_null_value(ShmAttachRequest.Decoder),
+        )
         return nothing
     end
 

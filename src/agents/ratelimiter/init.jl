@@ -86,7 +86,6 @@ function init_mapping_state(
         consumer_driver;
         stream_id = mapping.source_stream_id,
         expected_layout_version = consumer_cfg.expected_layout_version,
-        max_dims = UInt8(MAX_DIMS),
         require_hugepages = consumer_cfg.require_hugepages,
     )
     corr_consumer == 0 && throw(ArgumentError("consumer attach request failed"))
@@ -100,7 +99,6 @@ function init_mapping_state(
             consumer_driver;
             stream_id = mapping.source_stream_id,
             expected_layout_version = consumer_cfg.expected_layout_version,
-            max_dims = UInt8(MAX_DIMS),
             require_hugepages = consumer_cfg.require_hugepages,
         ),
     )
@@ -123,7 +121,6 @@ function init_mapping_state(
         producer_driver;
         stream_id = mapping.dest_stream_id,
         expected_layout_version = producer_cfg.layout_version,
-        max_dims = UInt8(MAX_DIMS),
     )
     corr_producer == 0 && throw(ArgumentError("producer attach request failed"))
     attach_producer = await_attach_response!(
@@ -136,7 +133,6 @@ function init_mapping_state(
             producer_driver;
             stream_id = mapping.dest_stream_id,
             expected_layout_version = producer_cfg.layout_version,
-            max_dims = UInt8(MAX_DIMS),
         ),
     )
     producer_state = init_producer_from_attach(

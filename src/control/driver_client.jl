@@ -12,6 +12,7 @@ mutable struct DriverClientState
     role::DriverRole.SbeEnum
     lease_id::UInt64
     stream_id::UInt32
+    node_id::UInt32
     keepalive_timer::PolledTimer
     next_correlation_id::Int64
     revoked::Bool
@@ -62,6 +63,7 @@ function init_driver_client(
         role,
         UInt64(0),
         UInt32(0),
+        UInt32(0),
         PolledTimer(keepalive_interval_ns),
         (Int64(client_id) << 32) + 1,
         false,
@@ -91,9 +93,10 @@ Send an attach request and return the correlation id.
 Arguments (keywords):
 - `stream_id`: stream identifier to attach.
 - `expected_layout_version`: expected layout version (default: 0).
-- `max_dims`: ignored by the driver (default: 0).
 - `publish_mode`: publish mode override (optional).
 - `require_hugepages`: hugepage policy (optional).
+- `desired_node_id`: requested node ID (optional).
+- `desired_node_id`: requested node ID (optional).
 
 Returns:
 - Correlation id (Int64) on send success, or 0 on failure.
@@ -102,9 +105,9 @@ function send_attach_request!(
     state::DriverClientState;
     stream_id::UInt32,
     expected_layout_version::UInt32 = UInt32(0),
-    max_dims::UInt8 = UInt8(0),
     publish_mode::Union{DriverPublishMode.SbeEnum, Nothing} = nothing,
     require_hugepages::Union{DriverHugepagesPolicy.SbeEnum, Bool, Nothing} = nothing,
+    desired_node_id::Union{UInt32, Nothing} = nothing,
 )
     correlation_id = next_correlation_id!(state)
     sent = send_attach!(
@@ -114,9 +117,9 @@ function send_attach_request!(
         client_id = state.client_id,
         role = state.role,
         expected_layout_version = expected_layout_version,
-        max_dims = max_dims,
         publish_mode = publish_mode,
         require_hugepages = require_hugepages,
+        desired_node_id = desired_node_id,
     )
     if !sent
         @tp_warn "attach request send failed" correlation_id = correlation_id stream_id = stream_id client_id =
@@ -133,6 +136,11 @@ function apply_attach!(state::DriverClientState, attach::AttachResponse)
     if attach.code == DriverResponseCode.OK
         state.lease_id = attach.lease_id
         state.stream_id = attach.stream_id
+        if attach.node_id == ShmAttachResponse.nodeId_null_value(ShmAttachResponse.Decoder)
+            state.node_id = UInt32(0)
+        else
+            state.node_id = attach.node_id
+        end
         state.revoked = false
         state.shutdown = false
     end

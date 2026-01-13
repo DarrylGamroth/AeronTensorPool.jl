@@ -57,6 +57,7 @@ function init_driver(config::DriverConfig; client::Aeron.Client)
 
     streams = Dict{UInt32, DriverStreamState}()
     leases = Dict{UInt64, DriverLease}()
+    assigned_node_ids = Dict{UInt32, UInt64}()
     metrics = DriverMetrics(0, 0, 0, 0, 0, 0, 0)
     timer_set = TimerSet(
         (
@@ -74,7 +75,9 @@ function init_driver(config::DriverConfig; client::Aeron.Client)
         runtime,
         streams,
         leases,
+        assigned_node_ids,
         UInt64(1),
+        UInt32(1),
         config.stream_id_range === nothing ? UInt32(0) : config.stream_id_range.start_id,
         config.descriptor_stream_id_range === nothing ? UInt32(0) : config.descriptor_stream_id_range.start_id,
         config.control_stream_id_range === nothing ? UInt32(0) : config.control_stream_id_range.start_id,
