@@ -55,6 +55,18 @@ first argument; defaults are shown below.
   Discovery request/response example.  
   Usage: `julia --project scripts/example_discovery.jl config/driver_integration_example.toml`
 
+- `example_join_barrier_sequence.jl`  
+  JoinBarrier sequence example (in-memory).  
+  Usage: `julia --project scripts/example_join_barrier_sequence.jl`
+
+- `example_join_barrier_timestamp.jl`  
+  JoinBarrier timestamp example (in-memory).  
+  Usage: `julia --project scripts/example_join_barrier_timestamp.jl`
+
+- `example_join_barrier_latest.jl`  
+  JoinBarrier latest-value example (in-memory).  
+  Usage: `julia --project scripts/example_join_barrier_latest.jl`
+
 - `example_qos_monitor.jl`  
   QoS snapshot monitor.  
   Usage: `julia --project scripts/example_qos_monitor.jl config/driver_integration_example.toml`
