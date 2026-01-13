@@ -26,6 +26,7 @@ MetadataEntry(stream_id::UInt32) =
 
 const DEFAULT_METADATA_TEXT_FORMAT = "text/plain"
 const DEFAULT_METADATA_BINARY_FORMAT = "application/octet-stream"
+const METADATA_CHUNK_MAX = UInt32(64 * 1024)
 
 MetadataAttribute(
     key::AbstractString,
@@ -59,3 +60,25 @@ MetadataAttribute(kv::Pair{<:AbstractString, <:Tuple{<:AbstractString, Any}}) =
 
 MetadataAttribute(kv::Pair{<:AbstractString, <:NamedTuple{(:format, :value), <:Tuple{<:AbstractString, Any}}}) =
     MetadataAttribute(kv.first, kv.second.format, kv.second.value)
+
+"""
+Validate metadata chunk offsets and lengths against monotonic, non-overlapping rules.
+"""
+function validate_metadata_chunks(
+    offsets::AbstractVector{UInt32},
+    lengths::AbstractVector{UInt32};
+    chunk_max::UInt32 = METADATA_CHUNK_MAX,
+)
+    length(offsets) == length(lengths) || return false
+    isempty(offsets) && return true
+    last_end = UInt32(0)
+    for i in eachindex(offsets)
+        len = lengths[i]
+        len == 0 && return false
+        len > chunk_max && return false
+        off = offsets[i]
+        off < last_end && return false
+        last_end = off + len
+    end
+    return true
+end

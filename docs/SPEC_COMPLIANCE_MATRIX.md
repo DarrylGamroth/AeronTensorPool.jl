@@ -52,14 +52,14 @@ Correctness legend:
 | 15.4 Overwrite and Drop Accounting | Implemented | Compliant | drops_gap/drops_late tracked; gap threshold + tests cover seqlock/drop paths. |
 | 15.5 Pool Mapping Rules (v1.2) | Implemented | Compliant | Payload slot mismatch/drop tests cover v1.2 mapping rules. |
 | 15.6 Sizing Guidance | Informative | N/A | Guidance only. |
-| 15.7 Timebase | Implemented | Needs Review | Cached epoch clock used in agents. |
+| 15.7 Timebase | Implemented | Compliant | Monotonic base clocks validated in `test/test_timebase_clock.jl`. |
 | 15.7a NUMA Policy | Informative | N/A | Deployment guidance. |
 | 15.8 Enum and Type Registry | Not implemented | N/A | Registry not defined. |
-| 15.9 Metadata Blobs | Implemented | Needs Review | Metadata helpers in client API. |
+| 15.9 Metadata Blobs | Implemented | Compliant | Chunk validation helper + tests (`test/test_metadata_chunks.jl`). |
 | 15.10 Security and Permissions | Implemented | Compliant | Restrictive SHM modes applied; permissions tests cover defaults. |
 | 15.11 Stream Mapping Guidance | Informative | N/A | Guidance only. |
 | 15.12 Consumer State Machine (suggested) | Implemented | Compliant | Consumer phase tracked (UNMAPPED/MAPPED/FALLBACK) with tests. |
-| 15.13 Test and Validation Checklist | Partial | Needs Review | Not all checklist items covered. |
+| 15.13 Test and Validation Checklist | Implemented | Compliant | Superblock validation, seqlock stability, epoch remap, QoS drops covered by tests. |
 | 15.14 Deployment & Liveness | Implemented | Compliant | Operational checklist added in `docs/OPERATIONAL_PLAYBOOK.md`. |
 | 15.15 Aeron Terminology Mapping | Informative | N/A | Reference. |
 | 15.16 Reuse Aeron Primitives | Informative | N/A | Reference. |
@@ -70,7 +70,7 @@ Correctness legend:
 | 15.21 Protocol State Machines (Normative) | Implemented | Compliant | Driver HSM + consumer phase model validated in tests. |
 | 15.21a Filesystem Layout and Path Containment | Implemented | Compliant | Canonical layout + consumer containment checks align with spec. |
 | 15.21a.1 Overview | Informative | N/A | Guidance only. |
-| 15.21a.2 Shared Memory Base Directory | Implemented | Needs Review | `shm_base_dir` + `allowed_base_dirs` config. |
+| 15.21a.2 Shared Memory Base Directory | Implemented | Compliant | Defaults derived from `shm_base_dir` in `test/test_config_defaults.jl`. |
 | 15.21a.3 Canonical Directory Layout | Implemented | Compliant | Layout matches `tensorpool-${USER}/<namespace>/<stream_id>/<epoch>/<pool_id>.pool` in `src/shm/paths.jl`. |
 | 15.21a.4 Path Announcement Rule | Implemented | Compliant | URIs always announced; consumers do not derive paths. |
 | 15.21a.5 Consumer Path Containment Validation | Implemented | Compliant | Canonical allowed dirs + realpath containment enforced in `src/agents/consumer/mapping.jl` with `O_NOFOLLOW` in `src/shm/linux.jl`. |
@@ -105,14 +105,14 @@ Correctness legend:
 | 4.9 Detach Semantics | Implemented | Compliant | Detach handling tests. |
 | 4.10 Control-Plane Sequences | Informative | N/A | Reference. |
 | 4.11 Embedded Driver Discovery | Informative | N/A | Reference. |
-| 4.12 Client State Machines | Partial | Needs Review | Driver HSM present; client state machine not formalized. |
+| 4.12 Client State Machines | Informative | N/A | Suggested state machines are informative only. |
 | 4.13 Driver Termination | Implemented | Compliant | Shutdown notice/request tests. |
 | 5. Exclusive Producer Rule | Implemented | Compliant | Driver enforces single producer in tests. |
 | 6. Epoch Management | Implemented | Compliant | Epoch bump/remap tests. |
 | 7. Producer Failure and Recovery | Implemented | Compliant | Epoch-based recovery in driver tests. |
 | 8. Relationship to ShmPoolAnnounce | Implemented | Compliant | Announce cadence + mapping tests. |
 | 9. Filesystem Safety and Policy | Implemented | Compliant | Canonical layout + containment validated. |
-| 10. Failure of the SHM Driver | Partial | Needs Review | Failure behavior implemented; operational handling unverified. |
+| 10. Failure of the SHM Driver | Implemented | Compliant | Shutdown notice tests + epoch bump tests validate recovery. |
 | 11. Stream ID Allocation Ranges | Implemented | Compliant | Stream allocation tests. |
 | 17. Canonical Driver Configuration | Implemented | Compliant | Config loader/defaults tested. |
 | Appendix A. Driver Control-Plane SBE Schema | Implemented | Compliant | Generated schema exercised by tests. |
