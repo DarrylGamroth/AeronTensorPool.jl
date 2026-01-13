@@ -1,5 +1,8 @@
 # Aeron Tensor Pool Implementation Guide (Julia, v1.2)
 
+> NOTE: This document may lag the authoritative specs. Do not use it as a normative reference.
+> Treat it as background context only until it is explicitly revalidated against the current specs.
+
 This guide maps the wire spec to concrete implementation steps in Julia using Aeron.jl, SBE.jl, and Agent.jl. It stays implementation-oriented and references the spec for normative rules.
 
 Note: Initial driver and client implementations are in Julia. The wire/driver specs are language-neutral and should remain implementable across languages.
