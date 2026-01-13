@@ -134,6 +134,9 @@ in_time_range = [out_time - window_ns, out_time]
 Window size MUST be a positive integer. If `out_time < window_ns`, the rule is
 not ready. Readiness uses `out_time - lateness_ns` as the upper-bound check,
 while the rule definition remains `in_time_range = [out_time - window_ns, out_time]`.
+If `latenessNs` is zero, readiness still requires `observed_time` to reach
+`out_time`; deployments that expect lagged inputs SHOULD size `latenessNs` to
+cover the desired window.
 
 ### 6.4 Stability and Epoch Handling
 
@@ -234,6 +237,9 @@ applied only in the readiness inequality above.
   active `TimestampMergeMapAnnounce`.
 - When using WINDOW_NS rules, lateness is applied to the upper bound of the
   window (i.e., the required in_time for readiness is `out_time - lateness_ns`).
+- If `latenessNs` is zero, WINDOW_NS rules still require `observed_time` to
+  reach `out_time`; deployments that expect lagged inputs SHOULD set
+  `latenessNs` large enough to cover the desired window.
 - For streams participating in TimestampJoinBarrier, timestamps MUST be
   monotonic non-decreasing within a stream; otherwise the stream MUST be
   rejected for timestamp-based joins.
@@ -672,6 +678,7 @@ out_time = cam.timestamp_ns
 cam: OFFSET_NS = 0
 lidar: WINDOW_NS = 50_000_000   # 50 ms
 imu:   WINDOW_NS = 10_000_000   # 10 ms
+latenessNs = 50_000_000
 ```
 
 Result: Camera anchors the join; lidar/IMU samples are chosen from bounded
