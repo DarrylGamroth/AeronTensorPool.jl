@@ -234,6 +234,7 @@ function init_rate_limiter(
     client::Aeron.Client,
     driver_work_fn::Union{Nothing, Function} = nothing,
 )
+    validate_rate_limiter_config!(config)
     clock = Clocks.CachedEpochClock(Clocks.MonotonicClock())
 
     mapping_states = RateLimiterMappingState[]

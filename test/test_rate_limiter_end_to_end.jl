@@ -285,6 +285,18 @@ end
         dest_header_index = UInt32(captured[].seq & (UInt64(dest_nslots) - 1))
         @test dest_header_index == UInt32(1)
 
+        oversized_len = length(mapping_state.pending.payload_buf) + 1
+        mapping_state.pending.valid = true
+        mapping_state.pending.seq = UInt64(42)
+        mapping_state.max_rate_hz = UInt32(1)
+        mapping_state.next_allowed_ns = typemax(UInt64)
+        oversized_view = ConsumerFrameView(
+            mapping_state.pending.header,
+            PayloadView(Vector{UInt8}(undef, 1), 0, oversized_len),
+        )
+        AeronTensorPool.Agents.RateLimiter.handle_source_frame!(mapping_state, consumer_state, oversized_view)
+        @test mapping_state.pending.valid == false
+
         close_producer_state!(producer_state)
         close_consumer_state!(consumer_state)
         close_driver_state!(driver_state)

@@ -181,13 +181,18 @@ function load_rate_limiter_config(path::AbstractString; env::AbstractDict = ENV)
         entry isa AbstractDict || throw(ArgumentError("rate_limiter mappings must be tables"))
         push!(mappings, parse_rate_limiter_mapping(entry, max_rate_hz))
     end
-
-    if forward_progress && (source_control_stream_id == 0 || dest_control_stream_id == 0)
-        throw(ArgumentError("forward_progress requires nonzero source_control_stream_id and dest_control_stream_id"))
-    end
-    if forward_qos && (source_qos_stream_id == 0 || dest_qos_stream_id == 0)
-        throw(ArgumentError("forward_qos requires nonzero source_qos_stream_id and dest_qos_stream_id"))
-    end
+    validate_rate_limiter_config!(config)
 
     return config, mappings
+end
+
+function validate_rate_limiter_config!(config::RateLimiterConfig)
+    if config.forward_progress &&
+       (config.source_control_stream_id == 0 || config.dest_control_stream_id == 0)
+        throw(ArgumentError("forward_progress requires nonzero source_control_stream_id and dest_control_stream_id"))
+    end
+    if config.forward_qos && (config.source_qos_stream_id == 0 || config.dest_qos_stream_id == 0)
+        throw(ArgumentError("forward_qos requires nonzero source_qos_stream_id and dest_qos_stream_id"))
+    end
+    return config
 end

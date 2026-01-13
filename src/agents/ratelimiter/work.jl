@@ -22,7 +22,11 @@ function handle_source_frame!(
         rematerialize_frame!(mapping_state, header, payload_ptr, payload_len)
         clear_pending!(mapping_state.pending)
     else
-        store_pending!(mapping_state.pending, header, payload_ptr, payload_len)
+        if !store_pending!(mapping_state.pending, header, payload_ptr, payload_len)
+            seq = mapping_state.pending.seq
+            clear_pending!(mapping_state.pending)
+            @tp_debug "rate limiter dropped pending frame" reason = :pending_too_large seq
+        end
     end
     return nothing
 end
