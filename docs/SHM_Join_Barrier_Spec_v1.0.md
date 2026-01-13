@@ -408,124 +408,7 @@ The timestamp request message MUST contain:
 
 ## 11. Examples (Informative)
 
-### 11.1 Two-Stream Aligned Join
-
-```
-A: in_seq = out_seq
-B: in_seq = out_seq
-```
-
-SequenceJoinBarrier condition for `out_seq = 12034`:
-
-```
-observed[A] >= 12034
-observed[B] >= 12034
-```
-
-### 11.2 Offset Compensation Join
-
-```
-A: in_seq = out_seq
-B: in_seq = out_seq - 2
-```
-
-SequenceJoinBarrier condition for `out_seq = 12034`:
-
-```
-observed[A] >= 12034
-observed[B] >= 12032
-```
-
-### 11.3 Sliding Window Join
-
-```
-A: in_seq_range = [out_seq - 4, out_seq]
-```
-
-SequenceJoinBarrier readiness uses `observed[A] >= out_seq`, and slot validation
-determines which window members are usable.
-
-### 11.4 Timestamp Offset Join
-
-```
-clock_domain = REALTIME_SYNCED
-A: in_time = out_time
-B: in_time = out_time - 5_000_000  # 5 ms offset
-```
-
-TimestampJoinBarrier condition for `out_time = 1_700_000_000_000_000_000`:
-
-```
-observed_time[A] >= 1_700_000_000_000_000_000
-observed_time[B] >= 1_699_999_999_995_000_000
-```
-
-### 11.5 Latest Value (As-Of) Join
-
-```
-inputs = [A, B, C]
-```
-
-LatestValueJoinBarrier readiness for an output tick:
-
-```
-observed[A] >= min_seq_in_epoch
-observed[B] >= min_seq_in_epoch
-observed[C] >= min_seq_in_epoch
-```
-
-Each input uses the most recent observed frame for that stream in the current
-epoch, regardless of sequence alignment.
-
-### 11.6 Input-Driven Timestamp Join (Camera + IMU)
-
-Streams:
-- `cam` at ~30 Hz (primary timing source)
-- `imu` at ~200 Hz
-
-Join policy:
-- `out_time` is driven by the most recent `cam.timestamp_ns` (input-driven).
-- `cam`: `OFFSET_NS = 0`
-- `imu`: `WINDOW_NS = 10_000_000` (10 ms lookback)
-
-For each new camera frame, the join emits output at `out_time = cam.timestamp_ns`
-when:
-
-```
-observed_time[cam] >= out_time
-observed_time[imu] >= out_time - 10_000_000
-```
-
-Selection chooses the newest IMU sample within the window, yielding
-camera-anchored outputs while tolerating rate mismatch.
-
-### 11.7 Diamond Pattern Join
-
-```
-source -> branch1 -> B
-source -> branch2 -> C
-B + C -> D
-```
-
-MergeMap for D:
-
-```
-B: in_seq = out_seq
-C: in_seq = out_seq
-```
-
-SequenceJoinBarrier for `out_seq = N` requires both branches to reach N before
-attempting the join into D.
-
-### 11.8 Stale Input Degradation (Optional Extension)
-
-```
-staleTimeoutNs = 5_000_000_000  # 5 s
-inputs = [A, B]
-```
-
-If stream B has not advanced for `staleTimeoutNs`, the JoinBarrier may proceed
-using A while marking B as absent for that output tick.
+Worked examples are provided in Appendix A.
 
 ## 12. Feature Comparison Matrix (Informative)
 
@@ -819,7 +702,9 @@ video: in_time = out_time
 audio: in_time = out_time - 20_000_000  # audio pipeline latency
 ```
 
-Result: Video anchors the join; audio is selected from a short latency window.
+Result: The join is wall-clock anchored; video and audio are selected relative
+to the external reference time.
+
 
 #### A.4.6 Batch-to-Stream Reconciliation
 
