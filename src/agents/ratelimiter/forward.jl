@@ -5,10 +5,6 @@ Lookup a mapping by source stream id.
     return get(state.mapping_by_source, stream_id, nothing)
 end
 
-@inline function progress_header_index(nslots::UInt32, frame_id::UInt64)
-    return UInt32(frame_id & (UInt64(nslots) - 1))
-end
-
 function forward_data_source_announce!(
     state::RateLimiterState,
     mapping::RateLimiterMappingState,
@@ -85,18 +81,14 @@ function forward_progress!(
     pub === nothing && return false
 
     msg_len = MESSAGE_HEADER_LEN + Int(FrameProgress.sbe_block_length(FrameProgress.Decoder))
-    frame_id = UInt64(FrameProgress.frameId(msg))
-    dest_nslots = mapping.producer_agent.state.config.nslots
-    dest_header_index = progress_header_index(dest_nslots, frame_id)
+    seq = UInt64(FrameProgress.seq(msg))
     return with_claimed_buffer!(pub, state.control_claim, msg_len) do buf
         FrameProgress.wrap_and_apply_header!(state.progress_encoder, buf, 0)
         FrameProgress.streamId!(state.progress_encoder, mapping.mapping.dest_stream_id)
         FrameProgress.epoch!(state.progress_encoder, FrameProgress.epoch(msg))
-        FrameProgress.frameId!(state.progress_encoder, frame_id)
-        FrameProgress.headerIndex!(state.progress_encoder, dest_header_index)
+        FrameProgress.seq!(state.progress_encoder, seq)
         FrameProgress.payloadBytesFilled!(state.progress_encoder, FrameProgress.payloadBytesFilled(msg))
         FrameProgress.state!(state.progress_encoder, FrameProgress.state(msg))
-        FrameProgress.rowsFilled!(state.progress_encoder, FrameProgress.rowsFilled(msg))
     end
 end
 

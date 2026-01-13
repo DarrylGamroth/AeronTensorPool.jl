@@ -17,14 +17,13 @@ Status: completed.
 - Add unit test where claim fails (force backpressure) and assert pending is cleared and next frames can flow.
 Status: completed.
 
-## Phase 2: FrameProgress headerIndex rewrite
-- **Current**: forwarded `FrameProgress.headerIndex` preserves source index.
-- **Spec**: destination headerIndex must be derived from `seq` and dest `nslots`.
+## Phase 2: FrameProgress seq forwarding
+- **Current**: rate limiter forwarded `FrameProgress` with non‑schema fields (`frameId`, `headerIndex`).
+- **Spec**: `FrameProgress` includes `seq` only; receivers derive header index from `seq`.
 - **Fix**:
-  - In progress forward path, compute `dest_header_index = seq & (nslots - 1)` using mapped dest `nslots` and use that when publishing progress.
-  - Ensure headerIndex rewrite applies for both COMPLETE and IN_PROGRESS states.
+  - Forward `FrameProgress.seq` unchanged and rewrite `streamId` to destination.
 - **Tests**:
-- Add progress forwarding test with mismatched source/dest `nslots` to verify headerIndex rewrite.
+  - Add progress forwarding test with mismatched source/dest `nslots` to verify `seq` preservation and derived header index.
 Status: completed.
 
 ## Phase 3: Per-consumer rate policy enforcement

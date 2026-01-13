@@ -24,6 +24,31 @@ function decode_consumer_hello(buffer::Vector{UInt8})
     return dec
 end
 
+function encode_progress!(
+    buffer::Vector{UInt8},
+    stream_id::UInt32,
+    epoch::UInt64,
+    seq::UInt64,
+)
+    unsafe_buf = UnsafeArrays.UnsafeArray{UInt8, 1}(pointer(buffer), (length(buffer),))
+    enc = FrameProgress.Encoder(UnsafeArrays.UnsafeArray{UInt8, 1})
+    FrameProgress.wrap_and_apply_header!(enc, unsafe_buf, 0)
+    FrameProgress.streamId!(enc, stream_id)
+    FrameProgress.epoch!(enc, epoch)
+    FrameProgress.seq!(enc, seq)
+    FrameProgress.payloadBytesFilled!(enc, UInt64(0))
+    FrameProgress.state!(enc, AeronTensorPool.ShmTensorpoolControl.FrameProgressState.COMPLETE)
+    return sbe_encoded_length(enc)
+end
+
+function decode_progress(buffer::Vector{UInt8})
+    unsafe_buf = UnsafeArrays.UnsafeArray{UInt8, 1}(pointer(buffer), (length(buffer),))
+    dec = FrameProgress.Decoder(UnsafeArrays.UnsafeArray{UInt8, 1})
+    header = MessageHeader.Decoder(unsafe_buf, 0)
+    FrameProgress.wrap!(dec, unsafe_buf, 0; header = header)
+    return dec
+end
+
 @testset "RateLimiter end-to-end" begin
     with_driver_and_client() do media_driver, client
         base_dir = mktempdir()
@@ -229,7 +254,36 @@ end
         mapping_state.next_allowed_ns = UInt64(0)
         AeronTensorPool.Agents.RateLimiter.publish_pending!(mapping_state)
         @test mapping_state.pending.valid == false
-        @test AeronTensorPool.Agents.RateLimiter.progress_header_index(UInt32(8), UInt64(9)) == UInt32(1)
+        control_stream_id = Int32(1500)
+        control_pub = Aeron.add_publication(client, "aeron:ipc", control_stream_id)
+        control_sub = Aeron.add_subscription(client, "aeron:ipc", control_stream_id)
+        rl_state.control_pub = control_pub
+
+        progress_buf = Vector{UInt8}(undef, 128)
+        encode_progress!(progress_buf, UInt32(10001), UInt64(1), UInt64(9))
+        progress_dec = decode_progress(progress_buf)
+
+        captured = Ref{Union{Nothing, NamedTuple{(:stream_id, :seq), Tuple{UInt32, UInt64}}}}(nothing)
+        handler = Aeron.FragmentHandler(captured) do ref, buffer, _
+            dec = FrameProgress.Decoder(UnsafeArrays.UnsafeArray{UInt8, 1})
+            header = MessageHeader.Decoder(buffer, 0)
+            FrameProgress.wrap!(dec, buffer, 0; header = header)
+            ref[] = (stream_id = FrameProgress.streamId(dec), seq = FrameProgress.seq(dec))
+            nothing
+        end
+        assembler = Aeron.FragmentAssembler(handler)
+        ok = wait_for() do
+            AeronTensorPool.Agents.RateLimiter.forward_progress!(rl_state, mapping_state, progress_dec)
+            Aeron.poll(control_sub, assembler, 10)
+            captured[] !== nothing
+        end
+        @test ok == true
+        @test captured[] !== nothing
+        @test captured[].stream_id == UInt32(10002)
+        @test captured[].seq == UInt64(9)
+        dest_nslots = mapping_state.producer_agent.state.config.nslots
+        dest_header_index = UInt32(captured[].seq & (UInt64(dest_nslots) - 1))
+        @test dest_header_index == UInt32(1)
 
         close_producer_state!(producer_state)
         close_consumer_state!(consumer_state)
