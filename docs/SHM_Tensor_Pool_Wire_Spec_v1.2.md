@@ -54,7 +54,7 @@ Each **producer service** owns:
    - Fixed stride per pool.
    - Multiple size classes allowed.
 - v1.2: same slot count as header ring; `payload_slot = header_index` (header_index derived from `seq`; decoupled/free-list mapping is a v2 change).
-  - Choose `stride_bytes` as a power of two and a multiple of the backing page/hugepage size (e.g., 4 KiB or 2 MiB); size-class upward from there (1 MiB, 2 MiB, 4 MiB, 8 MiB on 2 MiB hugepages is a reasonable start).
+  - Choose `stride_bytes` as a power-of-two multiple of 64 bytes (e.g., 64 B, 256 B, 1 KiB, 4 KiB, 1 MiB, 2 MiB, 4 MiB, 8 MiB).
 
 3. **Aeron Publications**
    - `FrameDescriptor` stream (IPC).
@@ -937,7 +937,7 @@ Only `path` and `require_hugepages` are defined; unknown parameters MUST be reje
 
 - Consumers MUST reject any `region_uri` with an unknown scheme.
 - For `shm:file`, if `require_hugepages=true`, consumers MUST verify that the mapped region is hugepage-backed. On platforms without a reliable verification mechanism (e.g., Windows), `require_hugepages=true` is unsupported and MUST cause the region to be rejected (no silent downgrade).
-- `stride_bytes` is explicit and MUST NOT be inferred from page size. It MUST be a power of two and a multiple of the backing page size; if `require_hugepages=true`, it MUST also be a multiple of the mapped hugepage size.
+- `stride_bytes` is explicit and MUST NOT be inferred from page size. It MUST be a power-of-two multiple of 64 bytes.
 - For `shm:file`, parameters are separated by `|`; unknown parameters MUST be rejected.
 - Regions that violate these requirements MUST be rejected. On rejection, consumers MAY fall back to a configured `payload_fallback_uri`; otherwise they MUST fail the data source with a clear diagnostic. Rejected regions MUST NOT be partially consumed.
 
