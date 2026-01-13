@@ -70,6 +70,14 @@ Suggested thresholds (tune per deployment)
 - If `/dev/shm` fills up, enable epoch GC (`policies.epoch_gc_enabled`) or run a manual cleanup of stale epoch directories.
 - Verify that payload_slot == header_index for v1.2 mapping.
 
+## Deployment & Liveness Validation Checklist (Wire §15.14)
+- Verify superblock fields (`magic`, `layout_version`, `epoch`, `pid`, `start_timestamp_ns`, `activity_timestamp_ns`) are present and updated.
+- Confirm producers refresh `activity_timestamp_ns` at announce cadence and supervisors treat stale activity as dead (3-5x announce interval).
+- Validate remap triggers: any change to `magic`, `layout_version`, or `epoch` causes consumer remap.
+- Confirm single-writer rule: concurrent writers or pid changes trigger remap/unmap.
+- Check clean shutdown behavior: optional unlink or clean-close flag, and epoch GC removes stale epochs.
+- Validate permissions/ownership on SHM files match policy (restrictive modes).
+
 ## CLI Examples (Driver Control Plane)
 Attach (producer role):
 - `julia --project scripts/tp_tool.jl driver-attach /dev/shm/aeron aeron:ipc 1000 7 producer 42`

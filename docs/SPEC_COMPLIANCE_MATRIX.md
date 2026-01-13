@@ -60,7 +60,7 @@ Correctness legend:
 | 15.11 Stream Mapping Guidance | Informative | N/A | Guidance only. |
 | 15.12 Consumer State Machine (suggested) | Implemented | Compliant | Consumer phase tracked (UNMAPPED/MAPPED/FALLBACK) with tests. |
 | 15.13 Test and Validation Checklist | Partial | Needs Review | Not all checklist items covered. |
-| 15.14 Deployment & Liveness | Partial | Needs Review | Liveness timers present; full ops guidance unverified. |
+| 15.14 Deployment & Liveness | Implemented | Compliant | Operational checklist added in `docs/OPERATIONAL_PLAYBOOK.md`. |
 | 15.15 Aeron Terminology Mapping | Informative | N/A | Reference. |
 | 15.16 Reuse Aeron Primitives | Informative | N/A | Reference. |
 | 15.16a File-Backed SHM Regions | Implemented | Needs Review | File-backed SHM supported. |

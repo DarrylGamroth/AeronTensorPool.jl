@@ -93,6 +93,7 @@ Severity legend:
 - Matrix: Wire 15.14 (Needs Review)
 - Issue: operational guidance not fully validated.
 - Required: add operator tests or validation checklist mapping.
+- Status: Done (validation checklist in OPERATIONAL_PLAYBOOK).
 
 ---
 
