@@ -477,7 +477,29 @@ observed[C] >= min_seq_in_epoch
 Each input uses the most recent observed frame for that stream in the current
 epoch, regardless of sequence alignment.
 
-### 11.6 Diamond Pattern Join
+### 11.6 Input-Driven Timestamp Join (Camera + IMU)
+
+Streams:
+- `cam` at ~30 Hz (primary timing source)
+- `imu` at ~200 Hz
+
+Join policy:
+- `out_time` is driven by the most recent `cam.timestamp_ns` (input-driven).
+- `cam`: `OFFSET_NS = 0`
+- `imu`: `WINDOW_NS = 10_000_000` (10 ms lookback)
+
+For each new camera frame, the join emits output at `out_time = cam.timestamp_ns`
+when:
+
+```
+observed_time[cam] >= out_time
+observed_time[imu] >= out_time - 10_000_000
+```
+
+Selection chooses the newest IMU sample within the window, yielding
+camera-anchored outputs while tolerating rate mismatch.
+
+### 11.7 Diamond Pattern Join
 
 ```
 source -> branch1 -> B
@@ -495,7 +517,7 @@ C: in_seq = out_seq
 SequenceJoinBarrier for `out_seq = N` requires both branches to reach N before
 attempting the join into D.
 
-### 11.7 Stale Input Degradation (Optional Extension)
+### 11.8 Stale Input Degradation (Optional Extension)
 
 ```
 staleTimeoutNs = 5_000_000_000  # 5 s
@@ -523,43 +545,7 @@ using A while marking B as absent for that output tick.
 
 ## 13. Usage Guidance (Informative)
 
-### 13.1 SequenceJoinBarrier Usage
-
-Use SequenceJoinBarrier when:
-
-- Streams are in the same rate domain or have been rate-normalized upstream.
-- Deterministic alignment by sequence is required.
-- The join stage must remain zero-alloc and low-latency.
-
-Typical pattern:
-- Use `SequenceMergeMapAnnounce` with OFFSET or WINDOW rules.
-- Join on `FrameDescriptor.seq` and validate slots once.
-
-### 13.2 TimestampJoinBarrier Usage
-
-Use TimestampJoinBarrier when:
-
-- Streams are naturally time-aligned but operate at different rates.
-- Clock domains are disciplined (MONOTONIC local or REALTIME_SYNCED across hosts).
-- A lateness budget is acceptable to tolerate jitter.
-
-Typical pattern:
-- Use `TimestampMergeMapAnnounce` with OFFSET_NS or WINDOW_NS rules.
-- Configure `latenessNs` for a bounded lateness window.
-- Prefer an explicit jitter-buffer stage if reordering is required.
-
-### 13.3 LatestValueJoinBarrier Usage
-
-Use LatestValueJoinBarrier when:
-
-- Low latency is preferred over strict alignment.
-- Stale inputs are acceptable (as-of join semantics).
-- The join should proceed even when some inputs are slow, optionally with a
-  staleness policy.
-
-Typical pattern:
-- Declare input streams in the active MergeMap.
-- Select the most recent observed frame per stream, scoped to the current epoch.
+Usage guidance and worked examples are provided in Appendix A.
 
 ## 14. Interoperability Requirements
 
@@ -658,3 +644,250 @@ for offsetNs and windowNs.
   </message>
 </sbe:messageSchema>
 ```
+
+## Appendix A. Usage Examples (Informative)
+
+This appendix provides practical, non-normative examples for using the
+SequenceJoinBarrier, TimestampJoinBarrier, and LatestValueJoinBarrier.
+
+### A.1 Picking a JoinBarrier
+
+- **SequenceJoinBarrier**: best when streams are in the same rate domain or
+  have been rate-normalized upstream; deterministic alignment by `seq`.
+- **TimestampJoinBarrier**: best when streams are time-aligned but at different
+  rates; alignment by `timestamp_ns` with a configurable lateness budget.
+- **LatestValueJoinBarrier**: best when low latency matters more than strict
+  alignment; uses most recent value per stream.
+
+### A.2 TimestampJoinBarrier `out_time` Sources
+
+TimestampJoinBarrier uses an `out_time` value to decide readiness. Common
+sources:
+
+- **Pipeline clock (recommended)**: a monotonic clock in the join agent. You
+  compute `out_time` on each output tick.
+- **Input-driven**: set `out_time` to the latest eligible input frame timestamp
+  (useful for "follow the data" joins).
+- **External reference**: for REALTIME_SYNCED, drive `out_time` from a
+  PTP/NTP-disciplined clock when wall-clock alignment is required.
+
+### A.3 SequenceJoinBarrier Examples
+
+#### A.3.1 Lockstep Cameras
+
+Scenario: Two cameras publish at the same rate. You want output only when both
+reach the same sequence so the join is deterministic.
+
+Approach: Use SequenceJoinBarrier with identical sequence rules.
+
+```
+camA: in_seq = out_seq
+camB: in_seq = out_seq
+```
+
+Result: Output advances only when both streams reach the same `seq`.
+
+#### A.3.2 Fixed Offset Compensation
+
+Scenario: Stream B lags by two frames due to a known processing stage.
+
+Approach: Use an OFFSET rule to compensate the fixed latency.
+
+```
+A: in_seq = out_seq
+B: in_seq = out_seq - 2
+```
+
+Result: Output advances with A while still aligning B to its delayed sequence.
+
+#### A.3.3 Sliding Window Join
+
+Scenario: Stream A is bursty; you can accept any of the last 5 frames while
+still gating on `out_seq`.
+
+Approach: Use a WINDOW rule to allow a bounded lookback.
+
+```
+A: in_seq_range = [out_seq - 4, out_seq]
+```
+
+Result: The join picks the newest valid frame within the window; stale/overwritten
+slots simply fail validation.
+
+#### A.3.4 Diamond Pattern (Sequence-Preserving Branches)
+
+Scenario: A single source fans out to two branches and is rejoined downstream.
+
+```
+source -> branch1 -> B
+source -> branch2 -> C
+B + C -> D
+```
+
+Approach: Use SequenceJoinBarrier at D when both branches preserve sequence
+numbers.
+
+Result: D advances only when both branches reach the same `seq`, avoiding skew.
+
+### A.4 TimestampJoinBarrier Examples
+
+#### A.4.1 Pipeline Clock (Monotonic Tick)
+
+Scenario: You need fixed-rate output regardless of input cadence.
+
+Approach: Use a pipeline clock; set `out_time` on each tick.
+
+```
+out_time = pipeline_clock_now()
+A: in_time = out_time
+B: in_time = out_time - 2_000_000  # 2 ms offset
+```
+
+Result: Output cadence is stable; inputs are selected relative to each tick.
+
+#### A.4.2 Input-Driven (Camera + IMU)
+
+Scenario: Two streams at different rates: `cam` at ~30 Hz and `imu` at ~200 Hz.
+You want each output aligned to the most recent camera frame, with the nearest
+IMU sample inside a short window.
+
+Approach: When a new camera frame arrives, set `out_time = cam.timestamp_ns`.
+Use a WINDOW rule for IMU so the join is ready as long as IMU has a sample
+within the last 10 ms.
+
+Rules:
+```
+cam: OFFSET_NS = 0
+imu: WINDOW_NS = 10_000_000
+```
+
+Readiness:
+
+```
+observed_time[cam] >= out_time
+observed_time[imu] >= out_time - 10_000_000
+```
+
+Result: The join selects the newest IMU sample within the window and emits
+output at camera time.
+
+#### A.4.3 Sensor Fusion (Camera + Lidar + IMU)
+
+Scenario: Fuse camera + lidar + IMU with different rates.
+
+Approach: Drive `out_time` from the camera and use short windows for IMU/lidar.
+
+Example:
+```
+out_time = cam.timestamp_ns
+cam: OFFSET_NS = 0
+lidar: WINDOW_NS = 50_000_000   # 50 ms
+imu:   WINDOW_NS = 10_000_000   # 10 ms
+```
+
+Result: Camera anchors the join; lidar/IMU samples are chosen from bounded
+windows around the camera time.
+
+#### A.4.4 Event-Time Window Join (Flink/Beam-style)
+
+Scenario: Join two streams by event time with bounded lateness.
+
+Approach: Use a watermark or pipeline clock as `out_time` and set `latenessNs`
+to allow late arrivals.
+
+Example:
+```
+out_time = watermark_time()
+latenessNs = 5_000_000_000  # 5 s
+A: WINDOW_NS = 2_000_000_000
+B: WINDOW_NS = 2_000_000_000
+```
+
+Result: At each watermark tick, accept frames in the last 2 s while tolerating
+up to 5 s of lateness.
+
+#### A.4.5 Audio/Video Sync (External Reference)
+
+Scenario: Multi-host audio + video with REALTIME_SYNCED timestamps.
+
+Approach: Drive `out_time` from a PTP/NTP-disciplined clock to align streams
+to wall-clock time.
+
+```
+out_time = ptp_now()
+video: in_time = out_time
+audio: in_time = out_time - 20_000_000  # audio pipeline latency
+```
+
+Result: Video anchors the join; audio is selected from a short latency window.
+
+#### A.4.6 Batch-to-Stream Reconciliation
+
+Scenario: Join periodic batch results with a high-rate stream.
+
+Approach: Use TimestampJoinBarrier; apply OFFSET_NS for batch lag.
+
+Example:
+```
+out_time = pipeline_clock_now()
+stream: OFFSET_NS = 0
+batch:  OFFSET_NS = -30_000_000_000  # 30 s batch delay
+```
+
+Result: Batch results are aligned to the streaming timeline with a fixed delay.
+
+### A.5 LatestValueJoinBarrier Examples
+
+#### A.5.1 Fast Data + Slow Configuration
+
+Scenario: The config stream updates at ~0.1 Hz while data is 1 kHz. Each output
+should use the most recent config without blocking.
+
+Approach: Use LatestValueJoinBarrier with a staleness policy.
+
+```
+inputs = [data, config]
+staleTimeoutNs = 60_000_000_000  # 60 s
+```
+
+Result: Outputs use the latest config; if it is stale, it is marked absent.
+
+#### A.5.2 Telemetry Overlay (Health + Metrics)
+
+Scenario: Attach health/heartbeat state to high-rate metrics.
+
+Approach: Use LatestValueJoinBarrier and treat health as optional.
+
+```
+inputs = [metrics, health]
+staleTimeoutNs = 5_000_000_000  # 5 s
+```
+
+Result: Metrics continue even if health stalls, with explicit absent markers.
+
+#### A.5.3 Most-Recent Buffer Join
+
+Scenario: Use the latest buffer from multiple sensors without strict
+synchronization. This matches many AO workflows that prefer "freshest
+available" data.
+
+Approach: Use LatestValueJoinBarrier and select the most recent per stream.
+
+Result: Low-latency outputs with best-effort alignment.
+
+### A.6 Multi-Rate Join Patterns
+
+- **High-rate -> low-rate alignment**: use TimestampJoinBarrier with a small
+  WINDOW_NS for the high-rate stream; drive `out_time` from the low-rate stream.
+- **Jittery sources**: set `latenessNs` and consider a jitter-buffer stage if
+  reordering is required.
+- **Rate normalization**: insert a rate limiter upstream, then use
+  SequenceJoinBarrier for deterministic joins.
+
+### A.7 Practical Tips
+
+- Keep all TimestampJoinBarrier streams in the same clock domain.
+- Use `staleTimeoutNs` when a dead input should not block outputs forever.
+- Prefer explicit lateness budgets over indefinite waits to bound jitter.
+- For cross-host joins, require REALTIME_SYNCED and document the clock error
+  budget of the deployment.
