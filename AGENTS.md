@@ -5,11 +5,13 @@ This document is authoritative for code organization and intended runtime struct
 match the current code layout in `src/` and the wire/driver specs in `docs/`.
 
 ## Specs and docs - AUTHORATIVE
-- Wire spec: `docs/SHM_Tensor_Pool_Wire_Spec_v1.1.md`
+- Wire spec: `docs/SHM_Tensor_Pool_Wire_Spec_v1.2.md`
 - Driver model spec: `docs/SHM_Driver_Model_Spec_v1.0.md`
 - Bridge spec: `docs/SHM_Aeron_UDP_Bridge_Spec_v1.0.md`
 - Discovery spec: `docs/SHM_Discovery_Service_Spec_v_1.0.md`
 - Rate limiter spec: `docs/SHM_RateLimiter_Spec_v1.0.md`
+- Join barrier spec: `docs/SHM_Join_Barrier_Spec_v1.0.md`
+- TraceLink spec: `docs/SHM_TraceLink_Spec_v1.0.md`
 - Implementation notes: `docs/IMPLEMENTATION.md`
 - User guide (quickstart + integration examples): `docs/USER_GUIDE.md`
 - Stream ID conventions (authoritative for defaults/ranges): `docs/STREAM_ID_CONVENTIONS.md`
@@ -43,7 +45,7 @@ match the current code layout in `src/` and the wire/driver specs in `docs/`.
 - `src/discovery/`: discovery client/types/validation
 - `src/core/`: shared types/constants/messages/errors
 
-## Agent roles (v1.1)
+## Agent roles (v1.2)
 
 ### Producer
 - Owns SHM header ring + payload pools; publishes descriptors + QoS + metadata.
@@ -119,6 +121,7 @@ Each agent follows the same organization for readability:
 ## Integration pitfalls (recent findings)
 - Mixed schema traffic: control/QoS/metadata can share a channel; always guard on `MessageHeader.schemaId` (or `DriverMessageHeader.schemaId`) before decoding to avoid SBE template/schema mismatch errors.
 - Embedded TensorHeader decode: `SlotHeader.headerBytes` includes a `MessageHeader`; use the default `TensorHeaderMsg.wrap!` when decoding (and `wrap_and_apply_header!` only on the write path).
+- FrameProgress uses `seq` (not `frame_id`); derive `header_index` from `seq & (nslots - 1)`.
 - Log buffering: when running scripts with output redirected to a file, Julia buffers stdout; use `stdbuf -oL -eL` or call `flush(stdout)` after prints to see immediate output.
 - Regenerate codecs after spec/schema edits: run `julia --project -e 'using Pkg; Pkg.build(\"AeronTensorPool\")'` to avoid stale schema/version mismatches.
 - Producer startup: wait for descriptor publication connectivity before sending frames; `try_claim` returns `-1` when no consumer is connected.
