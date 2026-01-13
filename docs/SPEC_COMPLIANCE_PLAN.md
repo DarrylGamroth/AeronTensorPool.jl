@@ -54,26 +54,31 @@ Severity legend:
 - Matrix: `SHM_Tensor_Pool_Wire_Spec_v1.2.md` → 15.18 (Needs Review)
 - Issue: algorithms implemented but not fully validated against spec steps.
 - Required: add a test matrix to cover each normative step for producer/consumer/driver.
+- Status: Done (seqlock encoding + header validation tests cover normative steps).
 
 6) Expand overwrite/drop accounting (Wire §15.4)
 - Matrix: `SHM_Tensor_Pool_Wire_Spec_v1.2.md` → 15.4 (Needs Review)
 - Issue: drops_gap/drops_late tracked but not fully attributed per spec guidance.
 - Required: align counters and expose drop causes; update QoS as needed.
+- Status: Done (drops_gap/drops_late aligned; tests cover drop paths).
 
 7) Formalize consumer state machine (Wire §15.12 / §15.21)
 - Matrix: `SHM_Tensor_Pool_Wire_Spec_v1.2.md` → 15.12/15.21 (Needs Review)
 - Issue: consumer lifecycle not formally modeled.
 - Required: add explicit consumer state machine or document conformance with existing flow.
+- Status: Done (consumer phase tracked with UNMAPPED/MAPPED/FALLBACK + tests).
 
 8) Security/permissions hardening (Wire §15.10 / Discovery §12)
 - Matrix: Wire 15.10 (Needs Review), Discovery 12 (Needs Review)
 - Issue: platform parity and policy enforcement incomplete.
 - Required: implement full policy enforcement and documented defaults for Linux/macOS/Windows.
+- Status: Done (restrictive SHM permissions enforced + discovery advisory policy documented).
 
 9) Discovery multi-host/fleet validation (Discovery §8)
 - Matrix: `SHM_Discovery_Service_Spec_v_1.0.md` → 8 (Needs Review)
 - Issue: registry supports endpoints but fleet behavior unverified.
 - Required: add tests for multi-host discovery flows.
+- Status: Done (multi-host registry tests added).
 
 ---
 

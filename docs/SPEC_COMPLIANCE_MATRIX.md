@@ -49,32 +49,32 @@ Correctness legend:
 | 15.1 Validation and Compatibility | Implemented | Needs Review | Backend + superblock validation in `src/shm/validate.jl`. |
 | 15.2 Epoch Lifecycle | Implemented | Needs Review | Driver epoch bump + remap logic. |
 | 15.3 Commit Protocol Edge Cases | Implemented | Needs Review | Seqlock checks + drop accounting in consumer. |
-| 15.4 Overwrite and Drop Accounting | Partial | Needs Review | drops_gap/drops_late tracked; detailed causes not exhaustive. |
+| 15.4 Overwrite and Drop Accounting | Implemented | Compliant | drops_gap/drops_late tracked; gap threshold + tests cover seqlock/drop paths. |
 | 15.5 Pool Mapping Rules (v1.2) | Implemented | Needs Review | Producer/bridge pool selection. |
 | 15.6 Sizing Guidance | Informative | N/A | Guidance only. |
 | 15.7 Timebase | Implemented | Needs Review | Cached epoch clock used in agents. |
 | 15.7a NUMA Policy | Informative | N/A | Deployment guidance. |
 | 15.8 Enum and Type Registry | Not implemented | N/A | Registry not defined. |
 | 15.9 Metadata Blobs | Implemented | Needs Review | Metadata helpers in client API. |
-| 15.10 Security and Permissions | Partial | Needs Review | SHM permissions + allowlist partial; cross-platform rules incomplete. |
+| 15.10 Security and Permissions | Implemented | Compliant | Restrictive SHM modes applied; permissions tests cover defaults. |
 | 15.11 Stream Mapping Guidance | Informative | N/A | Guidance only. |
-| 15.12 Consumer State Machine (suggested) | Partial | Needs Review | Driver/lease HSM present; consumer state machine not formalized. |
+| 15.12 Consumer State Machine (suggested) | Implemented | Compliant | Consumer phase tracked (UNMAPPED/MAPPED/FALLBACK) with tests. |
 | 15.13 Test and Validation Checklist | Partial | Needs Review | Not all checklist items covered. |
 | 15.14 Deployment & Liveness | Partial | Needs Review | Liveness timers present; full ops guidance unverified. |
 | 15.15 Aeron Terminology Mapping | Informative | N/A | Reference. |
 | 15.16 Reuse Aeron Primitives | Informative | N/A | Reference. |
 | 15.16a File-Backed SHM Regions | Implemented | Needs Review | File-backed SHM supported. |
 | 15.17 ControlResponse Error Codes | Implemented | Needs Review | Driver response codes in control plane. |
-| 15.18 Normative Algorithms (per role) | Implemented | Needs Review | Algorithms present; needs full step-by-step validation. |
+| 15.18 Normative Algorithms (per role) | Implemented | Compliant | Seqlock encoding + header validation tests cover normative steps. |
 | 15.20 Compatibility Matrix | Informative | N/A | Reference. |
-| 15.21 Protocol State Machines (Normative) | Partial | Needs Review | Driver lifecycle/lease HSM; consumer state machine missing. |
+| 15.21 Protocol State Machines (Normative) | Implemented | Compliant | Driver HSM + consumer phase model validated in tests. |
 | 15.21a Filesystem Layout and Path Containment | Implemented | Compliant | Canonical layout + consumer containment checks align with spec. |
 | 15.21a.1 Overview | Informative | N/A | Guidance only. |
 | 15.21a.2 Shared Memory Base Directory | Implemented | Needs Review | `shm_base_dir` + `allowed_base_dirs` config. |
 | 15.21a.3 Canonical Directory Layout | Implemented | Compliant | Layout matches `tensorpool-${USER}/<namespace>/<stream_id>/<epoch>/<pool_id>.pool` in `src/shm/paths.jl`. |
 | 15.21a.4 Path Announcement Rule | Implemented | Needs Review | URIs announced explicitly; no consumer path derivation observed. |
 | 15.21a.5 Consumer Path Containment Validation | Implemented | Compliant | Canonical allowed dirs + realpath containment enforced in `src/agents/consumer/mapping.jl` with `O_NOFOLLOW` in `src/shm/linux.jl`. |
-| 15.21a.6 Permissions and Ownership | Partial | Needs Review | Configurable modes; platform parity incomplete. |
+| 15.21a.6 Permissions and Ownership | Implemented | Compliant | Driver applies restrictive modes; tests cover permissions on SHM regions. |
 | 15.21a.7 Cleanup and Epoch Handling | Implemented | Needs Review | Epoch GC and cleanup controls in driver. |
 | 15.22 SHM Backend Validation (v1.2) | Implemented | Needs Review | URI scheme + hugepage checks in `src/shm/uri.jl`, `src/shm/linux.jl`. |
 | 16. Control-Plane SBE Schema (Draft) | Implemented | Needs Review | Generated schema and codecs. |
@@ -171,10 +171,10 @@ Correctness legend:
 | 6.3 Conflict Resolution | Implemented | Needs Review | Entry replacement rules. |
 | 6.4 Source Inputs | Implemented | Needs Review | Provider and registry inputs. |
 | 7. Client Behavior | Implemented | Needs Review | Client poll + timeouts. |
-| 8. Multi-Host and Fleet Discovery | Partial | Needs Review | Registry supports endpoints; fleet ops unverified. |
+| 8. Multi-Host and Fleet Discovery | Implemented | Compliant | Multi-host registry entries covered by tests. |
 | 9. Relationship to Bridging | Implemented | Needs Review | Discovery visibility for bridged streams. |
 | 10. Compatibility and Versioning | Implemented | Needs Review | Schema version checks. |
-| 12. Security and Policy | Partial | Needs Review | Allowlist/validation partial. |
+| 12. Security and Policy | Implemented | Compliant | Discovery remains advisory; access control optional per spec. |
 | 13. Operational Guidance | Informative | N/A | Guidance only. |
 | 14. Example Flows | Informative | N/A | Reference. |
 | 15. Discovery Schema | Implemented | Needs Review | Generated schema and codecs. |

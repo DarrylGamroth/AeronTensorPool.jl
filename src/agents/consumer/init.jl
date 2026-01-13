@@ -116,6 +116,7 @@ function init_consumer(config::ConsumerConfig; client::Aeron.Client)
         nothing
     end
     dummy_assembler = Aeron.FragmentAssembler(dummy_handler)
+    phase = config.use_shm ? UNMAPPED : FALLBACK
     state = ConsumerState(
         config,
         clock,
@@ -123,6 +124,7 @@ function init_consumer(config::ConsumerConfig; client::Aeron.Client)
         runtime,
         mappings,
         metrics,
+        phase,
         nothing,
         Int64(0),
         timer_set,

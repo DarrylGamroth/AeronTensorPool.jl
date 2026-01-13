@@ -51,3 +51,19 @@ function init_discovery_provider(config::DiscoveryConfig; client::Aeron.Client)
         0,
     )
 end
+
+"""
+Close subscriptions/publications for a discovery provider state.
+"""
+function close_discovery_state!(state::DiscoveryProviderState)
+    try
+        close(state.runtime.sub_requests)
+        close(state.runtime.sub_announce)
+        state.runtime.sub_metadata === nothing || close(state.runtime.sub_metadata)
+        for pub in values(state.runtime.pubs)
+            close(pub)
+        end
+    catch
+    end
+    return nothing
+end

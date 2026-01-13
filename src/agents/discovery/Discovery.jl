@@ -28,6 +28,7 @@ include("agent.jl")
 
 export DiscoveryProviderState,
     init_discovery_provider,
+    close_discovery_state!,
     discovery_do_work!,
     make_request_assembler,
     make_announce_assembler,

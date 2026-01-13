@@ -35,6 +35,10 @@ include("work.jl")
 include("agent.jl")
 
 export ConsumerConfig,
+    ConsumerPhase,
+    UNMAPPED,
+    MAPPED,
+    FALLBACK,
     PayloadView,
     payload_view,
     ConsumerState,

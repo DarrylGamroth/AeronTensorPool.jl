@@ -154,11 +154,15 @@
             commit_ptr = header_commit_ptr_from_offset(header_mmap, header_offset)
 
             seqlock_begin_write!(commit_ptr, UInt64(1))
+            drops_before = state.metrics.drops_late
             @test Consumer.try_read_frame!(state, desc_dec) == false
+            @test state.metrics.drops_late == drops_before + 1
 
             seqlock_commit_write!(commit_ptr, UInt64(1))
             state.mappings.last_commit_words[1] = UInt64(4) << 1
+            drops_before = state.metrics.drops_late
             @test Consumer.try_read_frame!(state, desc_dec) == false
+            @test state.metrics.drops_late == drops_before + 1
             state.mappings.last_commit_words[1] = UInt64(0)
 
             write_slot_header!(

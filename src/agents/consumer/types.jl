@@ -35,6 +35,15 @@ mutable struct ConsumerConfig
 end
 
 """
+Consumer mapping phase.
+"""
+@enum ConsumerPhase::UInt8 begin
+    UNMAPPED = 0
+    MAPPED = 1
+    FALLBACK = 2
+end
+
+"""
 Reference to a payload region in shared memory.
 """
 mutable struct PayloadView
