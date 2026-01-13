@@ -1,75 +1,32 @@
 @testset "Allocation checks: producer/consumer loop" begin
     with_driver_and_client() do driver, client
         mktempdir() do dir
-            config_path = joinpath(dir, "config.toml")
-            open(config_path, "w") do io
-                write(
-                    io,
-                    """
-[producer]
-aeron_dir = "/dev/shm/aeron-\${USER}"
-aeron_uri = "aeron:ipc"
-descriptor_stream_id = 1110
-control_stream_id = 1111
-qos_stream_id = 1112
-metadata_stream_id = 1113
-stream_id = 10000
-producer_id = 7
-layout_version = 1
-nslots = 8
-shm_base_dir = "$(dir)"
-shm_namespace = "tensorpool"
-producer_instance_id = "alloc-producer"
-header_uri = ""
-announce_interval_ns = 1000000000
-qos_interval_ns = 1000000000
-progress_interval_ns = 250000
-progress_bytes_delta = 65536
+            aeron_dir = Aeron.MediaDriver.aeron_dir(driver)
+            producer_cfg = test_producer_config(
+                dir;
+                aeron_dir = aeron_dir,
+                producer_instance_id = "alloc-producer",
+                descriptor_stream_id = Int32(1110),
+                control_stream_id = Int32(1111),
+                qos_stream_id = Int32(1112),
+                metadata_stream_id = Int32(1113),
+            )
+            consumer_cfg = test_consumer_config(
+                dir;
+                aeron_dir = aeron_dir,
+                consumer_id = UInt32(42),
+                descriptor_stream_id = Int32(1110),
+                control_stream_id = Int32(1111),
+                qos_stream_id = Int32(1112),
+            )
 
-[[producer.payload_pools]]
-pool_id = 1
-uri = ""
-stride_bytes = 4096
-nslots = 8
-
-[consumer]
-aeron_dir = "/dev/shm/aeron-\${USER}"
-aeron_uri = "aeron:ipc"
-descriptor_stream_id = 1110
-control_stream_id = 1111
-qos_stream_id = 1112
-stream_id = 10000
-consumer_id = 42
-expected_layout_version = 1
-mode = "STREAM"
-use_shm = true
-supports_shm = true
-supports_progress = false
-max_rate_hz = 0
-payload_fallback_uri = ""
-shm_base_dir = "$(dir)"
-allowed_base_dirs = ["$(dir)"]
-require_hugepages = false
-progress_interval_us = 250
-progress_bytes_delta = 65536
-progress_major_delta_units = 0
-hello_interval_ns = 1000000000
-qos_interval_ns = 1000000000
-""",
-                )
-            end
-
-            env = Dict(ENV)
-            env["AERON_DIR"] = Aeron.MediaDriver.aeron_dir(driver)
-            system = load_system_config(config_path; env = env)
-
-            mkpath(dirname(parse_shm_uri(system.producer.header_uri).path))
-            for pool in system.producer.payload_pools
+            mkpath(dirname(parse_shm_uri(producer_cfg.header_uri).path))
+            for pool in producer_cfg.payload_pools
                 mkpath(dirname(parse_shm_uri(pool.uri).path))
             end
 
-            producer = Producer.init_producer(system.producer; client = client)
-            consumer = Consumer.init_consumer(system.consumer; client = client)
+            producer = Producer.init_producer(producer_cfg; client = client)
+            consumer = Consumer.init_consumer(consumer_cfg; client = client)
 
             payload = UInt8[1, 2, 3, 4]
             shape = Int32[4]
@@ -78,23 +35,23 @@ qos_interval_ns = 1000000000
             announce_buf = Vector{UInt8}(undef, 1024)
             announce_enc = AeronTensorPool.ShmPoolAnnounce.Encoder(Vector{UInt8})
             AeronTensorPool.ShmPoolAnnounce.wrap_and_apply_header!(announce_enc, announce_buf, 0)
-            AeronTensorPool.ShmPoolAnnounce.streamId!(announce_enc, system.producer.stream_id)
-            AeronTensorPool.ShmPoolAnnounce.producerId!(announce_enc, system.producer.producer_id)
+            AeronTensorPool.ShmPoolAnnounce.streamId!(announce_enc, producer_cfg.stream_id)
+            AeronTensorPool.ShmPoolAnnounce.producerId!(announce_enc, producer_cfg.producer_id)
             AeronTensorPool.ShmPoolAnnounce.epoch!(announce_enc, UInt64(1))
             AeronTensorPool.ShmPoolAnnounce.announceTimestampNs!(announce_enc, UInt64(time_ns()))
             AeronTensorPool.ShmPoolAnnounce.announceClockDomain!(announce_enc, AeronTensorPool.ClockDomain.MONOTONIC)
-            AeronTensorPool.ShmPoolAnnounce.layoutVersion!(announce_enc, system.producer.layout_version)
-            AeronTensorPool.ShmPoolAnnounce.headerNslots!(announce_enc, system.producer.nslots)
+            AeronTensorPool.ShmPoolAnnounce.layoutVersion!(announce_enc, producer_cfg.layout_version)
+            AeronTensorPool.ShmPoolAnnounce.headerNslots!(announce_enc, producer_cfg.nslots)
             AeronTensorPool.ShmPoolAnnounce.headerSlotBytes!(announce_enc, UInt16(HEADER_SLOT_BYTES))
-            pools = AeronTensorPool.ShmPoolAnnounce.payloadPools!(announce_enc, length(system.producer.payload_pools))
-            for pool in system.producer.payload_pools
+            pools = AeronTensorPool.ShmPoolAnnounce.payloadPools!(announce_enc, length(producer_cfg.payload_pools))
+            for pool in producer_cfg.payload_pools
                 entry = AeronTensorPool.ShmPoolAnnounce.PayloadPools.next!(pools)
                 AeronTensorPool.ShmPoolAnnounce.PayloadPools.poolId!(entry, pool.pool_id)
                 AeronTensorPool.ShmPoolAnnounce.PayloadPools.poolNslots!(entry, pool.nslots)
                 AeronTensorPool.ShmPoolAnnounce.PayloadPools.strideBytes!(entry, pool.stride_bytes)
                 AeronTensorPool.ShmPoolAnnounce.PayloadPools.regionUri!(entry, pool.uri)
             end
-            AeronTensorPool.ShmPoolAnnounce.headerRegionUri!(announce_enc, system.producer.header_uri)
+            AeronTensorPool.ShmPoolAnnounce.headerRegionUri!(announce_enc, producer_cfg.header_uri)
 
             announce_dec = AeronTensorPool.ShmPoolAnnounce.Decoder(Vector{UInt8})
             header = AeronTensorPool.MessageHeader.Decoder(announce_buf, 0)
@@ -114,12 +71,12 @@ qos_interval_ns = 1000000000
                 alloc_bytes = @allocated(begin
                     for i in 1:200
                         Producer.offer_frame!(producer, payload, shape, strides, Dtype.UINT8, UInt32(0))
-                        AeronTensorPool.FrameDescriptor.streamId!(desc_enc, system.producer.stream_id)
+                        AeronTensorPool.FrameDescriptor.streamId!(desc_enc, producer_cfg.stream_id)
                         AeronTensorPool.FrameDescriptor.epoch!(desc_enc, UInt64(1))
                         AeronTensorPool.FrameDescriptor.seq!(desc_enc, UInt64(i - 1))
                         AeronTensorPool.FrameDescriptor.headerIndex!(
                             desc_enc,
-                            UInt32((i - 1) & (system.producer.nslots - 1)),
+                            UInt32((i - 1) & (producer_cfg.nslots - 1)),
                         )
                         AeronTensorPool.FrameDescriptor.timestampNs!(desc_enc, UInt64(0))
                         AeronTensorPool.FrameDescriptor.metaVersion!(desc_enc, UInt32(0))

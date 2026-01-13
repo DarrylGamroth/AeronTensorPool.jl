@@ -1,0 +1,25 @@
+# Example Bridge Chain B configuration
+
+[bridge]
+instance_id = "bridge-chain-b"
+payload_channel = "aeron:ipc?term-length=4m"
+payload_stream_id = 4000
+control_channel = "aeron:ipc"
+control_stream_id = 4001
+metadata_channel = "aeron:ipc"
+metadata_stream_id = 4002
+source_metadata_stream_id = 1300
+mtu_bytes = 1408
+chunk_bytes = 1000
+max_chunk_bytes = 1200
+max_payload_bytes = 1073741824
+assembly_timeout_ms = 250
+forward_metadata = true
+forward_qos = false
+forward_progress = false
+
+[[mappings]]
+source_stream_id = 20000
+dest_stream_id = 30000
+profile = "bridge_chain"
+metadata_stream_id = 30000

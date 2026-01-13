@@ -2,7 +2,7 @@
 using AeronTensorPool
 
 function usage()
-    println("Usage: julia --project scripts/example_invoker.jl [driver_config] [consumer_config]")
+    println("Usage: julia --project scripts/example_invoker.jl [driver_config]")
 end
 
 function first_stream_id(cfg::DriverConfig)
@@ -10,7 +10,7 @@ function first_stream_id(cfg::DriverConfig)
     return first(values(cfg.streams)).stream_id
 end
 
-function run_invoker(driver_cfg_path::String, consumer_cfg_path::String)
+function run_invoker(driver_cfg_path::String)
     env_driver = Dict(ENV)
     if haskey(ENV, "AERON_DIR")
         env_driver["DRIVER_AERON_DIR"] = ENV["AERON_DIR"]
@@ -18,12 +18,12 @@ function run_invoker(driver_cfg_path::String, consumer_cfg_path::String)
     driver_cfg = load_driver_config(driver_cfg_path; env = env_driver)
     stream_id = first_stream_id(driver_cfg)
 
-    env = Dict(ENV)
-    env["TP_STREAM_ID"] = string(stream_id)
-    consumer_cfg = load_consumer_config(consumer_cfg_path; env = env)
-    consumer_cfg.aeron_uri = driver_cfg.endpoints.control_channel
-    consumer_cfg.control_stream_id = driver_cfg.endpoints.control_stream_id
-    consumer_cfg.qos_stream_id = driver_cfg.endpoints.qos_stream_id
+    consumer_cfg = default_consumer_config(;
+        stream_id = stream_id,
+        aeron_uri = driver_cfg.endpoints.control_channel,
+        control_stream_id = driver_cfg.endpoints.control_stream_id,
+        qos_stream_id = driver_cfg.endpoints.qos_stream_id,
+    )
 
     ctx = TensorPoolContext(driver_cfg.endpoints; use_invoker = true)
     client = connect(ctx)
@@ -44,13 +44,12 @@ end
 
 function main()
     Base.exit_on_sigint(false)
-    if length(ARGS) > 2
+    if length(ARGS) > 1
         usage()
         exit(1)
     end
     driver_cfg = length(ARGS) >= 1 ? ARGS[1] : "config/driver_integration_example.toml"
-    consumer_cfg = length(ARGS) >= 2 ? ARGS[2] : "config/defaults.toml"
-    run_invoker(driver_cfg, consumer_cfg)
+    run_invoker(driver_cfg)
     return nothing
 end
 

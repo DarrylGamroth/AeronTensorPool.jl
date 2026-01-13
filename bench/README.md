@@ -13,7 +13,7 @@ julia --project scripts/run_benchmarks.jl
 Run with:
 
 ```
-julia --project scripts/run_benchmarks.jl --system --duration 5 --config config/defaults.toml --payload-bytes 65536
+julia --project scripts/run_benchmarks.jl --system --duration 5 --config config/driver_integration_example.toml --payload-bytes 65536
 ```
 
 The system benchmark publishes frames in a tight loop and measures publish/consume throughput.

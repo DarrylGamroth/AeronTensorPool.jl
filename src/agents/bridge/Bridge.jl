@@ -33,6 +33,7 @@ using ..Producer: PayloadPoolConfig,
 using ..Consumer: ConsumerConfig, ConsumerState
 
 include("types.jl")
+include("config.jl")
 include("errors.jl")
 include("counters.jl")
 include("state.jl")
@@ -49,6 +50,7 @@ include("system_agent.jl")
 export BridgeMapping,
     BridgeStreamIdRange,
     BridgeConfig,
+    load_bridge_config,
     BridgeSenderState,
     BridgeReceiverState,
     BridgeCallbacks,

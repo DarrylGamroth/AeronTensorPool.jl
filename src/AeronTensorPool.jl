@@ -9,6 +9,7 @@ using Mmap
 using SBE
 using StringViews
 using UnsafeArrays
+using UUIDs
 
 include("gen/ShmTensorpoolControl.jl")
 using .ShmTensorpoolControl
@@ -41,7 +42,8 @@ using .Driver
 using .Discovery
 using .Client
 
-include("config/config_loader.jl")
+include("config/defaults.jl")
+include("config/paths.jl")
 
 export AeronInitError,
     AttachRequestProxy,
@@ -55,13 +57,13 @@ export AeronInitError,
     BridgeConfigError,
     BridgeAssembledFrame,
     BridgeConfig,
+    load_bridge_config,
     BridgeCounters,
     BridgeCallbacks,
     BridgeMapping,
     BridgeReceiverState,
     BridgeSenderState,
     BridgeSourceInfo,
-    BridgeSystemConfig,
     Consumer,
     ConsumerAgent,
     ConsumerConfigMsg,
@@ -198,7 +200,6 @@ export AeronInitError,
     SupervisorCounters,
     SupervisorCallbacks,
     SupervisorState,
-    SystemConfig,
     TensorPoolClient,
     TensorPoolContext,
     TensorPoolError,
@@ -230,12 +231,9 @@ export AeronInitError,
     init_discovery_client,
     init_driver,
     init_driver_client,
-    load_bridge_config,
-    load_consumer_config,
     load_driver_config,
-    load_producer_config,
-    load_supervisor_config,
-    load_system_config,
+    default_consumer_config,
+    default_producer_config,
     make_counter_type_id,
     mmap_shm,
     mmap_shm_existing,

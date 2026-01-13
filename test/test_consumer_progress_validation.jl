@@ -1,14 +1,16 @@
 using Test
+using Aeron
 using AeronTensorPool
 using AeronTensorPool.Consumer
 
 @testset "Consumer progress validation" begin
-    with_driver_and_client() do _driver, client
-        env = Dict(ENV)
-        env["TP_STREAM_ID"] = "10000"
-        env["TP_CONSUMER_ID"] = "1"
-        cfg_path = joinpath(@__DIR__, "..", "config", "defaults.toml")
-        cfg = load_consumer_config(cfg_path; env = env)
+    with_driver_and_client() do driver, client
+        cfg = test_consumer_config(
+            "/dev/shm";
+            aeron_dir = Aeron.MediaDriver.aeron_dir(driver),
+            stream_id = UInt32(10000),
+            consumer_id = UInt32(1),
+        )
         state = Consumer.init_consumer(cfg; client = client)
         try
             state.config.supports_progress = true

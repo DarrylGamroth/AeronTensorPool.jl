@@ -75,7 +75,7 @@ end
 
 function usage()
     println(
-        "Usage: julia --project scripts/example_rate_limited_consumer.jl [driver_config] [consumer_config] [count] [max_rate_hz]",
+        "Usage: julia --project scripts/example_rate_limited_consumer.jl [driver_config] [count] [max_rate_hz]",
     )
 end
 
@@ -111,7 +111,6 @@ end
 
 function run_consumer(
     driver_cfg_path::String,
-    consumer_cfg_path::String,
     count::Int,
     max_rate_hz::UInt16,
 )
@@ -122,12 +121,8 @@ function run_consumer(
     driver_cfg = load_driver_config(driver_cfg_path; env = env_driver)
     stream_id = first_stream_id(driver_cfg)
 
-    env = Dict(ENV)
-    if !haskey(env, "TP_CONSUMER_ID")
-        env["TP_CONSUMER_ID"] = "2"
-    end
-    env["TP_STREAM_ID"] = string(stream_id)
-    consumer_cfg = load_consumer_config(consumer_cfg_path; env = env)
+    consumer_id = UInt32(parse(Int, get(ENV, "TP_CONSUMER_ID", "2")))
+    consumer_cfg = default_consumer_config(; stream_id = stream_id, consumer_id = consumer_id)
 
     per_consumer_channel = get(ENV, "TP_PER_CONSUMER_CHANNEL", "aeron:ipc")
     base_descriptor_id = UInt32(parse(Int, get(ENV, "TP_PER_CONSUMER_DESCRIPTOR_BASE", "21000")))
@@ -203,17 +198,16 @@ end
 
 function main()
     Base.exit_on_sigint(false)
-    if length(ARGS) > 4
+    if length(ARGS) > 3
         usage()
         exit(1)
     end
 
     driver_cfg = length(ARGS) >= 1 ? ARGS[1] : "config/driver_integration_example.toml"
-    consumer_cfg = length(ARGS) >= 2 ? ARGS[2] : "config/defaults.toml"
-    count = length(ARGS) >= 3 ? parse(Int, ARGS[3]) : 0
-    max_rate_hz = length(ARGS) >= 4 ? UInt16(parse(Int, ARGS[4])) : UInt16(30)
+    count = length(ARGS) >= 2 ? parse(Int, ARGS[2]) : 0
+    max_rate_hz = length(ARGS) >= 3 ? UInt16(parse(Int, ARGS[3])) : UInt16(30)
 
-    run_consumer(driver_cfg, consumer_cfg, count, max_rate_hz)
+    run_consumer(driver_cfg, count, max_rate_hz)
     return nothing
 end
 

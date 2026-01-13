@@ -84,7 +84,7 @@ Results:
 
 Command:
 ```bash
-julia --project scripts/run_benchmarks.jl --system --duration 1 --payload-bytes 655360 --config config/defaults.toml --warmup 0.2 --alloc-breakdown --fixed-iters 256
+julia --project scripts/run_benchmarks.jl --system --duration 1 --payload-bytes 655360 --config config/driver_integration_example.toml --warmup 0.2 --alloc-breakdown --fixed-iters 256
 ```
 
 Results:
@@ -114,7 +114,7 @@ Results:
 
 Command:
 ```bash
-JULIA_NUM_THREADS=2 julia --project scripts/run_benchmarks.jl --bridge-runners --duration 5 --payload-bytes 655360 --config config/defaults.toml
+JULIA_NUM_THREADS=2 julia --project scripts/run_benchmarks.jl --bridge-runners --duration 5 --payload-bytes 655360 --config config/driver_integration_example.toml
 ```
 
 Results:
@@ -130,7 +130,7 @@ Results:
 
 Command:
 ```bash
-julia --project scripts/run_benchmarks.jl --bridge --duration 10 --payload-bytes 655360 --config config/defaults.toml
+julia --project scripts/run_benchmarks.jl --bridge --duration 10 --payload-bytes 655360 --config config/driver_integration_example.toml
 ```
 
 Results:

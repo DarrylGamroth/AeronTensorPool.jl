@@ -6,9 +6,7 @@ AeronTensorPool.jl implements the SHM Aeron Tensor Pool v1.1 spec in Julia.
 - Driver model spec: `docs/SHM_Driver_Model_Spec_v1.0.md`
 - Discovery service spec: `docs/SHM_Discovery_Service_Spec_v_1.0.md`
 - Bridge spec: `docs/SHM_Aeron_UDP_Bridge_Spec_v1.0.md`
-- Bridge config example: `config/bridge_config_example.toml`
 - RateLimiter spec: `docs/SHM_RateLimiter_Spec_v1.0.md`
-- RateLimiter config example: `config/rate_limiter_config_example.toml`
 - Implementation notes: `docs/IMPLEMENTATION.md`
 - Operational guidance: `docs/OPERATIONAL_PLAYBOOK.md`
 - User guide: `docs/USER_GUIDE.md`

@@ -77,7 +77,7 @@ function Agent.do_work(agent::AppProducerAgent)
 end
 
 function usage()
-    println("Usage: julia --project scripts/example_producer.jl [driver_config] [producer_config] [count] [payload_bytes]")
+    println("Usage: julia --project scripts/example_producer.jl [driver_config] [count] [payload_bytes]")
     println("Env: TP_EXAMPLE_VERBOSE=1, TP_EXAMPLE_LOG_EVERY=100, TP_PATTERN=interop")
 end
 
@@ -140,7 +140,7 @@ function override_producer_config_for_driver(config::ProducerConfig, driver_cfg:
     )
 end
 
-function run_producer(driver_cfg_path::String, producer_cfg_path::String, count::Int, payload_bytes::Int)
+function run_producer(driver_cfg_path::String, count::Int, payload_bytes::Int)
     env_driver = Dict(ENV)
     if haskey(ENV, "AERON_DIR")
         env_driver["DRIVER_AERON_DIR"] = ENV["AERON_DIR"]
@@ -150,7 +150,7 @@ function run_producer(driver_cfg_path::String, producer_cfg_path::String, count:
 
     env = Dict(ENV)
     env["TP_STREAM_ID"] = string(stream_id)
-    producer_cfg = load_producer_config(producer_cfg_path; env = env)
+    producer_cfg = default_producer_config(; stream_id = stream_id)
     producer_cfg = override_producer_config_for_driver(producer_cfg, driver_cfg)
 
     effective_payload_bytes = payload_bytes == 0 ? default_payload_bytes(driver_cfg) : payload_bytes
@@ -256,11 +256,10 @@ function main()
     end
 
     driver_cfg = length(ARGS) >= 1 ? ARGS[1] : "config/driver_integration_example.toml"
-    producer_cfg = length(ARGS) >= 2 ? ARGS[2] : "config/defaults.toml"
-    count = length(ARGS) >= 3 ? parse(Int, ARGS[3]) : 0
-    payload_bytes = length(ARGS) >= 4 ? parse(Int, ARGS[4]) : 0
+    count = length(ARGS) >= 2 ? parse(Int, ARGS[2]) : 0
+    payload_bytes = length(ARGS) >= 3 ? parse(Int, ARGS[3]) : 0
 
-    run_producer(driver_cfg, producer_cfg, count, payload_bytes)
+    run_producer(driver_cfg, count, payload_bytes)
     return nothing
 end
 

@@ -7,7 +7,7 @@ Pkg.instantiate()
 include(joinpath(@__DIR__, "..", "bench", "benchmarks.jl"))
 
 function parse_args(args)
-    config = "config/defaults.toml"
+    config = "config/driver_integration_example.toml"
     duration_s = 5.0
     payload_bytes = 1024
     payload_bytes_list = Int[]

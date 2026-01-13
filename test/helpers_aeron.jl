@@ -147,3 +147,103 @@ function await_attach!(
     end
     return nothing
 end
+
+function test_producer_config(
+    base_dir::AbstractString;
+    aeron_dir::AbstractString = "",
+    stream_id::UInt32 = UInt32(10000),
+    producer_id::UInt32 = UInt32(7),
+    nslots::UInt32 = UInt32(8),
+    stride_bytes::UInt32 = UInt32(4096),
+    pool_id::UInt16 = UInt16(1),
+    producer_instance_id::AbstractString = "test-producer",
+    descriptor_stream_id::Int32 = Int32(1100),
+    control_stream_id::Int32 = Int32(1000),
+    qos_stream_id::Int32 = Int32(1200),
+    metadata_stream_id::Int32 = Int32(1300),
+)
+    pools = [PayloadPoolConfig(pool_id, "", stride_bytes, nslots)]
+    header_uri, resolved_pools = AeronTensorPool.resolve_producer_paths(
+        "",
+        pools,
+        base_dir,
+        "tensorpool",
+        producer_instance_id,
+        UInt64(1),
+    )
+    cfg = default_producer_config(;
+        aeron_dir = aeron_dir,
+        stream_id = stream_id,
+        producer_id = producer_id,
+        nslots = nslots,
+        shm_base_dir = base_dir,
+        producer_instance_id = producer_instance_id,
+        payload_pools = pools,
+        descriptor_stream_id = descriptor_stream_id,
+        control_stream_id = control_stream_id,
+        qos_stream_id = qos_stream_id,
+        metadata_stream_id = metadata_stream_id,
+    )
+    return ProducerConfig(
+        cfg.aeron_dir,
+        cfg.aeron_uri,
+        cfg.descriptor_stream_id,
+        cfg.control_stream_id,
+        cfg.qos_stream_id,
+        cfg.metadata_stream_id,
+        cfg.stream_id,
+        cfg.producer_id,
+        cfg.layout_version,
+        cfg.nslots,
+        cfg.shm_base_dir,
+        cfg.shm_namespace,
+        cfg.producer_instance_id,
+        header_uri,
+        resolved_pools,
+        cfg.max_dims,
+        cfg.announce_interval_ns,
+        cfg.qos_interval_ns,
+        cfg.progress_interval_ns,
+        cfg.progress_bytes_delta,
+        cfg.mlock_shm,
+    )
+end
+
+function test_consumer_config(
+    base_dir::AbstractString;
+    aeron_dir::AbstractString = "",
+    stream_id::UInt32 = UInt32(10000),
+    consumer_id::UInt32 = UInt32(42),
+    descriptor_stream_id::Int32 = Int32(1100),
+    control_stream_id::Int32 = Int32(1000),
+    qos_stream_id::Int32 = Int32(1200),
+    supports_progress::Bool = false,
+)
+    return default_consumer_config(;
+        aeron_dir = aeron_dir,
+        stream_id = stream_id,
+        consumer_id = consumer_id,
+        shm_base_dir = base_dir,
+        descriptor_stream_id = descriptor_stream_id,
+        control_stream_id = control_stream_id,
+        qos_stream_id = qos_stream_id,
+        supports_progress = supports_progress,
+    )
+end
+
+function test_supervisor_config(;
+    aeron_dir::AbstractString = "",
+    stream_id::UInt32 = UInt32(10000),
+    control_stream_id::Int32 = Int32(1000),
+    qos_stream_id::Int32 = Int32(1200),
+)
+    return SupervisorConfig(
+        String(aeron_dir),
+        "aeron:ipc",
+        control_stream_id,
+        qos_stream_id,
+        stream_id,
+        UInt64(5_000_000_000),
+        UInt64(1_000_000_000),
+    )
+end

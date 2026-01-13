@@ -13,17 +13,27 @@ first argument; defaults are shown below.
   Starts the driver from a config.  
   Usage: `julia --project scripts/run_driver.jl config/driver_integration_example.toml`
 
+## Bridge
+
+- `run_bridge.jl`  
+  Starts the bridge from a config.  
+  Usage: `julia --project scripts/run_bridge.jl config/bridge_config_example.toml [config/driver_integration_example.toml]`
+
+- `run_bridge_chain.jl`  
+  Runs a two-bridge chain test (embedded MediaDriver).  
+  Usage: `julia --project scripts/run_bridge_chain.jl [config/bridge_chain_a_example.toml] [config/bridge_chain_b_example.toml] [duration_s]`
+
 ## Producer/consumer examples
 
 - `example_producer.jl`  
   Producer example (patterned payload).  
   Usage:  
-  `julia --project scripts/example_producer.jl config/driver_integration_example.toml config/defaults.toml 0 1048576`
+  `julia --project scripts/example_producer.jl config/driver_integration_example.toml 0 1048576`
 
 - `example_consumer.jl`  
   Consumer example (validates pattern).  
   Usage:  
-  `julia --project scripts/example_consumer.jl config/driver_integration_example.toml config/defaults.toml 0`
+  `julia --project scripts/example_consumer.jl config/driver_integration_example.toml 0`
 
 - `example_progress_consumer.jl`  
   Consumer that listens for `FrameProgress`.  
@@ -59,7 +69,7 @@ first argument; defaults are shown below.
 
 - `interop_env.sh`  
   Emits env vars based on a driver config (used by interop tooling).  
-  Usage: `eval "$(scripts/interop_env.sh config/driver_integration_example.toml config/interop_env_example.toml)"`
+  Usage: `eval "$(scripts/interop_env.sh config/driver_integration_example.toml)"`
 
 - `interop_print_endpoints.sh`  
   Prints resolved endpoints from driver config + env.  

@@ -142,7 +142,7 @@ function Agent.do_work(agent::AppConsumerAgent)
 end
 
 function usage()
-    println("Usage: julia --project scripts/example_consumer.jl [driver_config] [consumer_config] [count]")
+    println("Usage: julia --project scripts/example_consumer.jl [driver_config] [count]")
     println("Env: TP_EXAMPLE_VERBOSE=1, TP_EXAMPLE_LOG_EVERY=100, TP_PATTERN=interop, TP_FAIL_ON_MISMATCH=1")
 end
 
@@ -180,7 +180,7 @@ function check_interop_pattern(payload::AbstractVector{UInt8}, seq::UInt64)
     return true
 end
 
-function run_consumer(driver_cfg_path::String, consumer_cfg_path::String, count::Int)
+function run_consumer(driver_cfg_path::String, count::Int)
     env_driver = Dict(ENV)
     if haskey(ENV, "AERON_DIR")
         env_driver["DRIVER_AERON_DIR"] = ENV["AERON_DIR"]
@@ -193,7 +193,7 @@ function run_consumer(driver_cfg_path::String, consumer_cfg_path::String, count:
         env["TP_CONSUMER_ID"] = "2"
     end
     env["TP_STREAM_ID"] = string(stream_id)
-    consumer_cfg = load_consumer_config(consumer_cfg_path; env = env)
+    consumer_cfg = default_consumer_config(; stream_id = stream_id)
     consumer_cfg.aeron_uri = driver_cfg.endpoints.control_channel
     consumer_cfg.control_stream_id = driver_cfg.endpoints.control_stream_id
     consumer_cfg.qos_stream_id = driver_cfg.endpoints.qos_stream_id
@@ -305,10 +305,9 @@ function main()
     end
 
     driver_cfg = length(ARGS) >= 1 ? ARGS[1] : "config/driver_integration_example.toml"
-    consumer_cfg = length(ARGS) >= 2 ? ARGS[2] : "config/defaults.toml"
-    count = length(ARGS) >= 3 ? parse(Int, ARGS[3]) : 0
+    count = length(ARGS) >= 2 ? parse(Int, ARGS[2]) : 0
 
-    run_consumer(driver_cfg, consumer_cfg, count)
+    run_consumer(driver_cfg, count)
     return nothing
 end
 

@@ -1,16 +1,13 @@
 # Configuration Reference
 
-This document lists the configuration surfaces used by AeronTensorPool. The **driver** and **bridge** specs are authoritative. The producer/consumer/supervisor sections below are convenience configs used by examples and benchmarks.
+This document lists the **driver** configuration surface used by AeronTensorPool. Client configuration (producer/consumer) is API-only and does not use TOML.
 
 Normative references:
 - Driver config: `docs/SHM_Driver_Model_Spec_v1.0.md` (§16)
-- Bridge config: `docs/SHM_Aeron_UDP_Bridge_Spec_v1.0.md` (§10)
- - Stream ID guidance: `docs/STREAM_ID_CONVENTIONS.md`
+- Stream ID guidance: `docs/STREAM_ID_CONVENTIONS.md`
 
 Examples:
 - Driver: `config/driver_camera_example.toml`, `config/driver_integration_example.toml`
-- Bridge: `config/bridge_config_example.toml`
-- Example defaults (producer/consumer/supervisor): `config/defaults.toml`
 
 ---
 
@@ -110,6 +107,7 @@ Optional keys and defaults:
 - `bridge.forward_qos` (bool): forward QoS messages. Default: `false`.
 - `bridge.forward_progress` (bool): forward `FrameProgress`. Default: `false`.
 - `bridge.assembly_timeout_ms` (uint32): per-stream frame assembly timeout. Default: `250`.
+- Config loader: `load_bridge_config(path; env=ENV)` returns `(BridgeConfig, Vector{BridgeMapping})`.
 
 Mapping fields:
 
@@ -122,49 +120,7 @@ Mapping fields:
 
 ---
 
-## 3. Example Producer/Consumer/Supervisor Config (non-authoritative)
-
-These keys are used by example scripts and benchmarks (`config/defaults.toml`). In driver mode, clients typically connect via API rather than TOML, but these settings remain useful for local testing.
-
-### Producer
-
-`[producer]`:
-- `aeron_dir`, `aeron_uri`
-- `descriptor_stream_id`, `control_stream_id`, `qos_stream_id`, `metadata_stream_id`
-- `stream_id`, `producer_id`, `layout_version`, `nslots`
-- `shm_base_dir`, `shm_namespace`, `producer_instance_id`, `header_uri`
-- `announce_interval_ns`, `qos_interval_ns`
-- `progress_interval_ns`, `progress_bytes_delta`
-
-`[[producer.payload_pools]]`:
-- `pool_id`, `uri`, `stride_bytes`, `nslots`
-
-### Consumer
-
-`[consumer]`:
-- `aeron_dir`, `aeron_uri`
-- `descriptor_stream_id`, `control_stream_id`, `qos_stream_id`
-- `stream_id`, `consumer_id`, `expected_layout_version`
-- `mode`, `max_outstanding_seq_gap`
-- `use_shm`, `supports_shm`, `supports_progress`
-- `max_rate_hz`
-- `payload_fallback_uri`
-- `shm_base_dir`, `require_hugepages`
-- `progress_interval_us`, `progress_bytes_delta`, `progress_major_delta_units`
-- `hello_interval_ns`, `qos_interval_ns`
-
-### Supervisor
-
-`[supervisor]`:
-- `aeron_dir`, `aeron_uri`
-- `control_stream_id`, `qos_stream_id`
-- `stream_id`
-- `liveness_timeout_ns`, `liveness_check_interval_ns`
-
----
-
-## 4. Notes
+## 3. Notes
 
 - Driver and bridge configs are normative for production deployments.
-- Client configs are convenience tooling; applications can supply parameters via API instead.
-- `config/defaults.toml` is intended for local tests/benchmarks and may not match production sizing.
+- Client configuration is API-only (see `default_producer_config` / `default_consumer_config`).

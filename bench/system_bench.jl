@@ -242,6 +242,72 @@ function override_consumer_streams(
     )
 end
 
+function stream_profile_from_driver(config::DriverConfig)
+    isempty(config.streams) && error("driver config has no streams")
+    stream = first(values(config.streams))
+    profile = config.profiles[stream.profile]
+    return stream, profile
+end
+
+function producer_config_from_driver(
+    stream::DriverStreamConfig,
+    profile::DriverProfileConfig,
+    base_dir::String,
+    aeron_dir::String;
+    producer_instance_id::String = "bench-producer",
+    control_stream_id::Int32 = Int32(1000),
+    qos_stream_id::Int32 = Int32(1200),
+)
+    pools = [
+        PayloadPoolConfig(pool.pool_id, "", pool.stride_bytes, profile.header_nslots) for pool in profile.payload_pools
+    ]
+    cfg = default_producer_config(;
+        aeron_dir = aeron_dir,
+        stream_id = stream.stream_id,
+        nslots = profile.header_nslots,
+        payload_pools = pools,
+        shm_base_dir = base_dir,
+        producer_instance_id = producer_instance_id,
+        control_stream_id = control_stream_id,
+        qos_stream_id = qos_stream_id,
+    )
+    return apply_canonical_layout(cfg, base_dir; producer_instance_id = producer_instance_id)
+end
+
+function consumer_config_from_driver(
+    stream::DriverStreamConfig,
+    base_dir::String,
+    aeron_dir::String;
+    control_stream_id::Int32 = Int32(1000),
+    qos_stream_id::Int32 = Int32(1200),
+)
+    cfg = default_consumer_config(;
+        aeron_dir = aeron_dir,
+        stream_id = stream.stream_id,
+        shm_base_dir = base_dir,
+        control_stream_id = control_stream_id,
+        qos_stream_id = qos_stream_id,
+    )
+    return apply_canonical_layout(cfg, base_dir)
+end
+
+function supervisor_config_from_driver(
+    stream::DriverStreamConfig,
+    aeron_dir::String,
+    control_stream_id::Int32,
+    qos_stream_id::Int32,
+)
+    return SupervisorConfig(
+        aeron_dir,
+        "aeron:ipc",
+        control_stream_id,
+        qos_stream_id,
+        stream.stream_id,
+        UInt64(5_000_000_000),
+        UInt64(1_000_000_000),
+    )
+end
+
 function run_system_bench(
     config_path::AbstractString,
     duration_s::Float64;
@@ -265,14 +331,35 @@ function run_system_bench(
                 Aeron.Client(context) do client
                     env = Dict(ENV)
                     env["AERON_DIR"] = Aeron.MediaDriver.aeron_dir(driver)
-                    system = load_system_config(config_path; env = env)
+                    driver_cfg = load_driver_config(config_path; env = env)
+                    stream, profile = stream_profile_from_driver(driver_cfg)
+                    control_stream_id = driver_cfg.endpoints.control_stream_id
+                    qos_stream_id = driver_cfg.endpoints.qos_stream_id
                     sizes = isempty(payload_bytes_list) ? [payload_bytes] : payload_bytes_list
                     for bytes in sizes
                         bytes > 0 || error("payload_bytes must be > 0")
                         mktempdir() do dir
-                            producer_cfg = apply_canonical_layout(system.producer, dir)
-                            consumer_cfg = apply_canonical_layout(system.consumer, dir)
-                            supervisor_cfg = system.supervisor
+                            producer_cfg = producer_config_from_driver(
+                                stream,
+                                profile,
+                                dir,
+                                env["AERON_DIR"];
+                                control_stream_id = control_stream_id,
+                                qos_stream_id = qos_stream_id,
+                            )
+                            consumer_cfg = consumer_config_from_driver(
+                                stream,
+                                dir,
+                                env["AERON_DIR"];
+                                control_stream_id = control_stream_id,
+                                qos_stream_id = qos_stream_id,
+                            )
+                            supervisor_cfg = supervisor_config_from_driver(
+                                stream,
+                                env["AERON_DIR"],
+                                control_stream_id,
+                                qos_stream_id,
+                            )
 
                             published = 0
                             consumed = Ref(0)
@@ -580,15 +667,41 @@ function run_bridge_bench_runners(
                 Aeron.Client(context) do client
                     env = Dict(ENV)
                     env["AERON_DIR"] = Aeron.MediaDriver.aeron_dir(driver)
-                    system = load_system_config(config_path; env = env)
+                    driver_cfg = load_driver_config(config_path; env = env)
+                    stream, profile = stream_profile_from_driver(driver_cfg)
+                    control_stream_id = driver_cfg.endpoints.control_stream_id
+                    qos_stream_id = driver_cfg.endpoints.qos_stream_id
+                    pools = [
+                        PayloadPoolConfig(pool.pool_id, "", pool.stride_bytes, profile.header_nslots)
+                        for pool in profile.payload_pools
+                    ]
+                    base_producer_cfg = default_producer_config(
+                        ;
+                        aeron_dir = env["AERON_DIR"],
+                        stream_id = stream.stream_id,
+                        nslots = profile.header_nslots,
+                        payload_pools = pools,
+                        shm_base_dir = "/dev/shm",
+                        producer_instance_id = "bench-src",
+                        control_stream_id = control_stream_id,
+                        qos_stream_id = qos_stream_id,
+                    )
+                    base_consumer_cfg = default_consumer_config(
+                        ;
+                        aeron_dir = env["AERON_DIR"],
+                        stream_id = stream.stream_id,
+                        shm_base_dir = "/dev/shm",
+                        control_stream_id = control_stream_id,
+                        qos_stream_id = qos_stream_id,
+                    )
                     sizes = isempty(payload_bytes_list) ? [payload_bytes] : payload_bytes_list
 
-                    src_stream_id = system.producer.stream_id
+                    src_stream_id = base_producer_cfg.stream_id
                     dst_stream_id = src_stream_id + UInt32(1)
-                    src_descriptor = system.producer.descriptor_stream_id
-                    src_control = system.producer.control_stream_id
-                    src_qos = system.producer.qos_stream_id
-                    src_meta = system.producer.metadata_stream_id
+                    src_descriptor = base_producer_cfg.descriptor_stream_id
+                    src_control = base_producer_cfg.control_stream_id
+                    src_qos = base_producer_cfg.qos_stream_id
+                    src_meta = base_producer_cfg.metadata_stream_id
                     dst_descriptor = src_descriptor + Int32(1000)
                     dst_control = src_control + Int32(1000)
                     dst_qos = src_qos + Int32(1000)
@@ -599,23 +712,23 @@ function run_bridge_bench_runners(
                         mktempdir() do src_dir
                             mktempdir() do dst_dir
                                 src_producer_cfg = override_producer_streams(
-                                    system.producer;
+                                    base_producer_cfg;
                                     stream_id = src_stream_id,
                                     descriptor_stream_id = src_descriptor,
                                     control_stream_id = src_control,
                                     qos_stream_id = src_qos,
                                     metadata_stream_id = src_meta,
-                                    producer_id = system.producer.producer_id,
+                                    producer_id = base_producer_cfg.producer_id,
                                     producer_instance_id = "bench-src",
                                 )
                                 dst_producer_cfg = override_producer_streams(
-                                    system.producer;
+                                    base_producer_cfg;
                                     stream_id = dst_stream_id,
                                     descriptor_stream_id = dst_descriptor,
                                     control_stream_id = dst_control,
                                     qos_stream_id = dst_qos,
                                     metadata_stream_id = dst_meta,
-                                    producer_id = system.producer.producer_id + UInt32(1),
+                                    producer_id = base_producer_cfg.producer_id + UInt32(1),
                                     producer_instance_id = "bench-dst",
                                 )
                                 producer_src_cfg = apply_canonical_layout(
@@ -631,20 +744,20 @@ function run_bridge_bench_runners(
                                 producer_src_agent = ProducerAgent(producer_src_cfg; client = client)
 
                                 bridge_consumer_cfg = override_consumer_streams(
-                                    system.consumer;
+                                    base_consumer_cfg;
                                     stream_id = src_stream_id,
                                     descriptor_stream_id = src_descriptor,
                                     control_stream_id = src_control,
                                     qos_stream_id = src_qos,
-                                    consumer_id = system.consumer.consumer_id + UInt32(2),
+                                    consumer_id = base_consumer_cfg.consumer_id + UInt32(2),
                                 )
                                 consumer_dst_cfg = override_consumer_streams(
-                                    system.consumer;
+                                    base_consumer_cfg;
                                     stream_id = dst_stream_id,
                                     descriptor_stream_id = dst_descriptor,
                                     control_stream_id = dst_control,
                                     qos_stream_id = dst_qos,
-                                    consumer_id = system.consumer.consumer_id + UInt32(1),
+                                    consumer_id = base_consumer_cfg.consumer_id + UInt32(1),
                                 )
                                 bridge_consumer_cfg = apply_canonical_layout(bridge_consumer_cfg, src_dir)
                                 consumer_dst_cfg = apply_canonical_layout(consumer_dst_cfg, dst_dir)
@@ -887,15 +1000,41 @@ function run_bridge_bench(
                 Aeron.Client(context) do client
                     env = Dict(ENV)
                     env["AERON_DIR"] = Aeron.MediaDriver.aeron_dir(driver)
-                    system = load_system_config(config_path; env = env)
+                    driver_cfg = load_driver_config(config_path; env = env)
+                    stream, profile = stream_profile_from_driver(driver_cfg)
+                    control_stream_id = driver_cfg.endpoints.control_stream_id
+                    qos_stream_id = driver_cfg.endpoints.qos_stream_id
+                    pools = [
+                        PayloadPoolConfig(pool.pool_id, "", pool.stride_bytes, profile.header_nslots)
+                        for pool in profile.payload_pools
+                    ]
+                    base_producer_cfg = default_producer_config(
+                        ;
+                        aeron_dir = env["AERON_DIR"],
+                        stream_id = stream.stream_id,
+                        nslots = profile.header_nslots,
+                        payload_pools = pools,
+                        shm_base_dir = "/dev/shm",
+                        producer_instance_id = "bench-src",
+                        control_stream_id = control_stream_id,
+                        qos_stream_id = qos_stream_id,
+                    )
+                    base_consumer_cfg = default_consumer_config(
+                        ;
+                        aeron_dir = env["AERON_DIR"],
+                        stream_id = stream.stream_id,
+                        shm_base_dir = "/dev/shm",
+                        control_stream_id = control_stream_id,
+                        qos_stream_id = qos_stream_id,
+                    )
                     sizes = isempty(payload_bytes_list) ? [payload_bytes] : payload_bytes_list
 
-                    src_stream_id = system.producer.stream_id
+                    src_stream_id = base_producer_cfg.stream_id
                     dst_stream_id = src_stream_id + UInt32(1)
-                    src_descriptor = system.producer.descriptor_stream_id
-                    src_control = system.producer.control_stream_id
-                    src_qos = system.producer.qos_stream_id
-                    src_meta = system.producer.metadata_stream_id
+                    src_descriptor = base_producer_cfg.descriptor_stream_id
+                    src_control = base_producer_cfg.control_stream_id
+                    src_qos = base_producer_cfg.qos_stream_id
+                    src_meta = base_producer_cfg.metadata_stream_id
                     dst_descriptor = src_descriptor + Int32(1000)
                     dst_control = src_control + Int32(1000)
                     dst_qos = src_qos + Int32(1000)
@@ -906,23 +1045,23 @@ function run_bridge_bench(
                         mktempdir() do src_dir
                             mktempdir() do dst_dir
                                 src_producer_cfg = override_producer_streams(
-                                    system.producer;
+                                    base_producer_cfg;
                                     stream_id = src_stream_id,
                                     descriptor_stream_id = src_descriptor,
                                     control_stream_id = src_control,
                                     qos_stream_id = src_qos,
                                     metadata_stream_id = src_meta,
-                                    producer_id = system.producer.producer_id,
+                                    producer_id = base_producer_cfg.producer_id,
                                     producer_instance_id = "bench-src",
                                 )
                                 dst_producer_cfg = override_producer_streams(
-                                    system.producer;
+                                    base_producer_cfg;
                                     stream_id = dst_stream_id,
                                     descriptor_stream_id = dst_descriptor,
                                     control_stream_id = dst_control,
                                     qos_stream_id = dst_qos,
                                     metadata_stream_id = dst_meta,
-                                    producer_id = system.producer.producer_id + UInt32(1),
+                                    producer_id = base_producer_cfg.producer_id + UInt32(1),
                                     producer_instance_id = "bench-dst",
                                 )
                                 producer_src_cfg = apply_canonical_layout(
@@ -938,20 +1077,20 @@ function run_bridge_bench(
                                 producer_src_agent = ProducerAgent(producer_src_cfg; client = client)
 
                                 bridge_consumer_cfg = override_consumer_streams(
-                                    system.consumer;
+                                    base_consumer_cfg;
                                     stream_id = src_stream_id,
                                     descriptor_stream_id = src_descriptor,
                                     control_stream_id = src_control,
                                     qos_stream_id = src_qos,
-                                    consumer_id = system.consumer.consumer_id + UInt32(2),
+                                    consumer_id = base_consumer_cfg.consumer_id + UInt32(2),
                                 )
                                 consumer_dst_cfg = override_consumer_streams(
-                                    system.consumer;
+                                    base_consumer_cfg;
                                     stream_id = dst_stream_id,
                                     descriptor_stream_id = dst_descriptor,
                                     control_stream_id = dst_control,
                                     qos_stream_id = dst_qos,
-                                    consumer_id = system.consumer.consumer_id + UInt32(1),
+                                    consumer_id = base_consumer_cfg.consumer_id + UInt32(1),
                                 )
                                 bridge_consumer_cfg = apply_canonical_layout(bridge_consumer_cfg, src_dir)
                                 consumer_dst_cfg = apply_canonical_layout(consumer_dst_cfg, dst_dir)

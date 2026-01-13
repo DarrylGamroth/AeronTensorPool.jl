@@ -6,7 +6,7 @@ function usage()
     println("Usage: julia --project scripts/run_system_smoke.jl [config_path] [timeout_s]")
 end
 
-config_path = length(ARGS) >= 1 ? ARGS[1] : "config/defaults.toml"
+config_path = length(ARGS) >= 1 ? ARGS[1] : "config/driver_integration_example.toml"
 timeout_s = length(ARGS) >= 2 ? parse(Float64, ARGS[2]) : 5.0
 
 function apply_canonical_layout(
@@ -73,7 +73,7 @@ function apply_canonical_layout(config::ConsumerConfig, base_dir::String)
         config.require_hugepages,
         config.progress_interval_us,
         config.progress_bytes_delta,
-        config.progress_rows_delta,
+        config.progress_major_delta_units,
         config.hello_interval_ns,
         config.qos_interval_ns,
         config.announce_freshness_ns,
@@ -85,14 +85,54 @@ function apply_canonical_layout(config::ConsumerConfig, base_dir::String)
     )
 end
 
+function first_stream_profile(cfg::DriverConfig)
+    isempty(cfg.streams) && error("driver config has no streams")
+    stream = first(values(cfg.streams))
+    profile = cfg.profiles[stream.profile]
+    return stream, profile
+end
+
 Aeron.MediaDriver.launch_embedded() do driver
     GC.@preserve driver mktempdir() do dir
         env = Dict(ENV)
         env["AERON_DIR"] = Aeron.MediaDriver.aeron_dir(driver)
-        system = load_system_config(config_path; env = env)
-        producer_cfg = apply_canonical_layout(system.producer, dir)
-        consumer_cfg = apply_canonical_layout(system.consumer, dir)
-        supervisor_cfg = system.supervisor
+        driver_cfg = load_driver_config(config_path; env = env)
+        stream, profile = first_stream_profile(driver_cfg)
+        pools = [
+            PayloadPoolConfig(pool.pool_id, "", pool.stride_bytes, profile.header_nslots) for pool in profile.payload_pools
+        ]
+        control_stream_id = driver_cfg.endpoints.control_stream_id
+        qos_stream_id = driver_cfg.endpoints.qos_stream_id
+        producer_cfg = default_producer_config(
+            ;
+            aeron_dir = env["AERON_DIR"],
+            stream_id = stream.stream_id,
+            nslots = profile.header_nslots,
+            payload_pools = pools,
+            shm_base_dir = dir,
+            producer_instance_id = "smoke-producer",
+            control_stream_id = control_stream_id,
+            qos_stream_id = qos_stream_id,
+        )
+        producer_cfg = apply_canonical_layout(producer_cfg, dir)
+        consumer_cfg = default_consumer_config(
+            ;
+            aeron_dir = env["AERON_DIR"],
+            stream_id = stream.stream_id,
+            shm_base_dir = dir,
+            control_stream_id = control_stream_id,
+            qos_stream_id = qos_stream_id,
+        )
+        consumer_cfg = apply_canonical_layout(consumer_cfg, dir)
+        supervisor_cfg = SupervisorConfig(
+            env["AERON_DIR"],
+            "aeron:ipc",
+            control_stream_id,
+            qos_stream_id,
+            stream.stream_id,
+            UInt64(5_000_000_000),
+            UInt64(1_000_000_000),
+        )
 
         mkpath(dirname(parse_shm_uri(producer_cfg.header_uri).path))
         for pool in producer_cfg.payload_pools

@@ -204,6 +204,7 @@ Consumers MUST still treat `FrameDescriptor` as the canonical availability signa
 ## 10. Bridge Configuration (Informative)
 
 The bridge is a separate application from the driver and SHOULD be configured independently. The following keys define a minimal configuration surface; implementations MAY add additional keys.
+Example config: `config/bridge_config_example.toml`.
 
 Required keys:
 
@@ -243,7 +244,6 @@ Each `mappings` entry:
 
 The bridge control channel carries `ShmPoolAnnounce`, `QosProducer`, `QosConsumer`, and `FrameProgress` messages from the main wire schema (id=900) alongside bridge-specific messages (schema id=902).
 
-Example config: `config/bridge_config_example.toml`.
 
 ---
 

@@ -174,10 +174,10 @@ client = connect(ctx)
 Attach producer/consumer:
 
 ```julia
-producer_cfg = load_producer_config("config/defaults.toml")
+producer_cfg = default_producer_config()
 producer = attach_producer(client, producer_cfg)
 
-consumer_cfg = load_consumer_config("config/defaults.toml")
+consumer_cfg = default_consumer_config()
 consumer = attach_consumer(client, consumer_cfg)
 ```
 
@@ -211,7 +211,6 @@ Producer:
 ```bash
 julia --project scripts/example_producer.jl \
   config/driver_integration_example.toml \
-  config/defaults.toml \
   0 1048576
 ```
 
@@ -220,7 +219,6 @@ Consumer:
 ```bash
 julia --project scripts/example_consumer.jl \
   config/driver_integration_example.toml \
-  config/defaults.toml \
   0
 ```
 

@@ -33,7 +33,7 @@ Producer:
 
 ```julia
 using AeronTensorPool
-cfg = load_producer_config("config/producer.toml")
+cfg = default_producer_config()
 state = init_producer(cfg)
 ```
 
@@ -41,9 +41,11 @@ Consumer:
 
 ```julia
 using AeronTensorPool
-cfg = load_consumer_config("config/consumer.toml")
+cfg = default_consumer_config()
 state = init_consumer(cfg)
 ```
+
+Client configs are API-only; only the driver uses TOML.
 
 ## Docs
 

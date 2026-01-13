@@ -128,7 +128,6 @@ Each `mappings` entry:
 - `max_rate_hz` (uint32, optional): per-mapping fallback when `ConsumerHello.max_rate_hz` is absent. Default: inherit `rate_limiter.max_rate_hz`.
 - `metadata_stream_id` (uint32, optional): destination metadata stream_id. Default: `dest_stream_id`.
 
-Example config: `config/rate_limiter_config_example.toml`.
 
 ---
 

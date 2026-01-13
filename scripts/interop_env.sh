@@ -2,7 +2,6 @@
 set -euo pipefail
 
 config_path="${1:-config/driver_integration_example.toml}"
-interop_path="${2:-}"
 
 if [[ ! -f "$config_path" ]]; then
   echo "Driver config not found: $config_path" >&2
@@ -11,7 +10,6 @@ fi
 
 julia --project -e '
 using AeronTensorPool
-using TOML
 
 function first_stream_id(cfg::DriverConfig)
     isempty(cfg.streams) && error("driver config has no streams")
@@ -32,7 +30,6 @@ function first_header_nslots(cfg::DriverConfig)
 end
 
 config_path = ARGS[1]
-interop_path = length(ARGS) >= 2 ? ARGS[2] : ""
 
 env = Dict(ENV)
 if haskey(ENV, "AERON_DIR")
@@ -47,34 +44,24 @@ end
 
 cfg = load_driver_config(config_path; env = env)
 
-overrides = Dict{String, Any}()
-if !isempty(interop_path) && isfile(interop_path)
-    raw = TOML.parsefile(interop_path)
-    overrides = get(raw, "interop", Dict{String, Any}())
-end
-
-function override(key::String, fallback)
-    return haskey(overrides, key) ? overrides[key] : fallback
-end
-
-aeron_dir = String(override("aeron_dir", cfg.endpoints.aeron_dir))
-control_channel = String(override("control_channel", cfg.endpoints.control_channel))
-control_stream_id = Int(override("control_stream_id", cfg.endpoints.control_stream_id))
-stream_id = Int(override("stream_id", first_stream_id(cfg)))
-descriptor_channel = String(override("descriptor_channel", ""))
-descriptor_stream_id = Int(override("descriptor_stream_id", 0))
+aeron_dir = String(cfg.endpoints.aeron_dir)
+control_channel = String(cfg.endpoints.control_channel)
+control_stream_id = Int(cfg.endpoints.control_stream_id)
+stream_id = Int(first_stream_id(cfg))
+descriptor_channel = ""
+descriptor_stream_id = 0
 if isempty(descriptor_channel)
     descriptor_channel = control_channel
 end
 if descriptor_stream_id == 0
     descriptor_stream_id = 1100
 end
-consumer_descriptor_channel = String(override("consumer_descriptor_channel", ""))
-consumer_descriptor_stream_id = Int(override("consumer_descriptor_stream_id", 0))
-consumer_control_channel = String(override("consumer_control_channel", ""))
-consumer_control_stream_id = Int(override("consumer_control_stream_id", 0))
-payload_stride = Int(override("payload_stride_bytes", first_payload_stride(cfg)))
-header_nslots = Int(override("header_nslots", first_header_nslots(cfg)))
+consumer_descriptor_channel = ""
+consumer_descriptor_stream_id = 0
+consumer_control_channel = ""
+consumer_control_stream_id = 0
+payload_stride = Int(first_payload_stride(cfg))
+header_nslots = Int(first_header_nslots(cfg))
 
 println("export TP_CONTROL_CHANNEL=$(control_channel)")
 println("export TP_CONTROL_STREAM_ID=$(control_stream_id)")
@@ -107,4 +94,4 @@ end
 if header_nslots != 0
     println("export TP_HEADER_NSLOTS=$(header_nslots)")
 end
-' "$config_path" "$interop_path"
+' "$config_path"

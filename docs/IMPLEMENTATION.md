@@ -30,7 +30,7 @@ For a combined wire + driver overview, see `docs/USER_GUIDE.md`.
 - `src/shm`: shared-memory helpers (canonical paths, mmap, superblocks, headers).
 - `src/aeron`: Aeron helpers (try_claim, fragment assemblers, counters).
 - `src/timers`: polled timers and timer sets.
-- `src/config`: TOML/env config loading and path resolution.
+- `src/config`: driver TOML/env config loading plus API defaults and path resolution.
 - `src/agents/<role>`: role implementation split into `state.jl`, `mapping.jl`, `frames.jl`, `proxy.jl`, `handlers.jl`, and orchestration glue. Bridge adds `assembly.jl` and `adapters.jl`.
 - `src/agents`: Agent.jl integration for each role.
 
@@ -237,7 +237,7 @@ end
 - Pollers are advanced APIs; higher-level init functions (`init_driver_client`, `init_producer`, `init_consumer`, `init_supervisor`) are the recommended entry points.
 
 ### Config scope (public vs internal)
-- Public configs: `DriverConfig`, `ProducerConfig`, `ConsumerConfig`, `SupervisorConfig`, `BridgeConfig`, `SystemConfig`.
+- Public configs: `DriverConfig`, `ProducerConfig`, `ConsumerConfig`, `SupervisorConfig`, `BridgeConfig`.
 - Internal helper configs and runtime structs should not be required for typical usage; keep them in module scope but document if exposed.
 
 ## 14. Codegen and build tasks
@@ -320,11 +320,11 @@ profile = "raw_profile"
 
 ## 20. Benchmarking
 - Microbenchmarks: `julia --project scripts/run_benchmarks.jl`.
-- System benchmark: `julia --project scripts/run_benchmarks.jl --system --duration 5 --config config/defaults.toml`.
-- Bridge benchmark (single-thread): `julia --project scripts/run_benchmarks.jl --bridge --duration 5 --config config/defaults.toml`.
-- Bridge benchmark (AgentRunners, requires `JULIA_NUM_THREADS>=2`): `JULIA_NUM_THREADS=2 julia --project scripts/run_benchmarks.jl --bridge-runners --duration 5 --config config/defaults.toml`.
+- System benchmark: `julia --project scripts/run_benchmarks.jl --system --duration 5 --config config/driver_integration_example.toml`.
+- Bridge benchmark (single-thread): `julia --project scripts/run_benchmarks.jl --bridge --duration 5 --config config/driver_integration_example.toml`.
+- Bridge benchmark (AgentRunners, requires `JULIA_NUM_THREADS>=2`): `JULIA_NUM_THREADS=2 julia --project scripts/run_benchmarks.jl --bridge-runners --duration 5 --config config/driver_integration_example.toml`.
 - Results should include publish/consume rates and allocation behavior under load.
-- Map config → SBE messages: producer fills ShmPoolAnnounce from TOML/env (uris, nslots, stride_bytes, announce_clock_domain); MAX_DIMS comes from the compiled schema constant.
+- Map config → SBE messages: producer fills ShmPoolAnnounce from API config (uris, nslots, stride_bytes, announce_clock_domain); MAX_DIMS comes from the compiled schema constant.
 - Consumers refuse SHM if announce values differ from compiled schema (layout_version) or backend validation fails.
 
 ## 16a. Agent execution model (AgentRunner vs Invoker)

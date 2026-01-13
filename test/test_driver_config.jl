@@ -1,7 +1,7 @@
 using Test
 
 @testset "Driver config loader" begin
-    cfg = load_driver_config(joinpath(@__DIR__, "..", "docs", "examples", "driver_camera_example.toml"))
+    cfg = load_driver_config(joinpath(@__DIR__, "..", "config", "driver_camera_example.toml"))
 
     @test cfg.endpoints.control_stream_id == 1000
     @test cfg.endpoints.announce_stream_id == 1001
