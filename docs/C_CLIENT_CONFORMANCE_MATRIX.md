@@ -1,7 +1,7 @@
 # C Client Conformance Matrix
 
 This report audits the C client implementation against the normative requirements in:
-- `docs/SHM_Tensor_Pool_Wire_Spec_v1.1.md`
+- `docs/SHM_Tensor_Pool_Wire_Spec_v1.2.md`
 - `docs/SHM_Driver_Model_Spec_v1.0.md`
 - `docs/SHM_Discovery_Service_Spec_v_1.0.md`
 
@@ -52,7 +52,7 @@ Status legend:
 | §10.2 / §15.19 | Drop if `epoch` mismatch with mapped SHM | **Implemented** | `tp_consumer_try_read_frame` enforces `descriptor.epoch == mapped epoch`. |
 | §10.2 | Drop if `seq_commit>>1` != `FrameDescriptor.seq` | **Implemented** | `tp_consumer_try_read_frame` checks `end >> 1 == last_seq`. |
 | §10.2 | Drop if `values_len_bytes > stride_bytes` | **Implemented** | `tp_consumer_try_read_frame` checks `values_len <= stride_bytes`. |
-| §10.2 | Drop if `payload_offset != 0` (v1.1) | **Implemented** | `tp_consumer_try_read_frame` rejects non-zero `payload_offset`. |
+| §10.2 | Drop if `payload_offset != 0` (v1.2) | **Implemented** | `tp_consumer_try_read_frame` rejects non-zero `payload_offset`. |
 | §10.2 | Parse `headerBytes` as TensorHeader SBE; validate header length and template ID | **Implemented** | `tp_consumer_try_read_frame`. |
 | §10.2 | `ndims` in 1..MAX_DIMS | **Implemented** | `tp_consumer_try_read_frame` enforces bounds. |
 | §10.2 | Strides validation (non-overlap, major order) | **Implemented** | `tp_validate_strides` and contiguous inference enforce major-order consistency. |

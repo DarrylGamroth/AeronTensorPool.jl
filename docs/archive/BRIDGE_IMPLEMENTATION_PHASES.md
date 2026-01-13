@@ -14,7 +14,7 @@ The bridge specification is the authoritative source of truth; this plan only tr
 - §6 rematerialization: **implemented**. Receiver drops chunks whose epoch mismatches the latest forwarded announce before assembly.
 - §7.1 metadata forwarding: **implemented**. Stream id rewrite and `meta_version` preservation present in sender/receiver proxy.
 - §7.2 control channel: **implemented**. Control channel uses wire schema messages and gated by `forward_qos`/`forward_progress`.
-- §9 progress forwarding: **implemented**. Receiver remaps `headerIndex` to local before publish.
+- §9 progress forwarding: **implemented**. Receiver derives the local header index from `frame_id` before publish.
 - §10 defaults: **implemented**. Config loader defaults match spec; chunk sizing uses MTU minus 128 and caps with `max_chunk_bytes`.
 
 Status: pending audit.
@@ -79,7 +79,7 @@ Status: completed.
   - Enforce `layout_version` checks per spec; MAX_DIMS is fixed by the schema constant.
 - FrameProgress forwarding on receiver:
   - Rewrite `stream_id` to `dest_stream_id`.
-  - Validate or remap `headerIndex` to local mapping; drop if mismatched per spec.
+  - Validate or derive local header index from `frame_id`; drop if mismatched per spec.
 - Assembly timeout:
   - On timer expiry, drop partial assembly and reset cleanly.
   - Ensure epoch/seq change resets assembly immediately.
@@ -105,7 +105,7 @@ Status: completed.
 ### Phase 5: Tests + Examples
 - Add integration tests:
   - Forwarded announce → receiver validation.
-  - QoS/FrameProgress forwarding with headerIndex mapping.
+  - QoS/FrameProgress forwarding with derived header index.
   - Assembly timeout drop/reset path.
   - Bidirectional mappings with feedback loop protection.
   - Discovery integration: ensure bridged streams can be discovered via the Discovery service and that forwarded announces/metadata are visible to discovery.

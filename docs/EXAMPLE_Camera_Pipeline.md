@@ -1,6 +1,6 @@
 # Camera Pipeline Example (3 Cameras, Driver Model)
 
-This example shows a concrete deployment using the Driver Model with three cameras producing raw frames and three processing tasks producing derived frames. It assumes the wire spec is `docs/SHM_Tensor_Pool_Wire_Spec_v1.1.md` and the driver spec is `docs/SHM_Driver_Model_Spec_v1.0.md`.
+This example shows a concrete deployment using the Driver Model with three cameras producing raw frames and three processing tasks producing derived frames. It assumes the wire spec is `docs/SHM_Tensor_Pool_Wire_Spec_v1.2.md` and the driver spec is `docs/SHM_Driver_Model_Spec_v1.0.md`.
 
 Related config example: `docs/examples/driver_camera_example.toml`.
 

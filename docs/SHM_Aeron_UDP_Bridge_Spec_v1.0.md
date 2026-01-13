@@ -8,7 +8,7 @@ This document defines a bridge protocol for transporting SHM Tensor Pool frames 
 The key words “MUST”, “MUST NOT”, “REQUIRED”, “SHOULD”, “SHOULD NOT”, and “MAY” are to be interpreted as described in RFC 2119.
 
 **Normative References**
-- SHM Tensor Pool Wire Specification v1.1 (`docs/SHM_Tensor_Pool_Wire_Spec_v1.1.md`)
+- SHM Tensor Pool Wire Specification v1.2 (`docs/SHM_Tensor_Pool_Wire_Spec_v1.2.md`)
 - SHM Driver Model Specification v1.0 (`docs/SHM_Driver_Model_Spec_v1.0.md`)
 
 ---
@@ -140,7 +140,7 @@ Upon receiving all chunks for a frame:
 2. Drop frames until at least one `ShmPoolAnnounce` has been received for the mapping; receivers MUST NOT accept payloads without a source pool announce.
 3. Drop frames if the chunk `epoch` does not match the most recent forwarded `ShmPoolAnnounce` epoch for the mapping; receivers MUST NOT write into a mapping with mismatched epoch/layout.
 4. Validate the header: `values_len_bytes` MUST equal `payloadLength`; `ndims`, `dtype`, and `dims` MUST be within local limits; malformed headers MUST be dropped. Header length requirements in §5.2 are mandatory.
-   The embedded header MUST decode to a supported type (v1.0: `TensorHeader` with the expected schemaId/version/templateId and length); otherwise drop. `payload_offset` MUST be 0 in v1.1.
+   The embedded header MUST decode to a supported type (v1.0: `TensorHeader` with the expected schemaId/version/templateId and length); otherwise drop. `payload_offset` MUST be 0 in v1.2.
 5. Validate `headerBytes.pool_id` against the source pool range from the most recent forwarded `ShmPoolAnnounce` for the mapping; invalid pool IDs MUST be dropped.
 6. Validate `payloadLength` against the source pool stride (from the forwarded announce); if `payloadLength` exceeds the source `stride_bytes`, the frame MUST be dropped.
 7. Select the local payload pool and slot using configured mapping rules (e.g., smallest stride >= `payloadLength`). If no local pool can fit the payload, or if `payloadLength` exceeds the largest local `stride_bytes`, the receiver MUST drop the frame.
@@ -155,7 +155,7 @@ The receiver MUST treat `seq` as the canonical frame identity and MUST ensure it
 
 ## 7. Descriptor Semantics (Normative)
 
-The bridge receiver publishes a standard `FrameDescriptor` for the re-materialized frame. `headerIndex` and `payloadSlot` refer to the receiver's local SHM pools. The receiver MUST publish `FrameDescriptor` on its standard local IPC descriptor channel and stream for `dest_stream_id` (per the wire specification), unless explicitly overridden by deployment configuration.
+The bridge receiver publishes a standard `FrameDescriptor` for the re-materialized frame. The derived header index and payload slot refer to the receiver's local SHM pools. The receiver MUST publish `FrameDescriptor` on its standard local IPC descriptor channel and stream for `dest_stream_id` (per the wire specification), unless explicitly overridden by deployment configuration.
 
 Bridge senders MUST NOT publish local `FrameDescriptor` messages over UDP; only `BridgeFrameChunk` messages are carried over the bridge transport.
 
@@ -188,10 +188,10 @@ Bridge instances MAY forward `FrameProgress`; when `bridge.forward_progress=true
 1. Subscribe to the source host's local control stream at `source_control_stream_id` (per mapping).
 2. Forward `FrameProgress` messages over `bridge.control_channel` with the following rewrites:
    - `FrameProgress.streamId` MUST be set to `source_stream_id` (sender) and rewritten to `dest_stream_id` (receiver).
-  - `FrameProgress.epoch`, `frameId`, `payloadBytesFilled`, and `state` MUST be preserved as received from the source.
+  - `FrameProgress.epoch`, `seq`, `payloadBytesFilled`, and `state` MUST be preserved as received from the source.
 3. Receiver MUST republish forwarded `FrameProgress` on the destination host's local IPC control stream at `dest_control_stream_id` (per mapping).
 
-`FrameProgress.headerIndex` is source-side; receivers MUST remap it to the local header index before republishing. If the mapping cannot be determined, the receiver MUST drop the forwarded progress for that frame.
+Receivers derive the local header index from `seq` before republishing. If the mapping cannot be determined, the receiver MUST drop the forwarded progress for that frame.
 
 Progress forwarding is sender-side (as observed from the source stream) and independent of whether the receiver has finished re-materialization. Receivers SHOULD drop forwarded progress that refers to unknown or expired assembly state.
 

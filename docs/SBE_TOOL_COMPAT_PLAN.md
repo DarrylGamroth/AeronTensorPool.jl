@@ -6,7 +6,7 @@ Goal: ensure the spec schemas and prose are accepted by the Java `sbe-tool` with
 - `schemas/wire-schema.xml`
 - `schemas/driver-schema.xml`
 - Relevant spec prose:
-  - `docs/SHM_Tensor_Pool_Wire_Spec_v1.1.md`
+  - `docs/SHM_Tensor_Pool_Wire_Spec_v1.2.md`
   - `docs/SHM_Driver_Model_Spec_v1.0.md`
 
 ## Compatibility Rules (sbe-tool constraints)

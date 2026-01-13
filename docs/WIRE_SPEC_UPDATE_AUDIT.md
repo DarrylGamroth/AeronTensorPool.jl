@@ -1,6 +1,6 @@
-# Wire Spec v1.1 Update Audit
+# Wire Spec v1.2 Update Audit
 
-Target: `docs/SHM_Tensor_Pool_Wire_Spec_v1.1.md` (seq_commit + SlotHeader/TensorHeader rules).
+Target: `docs/SHM_Tensor_Pool_Wire_Spec_v1.2.md` (seq_commit + SlotHeader/TensorHeader rules).
 
 ## Call sites using SlotHeader/TensorHeader
 - `src/core/messages.jl`: SlotHeader/TensorHeader aliases; `MAX_DIMS` derived from `TensorHeader.maxDims`.
@@ -34,4 +34,4 @@ Target: `docs/SHM_Tensor_Pool_Wire_Spec_v1.1.md` (seq_commit + SlotHeader/Tensor
 Update all references to SlotHeader/TensorHeader and ensure explicit checks:
 - `values_len_bytes` vs `stride_bytes` bounds drop.
 - `ndims` must be `1..MAX_DIMS`.
-- `payload_offset` must be 0 (v1.1).
+- `payload_offset` must be 0 (v1.2).

@@ -132,7 +132,7 @@ These keys are used by example scripts and benchmarks (`config/defaults.toml`). 
 - `aeron_dir`, `aeron_uri`
 - `descriptor_stream_id`, `control_stream_id`, `qos_stream_id`, `metadata_stream_id`
 - `stream_id`, `producer_id`, `layout_version`, `nslots`
-- `shm_base_dir`, `shm_namespace`, `producer_instance_id`, `header_uri`
+- `shm_base_dir`, `shm_namespace`, `header_uri`
 - `announce_interval_ns`, `qos_interval_ns`
 - `progress_interval_ns`, `progress_bytes_delta`
 

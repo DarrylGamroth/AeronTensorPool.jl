@@ -2,7 +2,7 @@
 
 This checklist maps key MUST/SHOULD items to code/tests. The wire spec is authoritative.
 
-## Wire Spec (v1.1) MUSTs
+## Wire Spec (v1.2) MUSTs
 
 | Area | Requirement | Status | Evidence |
 | --- | --- | --- | --- |

@@ -10,5 +10,5 @@ consumer_descriptor_stream_id = 1200
 consumer_control_channel = "aeron:ipc?term-length=4m"
 consumer_control_stream_id = 1300
 stream_id = 10000
-# aeron_dir = "/dev/shm/aeron"
+aeron_dir = "/dev/shm/aeron"
 # payload_stride_bytes = 1048576

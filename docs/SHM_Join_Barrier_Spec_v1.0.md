@@ -6,7 +6,7 @@ This document defines the MergeMap and JoinBarrier control-plane semantics for
 multi-input synchronization in AeronTensorPool. It is an optional feature layer
 built on top of the AeronTensorPool wire protocol, and it depends on the
 control-plane conventions and SBE framing defined in
-`docs/SHM_Tensor_Pool_Wire_Spec_v1.1.md`. Implementations MAY adopt this feature
+`docs/SHM_Tensor_Pool_Wire_Spec_v1.2.md`. Implementations MAY adopt this feature
 independently without modifying the base wire spec.
 
 ## 2. Key Words
@@ -102,7 +102,7 @@ for commit stability.
 
 Timestamp MergeMap rules map an output timestamp `out_time` (nanoseconds) to
 required input timestamps `in_time`. All timestamps MUST use a declared clock
-domain (see `ClockDomain` in `docs/SHM_Tensor_Pool_Wire_Spec_v1.1.md`).
+domain (see `ClockDomain` in `docs/SHM_Tensor_Pool_Wire_Spec_v1.2.md`).
 
 For each timestamp rule, exactly one parameter MUST be present:
 - For `OFFSET_NS`, `offsetNs` MUST be non-null and `windowNs` MUST be null.
@@ -319,7 +319,7 @@ per input.
 
 A new control-plane message is REQUIRED to convey MergeMap rules. The message
 MUST be SBE-encoded and carried on the control stream (shared or per-consumer)
-per the control-plane conventions in `docs/SHM_Tensor_Pool_Wire_Spec_v1.1.md`.
+per the control-plane conventions in `docs/SHM_Tensor_Pool_Wire_Spec_v1.2.md`.
 Recommended control stream ID ranges are described in
 `docs/STREAM_ID_CONVENTIONS.md`.
 
@@ -338,7 +338,7 @@ Each rule MUST encode:
 
 Implementations SHOULD encode `rules` as an SBE repeating group with fixed
 fields and use explicit null sentinels for unused parameters (consistent with
-the SBE presence rules in `docs/SHM_Tensor_Pool_Wire_Spec_v1.1.md`).
+the SBE presence rules in `docs/SHM_Tensor_Pool_Wire_Spec_v1.2.md`).
 Template IDs and field IDs MUST be allocated in the control-plane schema
 appendix and remain consistent with the control-plane `schemaId` and `version`.
 MergeMap authorities SHOULD re-announce MergeMap rules at a low cadence as
@@ -375,7 +375,7 @@ interoperability.
 
 A timestamp MergeMap announcement is REQUIRED to convey timestamp-based rules.
 The message MUST be SBE-encoded and carried on the control stream per the
-control-plane conventions in `docs/SHM_Tensor_Pool_Wire_Spec_v1.1.md`.
+control-plane conventions in `docs/SHM_Tensor_Pool_Wire_Spec_v1.2.md`.
 When field ordering is ambiguous, the SBE schema appendix is authoritative.
 
 The message MUST contain:

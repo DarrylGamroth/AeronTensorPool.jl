@@ -9,5 +9,5 @@ The wire spec and driver model specs are authoritative. This document links the 
 - Driver spec updates: `docs/DRIVER_SPEC_UPDATE_PLAN.md`
 
 ## Reference
-- Wire spec: `docs/SHM_Tensor_Pool_Wire_Spec_v1.1.md`
+- Wire spec: `docs/SHM_Tensor_Pool_Wire_Spec_v1.2.md`
 - Driver model spec: `docs/SHM_Driver_Model_Spec_v1.0.md`

@@ -1,10 +1,10 @@
-# Implementation Guide (Wire v1.1 + Driver v1.0)
+# Implementation Guide (Wire v1.2 + Driver v1.0)
 
 This guide maps the wire-level spec and driver model spec into concrete implementation steps.
 It is implementation-oriented and references the specs for normative rules.
 
 References:
-- Wire spec: `docs/SHM_Tensor_Pool_Wire_Spec_v1.1.md`
+- Wire spec: `docs/SHM_Tensor_Pool_Wire_Spec_v1.2.md`
 - Driver model: `docs/SHM_Driver_Model_Spec_v1.0.md`
 
 Note: Initial driver and client implementations are in Julia. A C client is planned next, so API and protocol decisions should remain C-friendly. The driver can remain Julia-only.
@@ -34,8 +34,8 @@ SHM layout:
 - Payload pools: fixed stride, same nslots as header ring.
 
 Commit protocol:
-- commit_word = (frame_id << 1) | 1 for WRITING.
-- commit_word = (frame_id << 1) for COMMITTED.
+- commit_word = (seq << 1) | 0 for WRITING.
+- commit_word = (seq << 1) | 1 for COMMITTED.
 - Use acquire/release semantics and seqlock read rules.
 
 Producer flow (Wire 15.19):
@@ -49,10 +49,10 @@ Producer startup:
 - Wait for descriptor publication connectivity before publishing; `try_claim` returns `-1` until at least one subscriber connects.
 
 Consumer flow (Wire 15.19):
-1) Read commit_word (acquire); drop if odd.
+1) Read commit_word (acquire); drop if LSB=0.
 2) Read header and payload.
-3) Re-read commit_word (acquire); drop if changed or odd.
-4) Accept only if header.frame_id == descriptor.seq.
+3) Re-read commit_word (acquire); drop if changed or LSB=0.
+4) Accept only if (commit_word >> 1) == descriptor.seq.
 
 Implementation notes:
 - Control/QoS/metadata channels can carry mixed message families; guard on `MessageHeader.schemaId` (or `DriverMessageHeader.schemaId`) before decoding.
@@ -112,8 +112,8 @@ Implement path containment checks before mmap:
 - Reject non-regular files and unknown schemes.
 
 Default layout (informative):
-- `<shm_base_dir>/<namespace>/<producer_instance_id>/epoch-<E>/`
-- `header.ring` and `payload-<pool_id>.pool`
+- `<shm_base_dir>/tensorpool-${USER}/<namespace>/<stream_id>/<epoch>/`
+- `header.ring` and `<pool_id>.pool`
 
 ## 6. Aeron Usage
 
@@ -185,7 +185,7 @@ Testing:
 ## 10. References for Implementers
 
 Specs:
-- `docs/SHM_Tensor_Pool_Wire_Spec_v1.1.md`
+- `docs/SHM_Tensor_Pool_Wire_Spec_v1.2.md`
 - `docs/SHM_Driver_Model_Spec_v1.0.md`
 
 Project docs:

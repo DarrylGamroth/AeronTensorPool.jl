@@ -22,7 +22,6 @@ layout_version = 1
 nslots = 64
 shm_base_dir = "/dev/shm"
 shm_namespace = "tensorpool"
-producer_instance_id = ""
 header_uri = ""
 announce_interval_ns = 1000000000
 qos_interval_ns = 1000000000

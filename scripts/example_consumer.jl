@@ -104,7 +104,7 @@ function Agent.do_work(agent::AppConsumerAgent)
         if metrics.drops_late != agent.last_drops_late ||
            metrics.drops_header_invalid != agent.last_drops_header_invalid
             @info "Consumer metrics" frames_ok = metrics.frames_ok drops_late = metrics.drops_late drops_odd =
-                metrics.drops_odd drops_changed = metrics.drops_changed drops_frame_id_mismatch =
+                metrics.drops_odd drops_changed = metrics.drops_changed drops_seq_mismatch =
                 metrics.drops_frame_id_mismatch drops_header_invalid = metrics.drops_header_invalid
                 drops_payload_invalid = metrics.drops_payload_invalid
             agent.last_drops_late = metrics.drops_late

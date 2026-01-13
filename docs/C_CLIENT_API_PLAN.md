@@ -69,7 +69,7 @@ This plan defines the initial C client implementation for AeronTensorPool. It fo
 
 ## 3. Wire/Driver Compliance
 Must implement client rules from:
-- `docs/SHM_Tensor_Pool_Wire_Spec_v1.1.md`
+- `docs/SHM_Tensor_Pool_Wire_Spec_v1.2.md`
 - `docs/SHM_Driver_Model_Spec_v1.0.md`
 - `docs/SHM_Discovery_Service_Spec_v_1.0.md` (optional)
 
@@ -138,4 +138,4 @@ Status: vendored Aeron C client sources under `c/vendor/aeron` with CMake build.
 
 ## 10. References
 - Aeron C client layout: `/home/dgamroth/workspaces/codex/aeron/aeron-client/src/main/c`
-- Specs: `docs/SHM_Tensor_Pool_Wire_Spec_v1.1.md`, `docs/SHM_Driver_Model_Spec_v1.0.md`
+- Specs: `docs/SHM_Tensor_Pool_Wire_Spec_v1.2.md`, `docs/SHM_Driver_Model_Spec_v1.0.md`

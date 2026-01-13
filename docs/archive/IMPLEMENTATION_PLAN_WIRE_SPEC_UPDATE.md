@@ -1,6 +1,6 @@
 # Wire Spec v1.1 Update Plan (Post-2026-01 Changes)
 
-Authoritative source: `docs/SHM_Tensor_Pool_Wire_Spec_v1.1.md`. This plan captures the new delta set (SlotHeader/TensorHeader split, clock domain, per-consumer stream rules, progress metadata changes, and security checks).
+Authoritative source: `docs/SHM_Tensor_Pool_Wire_Spec_v1.2.md`. This plan captures the new delta set (SlotHeader/TensorHeader split, clock domain, per-consumer stream rules, progress metadata changes, and security checks).
 
 ## Phase 0: Audit and Alignment (no code changes) ☑
 - Inventory all uses of `TensorSlotHeader`/`TensorSlotHeader256`, `FrameProgress.rowsFilled`, and `ShmPoolAnnounce.maxDims`.

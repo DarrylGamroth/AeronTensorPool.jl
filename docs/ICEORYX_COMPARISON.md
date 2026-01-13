@@ -108,7 +108,7 @@ Tradeoff:
 ### 2) Memory Management
 
 ATP:
-- Pools are sized by stride; payload slot = header index in v1.1.
+- Pools are sized by stride; payload slot = header index in v1.2.
 - Overwrite is allowed; consumers must tolerate drops.
 
 IOX:
