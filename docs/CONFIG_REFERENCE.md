@@ -115,7 +115,6 @@ Mapping fields:
 
 - `mappings[].source_stream_id` (uint32): stream ID consumed from local SHM.
 - `mappings[].dest_stream_id` (uint32): stream ID produced on the destination host.
-- `mappings[].profile` (string): destination profile name or pool mapping policy.
 - `mappings[].metadata_stream_id` (uint32, optional): destination metadata stream ID. Default: `dest_stream_id`.
 - `mappings[].source_control_stream_id` (uint32, optional): source control stream ID for progress/QoS. Default: `0` (disabled).
 - `mappings[].dest_control_stream_id` (uint32, optional): destination control stream ID for progress/QoS. Default: `0` (disabled).

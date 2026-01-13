@@ -25,6 +25,5 @@ dest_qos_stream_id = 1200
 [[mappings]]
 source_stream_id = 10000
 dest_stream_id = 11000
-profile = "default"
 metadata_stream_id = 11000
 max_rate_hz = 30

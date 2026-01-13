@@ -4,7 +4,6 @@ Per-stream mapping for the rate limiter.
 struct RateLimiterMapping
     source_stream_id::UInt32
     dest_stream_id::UInt32
-    profile::String
     metadata_stream_id::UInt32
     max_rate_hz::UInt32
 end

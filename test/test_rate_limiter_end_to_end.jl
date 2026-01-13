@@ -1,4 +1,28 @@
 using Test
+using UnsafeArrays
+
+function encode_consumer_hello!(
+    buffer::Vector{UInt8},
+    stream_id::UInt32,
+    consumer_id::UInt32,
+    max_rate_hz::UInt16,
+)
+    unsafe_buf = UnsafeArrays.UnsafeArray{UInt8, 1}(pointer(buffer), (length(buffer),))
+    enc = ConsumerHello.Encoder(UnsafeArrays.UnsafeArray{UInt8, 1})
+    ConsumerHello.wrap_and_apply_header!(enc, unsafe_buf, 0)
+    ConsumerHello.streamId!(enc, stream_id)
+    ConsumerHello.consumerId!(enc, consumer_id)
+    ConsumerHello.maxRateHz!(enc, max_rate_hz)
+    return sbe_encoded_length(enc)
+end
+
+function decode_consumer_hello(buffer::Vector{UInt8})
+    unsafe_buf = UnsafeArrays.UnsafeArray{UInt8, 1}(pointer(buffer), (length(buffer),))
+    dec = ConsumerHello.Decoder(UnsafeArrays.UnsafeArray{UInt8, 1})
+    header = MessageHeader.Decoder(unsafe_buf, 0)
+    ConsumerHello.wrap!(dec, unsafe_buf, 0; header = header)
+    return dec
+end
 
 @testset "RateLimiter end-to-end" begin
     with_driver_and_client() do media_driver, client
@@ -161,7 +185,7 @@ using Test
             UInt64(5_000_000_000),
             UInt64(1_000_000_000),
         )
-        mapping = RateLimiterMapping(UInt32(10001), UInt32(10002), "raw", UInt32(10002), UInt32(1))
+        mapping = RateLimiterMapping(UInt32(10001), UInt32(10002), UInt32(10002), UInt32(1))
         rl_state = init_rate_limiter(rl_cfg, [mapping]; client = client, driver_work_fn = () -> driver_do_work!(driver_state))
         @test rl_state.mappings[1].max_rate_hz == UInt32(1)
 
@@ -185,6 +209,27 @@ using Test
         @test rl_state.mappings[1].max_rate_hz == UInt32(1)
         @test frame_count[] > 0
         @test frame_count[] < sent
+
+        hello_buf = Vector{UInt8}(undef, 128)
+        mapping_state = rl_state.mappings[1]
+        mapping_state.dest_consumer_id = UInt32(0)
+        encode_consumer_hello!(hello_buf, UInt32(10002), UInt32(9), UInt16(5))
+        AeronTensorPool.Agents.RateLimiter.apply_consumer_hello_rate!(mapping_state, decode_consumer_hello(hello_buf))
+        @test mapping_state.dest_consumer_id == UInt32(9)
+        @test mapping_state.max_rate_hz == UInt32(5)
+
+        encode_consumer_hello!(hello_buf, UInt32(10002), UInt32(10), UInt16(7))
+        AeronTensorPool.Agents.RateLimiter.apply_consumer_hello_rate!(mapping_state, decode_consumer_hello(hello_buf))
+        @test mapping_state.dest_consumer_id == UInt32(9)
+        @test mapping_state.max_rate_hz == UInt32(5)
+
+        mapping_state.pending.valid = true
+        mapping_state.pending.payload_len = UInt32(length(mapping_state.pending.payload_buf) + 1)
+        mapping_state.max_rate_hz = UInt32(0)
+        mapping_state.next_allowed_ns = UInt64(0)
+        AeronTensorPool.Agents.RateLimiter.publish_pending!(mapping_state)
+        @test mapping_state.pending.valid == false
+        @test AeronTensorPool.Agents.RateLimiter.progress_header_index(UInt32(8), UInt64(9)) == UInt32(1)
 
         close_producer_state!(producer_state)
         close_consumer_state!(consumer_state)

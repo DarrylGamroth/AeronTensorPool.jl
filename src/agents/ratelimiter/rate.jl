@@ -11,6 +11,13 @@ Update rate limit from ConsumerHello (per-consumer).
 """
 function apply_consumer_hello_rate!(state::RateLimiterMappingState, msg::ConsumerHello.Decoder)
     ConsumerHello.streamId(msg) == state.mapping.dest_stream_id || return nothing
+    consumer_id = UInt32(ConsumerHello.consumerId(msg))
+    if state.dest_consumer_id == 0
+        state.dest_consumer_id = consumer_id
+    elseif state.dest_consumer_id != consumer_id
+        @tp_warn "rate limiter mapping already bound to consumer" existing_consumer_id = state.dest_consumer_id consumer_id
+        return nothing
+    end
     rate_hz = UInt32(ConsumerHello.maxRateHz(msg))
     if rate_hz != typemax(UInt32)
         state.max_rate_hz = rate_hz

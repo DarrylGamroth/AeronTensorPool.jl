@@ -127,7 +127,6 @@ Each `mappings` entry:
 
 - `source_stream_id` (uint32)
 - `dest_stream_id` (uint32)
-- `profile` (string): destination profile name or pool mapping policy.
 - `max_rate_hz` (uint32, optional): per-mapping fallback when `ConsumerHello.max_rate_hz` is absent. Default: inherit `rate_limiter.max_rate_hz`.
 - `metadata_stream_id` (uint32, optional): destination metadata stream_id. Default: `dest_stream_id`.
 

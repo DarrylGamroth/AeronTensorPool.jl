@@ -27,13 +27,11 @@ end
 function parse_rate_limiter_mapping(tbl::AbstractDict, default_rate_hz::UInt32)
     source_stream_id = UInt32(get(tbl, "source_stream_id", 0))
     dest_stream_id = UInt32(get(tbl, "dest_stream_id", 0))
-    profile = String(get(tbl, "profile", ""))
     metadata_stream_id = UInt32(get(tbl, "metadata_stream_id", dest_stream_id))
     max_rate_hz = UInt32(get(tbl, "max_rate_hz", default_rate_hz))
     return RateLimiterMapping(
         source_stream_id,
         dest_stream_id,
-        profile,
         metadata_stream_id,
         max_rate_hz,
     )

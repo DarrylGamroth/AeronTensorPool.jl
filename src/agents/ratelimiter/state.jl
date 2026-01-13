@@ -18,6 +18,7 @@ mutable struct RateLimiterMappingState
     producer_agent::ProducerAgent
     metadata_pub::Union{Aeron.Publication, Nothing}
     metadata_claim::Aeron.BufferClaim
+    dest_consumer_id::UInt32
     max_rate_hz::UInt32
     next_allowed_ns::UInt64
     last_source_epoch::UInt64

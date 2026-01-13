@@ -14,6 +14,9 @@ Goal: Implement a RateLimiter agent that consumes source descriptors/SHM, applie
 
 Status: completed.
 
+Implementation notes:
+- Current implementation enforces a single consumer per mapping; additional `ConsumerHello` updates are ignored.
+
 ---
 
 ## Phase 1: Config + wiring

@@ -37,7 +37,13 @@ function publish_pending!(mapping_state::RateLimiterMappingState)
     if rate_limit_allow!(mapping_state, now_ns)
         ptr = pointer(pending.payload_buf)
         ok = rematerialize_frame!(mapping_state, pending.header, ptr, Int(pending.payload_len))
-        ok && clear_pending!(pending)
+        if ok
+            clear_pending!(pending)
+        else
+            seq = pending.seq
+            clear_pending!(pending)
+            @tp_debug "rate limiter dropped pending frame" seq
+        end
         return ok
     end
     return false

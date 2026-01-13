@@ -333,6 +333,7 @@ If the producer cannot honor a per‑consumer stream:
 - It may decline and the consumer must drop locally.
 
 For shared reduced-rate streams, use the RateLimiter agent.
+Current implementation supports one consumer per rate-limiter mapping; additional `ConsumerHello` updates for the same mapping are ignored.
 
 Example:
 

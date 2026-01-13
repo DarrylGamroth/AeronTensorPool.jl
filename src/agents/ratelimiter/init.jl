@@ -213,6 +213,7 @@ function init_mapping_state(
         producer_agent,
         metadata_pub,
         Aeron.BufferClaim(),
+        UInt32(0),
         mapping.max_rate_hz,
         UInt64(0),
         UInt64(0),
