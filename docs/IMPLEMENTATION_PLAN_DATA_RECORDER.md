@@ -14,7 +14,7 @@ spec while keeping hot paths type-stable and zero-allocation after init.
 - Confirm MVP scope: frames + segments + manifest only; defer metadata,
   TraceLink ingestion, and EventMessage control to a later phase.
 - Decide dataset layout policy:
-  - Per-stream dataset root vs multi-stream shared root.
+  - Use multi-stream shared dataset root (single manifest for multiple streams).
   - Recorded ring sizes mirror live SHM or allow larger on-disk rings.
 - Decide default segment sizing, retention, and checksum enablement.
 - Identify reuse points in existing agents:
