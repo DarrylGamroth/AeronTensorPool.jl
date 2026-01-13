@@ -7,6 +7,7 @@ This guide is an end-to-end, practical walkthrough for using the SHM Tensor Pool
 - Driver model: `docs/SHM_Driver_Model_Spec_v1.0.md`
 - Discovery: `docs/SHM_Discovery_Service_Spec_v_1.0.md`
 - Bridge: `docs/SHM_Aeron_UDP_Bridge_Spec_v1.0.md`
+- Stream IDs: `docs/STREAM_ID_CONVENTIONS.md`
 
 ---
 
@@ -17,6 +18,7 @@ This guide is an end-to-end, practical walkthrough for using the SHM Tensor Pool
 - **Driver** owns SHM, leases, epochs, and emits `ShmPoolAnnounce`.
 - **Discovery** is optional; it provides a read‑only index of streams.
 - **Bridge** is optional; it repackages SHM frames for remote hosts.
+  Use `docs/STREAM_ID_CONVENTIONS.md` for canonical stream IDs.
 
 ---
 
@@ -121,6 +123,7 @@ Producer loop (typical path):
 ### Pool selection and allocation
 
 Pools are defined by the driver profile as fixed-size stride classes. The producer selects the smallest pool whose `stride_bytes` can hold the payload.
+`stride_bytes` MUST be a power‑of‑two multiple of 64 bytes in v1.2.
 
 Example: four pool sizes (64 KiB, 256 KiB, 1 MiB, 4 MiB):
 
