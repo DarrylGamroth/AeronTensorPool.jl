@@ -165,6 +165,15 @@ Bridge senders MUST NOT publish local `FrameDescriptor` messages over UDP; only 
 
 Bridge instances MUST support forwarding `DataSourceAnnounce` and `DataSourceMeta` from the source stream to the receiver host. When `bridge.forward_metadata=true`, the sender MUST forward metadata over `bridge.metadata_channel`/`bridge.metadata_stream_id`, and the receiver MUST publish the forwarded metadata on the destination host's standard local IPC metadata channel/stream. The forwarded `stream_id` MUST be rewritten to `metadata_stream_id` for the mapping (defaulting to `dest_stream_id` if unset) and MUST preserve `meta_version`. If the metadata channel/stream is not configured, the bridge MUST disable metadata forwarding for that mapping (and SHOULD fail fast if `bridge.forward_metadata=true`). When `bridge.forward_metadata=false`, metadata MAY be omitted and bridged consumers will lack metadata.
 
+When `bridge.forward_tracelink=true`, the bridge MUST forward `TraceLinkSet`
+messages from the source host to the receiver host using the same metadata
+transport (`bridge.metadata_channel`/`bridge.metadata_stream_id`) and publish
+them on the destination host's local IPC metadata stream for the mapping. The
+forwarded `stream_id` MUST be rewritten to `metadata_stream_id` (defaulting to
+`dest_stream_id` if unset). If the metadata channel/stream is not configured,
+the bridge MUST disable TraceLink forwarding for that mapping (and SHOULD fail
+fast if `bridge.forward_tracelink=true`).
+
 ## 7.2 Source Pool Announce Forwarding (Normative)
 
 Bridge instances MUST forward `ShmPoolAnnounce` for each mapped source stream to the receiver host on the bridge control channel. The receiver MUST use the most recent forwarded announce to validate pool IDs and epochs and MUST NOT republish the source `ShmPoolAnnounce` to local consumers. Metadata forwarding does not use the bridge control channel. When enabled, QoS and FrameProgress MUST be carried on the bridge control channel.
@@ -223,6 +232,7 @@ Optional keys and defaults:
 - `bridge.max_payload_bytes` (uint32): hard cap for total payload length. Default: `1073741824`.
 - `bridge.dest_stream_id_range` (string or array): inclusive range for dynamically allocated destination stream IDs when `dest_stream_id=0`. Ranges MUST NOT overlap metadata/control/QoS stream IDs or other bridge ranges. Default: empty (disabled).
 - `bridge.forward_metadata` (bool): forward `DataSourceAnnounce`/`DataSourceMeta`. Default: `true`.
+- `bridge.forward_tracelink` (bool): forward `TraceLinkSet` messages over the metadata channel. Default: `false`.
 - `bridge.metadata_channel` (string): Aeron UDP channel used to forward metadata (distinct from `bridge.control_channel`). Default: empty (disabled unless set).
 - `bridge.metadata_stream_id` (uint32): stream ID for forwarded metadata over `bridge.metadata_channel`. Default: deployment-specific.
 - `bridge.source_metadata_stream_id` (uint32): source metadata stream ID to subscribe on the sender host. Default: deployment-specific.
@@ -242,7 +252,7 @@ Each `mappings` entry:
 - `source_control_stream_id` (uint32, optional): source control stream ID to subscribe for progress/QoS forwarding. Default: `0` (disabled).
 - `dest_control_stream_id` (uint32, optional): destination control stream ID to publish forwarded progress/QoS. Default: `0` (disabled).
 
-The bridge control channel carries `ShmPoolAnnounce`, `QosProducer`, `QosConsumer`, and `FrameProgress` messages from the main wire schema (id=900) alongside bridge-specific messages (schema id=902).
+The bridge control channel carries `ShmPoolAnnounce`, `QosProducer`, `QosConsumer`, and `FrameProgress` messages from the main wire schema (id=900) alongside bridge-specific messages (schema id=902). The metadata channel carries `DataSourceAnnounce`, `DataSourceMeta`, and (when enabled) `TraceLinkSet` messages.
 
 
 ---
