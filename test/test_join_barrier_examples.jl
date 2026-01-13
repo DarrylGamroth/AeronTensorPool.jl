@@ -162,6 +162,74 @@ const Merge = AeronTensorPool.ShmTensorpoolMerge
         @test result.ready
     end
 
+    @testset "Sensor fusion timestamp join (Appendix A.4.3)" begin
+        config = JoinBarrierConfig(UInt32(9005), TIMESTAMP, false, false)
+        state = JoinBarrierState(config)
+        rules = TimestampMergeRule[
+            TimestampMergeRule(
+                UInt32(1),
+                Merge.MergeTimeRuleType.OFFSET_NS,
+                Merge.TimestampSource.FRAME_DESCRIPTOR,
+                Int64(0),
+                nothing,
+            ),
+            TimestampMergeRule(
+                UInt32(2),
+                Merge.MergeTimeRuleType.WINDOW_NS,
+                Merge.TimestampSource.FRAME_DESCRIPTOR,
+                nothing,
+                UInt64(50_000_000),
+            ),
+            TimestampMergeRule(
+                UInt32(3),
+                Merge.MergeTimeRuleType.WINDOW_NS,
+                Merge.TimestampSource.FRAME_DESCRIPTOR,
+                nothing,
+                UInt64(10_000_000),
+            ),
+        ]
+        map = TimestampMergeMap(
+            UInt32(9005),
+            UInt64(1),
+            nothing,
+            Merge.ClockDomain.MONOTONIC,
+            UInt64(50_000_000),
+            rules,
+        )
+        @test apply_timestamp_merge_map!(state, map)
+
+        out_time = UInt64(100_000_000)
+        update_observed_time_epoch!(
+            state,
+            UInt32(1),
+            UInt64(1),
+            Merge.TimestampSource.FRAME_DESCRIPTOR,
+            out_time,
+            UInt64(0),
+            Merge.ClockDomain.MONOTONIC,
+        )
+        update_observed_time_epoch!(
+            state,
+            UInt32(2),
+            UInt64(1),
+            Merge.TimestampSource.FRAME_DESCRIPTOR,
+            UInt64(60_000_000),
+            UInt64(0),
+            Merge.ClockDomain.MONOTONIC,
+        )
+        update_observed_time_epoch!(
+            state,
+            UInt32(3),
+            UInt64(1),
+            Merge.TimestampSource.FRAME_DESCRIPTOR,
+            UInt64(55_000_000),
+            UInt64(0),
+            Merge.ClockDomain.MONOTONIC,
+        )
+        result = join_barrier_ready!(state, out_time, UInt64(0))
+        @test result.ready
+    end
+
     @testset "Stale input degradation (Appendix A.5.1)" begin
         config = JoinBarrierConfig(UInt32(9005), SEQUENCE, false, false)
         state = JoinBarrierState(config)
