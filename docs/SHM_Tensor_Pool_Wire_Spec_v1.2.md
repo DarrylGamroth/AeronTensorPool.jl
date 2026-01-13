@@ -1,5 +1,5 @@
 # Shared-Memory Tensor Pool with Aeron + SBE
-## Design Specification (v1.1)
+## Design Specification (v1.2)
 
 **Abstract** This specification defines a zero-copy shared-memory transport for large tensors/images coordinated via Aeron messaging and SBE encoding. Producers write tensor metadata (shape, dtype, strides) and payloads into fixed-size SHM rings with lossy-overwrite semantics; consumers receive lightweight descriptors over Aeron IPC and read SHM directly. A seqlock commit protocol prevents torn reads. The design supports multiple independent producers/consumers, optional partial-frame progress reporting, unified QoS/metadata streams, and language-neutral implementation (C/Java/Go/Rust/Julia). Operational patterns mirror Aeron (single-writer ownership, epoch-based remapping, agent lifecycle).
 
@@ -14,8 +14,8 @@ It is written to be directly consumable by automated code-generation tools
 **Document Conventions** Normative sections: 6–11, 15.1–15.22, 16. Informative sections: 1–5, 12–14. "NOTE:"/"Rationale:" text is informative. Uppercase MUST/SHOULD/MAY keywords appear only in normative sections and carry RFC 2119 force; any lowercase "must/should/may" in informative text is non-normative.
 **Informative Reference** Stream ID guidance: `docs/STREAM_ID_CONVENTIONS.md`.
 **Version History**
-- v1.1 (2025-12-30): Initial RFC-style specification. Adds normative algorithms, compatibility matrix, explicit field alignment (SlotHeader + TensorHeader), language-neutral requirements, and progress reporting protocol. Normative wire/SHM schemas included.
-- v1.1 also requires `announce_clock_domain` in `ShmPoolAnnounce` and forbids unsynchronized realtime timestamps.
+- v1.2 (2026-01-12): Remove `headerIndex` from `FrameDescriptor`/`FrameProgress` and derive slot indices from `seq`; rename `FrameProgress.frame_id` to `seq`. Clarify file-backed `mmap` guidance. Schema version fields remain unchanged.
+- v1.1 (2025-12-30): Initial RFC-style specification. Adds normative algorithms, compatibility matrix, explicit field alignment (SlotHeader + TensorHeader), language-neutral requirements, and progress reporting protocol. Normative wire/SHM schemas included. Requires `announce_clock_domain` in `ShmPoolAnnounce` and forbids unsynchronized realtime timestamps.
 ---
 
 ## 1. Goals
@@ -53,7 +53,7 @@ Each **producer service** owns:
    - Raw byte buffers.
    - Fixed stride per pool.
    - Multiple size classes allowed.
-  - v1.1: same slot count as header ring; `payload_slot = header_index` (decoupled/free-list mapping is a v2 change).
+- v1.2: same slot count as header ring; `payload_slot = header_index` (header_index derived from `seq`; decoupled/free-list mapping is a v2 change).
   - Choose `stride_bytes` as a power of two and a multiple of the backing page/hugepage size (e.g., 4 KiB or 2 MiB); size-class upward from there (1 MiB, 2 MiB, 4 MiB, 8 MiB on 2 MiB hugepages is a reasonable start).
 
 3. **Aeron Publications**
@@ -68,28 +68,9 @@ Consumers subscribe to Aeron streams and map SHM regions when local.
 
 All shared-memory regions are file-backed `mmap` using a URI provided in control-plane messages. The backing filesystem and page size are deployment concerns; validation rules are defined in the normative backend validation section (see 15.22).
 
-### 4.1 Region URI Scheme (v1.1) *(informative; validation is normative in 15.22)*
+### 4.1 Region URI Scheme *(informative)*
 
-Supported scheme (only):
-
-```
-shm:file?path=<absolute_path>[|require_hugepages=true]
-```
-
-- Separator: parameters use Aeron-style `|` between entries (not `&`).
-- `path` (required): absolute filesystem path to the backing file (POSIX or Windows). Examples: `/dev/shm/<name>` (tmpfs), `/dev/hugepages/<name>` (hugetlbfs), or `C:\\aeron\\<name>` on Windows. Absolute POSIX paths use a leading `/`. Non-path platform identifiers (e.g., Windows named shared memory) are out of scope for v1.1; deployments that support them MUST define equivalent containment/allowlist rules.
-- `require_hugepages` (optional, default false): if true, the region MUST be backed by hugepages; mappings that do not satisfy this requirement MUST be rejected (see 15.22). On platforms without a reliable hugepage verification mechanism (e.g., Windows), `require_hugepages=true` is unsupported and MUST be rejected.
-- v1.1 supports only `shm:file`; other schemes or additional parameters are unsupported and MUST be rejected (see 15.22).
-
-Informative ABNF (single scheme):
-
-```
-shm-uri  = "shm:file?path=" abs-path ["|" "require_hugepages=" bool]
-abs-path = 1*( VCHAR except "?" and "|" and SP )
-bool     = "true" / "false"
-```
-
-Only `path` and `require_hugepages` are defined; unknown parameters MUST be rejected (see 15.22).
+The region URI scheme and validation rules are defined normatively in §15.22.
 
 ### 4.2 Behavior Overview (informative)
 
@@ -130,7 +111,7 @@ All regions begin with an SBE-encoded superblock:
 
 Encoding is **little-endian**.
 
-Define `superblock_size = 64` bytes (fixed); all offsets/formulas refer to this constant in v1.1. This is normative: implementations MUST treat `superblock_size` as exactly 64 bytes (do not derive from SBE blockLength metadata).
+Define `superblock_size = 64` bytes (fixed); all offsets/formulas refer to this constant in v1.2. This is normative: implementations MUST treat `superblock_size` as exactly 64 bytes (do not derive from SBE blockLength metadata).
 
 ---
 
@@ -159,7 +140,7 @@ Stored at offset 0 of every SHM region.
 - Written once by producer at initialization.
 - Consumers MUST validate against announced parameters.
 - Producer refreshes `activity_timestamp_ns` periodically (e.g., at announce cadence); stale timestamps imply producer death and force remap.
-- Encoding is little-endian. Superblock layout is SBE-defined (see schema appendix) so existing SBE parsers can `wrap!` directly over the mapped memory. v1.1 magic MUST be ASCII `TPOLSHM1` (`0x544F504C53484D31` as u64, little-endian); treat mismatches as invalid.
+- Encoding is little-endian. Superblock layout is SBE-defined (see schema appendix) so existing SBE parsers can `wrap!` directly over the mapped memory. Current magic MUST be ASCII `TPOLSHM1` (`0x544F504C53484D31` as u64, little-endian); treat mismatches as invalid.
 - Field order is cacheline-oriented: first cache line carries validation fields (`magic`, `layout_version`, `epoch`, `stream_id`, `region_type`, `pool_id`, `nslots`, `slot_bytes`, `stride_bytes`); second cache line carries liveness/identity (`pid`, `start_timestamp_ns`, `activity_timestamp_ns`). Total size is 64 bytes.
 - Keep `layout_version` even though SBE `version` exists: `layout_version` governs SHM layout compatibility; SBE `version`/`schemaId` governs control-plane messages.
 - Epoch wraparound (uint64) is practically unreachable; if encountered, treat as incompatible and remap with a new `layout_version`/`epoch`.
@@ -182,7 +163,7 @@ slot_offset(i) =
 
 This header represents “almost fixed-size TensorMessage metadata” with the large `values` buffer stored out-of-line in a payload pool.
 
-SBE definition: `SlotHeader` and `TensorHeader` messages in the schema appendix (v1.1 `MAX_DIMS=8`). The schema includes a `maxDims` constant field for codegen alignment; it is not encoded on the wire and MUST be treated as a compile-time constant. Changing `MAX_DIMS` requires a new `layout_version` and schema rebuild.
+SBE definition: `SlotHeader` and `TensorHeader` messages in the schema appendix (v1.2 `MAX_DIMS=8`). The schema includes a `maxDims` constant field for codegen alignment; it is not encoded on the wire and MUST be treated as a compile-time constant. Changing `MAX_DIMS` requires a new `layout_version` and schema rebuild.
 
 **Encoding note (normative)**
 - The header slot is a raw SBE message body (no SBE message header). `seq_commit` MUST be at byte offset 0 of the slot. SBE wrap functions MUST be used without applying a message header.
@@ -196,7 +177,7 @@ SBE definition: `SlotHeader` and `TensorHeader` messages in the schema appendix 
 - `timestamp_ns : u64`
 - `meta_version : u32` (ties frame to `DataSourceMeta`)
 - `pad : bytes[26]` (reserved; producers MAY zero-fill; consumers MUST ignore)
-- `headerBytes : varData` (length MUST match the embedded TensorHeader SBE message header + blockLength; v1.1 length is 192 bytes)
+- `headerBytes : varData` (length MUST match the embedded TensorHeader SBE message header + blockLength; v1.2 length is 192 bytes)
 
 **TensorHeader fields** (embedded inside `headerBytes`)
 - `dtype : enum Dtype` (scalar element type)
@@ -212,16 +193,16 @@ SBE definition: `SlotHeader` and `TensorHeader` messages in the schema appendix 
 **Slot size math (informative)**
 - 256 bytes total = 60-byte fixed prefix + 4-byte varData length prefix + 192-byte embedded `TensorHeader`.
 
-Canonical identity: `logical_sequence = seq_commit >> 1`, `FrameDescriptor.seq`, and `FrameProgress.frame_id` MUST be equal for the same frame; consumers MUST DROP if any differ. No separate `frame_id` field exists in the header.
+Canonical identity: `logical_sequence = seq_commit >> 1`, `FrameDescriptor.seq`, and `FrameProgress.seq` MUST be equal for the same frame; consumers MUST DROP if any differ. No separate `frame_id` field exists in the header.
 
 **NOTE**
 - Region-of-interest (ROI) offsets/boxes do not belong in this fixed header; carry ROI in `DataSourceMeta` attributes when needed.
 - Interpretation: `dtype` = scalar element type; `major_order` = row/column-major; `strides` allow arbitrary layouts; 0 strides mean contiguous inferred from shape and dtype.
 - `seq_commit` MUST reside entirely within a single cache line and be written with a single aligned store; assume 64-byte cache lines (common); if different, still place `seq_commit` in the first cache line and use an 8-byte aligned atomic store.
 - `ndims` MUST be in the range `1..MAX_DIMS`; consumers MUST drop frames with `ndims=0` or `ndims > MAX_DIMS`.
-- For v1.1, `payload_offset` MUST be 0; consumers MUST drop frames with non-zero `payload_offset`.
+- For v1.2, `payload_offset` MUST be 0; consumers MUST drop frames with non-zero `payload_offset`.
 - Producers MUST zero-fill `dims[i]` and `strides[i]` for all `i >= ndims`; consumers MUST ignore indices `i >= ndims`.
-- Strides: `0` means inferred contiguous; negative strides are **not supported in v1.1**; strides MUST describe a non-overlapping layout consistent with `major_order` (row-major implies increasing stride as dimension index decreases); reject headers whose strides would overlap or contradict `major_order`.
+- Strides: `0` means inferred contiguous; negative strides are **not supported in v1.2**; strides MUST describe a non-overlapping layout consistent with `major_order` (row-major implies increasing stride as dimension index decreases); reject headers whose strides would overlap or contradict `major_order`.
 - Stride terms: `stride_bytes` (pool stride) is the byte distance between payload slots; `strides[]` (tensor strides) describe in-buffer layout within a single payload slot. These are independent.
 - Stride diagram (informative):
 ```
@@ -237,8 +218,8 @@ element_addr   = slot_base + payload_offset + element_offset
 - Progress: if `progress_unit != NONE`, `progress_stride_bytes` MUST be non-zero and equal to the true row/column stride implied by `strides` (or inferred contiguous). Consumers MUST drop frames where `progress_unit != NONE` and `progress_stride_bytes` is zero or inconsistent with the declared layout.
 - Arrays alignment: `pad_align` ensures `dims` and `strides` are 4-byte aligned; consumers may rely on this for word accesses.
 - Padding is reserved/opaque; producers MAY leave it zeroed or use it for implementation-specific data; consumers MUST ignore it and MUST NOT store process-specific pointers/addresses there.
-- Frame identity: `logical_sequence` (derived from `seq_commit`), `FrameDescriptor.seq`, and `FrameProgress.frame_id` MUST match. Consumers SHOULD drop a frame if `seq_commit` and `FrameDescriptor.seq` disagree (stale header_index reuse).
-- Empty payloads: `values_len_bytes = 0` is valid. Producers MUST still commit the slot; consumers MUST NOT read payload bytes when `values_len_bytes = 0` (payload metadata may be ignored). `payload_slot` MUST still equal `header_index` in v1.1.
+- Frame identity: `logical_sequence` (derived from `seq_commit`), `FrameDescriptor.seq`, and `FrameProgress.seq` MUST match. Consumers SHOULD drop a frame if `seq_commit` and `FrameDescriptor.seq` disagree (stale slot reuse).
+- Empty payloads: `values_len_bytes = 0` is valid. Producers MUST still commit the slot; consumers MUST NOT read payload bytes when `values_len_bytes = 0` (payload metadata may be ignored). `payload_slot` MUST still equal `header_index` (derived from `seq`) in v1.2.
 
 ### 8.3 Commit Encoding via `seq_commit` (Normative)
 
@@ -264,7 +245,7 @@ commit_state     = seq_commit & 1
 2. If `(seq_commit & 1) == 0` → skip/drop (not committed).
 3. Read header + payload.
 4. Re-read `seq_commit` (acquire).
-5. Parse `headerBytes` as an embedded SBE message (expect `TensorHeader` in v1.1); drop if header length or templateId is invalid (length MUST equal the embedded message header + blockLength).
+5. Parse `headerBytes` as an embedded SBE message (expect `TensorHeader` in v1.2); drop if header length or templateId is invalid (length MUST equal the embedded message header + blockLength).
    The embedded message header MUST have the expected `schemaId` and `version`; otherwise drop.
 6. Accept only if unchanged, `(seq_commit & 1) == 1`, and `(seq_commit >> 1)` equals the expected sequence (from `FrameDescriptor.seq`).
 
@@ -287,7 +268,7 @@ This prevents torn reads under overwrite.
 - Pool selection rule (v1): choose the smallest pool where `stride_bytes >= values_len_bytes`.
 - If no pool fits (`values_len_bytes` larger than all `stride_bytes`), the producer MUST drop the frame (and MAY log/emit QoS) rather than blocking; future v2 may add dynamic pooling.
 
-**Mapping rule (v1.1, simple):**
+**Mapping rule (v1.2, simple):**
 - All pools use the same `nslots` as the header ring.
 - `payload_slot = header_index` (same index mapping).
 - Header stores `pool_id` (size class).
@@ -319,7 +300,7 @@ Sent periodically (e.g. 1 Hz) and on change.
 - `producer_id : u32`
 - `epoch : u64`
 - `announce_timestamp_ns : u64` (producer timestamp in declared clock domain)
-- `announce_clock_domain : enum ClockDomain` (MONOTONIC or REALTIME_SYNCED; v1.1 forbids unsynchronized realtime)
+- `announce_clock_domain : enum ClockDomain` (MONOTONIC or REALTIME_SYNCED; v1.2 forbids unsynchronized realtime)
 - `layout_version : u32`
 - `header_nslots : u32`
 - `header_slot_bytes : u16` (must be 256)
@@ -335,7 +316,7 @@ Sent periodically (e.g. 1 Hz) and on change.
 - If `epoch` changes, consumers must remap and reset state.
 - Consumers MUST treat `ShmPoolAnnounce` as soft-state and ignore stale announcements. At minimum, consumers MUST prefer the highest observed `epoch` per `stream_id` and MUST ignore any announce whose `announce_timestamp_ns` is older than a freshness window (RECOMMENDED: 3× the announce period) relative to local receipt time.
 - Consumers MUST ignore announcements whose `announce_timestamp_ns` precedes the consumer's join time (to avoid Aeron log replay) **only when `announce_clock_domain=MONOTONIC`**. Define `join_time_ns` as the local monotonic time when the subscription image becomes available; compare directly only for MONOTONIC. For REALTIME_SYNCED, consumers MUST NOT apply the join-time drop rule and MUST rely on the freshness window relative to local receipt time instead.
-- `announce_clock_domain=REALTIME_SYNCED` indicates that `announce_timestamp_ns` is disciplined to a shared clock (e.g., PTP/NTP within a documented error budget). Unsynchronized realtime is not permitted in v1.1.
+- `announce_clock_domain=REALTIME_SYNCED` indicates that `announce_timestamp_ns` is disciplined to a shared clock (e.g., PTP/NTP within a documented error budget). Unsynchronized realtime is not permitted in v1.2.
 
 #### 10.1.2 ConsumerHello (consumer → producer/supervisor)
 
@@ -402,20 +383,23 @@ One per produced tensor/frame.
 - `stream_id : u32`
 - `epoch : u64`
 - `seq : u64` (monotonic; MUST equal `logical_sequence = seq_commit >> 1` in the header)
-- `header_index : u32` (`seq & (header_nslots - 1)`)
 
 Optional fields (may reduce SHM reads for filtering):
 - `timestamp_ns : u64`
 - `meta_version : u32`
+- `trace_id : u64` (optional; 0 means absent; see TraceLink spec)
 
 **Rules**
 - Producers MUST publish `FrameDescriptor` only after the slot’s `seq_commit` is set to COMMITTED and payload visibility is ensured.
 - Consumers MUST ignore descriptors whose `epoch` does not match mapped SHM regions.
 - Consumers derive all payload location/shape/type from the SHM header slot.
-- Consumers MUST drop if `header_index` is out of range for the mapped header ring.
+- Consumers MUST compute `header_index = seq & (header_nslots - 1)` using the mapped header ring size.
 - Consumer MUST drop if the header slot’s committed `logical_sequence` (derived from `seq_commit >> 1`) does not equal `FrameDescriptor.seq` for that `header_index` (stale reuse guard).
 - Consumers MUST drop if `payload_slot` decoded from the header is out of range for the mapped payload pool.
 - Consumers MUST drop frames where `values_len_bytes > stride_bytes`. (Future versions that permit non-zero `payload_offset` MUST additionally enforce `payload_offset + values_len_bytes <= stride_bytes`.)
+- `trace_id = 0` means tracing is absent for the frame. `trace_id != 0` indicates
+  TraceLink is enabled for that frame; producers SHOULD emit TraceLinkSet
+  records per `docs/SHM_TraceLink_Spec_v1.0.md`. Consumers MAY ignore `trace_id`.
 
 #### 10.2.2 FrameProgress (producer → interested consumers, optional)
 
@@ -424,8 +408,7 @@ Optional partial-availability hints during DMA.
 **Fields**
 - `stream_id : u32`
 - `epoch : u64`
-- `frame_id : u64` (MUST equal `FrameDescriptor.seq` and the header logical sequence)
-- `header_index : u32`
+- `seq : u64` (MUST equal `FrameDescriptor.seq` and the header logical sequence)
 - `payload_bytes_filled : u64`
 - `state : enum { UNKNOWN=0, STARTED=1, PROGRESS=2, COMPLETE=3 }`
 
@@ -434,6 +417,7 @@ Optional partial-availability hints during DMA.
 - Producer emits `PROGRESS` throttled (e.g., every N rows or X µs) with updated `payload_bytes_filled`.
 - Producer emits `COMPLETE` or simply the usual `FrameDescriptor` when DMA finishes; `seq_commit` semantics remain unchanged (LSB=1 = committed).
 - Consumers that do not opt in ignore `FrameProgress` and rely on `FrameDescriptor`.
+- Consumers that opt in and need slot access MUST compute `header_index = seq & (header_nslots - 1)` using the mapped header ring size.
 - Consumers that opt in must read only the prefix `[0:payload_bytes_filled)` and may reread `payload_bytes_filled` to confirm. Consumers MUST validate `progress_unit`/`progress_stride_bytes` before treating any prefix as layout-safe; if `progress_unit != NONE` and `progress_stride_bytes` is zero or inconsistent with the declared strides, the frame MUST be dropped.
 - `payload_bytes_filled` MUST be `<= values_len_bytes`.
 - `payload_bytes_filled` MUST be monotonic non-decreasing within a frame; consumers MUST drop if it regresses.
@@ -444,7 +428,7 @@ Optional partial-availability hints during DMA.
   - Otherwise, treat `payload_bytes_filled` as informational only unless the embedded `TensorHeader` declares `progress_unit=ROWS` or `progress_unit=COLUMNS` and provides `progress_stride_bytes` for major-aligned interpretation.
 
 **State machine**
-- Per frame: STARTED → PROGRESS (0..N) → COMPLETE. No regression within a frame. New frame uses a new `frame_id`/`header_index`.
+- Per frame: STARTED → PROGRESS (0..N) → COMPLETE. No regression within a frame. New frame uses a new `seq` (and derived `header_index`).
 
 **Throttling guidance**
 - Emit `STARTED` once, then at most one `PROGRESS` per interval (e.g., 200–500 µs) and only when `payload_bytes_filled` advances by a threshold (e.g., ≥64 KiB or ≥N rows).
@@ -494,7 +478,7 @@ If you must distribute large calibration tables (flat fields, masks, etc.), defi
 - `MetaBlobChunk(stream_id, meta_version, offset, bytes[CHUNK_MAX])`
 - `MetaBlobComplete(stream_id, meta_version, checksum)`
 
-Rules (experimental): offsets MUST be monotonically increasing, non-overlapping, and cover `[0, total_len)`; consumers discard on gap/overlap or checksum mismatch; retransmission/repair is out of scope in v1.1.
+Rules (experimental): offsets MUST be monotonically increasing, non-overlapping, and cover `[0, total_len)`; consumers discard on gap/overlap or checksum mismatch; retransmission/repair is out of scope in v1.2.
 
 ### 10.4 QoS and Health
 
@@ -577,13 +561,13 @@ End of specification.
 
 ---
 
-## 15. Additional Requirements and Guidance (v1.1)
+## 15. Additional Requirements and Guidance (v1.2)
 
 ### 15.1 Validation and Compatibility
 - Consumers MUST validate that `layout_version`, `nslots`, `slot_bytes`, `stride_bytes`, `region_type`, and `pool_id` in `ShmRegionSuperblock` match the most recent `ShmPoolAnnounce`; mismatches MUST trigger a remap or fallback.
 - Consumers MUST validate `magic` and `epoch` on every `ShmPoolAnnounce`; `pid` is informational and cannot alone detect restarts or multi-producer contention.
 - Consumers MUST validate `activity_timestamp_ns` freshness: announcements older than the freshness window (RECOMMENDED: 3× announce period) MUST be ignored.
-- Host endianness: implementation is little-endian only; big-endian hosts MUST reject or byte-swap consistently (out of scope in v1.1).
+- Host endianness: implementation is little-endian only; big-endian hosts MUST reject or byte-swap consistently (out of scope in v1.2).
 
 ### 15.2 Epoch Lifecycle
 - Increment `epoch` on any producer restart or layout change (superblock size change, `nslots`, pool size classes, or slot size change).
@@ -598,13 +582,13 @@ End of specification.
 ### 15.4 Overwrite and Drop Accounting
 - Producers MAY overwrite any slot following `header_index = seq & (nslots - 1)` with no waiting.
 - Consumers SHOULD treat gaps in `seq` as `drops_gap` and `seq_commit` instability as `drops_late`.
-- Documented policy: no producer backpressure in v1.1; supervisor MAY act on QoS to throttle externally.
+- Documented policy: no producer backpressure in v1.2; supervisor MAY act on QoS to throttle externally.
 - Optional policy: implementations MAY configure `max_outstanding_seq_gap` per consumer; if exceeded, consumer SHOULD resync (e.g., drop to latest) and report in QoS.
 - Recommended `max_outstanding_seq_gap` default: 256 frames; deployments MAY tune based on buffer depth and latency tolerance.
 
-### 15.5 Pool Mapping Rules (v1.1)
-- All payload pools MUST use the same `nslots` as the header ring; differing `nslots` are invalid in v1.1.
-- `payload_slot = header_index` is mandatory in v1.1; free-list or decoupled mappings are deferred to v2.
+### 15.5 Pool Mapping Rules (v1.2)
+- All payload pools MUST use the same `nslots` as the header ring; differing `nslots` are invalid in v1.2.
+- `payload_slot = header_index` is mandatory in v1.2; free-list or decoupled mappings are deferred to v2.
 
 ### 15.6 Sizing Guidance
 - Recommended minimum `header_nslots`: `ceil(producer_rate_hz * worst_case_consumer_latency_s * safety_factor)`; start with safety factor 2–4.
@@ -619,9 +603,9 @@ End of specification.
 - Do not implement NUMA policy in-protocol; placement is an ops/deployment concern. Co-locate producers and their SHM pools; prefer consumers on the same node when low latency matters.
 
 ### 15.8 Enum and Type Registry
-- Define and version registries for `dtype`, `major_order`, and set `MAX_DIMS` (v1.1 fixed at 8). Changing `MAX_DIMS` requires a new `layout_version` and schema rebuild. Unknown enum values MUST cause rejection of the frame (or fallback) rather than silent misinterpretation.
+- Define and version registries for `dtype`, `major_order`, and set `MAX_DIMS` (v1.2 fixed at 8). Changing `MAX_DIMS` requires a new `layout_version` and schema rebuild. Unknown enum values MUST cause rejection of the frame (or fallback) rather than silent misinterpretation.
 - Document evolution: add new enum values with bumped `layout_version`; keep wire encoding stable; avoid reuse of retired values.
-- Normative numeric values (v1.1): `Dtype.UNKNOWN=0, UINT8=1, INT8=2, UINT16=3, INT16=4, UINT32=5, INT32=6, UINT64=7, INT64=8, FLOAT32=9, FLOAT64=10, BOOLEAN=11, BYTES=13, BIT=14`; `MajorOrder.UNKNOWN=0, ROW=1, COLUMN=2`. These values MUST NOT change within v1.x.
+- Normative numeric values (v1.2): `Dtype.UNKNOWN=0, UINT8=1, INT8=2, UINT16=3, INT16=4, UINT32=5, INT32=6, UINT64=7, INT64=8, FLOAT32=9, FLOAT64=10, BOOLEAN=11, BYTES=13, BIT=14`; `MajorOrder.UNKNOWN=0, ROW=1, COLUMN=2`. These values MUST NOT change within v1.x.
 
 ### 15.9 Metadata Blobs
 - Define `CHUNK_MAX`; checksum is OPTIONAL given Aeron reliability. Offsets MUST be monotonically increasing and non-overlapping.
@@ -678,6 +662,16 @@ End of specification.
 - Optional bridge can mirror Aeron archive/tap behavior: subscribe to descriptor + SHM, then republish over UDP or record; keep it optional so the core remains SHM + Aeron IPC.
 - Operationally mirror Aeron: pin agents, place SHM on the local NUMA node, and apply restrictive permissions to SHM paths and driver directories.
 
+### 15.16a File-Backed SHM Regions (Informative)
+
+Implementations may use regular filesystem-backed `mmap` regions instead of
+`/dev/shm`, but doing so shifts availability into the page cache and can
+introduce unpredictable latency from page faults or eviction. File-backed
+regions also do not guarantee durability without explicit `msync`/`fsync`.
+Deployments that choose file-backed mappings should treat them as a performance
+trade-off (often acceptable for offline or low-rate pipelines) rather than a
+replacement for the recorder.
+
 ### 15.17 ControlResponse Error Codes (usage guidance)
 - `Ok`: request succeeded.
 - `Unsupported`: capability not implemented (e.g., progress hints on a producer that lacks support).
@@ -701,7 +695,7 @@ End of specification.
   2. Read `seq_commit` (acquire).
   3. If LSB is 0 → drop/skip.
   4. Read SlotHeader + `headerBytes` + payload.
-5. Parse `headerBytes` as an embedded SBE message (expect `TensorHeader` in v1.1); drop if header length or templateId is invalid (length MUST equal the embedded message header + blockLength).
+5. Parse `headerBytes` as an embedded SBE message (expect `TensorHeader` in v1.2); drop if header length or templateId is invalid (length MUST equal the embedded message header + blockLength).
   6. Re-read `seq_commit` (acquire).
   7. Accept only if unchanged, LSB is 1, and `(seq_commit >> 1) == seq`; otherwise drop and count (`drops_gap` or `drops_late`).
 
@@ -715,7 +709,7 @@ End of specification.
 | --- | --- |
 | Add enum value (dtype/majorOrder) | Yes (bump `layout_version`; older readers may reject unknown values) |
 | Change header slot size (256 → N) | No (requires new `layout_version` and remap) |
-| Decouple `payload_slot` from `header_index` (free list) | No (v2 feature; incompatible with v1.1 readers) |
+| Decouple `payload_slot` from `header_index` (free list) | No (v2 feature; incompatible with v1.2 readers) |
 | Change `MAX_DIMS` length | No (requires new `layout_version` and schema rebuild) |
 
 ### 15.21 Protocol State Machines and Sequences (Normative)
@@ -724,7 +718,7 @@ This section defines protocol state machines for slot lifecycle and mapping/epoc
 
 #### Terminology
 
-- **Slot**: header slot and its associated payload slot (v1.1: same index).
+- **Slot**: header slot and its associated payload slot (v1.2: same index).
 - **Seq commit**: per-slot commit indicator for logical completeness (`seq_commit`).
 - **DROP**: frame is discarded without error or retry.
 
@@ -741,10 +735,10 @@ Producer transitions
 | S0, S2 | Begin write to slot `i` | Set `seq_commit` to in-progress (LSB=0) | S1 |
 | S1 | Payload DMA complete and header finalized | Set `seq_commit` to committed (LSB=1) | S2 |
 
-Consumer validation rules (given `FrameDescriptor(seq, headerIndex = i)`)
-1. **Slot validity**: `headerIndex` MUST be within the mapped header ring; else DROP.
+Consumer validation rules (given `FrameDescriptor(seq)`; let `i = seq & (nslots - 1)`)
+1. **Slot selection**: compute `i` from `seq` and the mapped header ring size.
 2. **Commit stability**: MUST observe a stable `seq_commit` with LSB=1 before accepting; if WRITING/unstable, DROP.
-3. **Embedded header validation**: `headerBytes` MUST decode to a supported embedded header (v1.1: `TensorHeader` with the expected schemaId/version/templateId and length per §8.3); otherwise DROP.
+3. **Embedded header validation**: `headerBytes` MUST decode to a supported embedded header (v1.2: `TensorHeader` with the expected schemaId/version/templateId and length per §8.3); otherwise DROP.
 4. **Frame identity**: `(seq_commit >> 1)` MUST equal `FrameDescriptor.seq` (same rule as §10.2.1); if not, DROP.
 5. **No waiting**: MUST NOT block/spin waiting for commit; on any failure, DROP and continue.
 
@@ -779,11 +773,10 @@ semantics.
 #### 15.21a.1 Overview (Informative)
 
 Shared-memory regions are announced using explicit absolute filesystem paths via
-control-plane messages. While the exact filesystem layout is not
-protocol-significant, a common directory convention greatly improves
-interoperability between independent implementations, simplifies operational
-management, and reduces the risk of accidental or malicious misuse on
-multi-user systems.
+control-plane messages. A canonical directory layout is defined in this
+specification to improve interoperability between independent implementations,
+simplify operational management, and reduce the risk of accidental or malicious
+misuse on multi-user systems.
 
 Consumers MUST NOT rely on directory scanning or filename derivation for
 correctness. All required paths are conveyed explicitly via protocol messages.
@@ -807,37 +800,43 @@ legacy layouts.
 Default values are platform- and deployment-specific and are an
 implementation concern.
 
-#### 15.21a.3 Recommended Directory Layout (Informative)
+#### 15.21a.3 Canonical Directory Layout (Normative)
 
-When creating shared-memory regions, producers SHOULD organize backing files
-under `shm_base_dir` using the following canonical layout:
+When creating shared-memory regions under `shm_base_dir`, producers MUST
+organize backing files using the following canonical layout:
 
 ```
-<shm_base_dir>/<namespace>/<producer_instance_id>/epoch-<E>/
+<shm_base_dir>/tensorpool-${USER}/<namespace>/<stream_id>/<epoch>/
     header.ring
-    payload-<pool_id>.pool
+    <pool_id>.pool
 ```
 
 Where:
 
+- `tensorpool-${USER}`  
+  A per-user namespace directory (e.g., `tensorpool-alice`). `${USER}` MUST be
+  resolved to the effective user name or an equivalent deployment-specific
+  identifier. Implementations MUST sanitize this value to avoid path traversal.
+
 - `<namespace>`  
-  A stable application or protocol namespace (e.g., `tensorpool`).
+  A stable application namespace (e.g., `default`, `lab1`, `sim`). The namespace
+  MUST be configured per deployment.
 
-- `<producer_instance_id>`  
-  A unique identifier for the running producer instance (UUID RECOMMENDED).
+- `<stream_id>`  
+  The stream identifier associated with the SHM pool.
 
-- `epoch-<E>`  
+- `<epoch>`  
   The epoch value announced in `ShmPoolAnnounce`. Epoch-scoped directories
   enable atomic remapping and simplify cleanup.
 
 - `header.ring`  
   Backing file for the header ring region.
 
-- `payload-<pool_id>.pool`  
+- `<pool_id>.pool`  
   Backing files for payload pools, where `<pool_id>` matches the announced pool
   identifier.
 
-Filenames and extensions are not protocol-significant but SHOULD remain stable
+Filenames and extensions are not protocol-significant but MUST remain stable
 within an implementation for operational consistency.
 
 #### 15.21a.4 Path Announcement Rule (Normative)
@@ -909,7 +908,32 @@ during startup or supervision. A Supervisor or Driver SHOULD periodically scan
 whose `activity_timestamp_ns` is stale and whose PIDs are no longer active on
 the OS.
 
-### 15.22 SHM Backend Validation (v1.1)
+### 15.22 SHM Backend Validation (v1.2)
+
+**Region URI scheme (normative)**
+
+Supported scheme (only):
+
+```
+shm:file?path=<absolute_path>[|require_hugepages=true]
+```
+
+- Separator: parameters use Aeron-style `|` between entries (not `&`).
+- `path` (required): absolute filesystem path to the backing file (POSIX or Windows). Examples: `/dev/shm/<name>` (tmpfs), `/dev/hugepages/<name>` (hugetlbfs), or `C:\\aeron\\<name>` on Windows. Absolute POSIX paths use a leading `/`. Non-path platform identifiers (e.g., Windows named shared memory) are out of scope for v1.2; deployments that support them MUST define equivalent containment/allowlist rules.
+- `require_hugepages` (optional, default false): if true, the region MUST be backed by hugepages; mappings that do not satisfy this requirement MUST be rejected. On platforms without a reliable hugepage verification mechanism (e.g., Windows), `require_hugepages=true` is unsupported and MUST be rejected.
+- v1.2 supports only `shm:file`; other schemes or additional parameters are unsupported and MUST be rejected.
+
+ABNF (single scheme):
+
+```
+shm-uri  = "shm:file?path=" abs-path ["|" "require_hugepages=" bool]
+abs-path = 1*( VCHAR except "?" and "|" and SP )
+bool     = "true" / "false"
+```
+
+Only `path` and `require_hugepages` are defined; unknown parameters MUST be rejected.
+
+**Validation rules (normative)**
 
 - Consumers MUST reject any `region_uri` with an unknown scheme.
 - For `shm:file`, if `require_hugepages=true`, consumers MUST verify that the mapped region is hugepage-backed. On platforms without a reliable verification mechanism (e.g., Windows), `require_hugepages=true` is unsupported and MUST cause the region to be rejected (no silent downgrade).
@@ -1082,18 +1106,17 @@ Reference schema patterned after Aeron archive control style; adjust IDs and fie
     <field name="streamId"    id="1" type="uint32"/>
     <field name="epoch"       id="2" type="epoch_t"/>
     <field name="seq"         id="3" type="seq_t"/>
-    <field name="headerIndex" id="4" type="uint32"/>
-    <field name="timestampNs" id="5" type="uint64" presence="optional" nullValue="18446744073709551615"/>
-    <field name="metaVersion" id="6" type="version_t" presence="optional" nullValue="4294967295"/>
+    <field name="timestampNs" id="4" type="uint64" presence="optional" nullValue="18446744073709551615"/>
+    <field name="metaVersion" id="5" type="version_t" presence="optional" nullValue="4294967295"/>
+    <field name="traceId"     id="6" type="uint64" presence="optional" nullValue="0"/>
   </sbe:message>
 
   <sbe:message name="FrameProgress" id="11">
     <field name="streamId"          id="1" type="uint32"/>
     <field name="epoch"             id="2" type="epoch_t"/>
-    <field name="frameId"           id="3" type="seq_t"/>
-    <field name="headerIndex"       id="4" type="uint32"/>
-    <field name="payloadBytesFilled" id="5" type="uint64"/>
-    <field name="state"             id="6" type="FrameProgressState"/>
+    <field name="seq"               id="3" type="seq_t"/>
+    <field name="payloadBytesFilled" id="4" type="uint64"/>
+    <field name="state"             id="5" type="FrameProgressState"/>
   </sbe:message>
 
   <sbe:message name="QosConsumer" id="5">

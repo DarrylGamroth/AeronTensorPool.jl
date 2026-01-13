@@ -1,13 +1,15 @@
 # Configuration Reference
 
-This document lists the **driver** configuration surface used by AeronTensorPool. Client configuration (producer/consumer) is API-only and does not use TOML.
+This document lists the configuration surfaces used by AeronTensorPool. The **driver** and **bridge** specs are authoritative. Clients configure via API only.
 
 Normative references:
 - Driver config: `docs/SHM_Driver_Model_Spec_v1.0.md` (§16)
-- Stream ID guidance: `docs/STREAM_ID_CONVENTIONS.md`
+- Bridge config: `docs/SHM_Aeron_UDP_Bridge_Spec_v1.0.md` (§10)
+ - Stream ID guidance: `docs/STREAM_ID_CONVENTIONS.md`
 
 Examples:
 - Driver: `config/driver_camera_example.toml`, `config/driver_integration_example.toml`
+- Bridge: `config/bridge_config_example.toml`
 
 ---
 
@@ -107,7 +109,6 @@ Optional keys and defaults:
 - `bridge.forward_qos` (bool): forward QoS messages. Default: `false`.
 - `bridge.forward_progress` (bool): forward `FrameProgress`. Default: `false`.
 - `bridge.assembly_timeout_ms` (uint32): per-stream frame assembly timeout. Default: `250`.
-- Config loader: `load_bridge_config(path; env=ENV)` returns `(BridgeConfig, Vector{BridgeMapping})`.
 
 Mapping fields:
 
@@ -120,7 +121,9 @@ Mapping fields:
 
 ---
 
+---
+
 ## 3. Notes
 
 - Driver and bridge configs are normative for production deployments.
-- Client configuration is API-only (see `default_producer_config` / `default_consumer_config`).
+- Client configs are API-only; do not rely on TOML for producer/consumer configuration.

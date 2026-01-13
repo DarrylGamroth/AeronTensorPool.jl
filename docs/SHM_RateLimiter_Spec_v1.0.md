@@ -8,7 +8,7 @@ This document defines a rate-limiter agent that consumes frames from a source st
 The key words “MUST”, “MUST NOT”, “REQUIRED”, “SHOULD”, “SHOULD NOT”, and “MAY” are to be interpreted as described in RFC 2119.
 
 **Normative References**
-- SHM Tensor Pool Wire Specification v1.1 (`docs/SHM_Tensor_Pool_Wire_Spec_v1.1.md`)
+- SHM Tensor Pool Wire Specification v1.2 (`docs/SHM_Tensor_Pool_Wire_Spec_v1.2.md`)
 - SHM Driver Model Specification v1.0 (`docs/SHM_Driver_Model_Spec_v1.0.md`)
 
 ---
@@ -81,7 +81,7 @@ When `rate_limiter.forward_metadata=true`, rate limiters MUST forward `DataSourc
 
 ## 6.1 Progress and QoS Forwarding (Normative)
 
-Rate limiters MAY forward `FrameProgress`; when enabled they SHOULD publish progress on `rate_limiter.control_channel`/`rate_limiter.dest_control_stream_id`. `FrameProgress.streamId` MUST be rewritten to the destination stream_id and `headerIndex` MUST refer to the destination header ring. Consumers MUST still treat `FrameDescriptor` as the canonical availability signal. All mappings share the same control channel/stream IDs; disambiguation is by `streamId`. The source control stream ID is shared across all mappings, and the rate limiter subscribes on `rate_limiter.control_channel`/`rate_limiter.source_control_stream_id`.
+Rate limiters MAY forward `FrameProgress`; when enabled they SHOULD publish progress on `rate_limiter.control_channel`/`rate_limiter.dest_control_stream_id`. `FrameProgress.streamId` MUST be rewritten to the destination stream_id and `seq` MUST be preserved; receivers derive the local header index from `seq`. Consumers MUST still treat `FrameDescriptor` as the canonical availability signal. All mappings share the same control channel/stream IDs; disambiguation is by `streamId`. The source control stream ID is shared across all mappings, and the rate limiter subscribes on `rate_limiter.control_channel`/`rate_limiter.source_control_stream_id`.
 
 Rate limiters MAY forward or translate `QosProducer`/`QosConsumer` messages; when enabled they SHOULD publish them on `rate_limiter.qos_channel`/`rate_limiter.dest_qos_stream_id` and rewrite `streamId` to the destination stream_id. Other fields MAY be preserved for observability. All mappings share the same QoS channel/stream IDs; disambiguation is by `streamId`. The source QoS stream ID is shared across all mappings, and the rate limiter subscribes on `rate_limiter.qos_channel`/`rate_limiter.source_qos_stream_id`.
 

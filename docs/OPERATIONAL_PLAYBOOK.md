@@ -68,7 +68,7 @@ Suggested thresholds (tune per deployment)
 - Confirm descriptor/control/QoS stream IDs align across roles.
 - Check that consumers remap after epoch changes and drop in-flight frames.
 - If `/dev/shm` fills up, enable epoch GC (`policies.epoch_gc_enabled`) or run a manual cleanup of stale epoch directories.
-- Verify that payload_slot == header_index for v1.1 mapping.
+- Verify that payload_slot == header_index for v1.2 mapping.
 
 ## CLI Examples (Driver Control Plane)
 Attach (producer role):

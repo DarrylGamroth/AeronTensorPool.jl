@@ -1,4 +1,4 @@
-# Aeron Tensor Pool Implementation Guide (Julia, v1.1)
+# Aeron Tensor Pool Implementation Guide (Julia, v1.2)
 
 This guide maps the wire spec to concrete implementation steps in Julia using Aeron.jl, SBE.jl, and Agent.jl. It stays implementation-oriented and references the spec for normative rules.
 
@@ -9,10 +9,10 @@ For a combined wire + driver overview, see `docs/USER_GUIDE.md`.
 ## 1. Dependencies
 - Aeron driver/runtime: align with Aeron.jl supported version.
 - Julia packages: Aeron.jl, SBE.jl, Agent.jl, Mmap stdlib.
-- SBE.jl alone can generate codecs from the schema in SHM_Tensor_Pool_Wire_Spec_v1.1.md §16 (see wire-schema.xml); no external sbe-tool needed.
+- SBE.jl alone can generate codecs from the schema in SHM_Tensor_Pool_Wire_Spec_v1.2.md §16 (see wire-schema.xml); no external sbe-tool needed.
 
 ## 2. Code Generation (SBE)
-- Source schema: SHM_Tensor_Pool_Wire_Spec_v1.1.md §16 (also extracted to wire-schema.xml). MAX_DIMS is 8; if you change it, update the schema and regenerate.
+- Source schema: SHM_Tensor_Pool_Wire_Spec_v1.2.md §16 (also extracted to wire-schema.xml). MAX_DIMS is 8; if you change it, update the schema and regenerate.
 - Generate control-plane codecs and SHM composites (SlotHeader, TensorHeader, ShmRegionSuperblock) directly with SBE.jl (no java tool required).
 - Enums use SBE numeric bodies (see Spiders schema style); if you edit enum values, keep the body text numeric and regenerate.
 - Julia codegen example (adjust paths):
@@ -39,7 +39,7 @@ For a combined wire + driver overview, see `docs/USER_GUIDE.md`.
 - header_slot_bytes = 256 (fixed by the wire spec; not configurable)
 - magic = TPOLSHM1 (0x544F504C53484D31 LE)
 - endianness = little-endian only
-- slot mapping v1.1: payload_slot = header_index; pool nslots == header nslots
+- slot mapping v1.2: payload_slot = header_index; pool nslots == header nslots
 - driver prefault/zero on create: configurable via `policies.prefault_shm` (default: true)
 - driver mlock on create: configurable via `policies.mlock_shm` (default: false; fatal if enabled and mlock fails)
 - epoch GC: configurable via `policies.epoch_gc_enabled` / `policies.epoch_gc_keep` / `policies.epoch_gc_min_age_ns`; only delete epochs whose superblock `activity_timestamp_ns` is stale and whose producer PID is no longer alive
@@ -86,8 +86,8 @@ Implementation notes:
   5) Perform a filesystem metadata check: reject unless the path is a regular file (hugetlbfs regular files allowed); reject block/char devices, FIFOs, and sockets.
   6) On any failure, reject and do not map; optionally fall back to payload_fallback_uri.
 - Recommended layout (informative):
-  - `<shm_base_dir>/<namespace>/<producer_instance_id>/epoch-<E>/`
-  - `header.ring` and `payload-<pool_id>.pool` within the epoch directory.
+  - `<shm_base_dir>/tensorpool-${USER}/<namespace>/<stream_id>/<epoch>/`
+  - `header.ring` and `<pool_id>.pool` within the epoch directory.
 - Permissions (informative):
   - Private: directories `0700`, files `0600`.
   - Shared-group: directories `2770` (setgid), files `0660`.
@@ -418,7 +418,7 @@ profile = "raw_profile"
 
 ## 23. Device DMA integration (zero-copy)
 - Use the producer to allocate payload pools, then register each payload slot with your device SDK for DMA writes.
-- Map the next header index to a payload slot (v1.1 uses slot == header_index), and hand the slot pointer to the device.
+- Map the next header index to a payload slot (v1.2 uses slot == header_index), and hand the slot pointer to the device.
 - Once the device fills the buffer, call `commit_slot!` to emit the descriptor without copying.
 
 Example (DMA buffer registration):

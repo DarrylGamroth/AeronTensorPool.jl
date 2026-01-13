@@ -45,7 +45,7 @@ Iceoryx allows a user header before the payload.
 
 Adaptation:
 - Consider a versioned optional header extension in `headerBytes`.
-- Maintain a fixed v1.1 layout; introduce extensions only with a new
+- Maintain a fixed v1.2 layout; introduce extensions only with a new
   `layout_version`.
 
 ## 6) QoS Vocabulary

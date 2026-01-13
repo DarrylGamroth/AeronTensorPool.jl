@@ -618,7 +618,7 @@ function tp_tool_main(args::Vector{String})
             elseif template_id == FrameProgress.sbe_template_id(FrameProgress.Decoder)
                 dec = FrameProgress.Decoder(buffer)
                 FrameProgress.wrap!(dec, buffer, 0; header = header)
-                println("FrameProgress stream_id=$(FrameProgress.streamId(dec)) frame_id=$(FrameProgress.frameId(dec)) state=$(FrameProgress.state(dec)) bytes=$(FrameProgress.payloadBytesFilled(dec))")
+                println("FrameProgress stream_id=$(FrameProgress.streamId(dec)) seq=$(FrameProgress.seq(dec)) state=$(FrameProgress.state(dec)) bytes=$(FrameProgress.payloadBytesFilled(dec))")
             end
             nothing
         end)

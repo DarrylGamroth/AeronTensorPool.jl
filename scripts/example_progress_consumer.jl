@@ -4,7 +4,7 @@ using AeronTensorPool
 
 mutable struct AppProgressConsumer
     handle::ConsumerHandle
-    last_frame_id::UInt64
+    last_seq::UInt64
     last_bytes_filled::UInt64
     ready::Bool
 end
@@ -19,11 +19,11 @@ end
 function Agent.do_work(agent::AppProgressConsumer)
     state = AeronTensorPool.handle_state(agent.handle)
     msg = state.runtime.progress_decoder
-    frame_id = FrameProgress.frameId(msg)
+    seq = FrameProgress.seq(msg)
     bytes = FrameProgress.payloadBytesFilled(msg)
-    if frame_id != 0 && (frame_id != agent.last_frame_id || bytes != agent.last_bytes_filled)
-        println("progress: frame=$(frame_id) bytes=$(bytes) state=$(FrameProgress.state(msg))")
-        agent.last_frame_id = frame_id
+    if seq != 0 && (seq != agent.last_seq || bytes != agent.last_bytes_filled)
+        println("progress: frame=$(seq) bytes=$(bytes) state=$(FrameProgress.state(msg))")
+        agent.last_seq = seq
         agent.last_bytes_filled = bytes
     end
     return 0

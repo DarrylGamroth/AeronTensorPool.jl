@@ -51,7 +51,7 @@ Suggested config keys:
 Epoch directories are scoped as:
 
 ```
-<shm_base_dir>/<namespace>/<producer_instance_id>/epoch-<E>/
+<shm_base_dir>/tensorpool-${USER}/<namespace>/<stream_id>/<epoch>/
 ```
 
 This enables immediate abandonment on epoch change and lazy cleanup of stale epochs.

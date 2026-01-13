@@ -23,9 +23,9 @@ Sources are local to:
 
 ## AeronTensorPool Architecture (Current)
 
-Data plane (from `docs/SHM_Tensor_Pool_Wire_Spec_v1.1.md`):
+Data plane (from `docs/SHM_Tensor_Pool_Wire_Spec_v1.2.md`):
 - SHM header ring with fixed 256-byte slots.
-- Payload pools with fixed stride; v1.1 maps `payload_slot = header_index`.
+- Payload pools with fixed stride; v1.2 maps `payload_slot = header_index`.
 - Seqlock commit protocol to guard header/payload consistency.
 - Consumers poll `FrameDescriptor`, then read slot/payload.
 - Lossy overwrite: producers never wait; consumers drop on instability.
@@ -162,7 +162,7 @@ Implication:
 
 ATP:
 - Fixed slot size; payload stride chosen by pool size class.
-- v1.1 uses `payload_slot = header_index` for simplicity.
+- v1.2 uses `payload_slot = header_index` for simplicity.
 
 IOX:
 - Fixed-size chunk pools; smallest fitting chunk size is used.
