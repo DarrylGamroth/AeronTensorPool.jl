@@ -102,11 +102,7 @@ function map_from_announce!(state::ConsumerState, msg::ShmPoolAnnounce.Decoder)
         if pool_require_hugepages && !is_hugetlbfs_path(pool_parsed.path)
             return false
         end
-        validate_stride(
-            pool.stride_bytes;
-            require_hugepages = pool_require_hugepages,
-            hugepage_size = hugepage_size,
-        ) || return false
+        validate_stride(pool.stride_bytes) || return false
 
         pool_mmap = mmap_shm(pool.uri, SUPERBLOCK_SIZE + Int(pool.nslots) * Int(pool.stride_bytes))
         if state.config.mlock_shm
@@ -243,11 +239,7 @@ function map_from_attach_response!(state::ConsumerState, attach::AttachResponse)
             @tp_warn "attach pool hugepage path invalid" pool_id = pool.pool_id path = pool_parsed.path
             return false
         end
-        validate_stride(
-            pool.stride_bytes;
-            require_hugepages = pool_require_hugepages,
-            hugepage_size = hugepage_size,
-        ) || return false
+        validate_stride(pool.stride_bytes) || return false
 
         pool_mmap = mmap_shm(pool_uri, SUPERBLOCK_SIZE + Int(pool.pool_nslots) * Int(pool.stride_bytes))
         if state.config.mlock_shm

@@ -119,23 +119,11 @@ Validate stride_bytes against the v1.2 alignment requirements.
 
 Arguments:
 - `stride_bytes`: pool stride size in bytes.
-- `require_hugepages`: whether hugepages are required (not used for stride validation).
-- `page_size_bytes`: OS page size in bytes (unused for stride validation).
-- `hugepage_size`: hugepage size in bytes (unused for stride validation).
 
 Returns:
 - `true` if valid, `false` otherwise.
 """
-function validate_stride(
-    stride_bytes::UInt32;
-    require_hugepages::Bool,
-    page_size_bytes::Int = page_size_bytes(),
-    hugepage_size::Int = 0,
-)
-    _ = require_hugepages
-    _ = page_size_bytes
-    _ = hugepage_size
-
+function validate_stride(stride_bytes::UInt32)
     stride_bytes >= UInt32(64) || return false
     return ispow2_u32(stride_bytes) & ((stride_bytes & UInt32(0x3f)) == UInt32(0))
 end

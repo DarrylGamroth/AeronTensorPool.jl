@@ -306,11 +306,7 @@ function load_driver_config(path::AbstractString; env::AbstractDict = ENV)
             throw(ArgumentError("header_slot_bytes must be $(HEADER_SLOT_BYTES) for profile $(name)"))
         isempty(profile.payload_pools) && throw(ArgumentError("profile $(name) must define payload_pools"))
         for pool in profile.payload_pools
-            validate_stride(
-                pool.stride_bytes;
-                require_hugepages = require_hugepages,
-                hugepage_size = require_hugepages ? hugepage_size_bytes() : 0,
-            ) || throw(ArgumentError("invalid stride_bytes for profile $(name)"))
+            validate_stride(pool.stride_bytes) || throw(ArgumentError("invalid stride_bytes for profile $(name)"))
         end
     end
 
