@@ -20,7 +20,8 @@ Required keys (unless stated otherwise):
 - `driver.instance_id` (string): identifier for logging/diagnostics. Default: `"driver-01"`.
 - `driver.control_channel` (string): Aeron channel for control-plane messages. Default: `"aeron:ipc?term-length=4m"`.
 - `driver.control_stream_id` (uint32): control-plane stream ID. Default: `1000`.
-- `shm.base_dir` (string): root directory for SHM backing files. Default: `"/dev/shm/tensorpool"`.
+- `shm.base_dir` (string): root directory for SHM backing files. Default: `"/dev/shm"`.
+- `shm.namespace` (string): namespace under the per-user tensorpool directory. Default: `"default"`.
 - `profiles.*` (table): at least one profile must be defined.
 - `profiles.<name>.payload_pools` (array): must contain at least one pool entry.
 - `streams.*` (table): if `policies.allow_dynamic_streams=false`, each stream MUST be explicitly defined.

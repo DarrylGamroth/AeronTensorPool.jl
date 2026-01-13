@@ -5,21 +5,21 @@
             prepare_canonical_shm_layout(
                 dir;
                 namespace = "tensorpool",
-                producer_instance_id = "bridge-alloc-src",
+                stream_id = 1,
                 epoch = 1,
                 pool_id = 1,
             )
             prepare_canonical_shm_layout(
                 dir;
                 namespace = "tensorpool",
-                producer_instance_id = "bridge-alloc-dst",
+                stream_id = 2,
                 epoch = 1,
                 pool_id = 1,
             )
-            src_header_uri = canonical_header_uri(dir, "tensorpool", "bridge-alloc-src", 1)
-            src_pool_uri = canonical_pool_uri(dir, "tensorpool", "bridge-alloc-src", 1, 1)
-            dst_header_uri = canonical_header_uri(dir, "tensorpool", "bridge-alloc-dst", 1)
-            dst_pool_uri = canonical_pool_uri(dir, "tensorpool", "bridge-alloc-dst", 1, 1)
+            src_header_uri = canonical_header_uri(dir, "tensorpool", 1, 1)
+            src_pool_uri = canonical_pool_uri(dir, "tensorpool", 1, 1, 1)
+            dst_header_uri = canonical_header_uri(dir, "tensorpool", 2, 1)
+            dst_pool_uri = canonical_pool_uri(dir, "tensorpool", 2, 1, 1)
 
             src_pool = PayloadPoolConfig(UInt16(1), src_pool_uri, UInt32(4096), UInt32(8))
             dst_pool = PayloadPoolConfig(UInt16(1), dst_pool_uri, UInt32(4096), UInt32(8))

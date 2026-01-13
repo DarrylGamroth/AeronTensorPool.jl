@@ -18,13 +18,13 @@ Severity legend:
 - Verify: generated constants, template IDs, and block lengths match the spec.
   - Status: updated `schemas/wire-schema.xml` and regenerated codecs (`src/gen/ShmTensorpoolControl.jl`).
 
-1) Fix canonical SHM directory layout (Wire §15.21a.3)
+1) Fix canonical SHM directory layout (Wire §15.21a.3) (done)
 - Matrix: `SHM_Tensor_Pool_Wire_Spec_v1.2.md` → 15.21a.3 (Noncompliant)
 - Issue: current layout uses `<shm_base_dir>/<namespace>/<producer_instance_id>/epoch-<epoch>/payload-<pool_id>.pool` instead of `tensorpool-${USER}/<namespace>/<stream_id>/<epoch>/<pool_id>.pool`.
 - Required: update `src/shm/paths.jl` (and all call sites) to match spec layout and filenames.
 - Verify: update tests/examples and any path-based validation logic.
 
-2) Enforce consumer path containment validation (Wire §15.21a.5)
+2) Enforce consumer path containment validation (Wire §15.21a.5) (done)
 - Matrix: `SHM_Tensor_Pool_Wire_Spec_v1.2.md` → 15.21a.5 (Noncompliant / Not implemented)
 - Issue: consumer mappings do not perform canonical realpath containment checks or no-follow opens.
 - Required: add consumer-side containment/realpath checks, no-follow open + fstat validation, and fail-closed behavior where unavailable.

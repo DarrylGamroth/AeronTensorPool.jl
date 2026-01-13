@@ -1,13 +1,16 @@
 @testset "Metadata API" begin
     with_driver_and_client() do driver, client
         mktempdir("/dev/shm") do base_dir
-            namespace = "tensorpool"
-            producer_instance_id = "test-producer"
+            namespace = "default"
             epoch = 1
-            epoch_dir = joinpath(base_dir, namespace, producer_instance_id, "epoch-$(epoch)")
-            mkpath(epoch_dir)
-            header_path = joinpath(epoch_dir, "header.ring")
-            pool_path = joinpath(epoch_dir, "payload-1.pool")
+            stream_id = UInt32(1)
+            _, header_path, pool_path = prepare_canonical_shm_layout(
+                base_dir;
+                namespace = namespace,
+                stream_id = stream_id,
+                epoch = epoch,
+                pool_id = 1,
+            )
 
             cfg = ProducerConfig(
                 Aeron.MediaDriver.aeron_dir(driver),
@@ -16,13 +19,13 @@
                 Int32(1012),
                 Int32(1013),
                 Int32(1014),
-                UInt32(1),
+                stream_id,
                 UInt32(2),
                 UInt32(1),
                 UInt32(8),
                 base_dir,
                 namespace,
-                producer_instance_id,
+                "test-producer",
                 "shm:file?path=$(header_path)",
                 [PayloadPoolConfig(UInt16(1), "shm:file?path=$(pool_path)", UInt32(64), UInt32(8))],
                 UInt8(MAX_DIMS),

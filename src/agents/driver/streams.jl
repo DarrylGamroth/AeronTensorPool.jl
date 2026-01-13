@@ -115,7 +115,7 @@ function bump_epoch!(state::DriverState, stream_state::DriverStreamState)
 end
 
 function parse_epoch_dirname(name::AbstractString)
-    m = match(r"^epoch-(\d+)$", name)
+    m = match(r"^(\d+)$", name)
     m === nothing && return nothing
     return tryparse(UInt64, m.captures[1])
 end
@@ -168,8 +168,8 @@ function gc_stream_epochs!(
     effective_min_age = min_age_ns === nothing ? policy.epoch_gc_min_age_ns : min_age_ns
     root_dir = canonical_epoch_root_dir(
         state.config.shm.base_dir,
-        "stream-$(stream_state.stream_id)",
-        state.config.endpoints.instance_id,
+        state.config.shm.namespace,
+        stream_state.stream_id,
     )
     isdir(root_dir) || return 0
 
@@ -186,7 +186,7 @@ function gc_stream_epochs!(
     removed = 0
     for ep in epochs
         ep >= min_keep_epoch && continue
-        path = joinpath(root_dir, "epoch-$(ep)")
+        path = joinpath(root_dir, string(ep))
         path_allowed(path, state.config.shm.allowed_base_dirs) || continue
         age_ns = epoch_dir_age_ns(path, now_ns, get(stream_state.epoch_start_ns, ep, nothing))
         header_path = joinpath(path, "header.ring")
@@ -217,8 +217,8 @@ function gc_orphan_epochs_for_stream!(
     effective_min_age = min_age_ns === nothing ? policy.epoch_gc_min_age_ns : min_age_ns
     root_dir = canonical_epoch_root_dir(
         state.config.shm.base_dir,
-        "stream-$(stream_id)",
-        state.config.endpoints.instance_id,
+        state.config.shm.namespace,
+        stream_id,
     )
     isdir(root_dir) || return 0
     epochs = UInt64[]
@@ -233,7 +233,7 @@ function gc_orphan_epochs_for_stream!(
     removed = 0
     for ep in epochs
         ep >= min_keep_epoch && continue
-        path = joinpath(root_dir, "epoch-$(ep)")
+        path = joinpath(root_dir, string(ep))
         path_allowed(path, state.config.shm.allowed_base_dirs) || continue
         age_ns = epoch_dir_age_ns(path, now_ns, nothing)
         header_path = joinpath(path, "header.ring")
@@ -255,8 +255,8 @@ function provision_stream_epoch!(state::DriverState, stream_state::DriverStreamS
     pool_ids = [pool.pool_id for pool in stream_state.profile.payload_pools]
     header_uri, pool_uris = canonical_shm_paths(
         state.config.shm.base_dir,
-        "stream-$(stream_state.stream_id)",
-        state.config.endpoints.instance_id,
+        state.config.shm.namespace,
+        stream_state.stream_id,
         stream_state.epoch,
         pool_ids,
     )

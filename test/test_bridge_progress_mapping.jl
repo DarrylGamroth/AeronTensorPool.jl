@@ -2,15 +2,16 @@
     with_driver_and_client() do driver, client
         mktempdir("/dev/shm") do dir
             aeron_dir = Aeron.MediaDriver.aeron_dir(driver)
+            stream_id = UInt32(2)
             prepare_canonical_shm_layout(
                 dir;
                 namespace = "tensorpool",
-                producer_instance_id = "bridge-progress",
+                stream_id = stream_id,
                 epoch = 1,
                 pool_id = 1,
             )
-            header_uri = canonical_header_uri(dir, "tensorpool", "bridge-progress", 1)
-            pool_uri = canonical_pool_uri(dir, "tensorpool", "bridge-progress", 1, 1)
+            header_uri = canonical_header_uri(dir, "tensorpool", stream_id, 1)
+            pool_uri = canonical_pool_uri(dir, "tensorpool", stream_id, 1, 1)
             pool = PayloadPoolConfig(UInt16(1), pool_uri, UInt32(4096), UInt32(8))
 
             producer_cfg = ProducerConfig(
@@ -20,7 +21,7 @@
                 Int32(2000),
                 Int32(2200),
                 Int32(2300),
-                UInt32(2),
+                stream_id,
                 UInt32(20),
                 UInt32(1),
                 UInt32(8),

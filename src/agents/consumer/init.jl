@@ -12,6 +12,7 @@ function init_consumer(config::ConsumerConfig; client::Aeron.Client)
     clock = Clocks.CachedEpochClock(Clocks.MonotonicClock())
     fetch!(clock)
     announce_join_ns = UInt64(Clocks.time_nanos(clock))
+    config.allowed_base_dirs = canonical_allowed_dirs(config.shm_base_dir, config.allowed_base_dirs)
 
     pub_control = Aeron.add_publication(client, config.aeron_uri, config.control_stream_id)
     @tp_info "Consumer control publication ready" stream_id = config.control_stream_id channel =

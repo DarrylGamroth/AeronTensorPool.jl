@@ -92,6 +92,7 @@ Shared-memory backend configuration for the driver.
 """
 struct DriverShmConfig
     base_dir::String
+    namespace::String
     require_hugepages::Bool
     page_size_bytes::UInt32
     permissions_mode::String
@@ -206,7 +207,8 @@ function load_driver_config(path::AbstractString; env::AbstractDict = ENV)
     qos_stream_id =
         Int32(env_override(env, "driver.qos_stream_id", Int32(get(driver_tbl, "qos_stream_id", 1200))))
 
-    base_dir = String(env_override(env, "shm.base_dir", String(get(shm_tbl, "base_dir", "/dev/shm/tensorpool"))))
+    base_dir = String(env_override(env, "shm.base_dir", String(get(shm_tbl, "base_dir", "/dev/shm"))))
+    namespace = String(env_override(env, "shm.namespace", String(get(shm_tbl, "namespace", "default"))))
     require_hugepages = env_override(env, "shm.require_hugepages", Bool(get(shm_tbl, "require_hugepages", false)))
     page_size_bytes = env_override(env, "shm.page_size_bytes", UInt32(get(shm_tbl, "page_size_bytes", 4096)))
     permissions_mode = String(env_override(env, "shm.permissions_mode", String(get(shm_tbl, "permissions_mode", "660"))))
@@ -324,6 +326,7 @@ function load_driver_config(path::AbstractString; env::AbstractDict = ENV)
     )
     shm = DriverShmConfig(
         base_dir,
+        namespace,
         require_hugepages,
         page_size_bytes,
         permissions_mode,

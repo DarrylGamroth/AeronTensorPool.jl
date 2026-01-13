@@ -11,14 +11,14 @@
             _, header_path1, pool_path1 = prepare_canonical_shm_layout(
                 dir;
                 namespace = "tensorpool",
-                producer_instance_id = "test-producer",
+                stream_id = stream_id,
                 epoch = Int(epoch1),
                 pool_id = 1,
             )
             _, header_path2, pool_path2 = prepare_canonical_shm_layout(
                 dir;
                 namespace = "tensorpool",
-                producer_instance_id = "test-producer",
+                stream_id = stream_id,
                 epoch = Int(epoch2),
                 pool_id = 1,
             )

@@ -25,28 +25,31 @@ end
 
 function canonical_shm_paths(
     base_dir::AbstractString;
-    namespace::AbstractString = "tensorpool",
-    producer_instance_id::AbstractString = "test-producer",
+    namespace::AbstractString = "default",
+    stream_id::Integer = 10000,
     epoch::Integer = 1,
     pool_id::Integer = 1,
+    producer_instance_id::Union{Nothing, AbstractString} = nothing,
 )
-    epoch_dir = joinpath(base_dir, namespace, producer_instance_id, "epoch-$(epoch)")
+    user = AeronTensorPool.Shm.canonical_user_name()
+    epoch_dir = joinpath(base_dir, "tensorpool-$(user)", namespace, string(stream_id), string(epoch))
     header_path = joinpath(epoch_dir, "header.ring")
-    pool_path = joinpath(epoch_dir, "payload-$(pool_id).pool")
+    pool_path = joinpath(epoch_dir, "$(pool_id).pool")
     return epoch_dir, header_path, pool_path
 end
 
 function prepare_canonical_shm_layout(
     base_dir::AbstractString;
-    namespace::AbstractString = "tensorpool",
-    producer_instance_id::AbstractString = "test-producer",
+    namespace::AbstractString = "default",
+    stream_id::Integer = 10000,
     epoch::Integer = 1,
     pool_id::Integer = 1,
+    producer_instance_id::Union{Nothing, AbstractString} = nothing,
 )
     epoch_dir, header_path, pool_path = canonical_shm_paths(
         base_dir;
         namespace = namespace,
-        producer_instance_id = producer_instance_id,
+        stream_id = stream_id,
         epoch = epoch,
         pool_id = pool_id,
     )
@@ -168,7 +171,7 @@ function test_producer_config(
         pools,
         base_dir,
         "tensorpool",
-        producer_instance_id,
+        stream_id,
         UInt64(1),
     )
     cfg = default_producer_config(;

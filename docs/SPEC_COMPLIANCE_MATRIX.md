@@ -68,12 +68,12 @@ Correctness legend:
 | 15.18 Normative Algorithms (per role) | Implemented | Needs Review | Algorithms present; needs full step-by-step validation. |
 | 15.20 Compatibility Matrix | Informative | N/A | Reference. |
 | 15.21 Protocol State Machines (Normative) | Partial | Needs Review | Driver lifecycle/lease HSM; consumer state machine missing. |
-| 15.21a Filesystem Layout and Path Containment | Partial | Noncompliant | Canonical layout differs; consumer containment missing. |
+| 15.21a Filesystem Layout and Path Containment | Implemented | Compliant | Canonical layout + consumer containment checks align with spec. |
 | 15.21a.1 Overview | Informative | N/A | Guidance only. |
 | 15.21a.2 Shared Memory Base Directory | Implemented | Needs Review | `shm_base_dir` + `allowed_base_dirs` config. |
-| 15.21a.3 Canonical Directory Layout | Implemented | **Noncompliant** | Implementation uses `<shm_base_dir>/<namespace>/<producer_instance_id>/epoch-<epoch>/payload-<pool_id>.pool` instead of `tensorpool-${USER}/<namespace>/<stream_id>/<epoch>/<pool_id>.pool`. See `src/shm/paths.jl`. |
+| 15.21a.3 Canonical Directory Layout | Implemented | Compliant | Layout matches `tensorpool-${USER}/<namespace>/<stream_id>/<epoch>/<pool_id>.pool` in `src/shm/paths.jl`. |
 | 15.21a.4 Path Announcement Rule | Implemented | Needs Review | URIs announced explicitly; no consumer path derivation observed. |
-| 15.21a.5 Consumer Path Containment Validation | Not implemented | Noncompliant | Consumer mapping does not perform canonical realpath containment checks; `O_NOFOLLOW` used only in driver (`src/agents/driver/streams.jl`, `src/shm/linux.jl`). |
+| 15.21a.5 Consumer Path Containment Validation | Implemented | Compliant | Canonical allowed dirs + realpath containment enforced in `src/agents/consumer/mapping.jl` with `O_NOFOLLOW` in `src/shm/linux.jl`. |
 | 15.21a.6 Permissions and Ownership | Partial | Needs Review | Configurable modes; platform parity incomplete. |
 | 15.21a.7 Cleanup and Epoch Handling | Implemented | Needs Review | Epoch GC and cleanup controls in driver. |
 | 15.22 SHM Backend Validation (v1.2) | Implemented | Needs Review | URI scheme + hugepage checks in `src/shm/uri.jl`, `src/shm/linux.jl`. |

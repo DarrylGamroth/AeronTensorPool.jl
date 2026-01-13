@@ -12,7 +12,7 @@ using Test
             _, header_path, pool_path = prepare_canonical_shm_layout(
                 dir;
                 namespace = "tensorpool",
-                producer_instance_id = "slot-test",
+                stream_id = stream_id,
                 epoch = Int(epoch),
                 pool_id = 1,
             )

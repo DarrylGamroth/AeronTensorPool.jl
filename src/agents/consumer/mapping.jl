@@ -1,4 +1,31 @@
 """
+Return canonical allowed base directories for SHM containment checks.
+"""
+function canonical_allowed_dirs(base_dir::AbstractString, allowed_dirs::Vector{String})
+    dirs = isempty(allowed_dirs) ? [base_dir] : allowed_dirs
+    canonical = String[]
+    for dir in dirs
+        abs_dir = abspath(dir)
+        ispath(abs_dir) || throw(ArgumentError("allowed_base_dir does not exist: $(abs_dir)"))
+        abs_dir = realpath(abs_dir)
+        push!(canonical, abs_dir)
+    end
+    return canonical
+end
+
+function path_allowed(path::AbstractString, allowed_dirs::Vector{String})
+    abs_path = abspath(path)
+    ispath(abs_path) || return false
+    abs_path = realpath(abs_path)
+    for dir in allowed_dirs
+        if abs_path == dir || startswith(abs_path, dir * "/")
+            return true
+        end
+    end
+    return false
+end
+
+"""
 Map SHM regions from a ShmPoolAnnounce message.
 
 Arguments:
@@ -28,6 +55,10 @@ function map_from_announce!(state::ConsumerState, msg::ShmPoolAnnounce.Decoder)
     header_uri = String(ShmPoolAnnounce.headerRegionUri(msg))
     validate_uri(header_uri) || return false
     header_parsed = parse_shm_uri(header_uri)
+    if !path_allowed(header_parsed.path, state.config.allowed_base_dirs)
+        @tp_warn "announce header path not allowed" path = header_parsed.path
+        return false
+    end
     require_hugepages = header_parsed.require_hugepages || state.config.require_hugepages
     if require_hugepages && !is_hugetlbfs_path(header_parsed.path)
         return false
@@ -63,6 +94,10 @@ function map_from_announce!(state::ConsumerState, msg::ShmPoolAnnounce.Decoder)
         pool.nslots == header_nslots || return false
         validate_uri(pool.uri) || return false
         pool_parsed = parse_shm_uri(pool.uri)
+        if !path_allowed(pool_parsed.path, state.config.allowed_base_dirs)
+            @tp_warn "announce pool path not allowed" pool_id = pool.pool_id path = pool_parsed.path
+            return false
+        end
         pool_require_hugepages = pool_parsed.require_hugepages || require_hugepages
         if pool_require_hugepages && !is_hugetlbfs_path(pool_parsed.path)
             return false
@@ -150,6 +185,10 @@ function map_from_attach_response!(state::ConsumerState, attach::AttachResponse)
     header_uri = view(attach.header_region_uri)
     validate_uri(header_uri) || return false
     header_parsed = parse_shm_uri(header_uri)
+    if !path_allowed(header_parsed.path, state.config.allowed_base_dirs)
+        @tp_warn "attach header path not allowed" path = header_parsed.path
+        return false
+    end
     require_hugepages = state.config.require_hugepages
     if require_hugepages && !is_hugetlbfs_path(header_parsed.path)
         @tp_warn "attach header hugepage path invalid" path = header_parsed.path
@@ -194,6 +233,10 @@ function map_from_attach_response!(state::ConsumerState, attach::AttachResponse)
         pool_uri = view(pool.region_uri)
         validate_uri(pool_uri) || return false
         pool_parsed = parse_shm_uri(pool_uri)
+        if !path_allowed(pool_parsed.path, state.config.allowed_base_dirs)
+            @tp_warn "attach pool path not allowed" pool_id = pool.pool_id path = pool_parsed.path
+            return false
+        end
         pool_require_hugepages = pool_parsed.require_hugepages || require_hugepages
         if pool_require_hugepages && !is_hugetlbfs_path(pool_parsed.path)
             @tp_warn "attach pool hugepage path invalid" pool_id = pool.pool_id path = pool_parsed.path

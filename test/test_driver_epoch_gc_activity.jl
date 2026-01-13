@@ -18,6 +18,7 @@ qos_stream_id = 1200
 
 [shm]
 base_dir = \"$(base_dir)\"
+namespace = \"default\"
 require_hugepages = false
 page_size_bytes = 4096
 permissions_mode = \"660\"
@@ -47,9 +48,10 @@ profile = \"camera\"
             state = AeronTensorPool.Driver.init_driver(cfg; client = client)
             try
                 now_ns = UInt64(time_ns())
-                root = joinpath(base_dir, "stream-10000", "driver-gc")
-                epoch1 = joinpath(root, "epoch-1")
-                epoch2 = joinpath(root, "epoch-2")
+                user = AeronTensorPool.Shm.canonical_user_name()
+                root = joinpath(base_dir, "tensorpool-$(user)", "default", "10000")
+                epoch1 = joinpath(root, "1")
+                epoch2 = joinpath(root, "2")
                 mkpath(epoch1)
                 mkpath(epoch2)
 

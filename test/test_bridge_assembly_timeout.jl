@@ -5,12 +5,12 @@
             prepare_canonical_shm_layout(
                 dir;
                 namespace = "tensorpool",
-                producer_instance_id = "bridge-timeout",
+                stream_id = 2,
                 epoch = 1,
                 pool_id = 1,
             )
-            header_uri = canonical_header_uri(dir, "tensorpool", "bridge-timeout", 1)
-            pool_uri = canonical_pool_uri(dir, "tensorpool", "bridge-timeout", 1, 1)
+            header_uri = canonical_header_uri(dir, "tensorpool", 2, 1)
+            pool_uri = canonical_pool_uri(dir, "tensorpool", 2, 1, 1)
             pool = PayloadPoolConfig(UInt16(1), pool_uri, UInt32(4096), UInt32(8))
 
             producer_cfg = ProducerConfig(

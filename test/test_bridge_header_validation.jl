@@ -8,12 +8,12 @@ using Test
             prepare_canonical_shm_layout(
                 base;
                 namespace = "tensorpool",
-                producer_instance_id = "bridge-hdr",
+                stream_id = 9,
                 epoch = 1,
                 pool_id = 1,
             )
-            header_uri = canonical_header_uri(base, "tensorpool", "bridge-hdr", 1)
-            pool_uri = canonical_pool_uri(base, "tensorpool", "bridge-hdr", 1, 1)
+            header_uri = canonical_header_uri(base, "tensorpool", 9, 1)
+            pool_uri = canonical_pool_uri(base, "tensorpool", 9, 1, 1)
 
             pool = PayloadPoolConfig(UInt16(1), pool_uri, UInt32(4096), UInt32(8))
             producer_cfg = ProducerConfig(

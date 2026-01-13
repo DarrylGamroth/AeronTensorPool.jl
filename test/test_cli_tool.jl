@@ -1,5 +1,6 @@
 @testset "CLI tool" begin
-    uri = "shm:file?path=/dev/shm/tensorpool/test-producer/epoch-1/payload-1.pool"
+    user = AeronTensorPool.Shm.canonical_user_name()
+    uri = "shm:file?path=/dev/shm/tensorpool-$(user)/default/10000/1/1.pool"
     root = normpath(joinpath(@__DIR__, ".."))
     tool = joinpath(root, "scripts", "tp_tool.jl")
     cmd = `julia --project=$root $tool validate-uri $uri`

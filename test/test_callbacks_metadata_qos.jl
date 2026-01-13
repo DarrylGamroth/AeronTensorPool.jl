@@ -12,7 +12,7 @@
             prepare_canonical_shm_layout(
                 producer_cfg.shm_base_dir;
                 namespace = producer_cfg.shm_namespace,
-                producer_instance_id = producer_cfg.producer_instance_id,
+                stream_id = producer_cfg.stream_id,
                 epoch = 1,
                 pool_id = 1,
             )
