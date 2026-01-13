@@ -18,8 +18,7 @@ Emit a FrameProgress COMPLETE message.
 
 Arguments:
 - `state`: producer state.
-- `frame_id`: frame identifier (seq).
-- `header_index`: header slot index.
+- `seq`: frame sequence.
 - `bytes_filled`: payload bytes filled.
 
 Returns:
@@ -27,20 +26,17 @@ Returns:
 """
 function emit_progress_complete!(
     state::ProducerState,
-    frame_id::UInt64,
-    header_index::UInt32,
+    seq::UInt64,
     bytes_filled::UInt64,
 )
     sent = let st = state,
-        frame_id = frame_id,
-        header_index = header_index,
+        seq = seq,
         bytes_filled = bytes_filled
         with_claimed_buffer!(st.runtime.control.pub_control, st.runtime.progress_claim, FRAME_PROGRESS_LEN) do buf
             FrameProgress.wrap_and_apply_header!(st.runtime.progress_encoder, buf, 0)
             FrameProgress.streamId!(st.runtime.progress_encoder, st.config.stream_id)
             FrameProgress.epoch!(st.runtime.progress_encoder, st.epoch)
-            FrameProgress.frameId!(st.runtime.progress_encoder, frame_id)
-            FrameProgress.headerIndex!(st.runtime.progress_encoder, header_index)
+            FrameProgress.seq!(st.runtime.progress_encoder, seq)
             FrameProgress.payloadBytesFilled!(st.runtime.progress_encoder, bytes_filled)
             FrameProgress.state!(st.runtime.progress_encoder, FrameProgressState.COMPLETE)
         end
@@ -49,7 +45,7 @@ function emit_progress_complete!(
     now_ns = UInt64(Clocks.time_nanos(state.clock))
     reset!(state.progress_timer, now_ns)
     state.metrics.last_progress_bytes = bytes_filled
-    publish_progress_to_consumers!(state, frame_id, header_index, bytes_filled)
+    publish_progress_to_consumers!(state, seq, bytes_filled)
     return true
 end
 
@@ -206,7 +202,6 @@ end
 function publish_descriptor_to_consumers!(
     state::ProducerState,
     seq::UInt64,
-    header_index::UInt32,
     meta_version::UInt32,
     now_ns::UInt64,
 )
@@ -219,13 +214,12 @@ function publish_descriptor_to_consumers!(
         end
         sent = let st = state,
             seq = seq,
-            header_index = header_index,
             meta_version = meta_version,
             now_ns = now_ns,
             pub = pub
             with_claimed_buffer!(pub, st.runtime.descriptor_claim, FRAME_DESCRIPTOR_LEN) do buf
                 FrameDescriptor.wrap_and_apply_header!(st.runtime.descriptor_encoder, buf, 0)
-                encode_frame_descriptor!(st.runtime.descriptor_encoder, st, seq, header_index, meta_version, now_ns)
+                encode_frame_descriptor!(st.runtime.descriptor_encoder, st, seq, meta_version, now_ns)
             end
         end
         if sent
@@ -240,24 +234,21 @@ end
 
 function publish_progress_to_consumers!(
     state::ProducerState,
-    frame_id::UInt64,
-    header_index::UInt32,
+    seq::UInt64,
     bytes_filled::UInt64,
 )
     for entry in values(state.consumer_streams)
         pub = entry.control_pub
         pub === nothing && continue
         let st = state,
-            frame_id = frame_id,
-            header_index = header_index,
+            seq = seq,
             bytes_filled = bytes_filled,
             pub = pub
             with_claimed_buffer!(pub, st.runtime.progress_claim, FRAME_PROGRESS_LEN) do buf
                 FrameProgress.wrap_and_apply_header!(st.runtime.progress_encoder, buf, 0)
                 FrameProgress.streamId!(st.runtime.progress_encoder, st.config.stream_id)
                 FrameProgress.epoch!(st.runtime.progress_encoder, st.epoch)
-                FrameProgress.frameId!(st.runtime.progress_encoder, frame_id)
-                FrameProgress.headerIndex!(st.runtime.progress_encoder, header_index)
+                FrameProgress.seq!(st.runtime.progress_encoder, seq)
                 FrameProgress.payloadBytesFilled!(st.runtime.progress_encoder, bytes_filled)
                 FrameProgress.state!(st.runtime.progress_encoder, FrameProgressState.COMPLETE)
             end

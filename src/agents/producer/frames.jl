@@ -2,16 +2,15 @@ function encode_frame_descriptor!(
     enc::FrameDescriptor.Encoder,
     state::ProducerState,
     seq::UInt64,
-    header_index::UInt32,
     meta_version::UInt32,
     now_ns::UInt64,
 )
     FrameDescriptor.streamId!(enc, state.config.stream_id)
     FrameDescriptor.epoch!(enc, state.epoch)
     FrameDescriptor.seq!(enc, seq)
-    FrameDescriptor.headerIndex!(enc, header_index)
     FrameDescriptor.timestampNs!(enc, now_ns)
     FrameDescriptor.metaVersion!(enc, meta_version)
+    FrameDescriptor.traceId!(enc, UInt64(0))
     return nothing
 end
 
@@ -118,15 +117,15 @@ function offer_frame!(
             MessageHeader.schemaId!(header, FrameDescriptor.sbe_schema_id(FrameDescriptor.Decoder))
             MessageHeader.version!(header, FrameDescriptor.sbe_schema_version(FrameDescriptor.Decoder))
             FrameDescriptor.wrap!(st.runtime.descriptor_encoder, buf, MESSAGE_HEADER_LEN)
-            encode_frame_descriptor!(st.runtime.descriptor_encoder, st, seq, header_index, meta_version, now_ns)
+            encode_frame_descriptor!(st.runtime.descriptor_encoder, st, seq, meta_version, now_ns)
         end
     end
-    per_consumer_sent = publish_descriptor_to_consumers!(state, seq, header_index, meta_version, now_ns)
+    per_consumer_sent = publish_descriptor_to_consumers!(state, seq, meta_version, now_ns)
     (shared_sent || per_consumer_sent) || return false
     callbacks.on_frame_published!(state, seq, header_index)
 
     if state.supports_progress && should_emit_progress!(state, UInt64(values_len), true)
-        emit_progress_complete!(state, seq, header_index, UInt64(values_len))
+        emit_progress_complete!(state, seq, UInt64(values_len))
     end
 
     state.seq += 1
@@ -435,15 +434,15 @@ function commit_slot!(
         now_ns = now_ns
         with_claimed_buffer!(st.runtime.pub_descriptor, st.runtime.descriptor_claim, FRAME_DESCRIPTOR_LEN) do buf
             FrameDescriptor.wrap_and_apply_header!(st.runtime.descriptor_encoder, buf, 0)
-            encode_frame_descriptor!(st.runtime.descriptor_encoder, st, seq, header_index, meta_version, now_ns)
+            encode_frame_descriptor!(st.runtime.descriptor_encoder, st, seq, meta_version, now_ns)
         end
     end
     per_consumer_sent =
-        publish_descriptor_to_consumers!(state, claim.seq, claim.header_index, meta_version, now_ns)
+        publish_descriptor_to_consumers!(state, claim.seq, meta_version, now_ns)
     (shared_sent || per_consumer_sent) || return false
 
     if state.supports_progress && should_emit_progress!(state, UInt64(values_len), true)
-        emit_progress_complete!(state, seq, claim.header_index, UInt64(values_len))
+        emit_progress_complete!(state, seq, UInt64(values_len))
     end
 
     return true

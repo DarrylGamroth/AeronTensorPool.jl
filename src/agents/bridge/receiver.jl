@@ -190,15 +190,14 @@ function bridge_rematerialize!(
     now_ns = UInt64(Clocks.time_nanos(state.clock))
     shared_sent = let st = producer_state,
         seq = seq,
-        header_index = header_index,
         meta_version = header.meta_version,
         now_ns = now_ns
         with_claimed_buffer!(st.runtime.pub_descriptor, st.runtime.descriptor_claim, FRAME_DESCRIPTOR_LEN) do buf
             FrameDescriptor.wrap_and_apply_header!(st.runtime.descriptor_encoder, buf, 0)
-            encode_frame_descriptor!(st.runtime.descriptor_encoder, st, seq, header_index, meta_version, now_ns)
+            encode_frame_descriptor!(st.runtime.descriptor_encoder, st, seq, meta_version, now_ns)
         end
     end
-    per_consumer_sent = publish_descriptor_to_consumers!(producer_state, seq, header_index, header.meta_version, now_ns)
+    per_consumer_sent = publish_descriptor_to_consumers!(producer_state, seq, header.meta_version, now_ns)
     (shared_sent || per_consumer_sent) || return false
     if producer_state.seq <= seq
         producer_state.seq = seq + 1
@@ -267,15 +266,14 @@ function bridge_commit_claim!(
     now_ns = UInt64(Clocks.time_nanos(state.clock))
     shared_sent = let st = producer_state,
         seq = claim.seq,
-        header_index = claim.header_index,
         meta_version = header.meta_version,
         now_ns = now_ns
         with_claimed_buffer!(st.runtime.pub_descriptor, st.runtime.descriptor_claim, FRAME_DESCRIPTOR_LEN) do buf
             FrameDescriptor.wrap_and_apply_header!(st.runtime.descriptor_encoder, buf, 0)
-            encode_frame_descriptor!(st.runtime.descriptor_encoder, st, seq, header_index, meta_version, now_ns)
+            encode_frame_descriptor!(st.runtime.descriptor_encoder, st, seq, meta_version, now_ns)
         end
     end
-    per_consumer_sent = publish_descriptor_to_consumers!(producer_state, claim.seq, claim.header_index, header.meta_version, now_ns)
+    per_consumer_sent = publish_descriptor_to_consumers!(producer_state, claim.seq, header.meta_version, now_ns)
     (shared_sent || per_consumer_sent) || return false
     if producer_state.seq <= claim.seq
         producer_state.seq = claim.seq + 1

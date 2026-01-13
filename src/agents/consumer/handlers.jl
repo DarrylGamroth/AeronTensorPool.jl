@@ -93,7 +93,9 @@ function handle_frame_progress!(state::ConsumerState, msg::FrameProgress.Decoder
     header_mmap = state.mappings.header_mmap
     header_mmap === nothing && return false
 
-    header_index = FrameProgress.headerIndex(msg)
+    seq = FrameProgress.seq(msg)
+    state.mappings.mapped_nslots == 0 && return false
+    header_index = UInt32(seq & (UInt64(state.mappings.mapped_nslots) - 1))
     header_index >= state.mappings.mapped_nslots && return false
 
     header_offset = header_slot_offset(header_index)
@@ -110,7 +112,7 @@ function handle_frame_progress!(state::ConsumerState, msg::FrameProgress.Decoder
         return false
     end
     header.seq_commit == second || return false
-    seqlock_sequence(second) == FrameProgress.frameId(msg) || return false
+    seqlock_sequence(second) == seq || return false
 
     payload_bytes = FrameProgress.payloadBytesFilled(msg)
     UInt64(header.values_len_bytes) >= payload_bytes || return false
@@ -118,8 +120,8 @@ function handle_frame_progress!(state::ConsumerState, msg::FrameProgress.Decoder
 
     idx = Int(header_index) + 1
     last_frame = state.mappings.progress_last_frame[idx]
-    if last_frame != FrameProgress.frameId(msg)
-        state.mappings.progress_last_frame[idx] = FrameProgress.frameId(msg)
+    if last_frame != seq
+        state.mappings.progress_last_frame[idx] = seq
         state.mappings.progress_last_bytes[idx] = UInt64(0)
     end
     last = state.mappings.progress_last_bytes[idx]

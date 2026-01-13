@@ -109,7 +109,9 @@ Returns:
 function bridge_send_frame!(state::BridgeSenderState, desc::FrameDescriptor.Decoder)
     FrameDescriptor.streamId(desc) == state.mapping.source_stream_id || return false
     FrameDescriptor.epoch(desc) == state.consumer_state.mappings.mapped_epoch || return false
-    header_index = FrameDescriptor.headerIndex(desc)
+    state.consumer_state.mappings.mapped_nslots == 0 && return false
+    header_index =
+        UInt32(FrameDescriptor.seq(desc) & (UInt64(state.consumer_state.mappings.mapped_nslots) - 1))
     header_index >= state.consumer_state.mappings.mapped_nslots && return false
 
     header_offset = header_slot_offset(header_index)

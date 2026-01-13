@@ -1,5 +1,15 @@
 function should_process(state::ConsumerState, seq::UInt64)
     state.config.mode == Mode.RATE_LIMITED || return true
+    rate = state.config.max_rate_hz
+    rate == 0 && return true
+    period_ns = UInt64(1_000_000_000) ÷ UInt64(rate)
+    now_ns = UInt64(Clocks.time_nanos(state.clock))
+    if now_ns - state.metrics.last_rate_ns < period_ns
+        state.metrics.last_seq_seen = seq
+        state.metrics.seen_any = true
+        return false
+    end
+    state.metrics.last_rate_ns = now_ns
     return true
 end
 
@@ -135,12 +145,17 @@ function try_read_frame!(
     end
     seq = FrameDescriptor.seq(desc)
     if !should_process(state, seq)
-        @tp_debug "try_read_frame drop" reason = :decimated seq
+        @tp_debug "try_read_frame drop" reason = :rate_limited seq
         return false
     end
 
-    header_index = FrameDescriptor.headerIndex(desc)
-    if state.mappings.mapped_nslots == 0 || header_index >= state.mappings.mapped_nslots
+    if state.mappings.mapped_nslots == 0
+        @tp_debug "try_read_frame drop" reason = :header_index_invalid header_index = UInt32(0) mapped_nslots =
+            state.mappings.mapped_nslots
+        return false
+    end
+    header_index = UInt32(seq & UInt64(state.mappings.mapped_nslots - 1))
+    if header_index >= state.mappings.mapped_nslots
         state.metrics.drops_late += 1
         state.metrics.drops_header_invalid += 1
         @tp_debug "try_read_frame drop" reason = :header_index_invalid header_index mapped_nslots =

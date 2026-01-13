@@ -56,6 +56,7 @@ Mutable consumer counters and QoS metrics.
 """
 mutable struct ConsumerMetrics
     last_seq_seen::UInt64
+    last_rate_ns::UInt64
     frames_ok::UInt64
     drops_gap::UInt64
     drops_late::UInt64

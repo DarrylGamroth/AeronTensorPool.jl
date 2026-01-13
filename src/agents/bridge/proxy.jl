@@ -248,8 +248,7 @@ function bridge_forward_progress!(state::BridgeSenderState, msg::FrameProgress.D
         FrameProgress.wrap_and_apply_header!(state.progress_encoder, buf, 0)
         FrameProgress.streamId!(state.progress_encoder, state.mapping.dest_stream_id)
         FrameProgress.epoch!(state.progress_encoder, FrameProgress.epoch(msg))
-        FrameProgress.frameId!(state.progress_encoder, FrameProgress.frameId(msg))
-        FrameProgress.headerIndex!(state.progress_encoder, FrameProgress.headerIndex(msg))
+        FrameProgress.seq!(state.progress_encoder, FrameProgress.seq(msg))
         FrameProgress.payloadBytesFilled!(state.progress_encoder, FrameProgress.payloadBytesFilled(msg))
         FrameProgress.state!(state.progress_encoder, FrameProgress.state(msg))
     end
@@ -332,9 +331,6 @@ Returns:
 function bridge_publish_progress!(state::BridgeReceiverState, msg::FrameProgress.Decoder)
     state.config.forward_progress || return false
     FrameProgress.streamId(msg) == state.mapping.dest_stream_id || return false
-    producer_state = state.producer_state
-    producer_state === nothing && return false
-    local_header_index = UInt32(FrameProgress.frameId(msg) & (UInt64(producer_state.config.nslots) - 1))
     msg_len = MESSAGE_HEADER_LEN + Int(FrameProgress.sbe_decoded_length(msg))
     pub = state.pub_control_local
     pub === nothing && return false
@@ -343,8 +339,7 @@ function bridge_publish_progress!(state::BridgeReceiverState, msg::FrameProgress
         FrameProgress.wrap_and_apply_header!(state.progress_encoder, buf, 0)
         FrameProgress.streamId!(state.progress_encoder, state.mapping.dest_stream_id)
         FrameProgress.epoch!(state.progress_encoder, FrameProgress.epoch(msg))
-        FrameProgress.frameId!(state.progress_encoder, FrameProgress.frameId(msg))
-        FrameProgress.headerIndex!(state.progress_encoder, local_header_index)
+        FrameProgress.seq!(state.progress_encoder, FrameProgress.seq(msg))
         FrameProgress.payloadBytesFilled!(state.progress_encoder, FrameProgress.payloadBytesFilled(msg))
         FrameProgress.state!(state.progress_encoder, FrameProgress.state(msg))
     end
