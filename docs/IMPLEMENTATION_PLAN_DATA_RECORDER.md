@@ -15,7 +15,8 @@ spec while keeping hot paths type-stable and zero-allocation after init.
   TraceLink ingestion, and EventMessage control to a later phase.
 - Decide dataset layout policy:
   - Use multi-stream shared dataset root (single manifest for multiple streams).
-  - Recorded ring sizes mirror live SHM or allow larger on-disk rings.
+  - Default to larger on-disk rings than live SHM (power-of-two sizing); use
+    replay rematerialization when sizes differ.
 - Decide default segment sizing, retention, and checksum enablement.
 - Identify reuse points in existing agents:
   - SHM read path from consumer agent.
