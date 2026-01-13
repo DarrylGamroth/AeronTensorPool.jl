@@ -56,12 +56,15 @@ end
 function reset_join_barrier_state!(state::JoinBarrierState, rule_count::Int)
     state.input_ids = Vector{UInt32}(undef, rule_count)
     state.time_keys = Vector{UInt64}(undef, rule_count)
+    state.observed_epoch = fill(UInt64(0), rule_count)
     state.observed_seq = fill(UInt64(0), rule_count)
     state.processed_seq = fill(UInt64(0), rule_count)
     state.observed_time = fill(UInt64(0), rule_count)
     state.processed_time = fill(UInt64(0), rule_count)
     state.last_observed_ns = fill(UInt64(0), rule_count)
     state.seen_any = fill(false, rule_count)
+    state.seen_seq = fill(false, rule_count)
+    state.seen_time = fill(false, rule_count)
     state.result.missing_inputs = Vector{UInt32}(undef, rule_count)
     state.result.stale_inputs = Vector{UInt32}(undef, rule_count)
     state.result.ready = false
@@ -150,5 +153,13 @@ function clear_merge_map!(state::JoinBarrierState)
     state.stale_timeout_ns = nothing
     state.clock_domain = nothing
     state.lateness_ns = UInt64(0)
+    return nothing
+end
+
+function set_active_epoch!(state::JoinBarrierState, epoch::UInt64)
+    if state.active_epoch != epoch
+        clear_merge_map!(state)
+        state.active_epoch = epoch
+    end
     return nothing
 end

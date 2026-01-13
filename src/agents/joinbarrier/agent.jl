@@ -86,17 +86,19 @@ function setup_join_barrier_handlers!(agent::JoinBarrierAgent)
                 Control.FrameDescriptor.wrap!(decoder, buffer, 0; header = header)
                 stream_id = Control.FrameDescriptor.streamId(decoder)
                 seq = UInt64(Control.FrameDescriptor.seq(decoder))
-                update_observed_seq!(st.state, stream_id, seq, st.now_ns)
-                if st.state.timestamp_map !== nothing
-                    update_observed_time!(
-                        st.state,
-                        stream_id,
-                        Merge.TimestampSource.FRAME_DESCRIPTOR,
-                        UInt64(Control.FrameDescriptor.timestampNs(decoder)),
-                        st.now_ns,
-                        st.state.clock_domain,
-                    )
-                end
+            epoch = Control.FrameDescriptor.epoch(decoder)
+            update_observed_seq_epoch!(st.state, stream_id, epoch, seq, st.now_ns)
+            if st.state.timestamp_map !== nothing
+                update_observed_time_epoch!(
+                    st.state,
+                    stream_id,
+                    epoch,
+                    Merge.TimestampSource.FRAME_DESCRIPTOR,
+                    UInt64(Control.FrameDescriptor.timestampNs(decoder)),
+                    st.now_ns,
+                    st.state.clock_domain,
+                )
+            end
                 return nothing
             end
         end

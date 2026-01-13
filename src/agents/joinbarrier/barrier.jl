@@ -5,6 +5,29 @@
     return nothing
 end
 
+@inline function reset_input_state!(state::JoinBarrierState, idx::Int)
+    state.observed_seq[idx] = UInt64(0)
+    state.processed_seq[idx] = UInt64(0)
+    state.observed_time[idx] = UInt64(0)
+    state.processed_time[idx] = UInt64(0)
+    state.last_observed_ns[idx] = UInt64(0)
+    state.seen_any[idx] = false
+    state.seen_seq[idx] = false
+    state.seen_time[idx] = false
+    return nothing
+end
+
+function invalidate_latest!(state::JoinBarrierState, stream_id::UInt32)
+    slots = get(state.input_index, stream_id, nothing)
+    slots === nothing && return false
+    for idx in slots
+        state.seen_any[idx] = false
+        state.seen_seq[idx] = false
+        state.seen_time[idx] = false
+    end
+    return true
+end
+
 @inline function saturating_sub_u64(value::UInt64, sub::UInt64)
     return value >= sub ? value - sub : UInt64(0)
 end
@@ -51,23 +74,38 @@ function timestamp_required_time(rule::TimestampMergeRule, out_time::UInt64, lat
     return nothing
 end
 
-function update_observed_seq!(state::JoinBarrierState, stream_id::UInt32, seq::UInt64, now_ns::UInt64)
+function update_observed_seq_epoch!(
+    state::JoinBarrierState,
+    stream_id::UInt32,
+    epoch::UInt64,
+    seq::UInt64,
+    now_ns::UInt64,
+)
     slots = get(state.input_index, stream_id, nothing)
     slots === nothing && return false
     for idx in slots
+        if state.observed_epoch[idx] != epoch
+            state.observed_epoch[idx] = epoch
+            reset_input_state!(state, idx)
+        end
         if seq > state.observed_seq[idx]
             state.observed_seq[idx] = seq
         end
         state.last_observed_ns[idx] = now_ns
         state.seen_any[idx] = true
+        state.seen_seq[idx] = true
     end
     return true
 end
 
-function update_processed_seq!(state::JoinBarrierState, stream_id::UInt32, seq::UInt64)
+function update_processed_seq_epoch!(state::JoinBarrierState, stream_id::UInt32, epoch::UInt64, seq::UInt64)
     slots = get(state.input_index, stream_id, nothing)
     slots === nothing && return false
     for idx in slots
+        if state.observed_epoch[idx] != epoch
+            state.observed_epoch[idx] = epoch
+            reset_input_state!(state, idx)
+        end
         if seq > state.processed_seq[idx]
             state.processed_seq[idx] = seq
         end
@@ -83,30 +121,87 @@ function update_observed_time!(
     now_ns::UInt64,
     clock_domain::Merge.ClockDomain.SbeEnum,
 )
+    return update_observed_time_epoch!(state, stream_id, UInt64(0), source, timestamp_ns, now_ns, clock_domain)
+end
+
+function update_observed_time_epoch!(
+    state::JoinBarrierState,
+    stream_id::UInt32,
+    epoch::UInt64,
+    source::Merge.TimestampSource.SbeEnum,
+    timestamp_ns::UInt64,
+    now_ns::UInt64,
+    clock_domain::Merge.ClockDomain.SbeEnum,
+)
     state.clock_domain === nothing && return false
     state.clock_domain == clock_domain || return false
     key = merge_time_key(stream_id, source)
     slots = get(state.time_index, key, nothing)
     slots === nothing && return false
     for idx in slots
+        if epoch != UInt64(0) && state.observed_epoch[idx] != epoch
+            state.observed_epoch[idx] = epoch
+            reset_input_state!(state, idx)
+        end
         if timestamp_ns > state.observed_time[idx]
             state.observed_time[idx] = timestamp_ns
         end
         state.last_observed_ns[idx] = now_ns
         state.seen_any[idx] = true
+        state.seen_time[idx] = true
     end
     return true
 end
 
-function update_processed_time!(state::JoinBarrierState, stream_id::UInt32, timestamp_ns::UInt64)
+function update_processed_time_epoch!(
+    state::JoinBarrierState,
+    stream_id::UInt32,
+    epoch::UInt64,
+    timestamp_ns::UInt64,
+)
     slots = get(state.input_index, stream_id, nothing)
     slots === nothing && return false
     for idx in slots
+        if epoch != UInt64(0) && state.observed_epoch[idx] != epoch
+            state.observed_epoch[idx] = epoch
+            reset_input_state!(state, idx)
+        end
         if timestamp_ns > state.processed_time[idx]
             state.processed_time[idx] = timestamp_ns
         end
     end
     return true
+end
+
+@inline function update_observed_seq!(state::JoinBarrierState, stream_id::UInt32, seq::UInt64, now_ns::UInt64)
+    return update_observed_seq_epoch!(state, stream_id, UInt64(0), seq, now_ns)
+end
+
+@inline function update_processed_seq!(state::JoinBarrierState, stream_id::UInt32, seq::UInt64)
+    return update_processed_seq_epoch!(state, stream_id, UInt64(0), seq)
+end
+
+@inline function update_processed_time!(state::JoinBarrierState, stream_id::UInt32, timestamp_ns::UInt64)
+    return update_processed_time_epoch!(state, stream_id, UInt64(0), timestamp_ns)
+end
+
+@inline function update_observed_slot_header_time!(
+    state::JoinBarrierState,
+    stream_id::UInt32,
+    epoch::UInt64,
+    timestamp_ns::UInt64,
+    now_ns::UInt64,
+    clock_domain::Merge.ClockDomain.SbeEnum,
+)
+    return update_observed_time_epoch!(
+        state,
+        stream_id,
+        epoch,
+        Merge.TimestampSource.SLOT_HEADER,
+        timestamp_ns,
+        now_ns,
+        clock_domain,
+    )
 end
 
 function sequence_ready!(state::JoinBarrierState, out_seq::UInt64, now_ns::UInt64)
@@ -180,8 +275,24 @@ function latest_value_ready!(state::JoinBarrierState, now_ns::UInt64)
     map === nothing && return state.result
 
     stale_timeout = state.stale_timeout_ns
+    use_timestamp = state.config.latest_value_use_timestamp
+    if use_timestamp && state.timestamp_map === nothing
+        for rule in map.rules
+            state.result.missing_count += 1
+            state.result.missing_inputs[state.result.missing_count] = rule.input_stream_id
+        end
+        return state.result
+    end
+    if use_timestamp && state.clock_domain === nothing
+        for rule in map.rules
+            state.result.missing_count += 1
+            state.result.missing_inputs[state.result.missing_count] = rule.input_stream_id
+        end
+        return state.result
+    end
     for (i, rule) in enumerate(map.rules)
-        state.seen_any[i] || begin
+        has_value = use_timestamp ? state.seen_time[i] : state.seen_seq[i]
+        has_value || begin
             state.result.missing_count += 1
             state.result.missing_inputs[state.result.missing_count] = rule.input_stream_id
             continue

@@ -47,3 +47,21 @@ end
     result = join_barrier_ready!(state, UInt64(5), UInt64(10))
     @test result.ready
 end
+
+@testset "JoinBarrier sequence epoch resets" begin
+    config = JoinBarrierConfig(UInt32(10), SEQUENCE, false, false)
+    state = JoinBarrierState(config)
+    rules = SequenceMergeRule[
+        SequenceMergeRule(UInt32(1), Merge.MergeRuleType.OFFSET, Int32(0), nothing),
+    ]
+    map = SequenceMergeMap(UInt32(10), UInt64(1), nothing, rules)
+    @test apply_sequence_merge_map!(state, map)
+
+    update_observed_seq_epoch!(state, UInt32(1), UInt64(1), UInt64(10), UInt64(10))
+    result = join_barrier_ready!(state, UInt64(10), UInt64(10))
+    @test result.ready
+
+    update_observed_seq_epoch!(state, UInt32(1), UInt64(2), UInt64(5), UInt64(20))
+    result = join_barrier_ready!(state, UInt64(10), UInt64(20))
+    @test !result.ready
+end

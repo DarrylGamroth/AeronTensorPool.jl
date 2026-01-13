@@ -24,12 +24,15 @@ mutable struct JoinBarrierState
     time_keys::Vector{UInt64}
     input_index::Dict{UInt32, Vector{Int}}
     time_index::Dict{UInt64, Vector{Int}}
+    observed_epoch::Vector{UInt64}
     observed_seq::Vector{UInt64}
     processed_seq::Vector{UInt64}
     observed_time::Vector{UInt64}
     processed_time::Vector{UInt64}
     last_observed_ns::Vector{UInt64}
     seen_any::Vector{Bool}
+    seen_seq::Vector{Bool}
+    seen_time::Vector{Bool}
     result::JoinBarrierResult
 end
 
@@ -55,6 +58,9 @@ function JoinBarrierState(config::JoinBarrierConfig)
         UInt64[],
         UInt64[],
         UInt64[],
+        UInt64[],
+        Bool[],
+        Bool[],
         Bool[],
         JoinBarrierResult(),
     )
