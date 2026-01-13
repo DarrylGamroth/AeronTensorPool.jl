@@ -24,6 +24,11 @@ function regen_sbe()
             joinpath(root, "src", "gen", "ShmTensorpoolDiscovery.jl");
             module_name="ShmTensorpoolDiscovery",
         )
+        SBE.generate(
+            joinpath(root, "schemas", "join-barrier-schema.xml"),
+            joinpath(root, "src", "gen", "ShmTensorpoolMerge.jl");
+            module_name="ShmTensorpoolMerge",
+        )
     end
 end
 

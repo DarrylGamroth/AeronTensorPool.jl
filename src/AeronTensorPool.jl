@@ -19,6 +19,8 @@ include("gen/ShmTensorpoolBridge.jl")
 using .ShmTensorpoolBridge
 include("gen/ShmTensorpoolDiscovery.jl")
 using .ShmTensorpoolDiscovery
+include("gen/ShmTensorpoolMerge.jl")
+using .ShmTensorpoolMerge
 
 include("timers/Timers.jl")
 include("core/Core.jl")
