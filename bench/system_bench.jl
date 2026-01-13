@@ -98,7 +98,7 @@ function apply_canonical_layout(
         pools,
         base_dir,
         namespace,
-        producer_instance_id,
+        config.stream_id,
         epoch,
     )
     ensure_shm_dir(header_uri)

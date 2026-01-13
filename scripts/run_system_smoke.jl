@@ -22,7 +22,7 @@ function apply_canonical_layout(
         pools,
         base_dir,
         namespace,
-        producer_instance_id,
+        config.stream_id,
         epoch,
     )
     return ProducerConfig(
@@ -139,47 +139,52 @@ Aeron.MediaDriver.launch_embedded() do driver
             mkpath(dirname(parse_shm_uri(pool.uri).path))
         end
 
-        producer = Producer.init_producer(producer_cfg)
-        consumer = Consumer.init_consumer(consumer_cfg)
-        supervisor = Supervisor.init_supervisor(supervisor_cfg)
+        Aeron.Context() do context
+            Aeron.aeron_dir!(context, env["AERON_DIR"])
+            Aeron.Client(context) do client
+                producer = Producer.init_producer(producer_cfg; client = client)
+                consumer = Consumer.init_consumer(consumer_cfg; client = client)
+                supervisor = Supervisor.init_supervisor(supervisor_cfg; client = client)
 
-        prod_ctrl = Producer.make_control_assembler(producer)
-        cons_ctrl = Consumer.make_control_assembler(consumer)
-        got_frame = Ref(false)
-        cons_desc = Aeron.FragmentAssembler(Aeron.FragmentHandler(consumer) do st, buffer, _
-            header = MessageHeader.Decoder(buffer, 0)
-            if MessageHeader.templateId(header) == AeronTensorPool.TEMPLATE_FRAME_DESCRIPTOR
-                FrameDescriptor.wrap!(st.runtime.desc_decoder, buffer, 0; header = header)
-                result = Consumer.try_read_frame!(st, st.runtime.desc_decoder)
-                result === nothing || (got_frame[] = true)
+                prod_ctrl = Producer.make_control_assembler(producer)
+                cons_ctrl = Consumer.make_control_assembler(consumer)
+                got_frame = Ref(false)
+                cons_desc = Aeron.FragmentAssembler(Aeron.FragmentHandler(consumer) do st, buffer, _
+                    header = MessageHeader.Decoder(buffer, 0)
+                    if MessageHeader.templateId(header) == AeronTensorPool.TEMPLATE_FRAME_DESCRIPTOR
+                        FrameDescriptor.wrap!(st.runtime.desc_decoder, buffer, 0; header = header)
+                        result = Consumer.try_read_frame!(st, st.runtime.desc_decoder)
+                        result === nothing || (got_frame[] = true)
+                    end
+                    nothing
+                end)
+                sup_ctrl = Supervisor.make_control_assembler(supervisor)
+                sup_qos = Supervisor.make_qos_assembler(supervisor)
+
+                payload = UInt8[1, 2, 3, 4]
+                shape = Int32[4]
+                strides = Int32[1]
+                published = false
+                start = time()
+
+                while time() - start < timeout_s
+                    Producer.producer_do_work!(producer, prod_ctrl)
+                    Consumer.consumer_do_work!(consumer, cons_desc, cons_ctrl)
+                    Supervisor.supervisor_do_work!(supervisor, sup_ctrl, sup_qos)
+
+                    if !published && consumer.mappings.header_mmap !== nothing
+                        Producer.offer_frame!(producer, payload, shape, strides, Dtype.UINT8, UInt32(0))
+                        published = true
+                    end
+
+                    if published && got_frame[]
+                        println("System smoke test completed.")
+                        return
+                    end
+                    yield()
+                end
+                error("System smoke test timed out.")
             end
-            nothing
-        end)
-        sup_ctrl = Supervisor.make_control_assembler(supervisor)
-        sup_qos = Supervisor.make_qos_assembler(supervisor)
-
-        payload = UInt8[1, 2, 3, 4]
-        shape = Int32[4]
-        strides = Int32[1]
-        published = false
-        start = time()
-
-        while time() - start < timeout_s
-            Producer.producer_do_work!(producer, prod_ctrl)
-            Consumer.consumer_do_work!(consumer, cons_desc, cons_ctrl)
-            Supervisor.supervisor_do_work!(supervisor, sup_ctrl, sup_qos)
-
-            if !published && consumer.mappings.header_mmap !== nothing
-                Producer.offer_frame!(producer, payload, shape, strides, Dtype.UINT8, UInt32(0))
-                published = true
-            end
-
-            if published && got_frame[]
-                println("System smoke test completed.")
-                return
-            end
-            yield()
         end
-        error("System smoke test timed out.")
     end
 end

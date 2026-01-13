@@ -31,20 +31,6 @@ pool_uri = canonical_pool_uri(base_dir, namespace, instance_id, epoch, pool_id)
 mkpath(dirname(parse_shm_uri(header_uri).path))
 mkpath(dirname(parse_shm_uri(pool_uri).path))
 
-function close_producer_state!(state::ProducerState)
-    try
-        close(state.runtime.pub_descriptor)
-        close(state.runtime.pub_control)
-        close(state.runtime.pub_qos)
-        close(state.runtime.pub_metadata)
-        close(state.runtime.sub_control)
-        close(state.runtime.client)
-        close(state.runtime.ctx)
-    catch
-    end
-    return nothing
-end
-
 Aeron.MediaDriver.launch_embedded() do driver
     producer_cfg = ProducerConfig(
         Aeron.MediaDriver.aeron_dir(driver),
@@ -70,7 +56,18 @@ Aeron.MediaDriver.launch_embedded() do driver
         false,
     )
 
-    state = Producer.init_producer(producer_cfg)
+    Aeron.Context() do context
+        Aeron.aeron_dir!(context, Aeron.MediaDriver.aeron_dir(driver))
+        Aeron.Client(context) do client
+            state = Producer.init_producer(producer_cfg; client = client)
+            close(state.runtime.pub_descriptor)
+            close(state.runtime.control.pub_control)
+            close(state.runtime.pub_qos)
+            close(state.runtime.pub_metadata)
+            close(state.runtime.control.sub_control)
+            close(state.runtime.sub_qos)
+        end
+    end
 
     println("SHM layout created:")
     println("  base_dir = $(base_dir)")
@@ -92,5 +89,4 @@ Aeron.MediaDriver.launch_embedded() do driver
         end
     end
 
-    close_producer_state!(state)
 end

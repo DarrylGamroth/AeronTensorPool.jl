@@ -68,7 +68,7 @@ function run_chain(bridge_a_path::String, bridge_b_path::String, duration_s::Flo
                 producer_cfg.payload_pools,
                 producer_cfg.shm_base_dir,
                 producer_cfg.shm_namespace,
-                producer_cfg.producer_instance_id,
+                producer_cfg.stream_id,
                 UInt64(1),
             )
             producer_cfg = ProducerConfig(
@@ -112,7 +112,7 @@ function run_chain(bridge_a_path::String, bridge_b_path::String, duration_s::Flo
                 bridge_a_producer_cfg.payload_pools,
                 bridge_a_producer_cfg.shm_base_dir,
                 bridge_a_producer_cfg.shm_namespace,
-                bridge_a_producer_cfg.producer_instance_id,
+                bridge_a_producer_cfg.stream_id,
                 UInt64(1),
             )
             bridge_a_producer_cfg = ProducerConfig(
@@ -156,7 +156,7 @@ function run_chain(bridge_a_path::String, bridge_b_path::String, duration_s::Flo
                 bridge_b_producer_cfg.payload_pools,
                 bridge_b_producer_cfg.shm_base_dir,
                 bridge_b_producer_cfg.shm_namespace,
-                bridge_b_producer_cfg.producer_instance_id,
+                bridge_b_producer_cfg.stream_id,
                 UInt64(1),
             )
             bridge_b_producer_cfg = ProducerConfig(
