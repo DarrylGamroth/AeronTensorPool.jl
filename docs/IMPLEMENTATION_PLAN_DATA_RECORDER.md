@@ -228,6 +228,15 @@ Concurrency model (optional, defaults to single-threaded):
 - Filesystem layout handles placement (no explicit per-stream root overrides).
 - Aeron threading: `Aeron.Client` is thread-safe, but subscriptions are not, so
   each worker owns its subscription (and `FragmentAssembler`) on its thread.
+- Manifest ordering:
+  - SQLite writer must insert the `segments` row before any `frames` rows that
+    reference its `segment_id`.
+  - Workers enqueue a `segment_open` message and wait for an assigned
+    `segment_id` before writing frames.
+- Backpressure/drop policy:
+  - If the manifest queue is full, drop the frame (and skip segment write) to
+    preserve SQLite as the authoritative index.
+  - Log or persist a data-loss event for dropped frames.
 
 Status: pending.
 
