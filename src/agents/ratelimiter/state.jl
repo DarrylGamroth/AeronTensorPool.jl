@@ -15,6 +15,7 @@ Mapping-specific state for the rate limiter.
 """
 mutable struct RateLimiterMappingState
     mapping::RateLimiterMapping
+    lifecycle::RateLimiterMappingLifecycle
     consumer_agent::ConsumerAgent
     producer_agent::ProducerAgent
     metadata_pub::Union{Aeron.Publication, Nothing}

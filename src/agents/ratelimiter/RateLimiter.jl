@@ -11,6 +11,7 @@ using ...Timers
 using ...AeronUtils
 using ...Clocks
 using ...FixedSizeArrays
+using ...Hsm
 using ...SBE
 using ...StringViews
 using ...UnsafeArrays
@@ -22,7 +23,9 @@ import ...AeronTensorPool
 
 include("types.jl")
 include("config.jl")
+include("mapping_lifecycle_types.jl")
 include("state.jl")
+include("mapping_lifecycle.jl")
 include("rate.jl")
 include("forward.jl")
 include("init.jl")

@@ -54,6 +54,7 @@ function init_bridge_receiver(
         SlotClaim(0, Ptr{UInt8}(0), 0, 0, 0, 0),
         false,
     )
+    assembly_lifecycle = BridgeAssemblyLifecycle()
 
     source_info = BridgeSourceInfo(UInt32(0), UInt64(0), UInt32(0), Dict{UInt16, UInt32}())
 
@@ -83,6 +84,7 @@ function init_bridge_receiver(
         producer_state,
         source_info,
         assembly,
+        assembly_lifecycle,
         sub_payload,
         Aeron.FragmentAssembler(Aeron.FragmentHandler((_, _, _) -> nothing)),
         sub_control,
@@ -414,8 +416,8 @@ function bridge_receive_chunk!(
     epoch = BridgeFrameChunk.epoch(decoder)
     if state.assembly.seq != seq || state.assembly.epoch != epoch
         state.metrics.assemblies_reset += 1
-        reset_bridge_assembly!(
-            state.assembly,
+        bridge_start_assembly!(
+            state,
             seq,
             epoch,
             UInt32(chunk_count),
@@ -426,8 +428,8 @@ function bridge_receive_chunk!(
     elseif state.assembly.chunk_count != UInt32(chunk_count) ||
            state.assembly.payload_length != payload_length
         state.metrics.assemblies_reset += 1
-        reset_bridge_assembly!(
-            state.assembly,
+        bridge_start_assembly!(
+            state,
             seq,
             epoch,
             UInt32(chunk_count),
@@ -439,7 +441,7 @@ function bridge_receive_chunk!(
 
     if trace_id != state.assembly.trace_id
         state.metrics.assemblies_reset += 1
-        clear_bridge_assembly!(state.assembly, now_ns)
+        bridge_clear_assembly!(state, now_ns)
         return bridge_drop_chunk!(state)
     end
 
@@ -452,20 +454,20 @@ function bridge_receive_chunk!(
         existing_len = state.assembly.chunk_lengths[chunk_index + 1]
         if existing_offset != chunk_offset || existing_len != chunk_length
             state.metrics.assemblies_reset += 1
-            clear_bridge_assembly!(state.assembly, now_ns)
+            bridge_clear_assembly!(state, now_ns)
             return bridge_drop_chunk!(state)
         end
         claim = state.assembly.slot_claim
         if !state.assembly.claim_ready ||
            !bridge_payload_matches!(claim.ptr + Int(chunk_offset), payload_bytes)
             state.metrics.assemblies_reset += 1
-            clear_bridge_assembly!(state.assembly, now_ns)
+            bridge_clear_assembly!(state, now_ns)
             return bridge_drop_chunk!(state)
         end
         if header_included &&
            !bridge_header_matches!(header_bytes, state.assembly.header_bytes)
             state.metrics.assemblies_reset += 1
-            clear_bridge_assembly!(state.assembly, now_ns)
+            bridge_clear_assembly!(state, now_ns)
             return bridge_drop_chunk!(state)
         end
         return bridge_drop_chunk!(state)
@@ -481,7 +483,7 @@ function bridge_receive_chunk!(
                       (UInt64(existing_offset) < UInt64(chunk_offset) + UInt64(chunk_length))
             overlap && begin
                 state.metrics.assemblies_reset += 1
-                clear_bridge_assembly!(state.assembly, now_ns)
+                bridge_clear_assembly!(state, now_ns)
                 return bridge_drop_chunk!(state)
             end
         end
@@ -542,7 +544,7 @@ function bridge_receive_chunk!(
     state.assembly.payload_bytes_received = UInt32(new_total)
     if new_total > payload_length
         state.metrics.assemblies_reset += 1
-        clear_bridge_assembly!(state.assembly, now_ns)
+        bridge_clear_assembly!(state, now_ns)
         return bridge_drop_chunk!(state)
     end
     reset!(state.assembly.assembly_timer, now_ns)
@@ -554,7 +556,7 @@ function bridge_receive_chunk!(
 
     if state.assembly.payload_bytes_received != payload_length
         state.metrics.assemblies_reset += 1
-        clear_bridge_assembly!(state.assembly, now_ns)
+        bridge_clear_assembly!(state, now_ns)
         return bridge_drop_chunk!(state)
     end
 

@@ -183,6 +183,7 @@ mutable struct BridgeReceiverState{ClockT}
     producer_state::Union{Nothing, ProducerState}
     source_info::BridgeSourceInfo
     assembly::BridgeAssembly
+    assembly_lifecycle::BridgeAssemblyLifecycle
     sub_payload::Aeron.Subscription
     payload_assembler::Aeron.FragmentAssembler
     sub_control::Aeron.Subscription

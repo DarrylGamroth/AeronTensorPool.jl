@@ -14,6 +14,7 @@ function apply_consumer_hello_rate!(state::RateLimiterMappingState, msg::Consume
     consumer_id = UInt32(ConsumerHello.consumerId(msg))
     if state.dest_consumer_id == 0
         state.dest_consumer_id = consumer_id
+        mark_mapping_bound!(state)
     elseif state.dest_consumer_id != consumer_id
         @tp_warn "rate limiter mapping already bound to consumer" existing_consumer_id = state.dest_consumer_id consumer_id
         return nothing

@@ -11,6 +11,7 @@ using ...DiscoveryClient
 using ...Timers
 using ...AeronUtils
 using ...Clocks
+using ...Hsm
 using CRC32c
 using ...FixedSizeArrays
 using ...SBE
@@ -37,10 +38,12 @@ include("types.jl")
 include("config.jl")
 include("errors.jl")
 include("counters.jl")
+include("assembly_lifecycle_types.jl")
 include("state.jl")
 include("callbacks.jl")
 include("adapters.jl")
 include("assembly.jl")
+include("assembly_lifecycle.jl")
 include("sender.jl")
 include("receiver.jl")
 include("proxy.jl")

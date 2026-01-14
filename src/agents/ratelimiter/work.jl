@@ -19,7 +19,8 @@ function handle_source_frame!(
     payload_len = Int(view.payload.len)
 
     if rate_limit_allow!(mapping_state, now_ns)
-        rematerialize_frame!(mapping_state, header, view.trace_id, payload_ptr, payload_len)
+        ok = rematerialize_frame!(mapping_state, header, view.trace_id, payload_ptr, payload_len)
+        ok && mark_mapping_active!(mapping_state)
         clear_pending!(mapping_state.pending)
     else
         if !store_pending!(mapping_state.pending, header, view.trace_id, payload_ptr, payload_len)
@@ -42,6 +43,7 @@ function publish_pending!(mapping_state::RateLimiterMappingState)
         ptr = pointer(pending.payload_buf)
         ok = rematerialize_frame!(mapping_state, pending.header, pending.trace_id, ptr, Int(pending.payload_len))
         if ok
+            mark_mapping_active!(mapping_state)
             clear_pending!(pending)
         else
             seq = pending.seq

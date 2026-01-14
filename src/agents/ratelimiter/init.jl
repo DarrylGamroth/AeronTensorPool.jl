@@ -204,8 +204,10 @@ function init_mapping_state(
         config.forward_metadata && !isempty(config.metadata_channel) && mapping.metadata_stream_id != 0 ?
             Aeron.add_publication(client, config.metadata_channel, Int32(mapping.metadata_stream_id)) : nothing
 
+    lifecycle = RateLimiterMappingLifecycle()
     mapping_state = RateLimiterMappingState(
         mapping,
+        lifecycle,
         consumer_agent,
         producer_agent,
         metadata_pub,

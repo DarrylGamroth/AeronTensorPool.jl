@@ -208,7 +208,7 @@ function bridge_receiver_do_work!(
     end
     if state.assembly.chunk_count != 0 && expired(state.assembly.assembly_timer, now_ns)
         state.metrics.assemblies_reset += 1
-        clear_bridge_assembly!(state.assembly, now_ns)
+        bridge_timeout_assembly!(state, now_ns)
         work_count += 1
     end
     return work_count
