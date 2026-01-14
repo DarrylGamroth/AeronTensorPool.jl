@@ -1,28 +1,37 @@
-using Test
-
-@testset "Consumer drops payload_slot mismatch" begin
+@testset "Consumer announce epoch preference" begin
     with_driver_and_client() do driver, client
         mktempdir("/dev/shm") do dir
             nslots = UInt32(8)
             stride = UInt32(4096)
+            epoch1 = UInt64(1)
+            epoch2 = UInt64(2)
             layout_version = UInt32(1)
-            stream_id = UInt32(202)
-            epoch = UInt64(1)
+            stream_id = UInt32(4242)
 
-            _, header_path, pool_path = prepare_canonical_shm_layout(
+            _, header_path1, pool_path1 = prepare_canonical_shm_layout(
                 dir;
                 namespace = "tensorpool",
                 stream_id = stream_id,
-                epoch = Int(epoch),
+                epoch = Int(epoch1),
                 pool_id = 1,
             )
-            header_uri = "shm:file?path=$(header_path)"
-            pool_uri = "shm:file?path=$(pool_path)"
+            header_uri1 = "shm:file?path=$(header_path1)"
+            pool_uri1 = "shm:file?path=$(pool_path1)"
 
-            header_mmap = mmap_shm(header_uri, SUPERBLOCK_SIZE + Int(nslots) * HEADER_SLOT_BYTES; write = true)
-            pool_mmap = mmap_shm(pool_uri, SUPERBLOCK_SIZE + Int(nslots) * Int(stride); write = true)
+            _, header_path2, pool_path2 = prepare_canonical_shm_layout(
+                dir;
+                namespace = "tensorpool",
+                stream_id = stream_id,
+                epoch = Int(epoch2),
+                pool_id = 1,
+            )
+            header_uri2 = "shm:file?path=$(header_path2)"
+            pool_uri2 = "shm:file?path=$(pool_path2)"
+
+            header_mmap = mmap_shm(header_uri2, SUPERBLOCK_SIZE + Int(nslots) * HEADER_SLOT_BYTES; write = true)
+            pool_mmap = mmap_shm(pool_uri2, SUPERBLOCK_SIZE + Int(nslots) * Int(stride); write = true)
+
             now_ns = UInt64(time_ns())
-
             sb_enc = ShmRegionSuperblock.Encoder(Vector{UInt8})
             wrap_superblock!(sb_enc, header_mmap, 0)
             write_superblock!(
@@ -30,14 +39,14 @@ using Test
                 SuperblockFields(
                     MAGIC_TPOLSHM1,
                     layout_version,
-                    epoch,
+                    epoch2,
                     stream_id,
                     RegionType.HEADER_RING,
                     UInt16(0),
                     nslots,
                     UInt32(HEADER_SLOT_BYTES),
                     UInt32(0),
-                    UInt64(1234),
+                    UInt64(getpid()),
                     now_ns,
                     now_ns,
                 ),
@@ -48,14 +57,14 @@ using Test
                 SuperblockFields(
                     MAGIC_TPOLSHM1,
                     layout_version,
-                    epoch,
+                    epoch2,
                     stream_id,
                     RegionType.PAYLOAD_POOL,
                     UInt16(1),
                     nslots,
                     stride,
                     stride,
-                    UInt64(1234),
+                    UInt64(getpid()),
                     now_ns,
                     now_ns,
                 ),
@@ -64,11 +73,11 @@ using Test
             consumer_cfg = ConsumerConfig(
                 Aeron.MediaDriver.aeron_dir(driver),
                 "aeron:ipc",
-                Int32(12120),
-                Int32(12121),
-                Int32(12122),
+                Int32(12072),
+                Int32(12071),
+                Int32(12073),
                 stream_id,
-                UInt32(71),
+                UInt32(77),
                 layout_version,
                 UInt8(MAX_DIMS),
                 Mode.STREAM,
@@ -95,53 +104,33 @@ using Test
             )
             state = Consumer.init_consumer(consumer_cfg; client = client)
             try
-                announce = build_shm_pool_announce(
+                announce2 = build_shm_pool_announce(
                     stream_id = stream_id,
-                    epoch = epoch,
+                    epoch = epoch2,
                     layout_version = layout_version,
                     nslots = nslots,
                     stride_bytes = stride,
-                    header_uri = header_uri,
-                    pool_uri = pool_uri,
+                    header_uri = header_uri2,
+                    pool_uri = pool_uri2,
+                    announce_ts = now_ns,
                 )
-                @test Consumer.map_from_announce!(state, announce.dec, UInt64(time_ns()))
+                @test Consumer.handle_shm_pool_announce!(state, announce2.dec)
+                @test state.mappings.mapped_epoch == epoch2
+                @test state.mappings.highest_epoch == epoch2
 
-                seq = UInt64(1)
-                (_, desc_dec) = build_frame_descriptor(
+                announce1 = build_shm_pool_announce(
                     stream_id = stream_id,
-                    epoch = epoch,
-                    seq = seq,
-                    timestamp_ns = UInt64(0),
-                    meta_version = UInt32(1),
-                    trace_id = UInt64(0),
+                    epoch = epoch1,
+                    layout_version = layout_version,
+                    nslots = nslots,
+                    stride_bytes = stride,
+                    header_uri = header_uri1,
+                    pool_uri = pool_uri1,
+                    announce_ts = now_ns,
                 )
-
-                header_index = UInt32(seq & UInt64(nslots - 1))
-                header_offset = header_slot_offset(header_index)
-                slot_enc = SlotHeaderMsg.Encoder(Vector{UInt8})
-                tensor_enc = TensorHeaderMsg.Encoder(Vector{UInt8})
-                wrap_slot_header!(slot_enc, header_mmap, header_offset)
-                write_slot_header!(
-                    slot_enc,
-                    tensor_enc,
-                    seq,
-                    UInt32(0),
-                    UInt32(16),
-                    header_index + UInt32(1),
-                    UInt32(0),
-                    UInt16(1),
-                    Dtype.UINT8,
-                    MajorOrder.ROW,
-                    UInt8(1),
-                    AeronTensorPool.ProgressUnit.NONE,
-                    UInt32(0),
-                    vcat(Int32(16), zeros(Int32, MAX_DIMS - 1)),
-                    vcat(Int32(0), zeros(Int32, MAX_DIMS - 1)),
-                )
-                commit_ptr = header_commit_ptr_from_offset(header_mmap, header_offset)
-                seqlock_commit_write!(commit_ptr, UInt64(1))
-
-                @test Consumer.try_read_frame!(state, desc_dec) == false
+                @test !Consumer.handle_shm_pool_announce!(state, announce1.dec)
+                @test state.mappings.mapped_epoch == epoch2
+                @test state.mappings.highest_epoch == epoch2
             finally
                 close_consumer_state!(state)
             end

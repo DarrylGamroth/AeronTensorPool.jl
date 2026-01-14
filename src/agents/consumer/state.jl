@@ -42,6 +42,7 @@ Mutable consumer SHM mappings.
 """
 mutable struct ConsumerMappings
     mapped_epoch::UInt64
+    highest_epoch::UInt64
     header_mmap::Union{Nothing, Vector{UInt8}}
     payload_mmaps::Dict{UInt16, Vector{UInt8}}
     pool_stride_bytes::Dict{UInt16, UInt32}

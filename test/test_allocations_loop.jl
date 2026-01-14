@@ -49,7 +49,7 @@
                 header_uri = producer_cfg.header_uri,
                 payload_entries = payload_entries,
             )
-            @test Consumer.map_from_announce!(consumer, announce.dec)
+            @test Consumer.map_from_announce!(consumer, announce.dec, UInt64(time_ns()))
             @test consumer.mappings.header_mmap !== nothing
 
             desc_buf = Vector{UInt8}(undef, AeronTensorPool.FRAME_DESCRIPTOR_LEN)

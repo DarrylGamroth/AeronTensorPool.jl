@@ -19,6 +19,7 @@
 
             header_mmap = mmap_shm(header_uri, SUPERBLOCK_SIZE + Int(nslots) * HEADER_SLOT_BYTES; write = true)
             pool_mmap = mmap_shm(pool_uri, SUPERBLOCK_SIZE + Int(nslots) * Int(stride); write = true)
+            now_ns = UInt64(time_ns())
 
             sb_enc = ShmRegionSuperblock.Encoder(Vector{UInt8})
             wrap_superblock!(sb_enc, header_mmap, 0)
@@ -35,8 +36,8 @@
                     UInt32(HEADER_SLOT_BYTES),
                     UInt32(0),
                     UInt64(1234),
-                    UInt64(0),
-                    UInt64(0),
+                    now_ns,
+                    now_ns,
                 ),
             )
 
@@ -54,8 +55,8 @@
                     stride,
                     stride,
                     UInt64(1234),
-                    UInt64(0),
-                    UInt64(0),
+                    now_ns,
+                    now_ns,
                 ),
             )
 
@@ -104,13 +105,13 @@
                 )
                 announce_dec = announce.dec
 
-                @test Consumer.map_from_announce!(state, announce_dec)
+                @test Consumer.map_from_announce!(state, announce_dec, UInt64(time_ns()))
                 @test state.mappings.mapped_pid == UInt64(1234)
 
                 wrap_superblock!(sb_enc, header_mmap, 0)
                 ShmRegionSuperblock.pid!(sb_enc, UInt64(5678))
 
-                @test Consumer.validate_mapped_superblocks!(state, announce_dec) == :pid_changed
+                @test Consumer.validate_mapped_superblocks!(state, announce_dec, UInt64(time_ns())) == :pid_changed
                 @test !Consumer.handle_shm_pool_announce!(state, announce_dec)
                 @test state.mappings.header_mmap === nothing
             finally

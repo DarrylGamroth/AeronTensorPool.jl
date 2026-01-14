@@ -14,6 +14,11 @@ function should_process(state::ConsumerState, seq::UInt64)
 end
 
 function maybe_track_gap!(state::ConsumerState, seq::UInt64)
+    if state.metrics.seen_any && seq < state.metrics.last_seq_seen
+        @tp_warn "descriptor seq regression; resetting mappings" seq last_seq = state.metrics.last_seq_seen
+        reset_mappings!(state)
+        return false
+    end
     if state.metrics.seen_any
         if seq > state.metrics.last_seq_seen + 1
             gap = seq - state.metrics.last_seq_seen - 1
@@ -22,14 +27,14 @@ function maybe_track_gap!(state::ConsumerState, seq::UInt64)
                gap > state.config.max_outstanding_seq_gap
                 state.metrics.last_seq_seen = seq
                 state.metrics.seen_any = false
-                return nothing
+                return false
             end
         end
     else
         state.metrics.seen_any = true
     end
     state.metrics.last_seq_seen = seq
-    return nothing
+    return true
 end
 
 valid_dtype(dtype::Dtype.SbeEnum) = dtype != Dtype.UNKNOWN && dtype != Dtype.NULL_VALUE
@@ -287,7 +292,7 @@ function try_read_frame!(
     payload_offset = SUPERBLOCK_SIZE + Int(header.payload_slot) * Int(pool_stride)
     payload_mmap_vec = payload_mmap::Vector{UInt8}
 
-    maybe_track_gap!(state, seq)
+    maybe_track_gap!(state, seq) || return false
     state.mappings.last_commit_words[Int(header_index) + 1] = second
     view.header = header
     slice = view.payload

@@ -34,20 +34,27 @@
         )
         state = Consumer.init_consumer(consumer_cfg; client = client)
         try
-            Consumer.maybe_track_gap!(state, UInt64(1))
+            @test Consumer.maybe_track_gap!(state, UInt64(1)) == true
             @test state.metrics.drops_gap == 0
             @test state.metrics.last_seq_seen == 1
             @test state.metrics.seen_any == true
 
-            Consumer.maybe_track_gap!(state, UInt64(5))
+            @test Consumer.maybe_track_gap!(state, UInt64(5)) == false
             @test state.metrics.drops_gap == 3
             @test state.metrics.last_seq_seen == 5
             @test state.metrics.seen_any == false
 
-            Consumer.maybe_track_gap!(state, UInt64(6))
+            @test Consumer.maybe_track_gap!(state, UInt64(6)) == true
             @test state.metrics.drops_gap == 3
             @test state.metrics.last_seq_seen == 6
             @test state.metrics.seen_any == true
+
+            state.mappings.header_mmap = UInt8[0x00]
+            state.mappings.mapped_epoch = UInt64(1)
+            Consumer.set_mapping_phase!(state, AeronTensorPool.MAPPED)
+            @test Consumer.maybe_track_gap!(state, UInt64(4)) == false
+            @test state.mappings.header_mmap === nothing
+            @test state.phase == AeronTensorPool.UNMAPPED
         finally
             close_consumer_state!(state)
         end

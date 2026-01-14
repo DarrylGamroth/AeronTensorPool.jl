@@ -35,7 +35,7 @@ Arguments:
 Returns:
 - `true` on successful mapping, `false` otherwise.
 """
-function map_from_announce!(state::ConsumerState, msg::ShmPoolAnnounce.Decoder)
+function map_from_announce!(state::ConsumerState, msg::ShmPoolAnnounce.Decoder, now_ns::UInt64)
     state.config.use_shm || return false
     ShmPoolAnnounce.headerSlotBytes(msg) == UInt16(HEADER_SLOT_BYTES) || return false
     header_nslots = ShmPoolAnnounce.headerNslots(msg)
@@ -89,6 +89,9 @@ function map_from_announce!(state::ConsumerState, msg::ShmPoolAnnounce.Decoder)
         expected_pool_id = UInt16(0),
     )
     header_ok || return false
+    activity_ts = header_fields.activity_timestamp_ns
+    activity_ts != 0 || return false
+    now_ns <= activity_ts + state.config.announce_freshness_ns || return false
 
     for pool in pool_specs
         pool.nslots == header_nslots || return false
@@ -126,6 +129,9 @@ function map_from_announce!(state::ConsumerState, msg::ShmPoolAnnounce.Decoder)
             expected_pool_id = pool.pool_id,
         )
         pool_ok || return false
+        activity_ts = pool_fields.activity_timestamp_ns
+        activity_ts != 0 || return false
+        now_ns <= activity_ts + state.config.announce_freshness_ns || return false
 
         payload_mmaps[pool.pool_id] = pool_mmap
         stride_bytes[pool.pool_id] = pool.stride_bytes
@@ -139,7 +145,11 @@ function map_from_announce!(state::ConsumerState, msg::ShmPoolAnnounce.Decoder)
     state.mappings.last_commit_words = fill(UInt64(0), Int(header_nslots))
     state.mappings.progress_last_frame = fill(UInt64(0), Int(header_nslots))
     state.mappings.progress_last_bytes = fill(UInt64(0), Int(header_nslots))
-    state.mappings.mapped_epoch = ShmPoolAnnounce.epoch(msg)
+    epoch = ShmPoolAnnounce.epoch(msg)
+    state.mappings.mapped_epoch = epoch
+    if epoch > state.mappings.highest_epoch
+        state.mappings.highest_epoch = epoch
+    end
     state.metrics.last_seq_seen = UInt64(0)
     state.metrics.seen_any = false
     state.metrics.remap_count += 1
@@ -278,6 +288,9 @@ function map_from_attach_response!(state::ConsumerState, attach::AttachResponse)
     state.mappings.progress_last_frame = fill(UInt64(0), Int(header_nslots))
     state.mappings.progress_last_bytes = fill(UInt64(0), Int(header_nslots))
     state.mappings.mapped_epoch = attach.epoch
+    if attach.epoch > state.mappings.highest_epoch
+        state.mappings.highest_epoch = attach.epoch
+    end
     state.metrics.last_seq_seen = UInt64(0)
     state.metrics.seen_any = false
     state.metrics.remap_count += 1
@@ -287,7 +300,7 @@ function map_from_attach_response!(state::ConsumerState, attach::AttachResponse)
     return true
 end
 
-function validate_mapped_superblocks!(state::ConsumerState, msg::ShmPoolAnnounce.Decoder)
+function validate_mapped_superblocks!(state::ConsumerState, msg::ShmPoolAnnounce.Decoder, now_ns::UInt64)
     header_mmap = state.mappings.header_mmap
     header_mmap === nothing && return :mismatch
 
@@ -312,6 +325,10 @@ function validate_mapped_superblocks!(state::ConsumerState, msg::ShmPoolAnnounce
         expected_pool_id = UInt16(0),
     )
     header_ok || return :mismatch
+    activity_ts = header_fields.activity_timestamp_ns
+    if activity_ts == 0 || now_ns > activity_ts + state.config.announce_freshness_ns
+        return :stale_activity
+    end
     if state.mappings.mapped_pid != 0 && header_fields.pid != state.mappings.mapped_pid
         return :pid_changed
     end
@@ -344,6 +361,10 @@ function validate_mapped_superblocks!(state::ConsumerState, msg::ShmPoolAnnounce
             expected_pool_id = pool_id,
         )
         pool_ok || return :mismatch
+        activity_ts = pool_fields.activity_timestamp_ns
+        if activity_ts == 0 || now_ns > activity_ts + state.config.announce_freshness_ns
+            return :stale_activity
+        end
     end
 
     pool_count == length(state.mappings.payload_mmaps) || return :mismatch
@@ -410,16 +431,23 @@ function handle_shm_pool_announce!(state::ConsumerState, msg::ShmPoolAnnounce.De
         return false
     end
 
-    if state.mappings.mapped_epoch != 0 && ShmPoolAnnounce.epoch(msg) != state.mappings.mapped_epoch
-        @tp_warn "announce epoch change; remapping" old_epoch = state.mappings.mapped_epoch new_epoch =
-            ShmPoolAnnounce.epoch(msg)
+    epoch = ShmPoolAnnounce.epoch(msg)
+    if epoch < state.mappings.highest_epoch
+        @tp_info "announce epoch stale; ignoring" epoch highest_epoch = state.mappings.highest_epoch
+        return false
+    elseif epoch > state.mappings.highest_epoch
+        state.mappings.highest_epoch = epoch
+    end
+
+    if state.mappings.mapped_epoch != 0 && epoch != state.mappings.mapped_epoch
+        @tp_warn "announce epoch change; remapping" old_epoch = state.mappings.mapped_epoch new_epoch = epoch
         reset_mappings!(state)
     end
 
     if state.mappings.header_mmap === nothing
-        ok = map_from_announce!(state, msg)
+        ok = map_from_announce!(state, msg, now_ns)
         ok || @tp_warn "announce mapping failed" stream_id = ShmPoolAnnounce.streamId(msg) epoch =
-            ShmPoolAnnounce.epoch(msg)
+            epoch
         if !ok && !isempty(state.config.payload_fallback_uri)
             state.config.use_shm = false
             reset_mappings!(state)
@@ -430,16 +458,20 @@ function handle_shm_pool_announce!(state::ConsumerState, msg::ShmPoolAnnounce.De
         return ok
     end
 
-    validation = validate_mapped_superblocks!(state, msg)
+    validation = validate_mapped_superblocks!(state, msg, now_ns)
     if validation != :ok
         @tp_warn "announce validation failed" reason = validation
-        reset_mappings!(state)
         if validation == :pid_changed
+            reset_mappings!(state)
             return false
         end
-        ok = map_from_announce!(state, msg)
+        if validation == :stale_activity
+            return false
+        end
+        reset_mappings!(state)
+        ok = map_from_announce!(state, msg, now_ns)
         ok || @tp_warn "announce remap failed" stream_id = ShmPoolAnnounce.streamId(msg) epoch =
-            ShmPoolAnnounce.epoch(msg)
+            epoch
         if !ok && !isempty(state.config.payload_fallback_uri)
             state.config.use_shm = false
             reset_mappings!(state)

@@ -68,6 +68,7 @@
         )
             state = Consumer.init_consumer(consumer_cfg; client = client)
             fallback_state = nothing
+            now_ns = UInt64(time_ns())
             try
                     wrap_superblock!(sb_enc, header_mmap1, 0)
                     write_superblock!(
@@ -83,8 +84,8 @@
                             UInt32(HEADER_SLOT_BYTES),
                             UInt32(0),
                             UInt64(1234),
-                            UInt64(0),
-                            UInt64(0),
+                            now_ns,
+                            now_ns,
                         ),
                     )
                     wrap_superblock!(sb_enc, pool_mmap1, 0)
@@ -101,8 +102,8 @@
                             stride,
                             stride,
                             UInt64(1234),
-                            UInt64(0),
-                            UInt64(0),
+                            now_ns,
+                            now_ns,
                         ),
                     )
 
@@ -133,8 +134,8 @@
                             UInt32(HEADER_SLOT_BYTES),
                             UInt32(0),
                             UInt64(1234),
-                            UInt64(0),
-                            UInt64(0),
+                            now_ns,
+                            now_ns,
                         ),
                     )
                     wrap_superblock!(sb_enc, pool_mmap2, 0)
@@ -151,8 +152,8 @@
                             stride,
                             stride,
                             UInt64(1234),
-                            UInt64(0),
-                            UInt64(0),
+                            now_ns,
+                            now_ns,
                         ),
                     )
 

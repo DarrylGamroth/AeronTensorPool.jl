@@ -7,6 +7,7 @@
         stream_id = UInt32(55)
 
         function write_layout(header_uri::String, pool_uri::String, epoch::UInt64)
+            now_ns = UInt64(time_ns())
             header_size = SUPERBLOCK_SIZE + HEADER_SLOT_BYTES * Int(nslots)
             header_mmap = mmap_shm(header_uri, header_size; write = true)
             sb_enc = ShmRegionSuperblock.Encoder(Vector{UInt8})
@@ -24,8 +25,8 @@
                     UInt32(HEADER_SLOT_BYTES),
                     UInt32(0),
                     UInt64(111),
-                    UInt64(0),
-                    UInt64(0),
+                    now_ns,
+                    now_ns,
                 ),
             )
 
@@ -45,8 +46,8 @@
                     stride,
                     stride,
                     UInt64(111),
-                    UInt64(0),
-                    UInt64(0),
+                    now_ns,
+                    now_ns,
                 ),
             )
             return nothing

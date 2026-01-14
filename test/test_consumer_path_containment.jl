@@ -55,7 +55,7 @@
                         pool_uri = pool_uri,
                     )
 
-                    @test !Consumer.map_from_announce!(state, announce.dec)
+                    @test !Consumer.map_from_announce!(state, announce.dec, UInt64(time_ns()))
                 finally
                     close_consumer_state!(state)
                 end
