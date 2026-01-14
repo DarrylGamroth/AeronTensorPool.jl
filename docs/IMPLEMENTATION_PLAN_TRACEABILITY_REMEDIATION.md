@@ -29,10 +29,9 @@ Status: complete
 - Replace defaults with explicit code/test refs for each normative clause.
 
 ## Phase 3: Traceability Gaps → Tests
-Status: complete
-- Verified that all traceability rows include explicit test references (no uncovered requirements detected).
-- No new test cases required in this pass; remaining wildcard references are intentional defaults for low‑risk clauses.
-- `docs/SPEC_COMPLIANCE_MATRIX.md` already points to traceability + spec lock.
+Status: in progress
+- Add a driver control schema gating test for Driver spec §137 (or adjust mapping if test already exists).
+- Re‑scan for gaps after the new test is added.
 
 ## Phase 4: CI / Regression Safeguards
 Status: pending
