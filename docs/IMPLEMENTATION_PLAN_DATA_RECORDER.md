@@ -52,6 +52,13 @@ Status: in progress.
   - `sqlite_busy_timeout_ms`: 2000
   - `sqlite_synchronous`: "NORMAL"
   - `retention_max_bytes`: 0 (disabled unless set)
+- Retention policy (proposed defaults):
+  - `retention_mode`: "per_stream"
+  - `retention_global_max_bytes`: 0 (disabled unless set)
+  - `retention_policy`: "keep_all" (default when no per-stream override)
+  - Per-stream overrides:
+    - `policy`: "keep_all" or "circular"
+    - `max_bytes`: required when `policy="circular"`
 - Auto-size rule when `header_nslots` and `pool_nslots` are 0:
   - Compute `header_nslots = floor_pow2(segment_max_bytes /
     (header_slot_bytes + sum(pool_stride_bytes)))`.
@@ -271,7 +278,10 @@ Detailing:
 - Rollover:
   - Emit `SegmentSeal` message before creating the next segment.
   - Update `seq_start` for the new segment to the first recorded `seq`.
-- Retention selection:
+- Retention selection (per-stream policies, mixed modes):
+  - Support `keep_all` (no deletions) and `circular` (max_bytes) per stream.
+  - Optional global cap applies only to circular streams; never delete
+    `keep_all` segments unless explicitly configured.
   - Prefer `t_end_ns` ordering; fall back to `seq_end` if timestamps are 0.
   - Only delete segments with `sealed=1`.
   - Delete in a single SQLite transaction:
