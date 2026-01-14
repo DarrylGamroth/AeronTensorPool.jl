@@ -7,7 +7,7 @@ using ...Agent
 using ...Shm
 using ...Control
 using ...Driver
-using ...Discovery
+using ...DiscoveryClient
 using ...Timers
 using ...AeronUtils
 using ...Clocks

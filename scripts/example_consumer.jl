@@ -222,7 +222,7 @@ function run_consumer(driver_cfg_path::String, count::Int)
     try
         app_ref = Ref{AppConsumerAgent}()
         callbacks = ConsumerCallbacks(; on_frame! = AppConsumerOnFrame(app_ref))
-        handle = attach_consumer(tp_client, consumer_cfg; discover = !isempty(discovery_channel), callbacks = callbacks)
+        handle = attach(tp_client, consumer_cfg; discover = !isempty(discovery_channel), callbacks = callbacks)
         state = AeronTensorPool.handle_state(handle)
         @info "Consumer driver lease" lease_id = handle.driver_client.lease_id stream_id =
             handle.driver_client.stream_id

@@ -1,4 +1,4 @@
-module Discovery
+module DiscoveryClient
 
 using ..Aeron
 using ..AeronUtils

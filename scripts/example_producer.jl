@@ -172,7 +172,7 @@ function run_producer(driver_cfg_path::String, count::Int, payload_bytes::Int)
         noop_qos!(_, _) = nothing
         noop_frame!(_, _, _) = nothing
         callbacks = ProducerCallbacks(; on_qos_producer! = AppProducerOnQos())
-        handle = attach_producer(
+        handle = attach(
             tp_client,
             producer_cfg;
             discover = false,

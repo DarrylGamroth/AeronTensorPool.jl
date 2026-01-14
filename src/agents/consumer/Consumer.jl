@@ -7,7 +7,8 @@ using ...Agent
 using ...Shm
 using ...Control
 using ...Driver
-using ...Discovery
+using ...DiscoveryClient
+using ...Hsm
 using ...Timers
 using ...AeronUtils
 using ...Clocks
@@ -22,10 +23,12 @@ using ...ShmTensorpoolDiscovery
 using ..Producer: PayloadPoolConfig
 
 include("types.jl")
+include("mapping_lifecycle_types.jl")
 include("state.jl")
 include("callbacks.jl")
 include("counters.jl")
 include("frames.jl")
+include("mapping_lifecycle.jl")
 include("mapping.jl")
 include("proxy.jl")
 include("handlers.jl")

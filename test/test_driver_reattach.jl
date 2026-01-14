@@ -162,7 +162,7 @@ end
             ok = wait_for() do
                 driver_do_work!(driver_state)
                 Producer.producer_do_work!(producer_state, prod_control_asm; qos_assembler = prod_qos_asm)
-                producer_state.driver_active && producer_state.epoch != old_epoch
+                Producer.producer_driver_active(producer_state) && producer_state.epoch != old_epoch
             end
             @test ok
             @test producer_client.lease_id != 0

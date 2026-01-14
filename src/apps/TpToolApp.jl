@@ -5,7 +5,7 @@ using ...Shm
 using ...Control
 using ...Driver
 using ...Client
-using ...Discovery
+using ...DiscoveryClient
 using ...AeronUtils
 
 include(joinpath(@__DIR__, "..", "..", "scripts", "tp_tool.jl"))

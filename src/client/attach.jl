@@ -124,6 +124,48 @@ function request_attach_producer(
 end
 
 """
+Send an attach request and return an AttachRequestHandle.
+"""
+function request_attach(
+    client::TensorPoolClient,
+    settings::ConsumerConfig;
+    stream_id::UInt32 = settings.stream_id,
+    control_channel::AbstractString = client.context.control_channel,
+    control_stream_id::Int32 = client.context.control_stream_id,
+    desired_node_id::Union{UInt32, Nothing} = nothing,
+)
+    return request_attach_consumer(
+        client,
+        settings;
+        stream_id = stream_id,
+        control_channel = control_channel,
+        control_stream_id = control_stream_id,
+        desired_node_id = desired_node_id,
+    )
+end
+
+"""
+Send an attach request and return an AttachRequestHandle.
+"""
+function request_attach(
+    client::TensorPoolClient,
+    config::ProducerConfig;
+    stream_id::UInt32 = config.stream_id,
+    control_channel::AbstractString = client.context.control_channel,
+    control_stream_id::Int32 = client.context.control_stream_id,
+    desired_node_id::Union{UInt32, Nothing} = nothing,
+)
+    return request_attach_producer(
+        client,
+        config;
+        stream_id = stream_id,
+        control_channel = control_channel,
+        control_stream_id = control_stream_id,
+        desired_node_id = desired_node_id,
+    )
+end
+
+"""
 Poll an attach request handle for completion.
 """
 function poll_attach!(
@@ -193,6 +235,27 @@ function attach_consumer(
 end
 
 """
+Attach a consumer or producer using the high-level client API.
+"""
+function attach(
+    client::TensorPoolClient,
+    settings::ConsumerConfig;
+    discover::Bool = true,
+    data_source_name::AbstractString = "",
+    desired_node_id::Union{UInt32, Nothing} = nothing,
+    callbacks::Union{ConsumerCallbacks, ClientCallbacks} = Consumer.NOOP_CONSUMER_CALLBACKS,
+)
+    return attach_consumer(
+        client,
+        settings;
+        discover = discover,
+        data_source_name = data_source_name,
+        desired_node_id = desired_node_id,
+        callbacks = callbacks,
+    )
+end
+
+"""
 Attach a producer using the high-level client API.
 """
 function attach_producer(
@@ -257,4 +320,29 @@ function attach_producer(
         PolledTimer(qos_interval_ns),
     )
     return ProducerHandle(client, request.driver_client, producer_agent)
+end
+
+"""
+Attach a consumer or producer using the high-level client API.
+"""
+function attach(
+    client::TensorPoolClient,
+    config::ProducerConfig;
+    discover::Bool = true,
+    data_source_name::AbstractString = "",
+    desired_node_id::Union{UInt32, Nothing} = nothing,
+    callbacks::Union{ProducerCallbacks, ClientCallbacks} = Producer.NOOP_PRODUCER_CALLBACKS,
+    qos_monitor::Union{AbstractQosMonitor, Nothing} = nothing,
+    qos_interval_ns::UInt64 = config.qos_interval_ns,
+)
+    return attach_producer(
+        client,
+        config;
+        discover = discover,
+        data_source_name = data_source_name,
+        desired_node_id = desired_node_id,
+        callbacks = callbacks,
+        qos_monitor = qos_monitor,
+        qos_interval_ns = qos_interval_ns,
+    )
 end

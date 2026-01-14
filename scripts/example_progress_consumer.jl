@@ -57,7 +57,7 @@ function run_progress_consumer(driver_cfg_path::String)
     ctx = TensorPoolContext(driver_cfg.endpoints)
     client = connect(ctx)
     try
-        handle = attach_consumer(client, consumer_cfg; discover = false)
+        handle = attach(client, consumer_cfg; discover = false)
         app = AppProgressConsumer(handle, UInt64(0), UInt64(0), false)
         composite = CompositeAgent(AeronTensorPool.handle_agent(handle), app)
         runner = AgentRunner(BackoffIdleStrategy(), composite)

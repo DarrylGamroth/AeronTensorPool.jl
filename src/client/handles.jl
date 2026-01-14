@@ -1,5 +1,5 @@
 """
-Consumer handle returned by attach_consumer.
+Consumer handle returned by attach.
 """
 mutable struct ConsumerHandle
     client::TensorPoolClient
@@ -8,7 +8,7 @@ mutable struct ConsumerHandle
 end
 
 """
-Producer handle returned by attach_producer.
+Producer handle returned by attach.
 """
 mutable struct ProducerHandle
     client::TensorPoolClient

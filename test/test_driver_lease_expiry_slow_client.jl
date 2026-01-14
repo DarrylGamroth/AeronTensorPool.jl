@@ -89,7 +89,8 @@ using Test
         ok = wait_for(; timeout = 5.0) do
             driver_do_work!(driver_state)
             Producer.producer_do_work!(producer_state, prod_ctrl; qos_assembler = prod_qos)
-            producer_state.driver_active && producer_client.lease_id != 0 && producer_client.lease_id != old_lease
+            Producer.producer_driver_active(producer_state) && producer_client.lease_id != 0 &&
+                producer_client.lease_id != old_lease
         end
         @test ok
 

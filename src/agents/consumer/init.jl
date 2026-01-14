@@ -136,6 +136,7 @@ function init_consumer(config::ConsumerConfig; client::Aeron.Client)
     end
     dummy_assembler = Aeron.FragmentAssembler(dummy_handler)
     phase = config.use_shm ? UNMAPPED : FALLBACK
+    mapping_lifecycle = ConsumerMappingLifecycle()
     state = ConsumerState(
         config,
         clock,
@@ -143,6 +144,7 @@ function init_consumer(config::ConsumerConfig; client::Aeron.Client)
         runtime,
         mappings,
         metrics,
+        mapping_lifecycle,
         phase,
         nothing,
         Int64(0),
@@ -154,6 +156,7 @@ function init_consumer(config::ConsumerConfig; client::Aeron.Client)
         dummy_assembler,
         true,
     )
+    set_mapping_phase!(state, phase)
     state.progress_assembler = make_progress_assembler(state)
     return state
 end

@@ -72,7 +72,7 @@ No discovery (fixed stream id):
 ```julia
 ctx = TensorPoolContext(driver_cfg.endpoints)
 client = connect(ctx)
-handle = attach_consumer(client, consumer_cfg; discover = false)
+handle = attach(client, consumer_cfg; discover = false)
 ```
 
 Discovery (lookup by data source name):
@@ -84,7 +84,7 @@ ctx = TensorPoolContext(driver_cfg.endpoints;
 client = connect(ctx)
 entry = discover_stream!(client; data_source_name = "camera-01")
 consumer_cfg.stream_id = entry.stream_id
-handle = attach_consumer(client, consumer_cfg; discover = false)
+handle = attach(client, consumer_cfg; discover = false)
 ```
 
 ### Where does `data_source_name` come from?
@@ -219,10 +219,10 @@ Attach producer/consumer:
 
 ```julia
 producer_cfg = default_producer_config()
-producer = attach_producer(client, producer_cfg)
+producer = attach(client, producer_cfg)
 
 consumer_cfg = default_consumer_config()
-consumer = attach_consumer(client, consumer_cfg)
+consumer = attach(client, consumer_cfg)
 ```
 
 Publish a frame:
@@ -349,7 +349,7 @@ delete_metadata_attribute!(handle, "pattern")
 ```
 
 Ownership:
-- If you pass a `QosMonitor` into `attach_producer(...; callbacks=..., qos_monitor=...)`, the producer agent owns and closes it on shutdown.
+- If you pass a `QosMonitor` into `attach(...; callbacks=..., qos_monitor=...)`, the producer agent owns and closes it on shutdown.
 
 ---
 

@@ -143,7 +143,7 @@ function map_from_announce!(state::ConsumerState, msg::ShmPoolAnnounce.Decoder)
     state.metrics.last_seq_seen = UInt64(0)
     state.metrics.seen_any = false
     state.metrics.remap_count += 1
-    state.phase = MAPPED
+    set_mapping_phase!(state, MAPPED)
     return true
 end
 
@@ -282,7 +282,7 @@ function map_from_attach_response!(state::ConsumerState, attach::AttachResponse)
     state.metrics.seen_any = false
     state.metrics.remap_count += 1
     state.config.expected_layout_version = attach.layout_version
-    state.phase = MAPPED
+    set_mapping_phase!(state, MAPPED)
     @tp_info "consumer attach mapped" stream_id = attach.stream_id epoch = attach.epoch pools = attach.pool_count
     return true
 end
@@ -371,7 +371,7 @@ function reset_mappings!(state::ConsumerState)
     state.mappings.mapped_epoch = UInt64(0)
     state.metrics.last_seq_seen = UInt64(0)
     state.metrics.seen_any = false
-    state.phase = UNMAPPED
+    set_mapping_phase!(state, UNMAPPED)
     return nothing
 end
 
@@ -423,10 +423,10 @@ function handle_shm_pool_announce!(state::ConsumerState, msg::ShmPoolAnnounce.De
         if !ok && !isempty(state.config.payload_fallback_uri)
             state.config.use_shm = false
             reset_mappings!(state)
-            state.phase = FALLBACK
+            set_mapping_phase!(state, FALLBACK)
             return true
         end
-        ok && (state.phase = MAPPED)
+        ok && set_mapping_phase!(state, MAPPED)
         return ok
     end
 
@@ -443,10 +443,10 @@ function handle_shm_pool_announce!(state::ConsumerState, msg::ShmPoolAnnounce.De
         if !ok && !isempty(state.config.payload_fallback_uri)
             state.config.use_shm = false
             reset_mappings!(state)
-            state.phase = FALLBACK
+            set_mapping_phase!(state, FALLBACK)
             return true
         end
-        ok && (state.phase = MAPPED)
+        ok && set_mapping_phase!(state, MAPPED)
         return ok
     end
     return true

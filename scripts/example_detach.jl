@@ -41,7 +41,7 @@ function run_detach(driver_cfg_path::String)
     ctx = TensorPoolContext(driver_cfg.endpoints)
     client = connect(ctx)
     try
-        handle = attach_producer(client, producer_cfg; discover = false)
+        handle = attach(client, producer_cfg; discover = false)
         driver_client = handle.driver_client
         lease_id = driver_client.lease_id
         correlation_id = next_correlation_id!(driver_client)

@@ -30,7 +30,7 @@ include("aeron/AeronUtils.jl")
 include("shm/Shm.jl")
 include("control/Control.jl")
 include("agents/driver/Driver.jl")
-include("discovery/Discovery.jl")
+include("discovery/DiscoveryClient.jl")
 include("agents/Agents.jl")
 include("client/Client.jl")
 include("apps/Apps.jl")
@@ -45,7 +45,7 @@ using .Shm
 using .AeronUtils
 using .Control
 using .Driver
-using .Discovery
+using .DiscoveryClient
 using .Client
 
 include("config/defaults.jl")
@@ -282,8 +282,7 @@ export AeronInitError,
     TensorHeaderMsg,
     TimerSet,
     add_counter,
-    attach_consumer,
-    attach_producer,
+    attach,
     connect,
     handle_agent,
     handle_state,
@@ -329,8 +328,7 @@ export AeronInitError,
     sbe_message_length,
     send_attach!,
     send_attach_request!,
-    request_attach_consumer,
-    request_attach_producer,
+    request_attach,
     send_detach!,
     snapshot_attach_response!,
     snapshot_detach_response!,

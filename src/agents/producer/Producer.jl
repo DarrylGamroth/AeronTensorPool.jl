@@ -8,7 +8,8 @@ using ...Agent
 using ...Shm
 using ...Control
 using ...Driver
-using ...Discovery
+using ...DiscoveryClient
+using ...Hsm
 using ...Timers
 using ...AeronUtils
 using ...Clocks
@@ -22,7 +23,9 @@ using ...ShmTensorpoolBridge
 using ...ShmTensorpoolDiscovery
 
 include("types.jl")
+include("driver_lifecycle.jl")
 include("state.jl")
+include("driver_lifecycle_handlers.jl")
 include("callbacks.jl")
 include("counters.jl")
 include("shm.jl")

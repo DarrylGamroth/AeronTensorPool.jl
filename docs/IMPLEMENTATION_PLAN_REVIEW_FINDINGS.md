@@ -28,15 +28,15 @@ Status: complete
 - Add tests verifying drop on checksum mismatch and passthrough when disabled.
 
 ## Phase 4: API / Structure Refactors (non‑blocking)
-Status: in progress
+Status: complete
 - Extracted shared encoder helper for `ConsumerConfig` across driver/producer/supervisor.
 - `src/core` layout already segmented (logging/messages/qos/metadata); no structural changes required.
-- Rename the non‑agent discovery layer (e.g., `discovery_client`) to avoid confusion with `src/agents/discovery`.
-- Unify `attach_*` / `request_attach_*` APIs via multiple dispatch on config types.
+- Renamed the non‑agent discovery layer to `DiscoveryClient` to avoid confusion with `src/agents/discovery`.
+- Unified `attach_*` / `request_attach_*` APIs via multiple dispatch on config types (`attach`/`request_attach`).
 - Deduplicated metadata forwarding helpers shared between bridge and rate‑limiter.
-- **Hsm migration candidates (explicit):**
-  - Consumer mapping phase (UNMAPPED → MAPPED → FALLBACK): consolidate remap/reject/teardown transitions.
-  - Producer driver reattach flow (pending attach → remap → active): codify lease revocation, retries, and drain behavior.
+- Migrated ad‑hoc state machines to Hsm:
+  - Consumer mapping phase (UNMAPPED → MAPPED → FALLBACK) now transitions via `ConsumerMappingLifecycle`.
+  - Producer driver reattach flow (pending attach → remap → active) now transitions via `ProducerDriverLifecycle`.
 
 ## Phase 5: Aeron Callbacks / Async Hooks
 Status: complete

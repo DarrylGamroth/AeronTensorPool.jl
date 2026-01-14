@@ -6,7 +6,7 @@ using ..Core.TPLog: @tp_debug, @tp_info, @tp_warn, @tp_error
 using ..Aeron
 using ..Control
 using ..Timers
-using ..Discovery
+using ..DiscoveryClient
 using ..Driver
 using ..AeronUtils
 using ..Agents
@@ -45,10 +45,8 @@ export DriverClientState,
     init_driver_client,
     driver_client_do_work!,
     send_attach_request!,
-    attach_consumer,
-    attach_producer,
-    request_attach_consumer,
-    request_attach_producer,
+    attach,
+    request_attach,
     poll_attach!,
     producer_callbacks,
     producer_connected,

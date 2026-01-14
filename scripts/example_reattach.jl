@@ -28,10 +28,10 @@ function run_reattach(driver_cfg_path::String)
     ctx = TensorPoolContext(driver_cfg.endpoints)
     client = connect(ctx)
     try
-        handle = attach_producer(client, producer_cfg; discover = false)
+        handle = attach(client, producer_cfg; discover = false)
         @info "Producer attached" lease_id = handle.driver_client.lease_id
         close(handle)
-        handle2 = attach_producer(client, producer_cfg; discover = false)
+        handle2 = attach(client, producer_cfg; discover = false)
         @info "Producer reattached" lease_id = handle2.driver_client.lease_id
         close(handle2)
     finally

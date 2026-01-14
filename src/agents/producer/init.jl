@@ -62,6 +62,7 @@ function init_producer(config::ProducerConfig; client::Aeron.Client)
         ConsumerConfigMsg.Decoder(UnsafeArrays.UnsafeArray{UInt8, 1}),
     )
     metrics = ProducerMetrics(UInt64(0), UInt64(0), UInt64(0))
+    driver_lifecycle = ProducerDriverLifecycle()
     state = ProducerState(
         config,
         clock,
@@ -76,10 +77,10 @@ function init_producer(config::ProducerConfig; client::Aeron.Client)
         UInt64(0),
         PolledTimer(config.progress_interval_ns),
         nothing,
+        driver_lifecycle,
         Int64(0),
         timer_set,
         Dict{UInt32, ProducerConsumerStream}(),
-        true,
         false,
         true,
         UInt32(0),
@@ -250,6 +251,7 @@ function init_producer_from_attach(
         ConsumerConfigMsg.Decoder(UnsafeArrays.UnsafeArray{UInt8, 1}),
     )
     metrics = ProducerMetrics(UInt64(0), UInt64(0), UInt64(0))
+    driver_lifecycle = ProducerDriverLifecycle()
     state = ProducerState(
         driver_config,
         clock,
@@ -264,10 +266,10 @@ function init_producer_from_attach(
         UInt64(0),
         PolledTimer(driver_config.progress_interval_ns),
         driver_client,
+        driver_lifecycle,
         Int64(0),
         timer_set,
         Dict{UInt32, ProducerConsumerStream}(),
-        true,
         false,
         true,
         UInt32(0),
@@ -276,6 +278,7 @@ function init_producer_from_attach(
         MetadataAttribute[],
         false,
     )
+    Hsm.dispatch!(state.driver_lifecycle, :AttachOk, state)
     emit_announce!(state)
     return state
 end

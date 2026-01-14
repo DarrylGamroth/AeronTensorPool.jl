@@ -17,14 +17,7 @@ function remap_producer_from_attach!(state::ProducerState, attach::AttachRespons
     state.epoch = attach.epoch
     state.seq = UInt64(0)
     state.emit_announce = false
-    state.driver_active = true
     return true
-end
-
-function producer_driver_active(state::ProducerState)
-    dc = state.driver_client
-    dc === nothing && return true
-    return state.driver_active && dc.lease_id != 0 && !dc.revoked && !dc.shutdown
 end
 
 """
@@ -36,10 +29,10 @@ function handle_driver_events!(state::ProducerState, now_ns::UInt64)
     work_count = 0
 
     if dc.revoked || dc.shutdown || dc.lease_id == 0
-        state.driver_active = false
+        Hsm.dispatch!(state.driver_lifecycle, :LeaseInvalid, state)
     end
 
-    if !state.driver_active && state.pending_attach_id == 0
+    if Hsm.current(state.driver_lifecycle) == :Inactive && state.pending_attach_id == 0
         cid = send_attach_request!(
             dc;
             stream_id = state.config.stream_id,
@@ -48,6 +41,7 @@ function handle_driver_events!(state::ProducerState, now_ns::UInt64)
         )
         if cid != 0
             state.pending_attach_id = cid
+            Hsm.dispatch!(state.driver_lifecycle, :AttachRequested, state)
             work_count += 1
         end
     end
@@ -57,11 +51,16 @@ function handle_driver_events!(state::ProducerState, now_ns::UInt64)
         if attach !== nothing
             state.pending_attach_id = Int64(0)
             if attach.code == DriverResponseCode.OK
-                state.driver_active = remap_producer_from_attach!(state, attach)
-                state.driver_active || (dc.lease_id = UInt64(0))
+                if remap_producer_from_attach!(state, attach)
+                    Hsm.dispatch!(state.driver_lifecycle, :AttachOk, state)
+                else
+                    dc.lease_id = UInt64(0)
+                    Hsm.dispatch!(state.driver_lifecycle, :AttachFailed, state)
+                end
             else
-                state.driver_active = false
+                Hsm.dispatch!(state.driver_lifecycle, :AttachFailed, state)
             end
+            work_count += 1
         end
     end
     return work_count

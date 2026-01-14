@@ -28,7 +28,7 @@ function run_invoker(driver_cfg_path::String)
     ctx = TensorPoolContext(driver_cfg.endpoints; use_invoker = true)
     client = connect(ctx)
     try
-        handle = attach_consumer(client, consumer_cfg; discover = false)
+        handle = attach(client, consumer_cfg; discover = false)
         deadline = time_ns() + 2_000_000_000
         while time_ns() < deadline
             AeronTensorPool.do_work(client)

@@ -82,6 +82,7 @@ mutable struct ConsumerState{ClockT}
     runtime::ConsumerRuntime
     mappings::ConsumerMappings
     metrics::ConsumerMetrics
+    mapping_lifecycle::ConsumerMappingLifecycle
     phase::ConsumerPhase
     driver_client::Union{DriverClientState, Nothing}
     pending_attach_id::Int64
