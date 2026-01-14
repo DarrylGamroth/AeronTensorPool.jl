@@ -14,7 +14,9 @@ Correctness legend:
 - Noncompliant
 - N/A
 
-Last updated: 2026-01-18
+Last updated: 2026-01-14
+
+Traceability: `docs/SPEC_TRACEABILITY_MATRIX.md` provides per-requirement code/test mapping. Spec versions are locked in `docs/SPEC_LOCK.toml`.
 
 ---
 

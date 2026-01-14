@@ -49,3 +49,15 @@ Status: complete
 - Refreshed `docs/SPEC_COMPLIANCE_MATRIX.md` after fixes.
 - Added Aeron callback usage note for join‑time gating guidance.
 - Test checklist items covered in plan/test updates.
+
+## Phase 7: Spec Traceability Lock + Matrix Coverage
+Status: complete
+- Generated `docs/SPEC_LOCK.toml` with hashes for all authoritative specs.
+- Added `scripts/check_spec_lock.jl` and run it from `scripts/run_tests.jl` (CI gate).
+- Filled `docs/SPEC_TRACEABILITY_MATRIX.md` with code/test references and status.
+- Updated `docs/SPEC_COMPLIANCE_MATRIX.md` with traceability pointers.
+
+## Phase 8: Hsm Migration for Remaining Ad‑hoc Lifecycles
+Status: complete
+- Bridge receiver assembly lifecycle (idle → assembling → complete/timeout) via Hsm.
+- RateLimiter mapping binding lifecycle (unbound → bound → active) via Hsm.
