@@ -287,6 +287,29 @@ Detailing:
   - Delete in a single SQLite transaction:
     - `frames` rows, then `segment_pools`, then `segments`.
   - Remove files from disk after DB commit.
+
+Retention policy example (shared-root dataset):
+
+```
+[recorder.retention]
+mode = "per_stream"
+global_max_bytes = 0
+
+[[recorder.retention.streams]]
+stream_id = 10001
+policy = "keep_all"
+
+[[recorder.retention.streams]]
+stream_id = 10002
+policy = "circular"
+max_bytes = 1099511627776
+```
+
+Deletion order rules:
+- Per-stream: delete oldest sealed segments within each circular stream until
+  that stream’s `max_bytes` cap is met.
+- Global cap: delete oldest sealed segments across only circular streams
+  (order by `t_end_ns`, fallback to `seq_end`).
 - Missing/truncated detection:
   - On startup or periodic sweep, `stat` segment files; if size < expected,
     emit a data-loss event and mark segment as missing.
