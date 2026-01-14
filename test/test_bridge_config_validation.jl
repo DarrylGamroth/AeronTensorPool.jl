@@ -17,6 +17,7 @@
         true,
         true,
         true,
+        true,
     )
     mapping = BridgeMapping(UInt32(1), UInt32(2), "profile", UInt32(0), Int32(6001), Int32(6002))
     @test Bridge.validate_bridge_config(base, [mapping])
@@ -39,6 +40,7 @@
         base.forward_metadata,
         base.forward_qos,
         base.forward_progress,
+        base.forward_tracelink,
     )
     @test_throws BridgeConfigError Bridge.validate_bridge_config(bad_control, [mapping])
 
@@ -60,6 +62,7 @@
         base.forward_metadata,
         base.forward_qos,
         base.forward_progress,
+        base.forward_tracelink,
     )
     @test_throws BridgeConfigError Bridge.validate_bridge_config(too_large_chunk, [mapping])
 

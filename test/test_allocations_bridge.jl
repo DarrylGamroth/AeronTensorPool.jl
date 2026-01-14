@@ -126,6 +126,7 @@
                 false,
                 false,
                 false,
+                false,
             )
             sender = Bridge.init_bridge_sender(consumer_src, bridge_cfg, mapping; client = client)
             receiver = Bridge.init_bridge_receiver(bridge_cfg, mapping; producer_state = producer_dst, client = client)

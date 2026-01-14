@@ -33,13 +33,14 @@ Status: completed.
 
 ---
 
-## Phase 2: Node ID acquisition
+## Phase 2: Node ID acquisition + stability
 - Use `ShmAttachResponse.nodeId` when present (Driver Model §4.2).
 - Allow explicit node ID configuration in API (for standalone mode or static allocation).
 - Add helper to resolve node ID precedence:
   1. Explicit config (if provided)
   2. Driver attach response nodeId (if provided)
   3. Error if tracing enabled and node ID missing
+- Ensure driver-assigned node IDs remain stable for process lifetime (TraceLink §6.2).
 
 Status: completed.
 
@@ -57,7 +58,7 @@ Status: completed.
 
 ---
 
-## Phase 4: Producer/consumer integration
+## Phase 4: Producer/consumer/bridge integration
 - Producer:
   - Populate `FrameDescriptor.trace_id` via optional `trace_id` argument on publish/commit helpers.
   - For 1→1 frames: callers reuse upstream trace ID.
@@ -65,11 +66,14 @@ Status: completed.
 - Consumer:
   - Read `trace_id` (no behavioral change).
   - Provide callback hooks for trace metadata if needed.
+- Bridge:
+  - Forward TraceLinkSet on the control channel when enabled.
+  - Reuse forwarded trace IDs when rematerializing FrameDescriptor.
 - Add API helpers:
   - `enable_tracing!(producer_state; node_id, generator)`
   - `trace_id_for_output!(...)` and `emit_tracelink!(...)`
 
-Status: in progress (helpers added; integration hooks still minimal).
+Status: completed.
 
 ---
 

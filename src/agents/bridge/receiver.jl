@@ -17,7 +17,7 @@ function init_bridge_receiver(
     client::Aeron.Client,
     callbacks::BridgeCallbacks = NOOP_BRIDGE_CALLBACKS,
 )
-    if (config.forward_progress || config.forward_qos) &&
+    if (config.forward_progress || config.forward_qos || config.forward_tracelink) &&
        (mapping.source_control_stream_id == 0 || mapping.dest_control_stream_id == 0)
         throw(ArgumentError("bridge mapping requires nonzero control stream IDs for progress/QoS forwarding"))
     end
@@ -46,6 +46,7 @@ function init_bridge_receiver(
         SlotClaim(0, Ptr{UInt8}(0), 0, 0, 0, 0),
         false,
     )
+    trace_id_by_seq = Dict{UInt64, UInt64}()
 
     source_info = BridgeSourceInfo(UInt32(0), UInt64(0), UInt32(0), Dict{UInt16, UInt32}())
 
@@ -62,7 +63,8 @@ function init_bridge_receiver(
         pub_metadata_local = Aeron.add_publication(client, "aeron:ipc", dest_metadata_stream_id)
     end
     pub_control_local = nothing
-    if (config.forward_qos || config.forward_progress) && mapping.dest_control_stream_id != 0
+    if (config.forward_qos || config.forward_progress || config.forward_tracelink) &&
+       mapping.dest_control_stream_id != 0
         pub_control_local = Aeron.add_publication(client, "aeron:ipc", mapping.dest_control_stream_id)
     end
 
@@ -75,6 +77,7 @@ function init_bridge_receiver(
         producer_state,
         source_info,
         assembly,
+        trace_id_by_seq,
         sub_payload,
         Aeron.FragmentAssembler(Aeron.FragmentHandler((_, _, _) -> nothing)),
         sub_control,
@@ -95,6 +98,8 @@ function init_bridge_receiver(
         QosConsumer.Decoder(UnsafeArrays.UnsafeArray{UInt8, 1}),
         FrameProgress.Encoder(UnsafeArrays.UnsafeArray{UInt8, 1}),
         FrameProgress.Decoder(UnsafeArrays.UnsafeArray{UInt8, 1}),
+        TraceLinkSet.Encoder(UnsafeArrays.UnsafeArray{UInt8, 1}),
+        TraceLinkSet.Decoder(UnsafeArrays.UnsafeArray{UInt8, 1}),
         BridgeFrameChunk.Decoder(UnsafeArrays.UnsafeArray{UInt8, 1}),
         ShmPoolAnnounce.Decoder(UnsafeArrays.UnsafeArray{UInt8, 1}),
         SlotHeaderMsg.Decoder(FixedSizeVectorDefault{UInt8}),
@@ -188,18 +193,19 @@ function bridge_rematerialize!(
     seqlock_commit_write!(commit_ptr, seq)
 
     now_ns = UInt64(Clocks.time_nanos(state.clock))
+    trace_id = bridge_trace_id_for_seq!(state, seq)
     shared_sent = let st = producer_state,
         seq = seq,
         meta_version = header.meta_version,
         now_ns = now_ns,
-        trace_id = UInt64(0)
+        trace_id = trace_id
         with_claimed_buffer!(st.runtime.pub_descriptor, st.runtime.descriptor_claim, FRAME_DESCRIPTOR_LEN) do buf
             FrameDescriptor.wrap_and_apply_header!(st.runtime.descriptor_encoder, buf, 0)
             encode_frame_descriptor!(st.runtime.descriptor_encoder, st, seq, meta_version, now_ns, trace_id)
         end
     end
     per_consumer_sent =
-        publish_descriptor_to_consumers!(producer_state, seq, header.meta_version, now_ns, UInt64(0))
+        publish_descriptor_to_consumers!(producer_state, seq, header.meta_version, now_ns, trace_id)
     (shared_sent || per_consumer_sent) || return false
     if producer_state.seq <= seq
         producer_state.seq = seq + 1
@@ -266,24 +272,31 @@ function bridge_commit_claim!(
     seqlock_commit_write!(commit_ptr, claim.seq)
 
     now_ns = UInt64(Clocks.time_nanos(state.clock))
+    trace_id = bridge_trace_id_for_seq!(state, claim.seq)
     shared_sent = let st = producer_state,
         seq = claim.seq,
         meta_version = header.meta_version,
         now_ns = now_ns,
-        trace_id = UInt64(0)
+        trace_id = trace_id
         with_claimed_buffer!(st.runtime.pub_descriptor, st.runtime.descriptor_claim, FRAME_DESCRIPTOR_LEN) do buf
             FrameDescriptor.wrap_and_apply_header!(st.runtime.descriptor_encoder, buf, 0)
             encode_frame_descriptor!(st.runtime.descriptor_encoder, st, seq, meta_version, now_ns, trace_id)
         end
     end
     per_consumer_sent =
-        publish_descriptor_to_consumers!(producer_state, claim.seq, header.meta_version, now_ns, UInt64(0))
+        publish_descriptor_to_consumers!(producer_state, claim.seq, header.meta_version, now_ns, trace_id)
     (shared_sent || per_consumer_sent) || return false
     if producer_state.seq <= claim.seq
         producer_state.seq = claim.seq + 1
     end
     state.metrics.frames_rematerialized += 1
     return true
+end
+
+function bridge_trace_id_for_seq!(state::BridgeReceiverState, seq::UInt64)
+    trace_id = get(state.trace_id_by_seq, seq, UInt64(0))
+    haskey(state.trace_id_by_seq, seq) && delete!(state.trace_id_by_seq, seq)
+    return trace_id
 end
 
 """

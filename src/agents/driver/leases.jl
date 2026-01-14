@@ -18,19 +18,36 @@ function desired_node_id(msg::ShmAttachRequest.Decoder)
     return node_id
 end
 
-function allocate_node_id!(state::DriverState, desired::Union{UInt32, Nothing})
-    if isnothing(desired)
-        start = state.next_node_id
-        node_id = start
-        while haskey(state.assigned_node_ids, node_id)
-            node_id = node_id == typemax(UInt32) ? UInt32(1) : node_id + 1
-            node_id == start && return nothing
-        end
-        state.next_node_id = node_id == typemax(UInt32) ? UInt32(1) : node_id + 1
-        return node_id
+function node_id_reserved(state::DriverState, node_id::UInt32)
+    haskey(state.assigned_node_ids, node_id) && return true
+    for reserved in values(state.node_id_by_client)
+        reserved == node_id && return true
     end
-    haskey(state.assigned_node_ids, desired) && return nothing
-    return desired
+    return false
+end
+
+function allocate_node_id!(state::DriverState, client_id::UInt32, desired::Union{UInt32, Nothing})
+    existing = get(state.node_id_by_client, client_id, nothing)
+    if existing !== nothing
+        if !isnothing(desired) && desired != existing
+            return nothing
+        end
+        return existing
+    end
+    if !isnothing(desired)
+        node_id_reserved(state, desired) && return nothing
+        state.node_id_by_client[client_id] = desired
+        return desired
+    end
+    start = state.next_node_id
+    node_id = start
+    while node_id_reserved(state, node_id)
+        node_id = node_id == typemax(UInt32) ? UInt32(1) : node_id + 1
+        node_id == start && return nothing
+    end
+    state.next_node_id = node_id == typemax(UInt32) ? UInt32(1) : node_id + 1
+    state.node_id_by_client[client_id] = node_id
+    return node_id
 end
 
 """
@@ -220,7 +237,7 @@ function handle_attach_request!(state::DriverState, msg::ShmAttachRequest.Decode
 
     now_ns = UInt64(Clocks.time_nanos(state.clock))
     lease_id = next_lease_id!(state)
-    node_id = allocate_node_id!(state, requested_node_id)
+    node_id = allocate_node_id!(state, client_id, requested_node_id)
     if node_id === nothing
         return emit_attach_response!(
             state,

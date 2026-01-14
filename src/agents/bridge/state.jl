@@ -159,6 +159,8 @@ mutable struct BridgeSenderState
     qos_consumer_encoder::QosConsumer.Encoder{UnsafeArrays.UnsafeArray{UInt8, 1}}
     progress_decoder::FrameProgress.Decoder{UnsafeArrays.UnsafeArray{UInt8, 1}}
     progress_encoder::FrameProgress.Encoder{UnsafeArrays.UnsafeArray{UInt8, 1}}
+    tracelink_decoder::TraceLinkSet.Decoder{UnsafeArrays.UnsafeArray{UInt8, 1}}
+    tracelink_encoder::TraceLinkSet.Encoder{UnsafeArrays.UnsafeArray{UInt8, 1}}
 end
 
 """
@@ -173,6 +175,7 @@ mutable struct BridgeReceiverState{ClockT}
     producer_state::Union{Nothing, ProducerState}
     source_info::BridgeSourceInfo
     assembly::BridgeAssembly
+    trace_id_by_seq::Dict{UInt64, UInt64}
     sub_payload::Aeron.Subscription
     payload_assembler::Aeron.FragmentAssembler
     sub_control::Aeron.Subscription
@@ -193,6 +196,8 @@ mutable struct BridgeReceiverState{ClockT}
     qos_consumer_decoder::QosConsumer.Decoder{UnsafeArrays.UnsafeArray{UInt8, 1}}
     progress_encoder::FrameProgress.Encoder{UnsafeArrays.UnsafeArray{UInt8, 1}}
     progress_decoder::FrameProgress.Decoder{UnsafeArrays.UnsafeArray{UInt8, 1}}
+    tracelink_encoder::TraceLinkSet.Encoder{UnsafeArrays.UnsafeArray{UInt8, 1}}
+    tracelink_decoder::TraceLinkSet.Decoder{UnsafeArrays.UnsafeArray{UInt8, 1}}
     chunk_decoder::BridgeFrameChunk.Decoder{UnsafeArrays.UnsafeArray{UInt8, 1}}
     announce_decoder::ShmPoolAnnounce.Decoder{UnsafeArrays.UnsafeArray{UInt8, 1}}
     slot_decoder::SlotHeaderMsg.Decoder{FixedSizeVectorDefault{UInt8}}

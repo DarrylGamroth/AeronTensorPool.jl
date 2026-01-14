@@ -16,7 +16,7 @@ function init_bridge_sender(
     mapping::BridgeMapping;
     client::Aeron.Client,
 )
-    if (config.forward_progress || config.forward_qos) &&
+    if (config.forward_progress || config.forward_qos || config.forward_tracelink) &&
        (mapping.source_control_stream_id == 0 || mapping.dest_control_stream_id == 0)
         throw(ArgumentError("bridge mapping requires nonzero control stream IDs for progress/QoS forwarding"))
     end
@@ -88,6 +88,8 @@ function init_bridge_sender(
         QosConsumer.Encoder(UnsafeArrays.UnsafeArray{UInt8, 1}),
         FrameProgress.Decoder(UnsafeArrays.UnsafeArray{UInt8, 1}),
         FrameProgress.Encoder(UnsafeArrays.UnsafeArray{UInt8, 1}),
+        TraceLinkSet.Decoder(UnsafeArrays.UnsafeArray{UInt8, 1}),
+        TraceLinkSet.Encoder(UnsafeArrays.UnsafeArray{UInt8, 1}),
     )
     if sub_metadata !== nothing
         state.metadata_assembler = make_bridge_metadata_sender_assembler(state)

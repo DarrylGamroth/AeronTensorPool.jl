@@ -225,7 +225,9 @@ Receivers derive the local header index from `seq` before republishing. If the m
 
 Progress forwarding is sender-side (as observed from the source stream) and independent of whether the receiver has finished re-materialization. Receivers SHOULD drop forwarded progress that refers to unknown or expired assembly state.
 
-If `bridge.forward_progress=true`, both `source_control_stream_id` and `dest_control_stream_id` MUST be nonzero for each mapping. If either is unset, the mapping is invalid and the bridge MUST drop forwarded progress for that mapping (and SHOULD fail fast at startup if possible).
+Bridge instances MAY forward `TraceLinkSet`; when `bridge.forward_tracelink=true`, they MUST forward TraceLinkSet messages over the bridge control channel and the receiver MUST republish them on the destination host's local IPC control stream. The forwarded `stream_id` MUST be rewritten to `dest_stream_id` and `epoch/seq/trace_id` preserved.
+
+If `bridge.forward_progress=true` or `bridge.forward_tracelink=true`, both `source_control_stream_id` and `dest_control_stream_id` MUST be nonzero for each mapping. If either is unset, the mapping is invalid and the bridge MUST drop forwarded control-plane messages for that mapping (and SHOULD fail fast at startup if possible).
 
 Consumers MUST still treat `FrameDescriptor` as the canonical availability signal.
 
@@ -259,10 +261,11 @@ Optional keys and defaults:
 - `bridge.source_metadata_stream_id` (uint32): source metadata stream ID to subscribe on the sender host. Default: deployment-specific.
 - `bridge.forward_qos` (bool): forward QoS messages. Default: `false`.
 - `bridge.forward_progress` (bool): forward `FrameProgress` messages. Default: `false`. Progress forwarding increases control-plane traffic; enable only when remote consumers require partial-availability hints.
+- `bridge.forward_tracelink` (bool): forward `TraceLinkSet` messages. Default: `false`.
 - QoS forwarding uses `source_control_stream_id` and `dest_control_stream_id` (per mapping); there is no global QoS stream.
 - `bridge.assembly_timeout_ms` (uint32): per-stream frame assembly timeout. Default: `250`.
 
-The bridge control channel is used for forwarding `ShmPoolAnnounce` and, when enabled, QoS and `FrameProgress` messages. Metadata forwarding uses `bridge.metadata_channel` for transport and the destination host's local IPC metadata stream for publication.
+The bridge control channel is used for forwarding `ShmPoolAnnounce` and, when enabled, QoS, `FrameProgress`, and `TraceLinkSet` messages. Metadata forwarding uses `bridge.metadata_channel` for transport and the destination host's local IPC metadata stream for publication.
 
 Each `mappings` entry:
 

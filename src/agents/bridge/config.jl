@@ -118,6 +118,8 @@ function load_bridge_config(path::AbstractString; env::AbstractDict = ENV)
     forward_qos = env_override(env, "bridge.forward_qos", Bool(get(bridge_tbl, "forward_qos", false)))
     forward_progress =
         env_override(env, "bridge.forward_progress", Bool(get(bridge_tbl, "forward_progress", false)))
+    forward_tracelink =
+        env_override(env, "bridge.forward_tracelink", Bool(get(bridge_tbl, "forward_tracelink", false)))
     dest_stream_id_range = parse_bridge_stream_id_range(bridge_tbl, env, "bridge.dest_stream_id_range")
 
     config = BridgeConfig(
@@ -138,6 +140,7 @@ function load_bridge_config(path::AbstractString; env::AbstractDict = ENV)
         forward_metadata,
         forward_qos,
         forward_progress,
+        forward_tracelink,
         dest_stream_id_range,
     )
 

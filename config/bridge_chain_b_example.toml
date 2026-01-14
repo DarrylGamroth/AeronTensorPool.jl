@@ -17,6 +17,7 @@ assembly_timeout_ms = 250
 forward_metadata = true
 forward_qos = false
 forward_progress = false
+forward_tracelink = false
 
 [[mappings]]
 source_stream_id = 20000

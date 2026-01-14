@@ -39,6 +39,7 @@ mutable struct BridgeConfig
     forward_metadata::Bool
     forward_qos::Bool
     forward_progress::Bool
+    forward_tracelink::Bool
     dest_stream_id_range::Union{BridgeStreamIdRange, Nothing}
 end
 
@@ -60,6 +61,7 @@ BridgeConfig(
     forward_metadata::Bool,
     forward_qos::Bool,
     forward_progress::Bool,
+    forward_tracelink::Bool,
 ) = BridgeConfig(
     instance_id,
     aeron_dir,
@@ -78,5 +80,6 @@ BridgeConfig(
     forward_metadata,
     forward_qos,
     forward_progress,
+    forward_tracelink,
     nothing,
 )

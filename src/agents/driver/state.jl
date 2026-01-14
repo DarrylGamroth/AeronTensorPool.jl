@@ -64,6 +64,7 @@ mutable struct DriverState{ClockT}
     streams::Dict{UInt32, DriverStreamState}
     leases::Dict{UInt64, DriverLease}
     assigned_node_ids::Dict{UInt32, UInt64}
+    node_id_by_client::Dict{UInt32, UInt32}
     next_lease_id::UInt64
     next_node_id::UInt32
     next_stream_id::UInt32

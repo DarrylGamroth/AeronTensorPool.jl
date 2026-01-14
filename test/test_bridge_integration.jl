@@ -174,6 +174,7 @@
                 true,
                 false,
                 false,
+                false,
             )
 
                 bridge_sender = Bridge.init_bridge_sender(consumer_src, bridge_config, mapping; client = client)

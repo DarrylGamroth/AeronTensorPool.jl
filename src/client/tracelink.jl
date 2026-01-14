@@ -35,12 +35,13 @@ next_trace_id!(generator::TraceIdGenerator) = UInt64(SnowflakeId.next_id(generat
 """
 TraceLinkSet publisher for control-plane causal links.
 """
-mutable struct TraceLinkPublisher
+mutable struct TraceLinkPublisher{StateT}
     pub::Aeron.Publication
     claim::Aeron.BufferClaim
     encoder::TraceLinkSet.Encoder{UnsafeArrays.UnsafeArray{UInt8, 1}}
     stream_id::UInt32
     epoch::UInt64
+    state::StateT
 end
 
 """
@@ -53,6 +54,7 @@ function TraceLinkPublisher(pub::Aeron.Publication, stream_id::UInt32, epoch::UI
         TraceLinkSet.Encoder(UnsafeArrays.UnsafeArray{UInt8, 1}),
         stream_id,
         epoch,
+        nothing,
     )
 end
 
@@ -69,6 +71,7 @@ function TraceLinkPublisher(state::ProducerState)
         state.runtime.control.pub_control,
         state.config.stream_id,
         state.epoch,
+        state,
     )
 end
 
@@ -255,16 +258,17 @@ function emit_tracelink_set!(
 )
     trace_id == 0 && return false
     valid_trace_parents(parents) || return false
+    epoch = publisher.state === nothing ? publisher.epoch : publisher.state.epoch
     parent_count = length(parents)
     msg_len = TRACELINK_MESSAGE_HEADER_LEN +
         Int(TraceLinkSet.sbe_block_length(TraceLinkSet.Decoder)) +
         Int(TraceLinkSet.Parents.sbe_header_size(TraceLinkSet.Parents.Decoder)) +
         parent_count * Int(TraceLinkSet.Parents.sbe_block_length(TraceLinkSet.Parents.Decoder))
 
-    sent = let pub = publisher, seq = seq, trace_id = trace_id, parents = parents
+    sent = let pub = publisher, seq = seq, trace_id = trace_id, parents = parents, epoch = epoch
         with_claimed_buffer!(pub.pub, pub.claim, msg_len) do buf
             TraceLinkSet.wrap_and_apply_header!(pub.encoder, buf, 0)
-            encode_tracelink_set!(pub.encoder, pub.stream_id, pub.epoch, seq, trace_id, parents) || return nothing
+            encode_tracelink_set!(pub.encoder, pub.stream_id, epoch, seq, trace_id, parents) || return nothing
         end
     end
     return sent

@@ -90,6 +90,7 @@
                 false,
                 false,
                 false,
+                false,
             )
 
             bridge_sender = Bridge.init_bridge_sender(consumer, bridge_cfg, mapping; client = client)

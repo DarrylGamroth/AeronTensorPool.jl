@@ -12,7 +12,7 @@ control_stream_id = 3001
 metadata_channel = "aeron:udp?endpoint=239.1.1.1:40458"
 metadata_stream_id = 3002
 source_metadata_stream_id = 1300
-# control_channel carries forwarded ShmPoolAnnounce and optional QoS/FrameProgress.
+# control_channel carries forwarded ShmPoolAnnounce and optional QoS/FrameProgress/TraceLinkSet.
 mtu_bytes = 1408
 chunk_bytes = 1200
 max_chunk_bytes = 65535
@@ -21,6 +21,7 @@ assembly_timeout_ms = 250
 forward_metadata = true
 forward_qos = false
 forward_progress = false
+forward_tracelink = false
 
 [[mappings]]
 source_stream_id = 10000

@@ -61,6 +61,7 @@ using Test
                     false,
                     false,
                     false,
+                    false,
                 )
                 receiver = Bridge.init_bridge_receiver(bridge_cfg, mapping; producer_state = producer_state, client = client)
 

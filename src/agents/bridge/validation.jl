@@ -79,9 +79,9 @@ function validate_bridge_config(config::BridgeConfig, mappings::Vector{BridgeMap
                     throw(BridgeConfigError("bridge dest_stream_id_range overlaps metadata_stream_id"))
             end
         end
-        if config.forward_qos || config.forward_progress
+        if config.forward_qos || config.forward_progress || config.forward_tracelink
             if mapping.source_control_stream_id == 0 || mapping.dest_control_stream_id == 0
-                throw(BridgeConfigError("bridge mapping requires control stream IDs when forwarding QoS/progress"))
+                throw(BridgeConfigError("bridge mapping requires control stream IDs when forwarding QoS/progress/tracelink"))
             end
         end
         pair = (mapping.source_stream_id, mapping.dest_stream_id)

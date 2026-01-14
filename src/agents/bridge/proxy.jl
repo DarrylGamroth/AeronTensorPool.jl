@@ -258,6 +258,38 @@ function bridge_forward_progress!(state::BridgeSenderState, msg::FrameProgress.D
 end
 
 """
+Forward TraceLinkSet over the bridge control channel.
+
+Arguments:
+- `state`: bridge sender state.
+- `msg`: decoded TraceLinkSet message.
+
+Returns:
+- `true` if the message was committed, `false` otherwise.
+"""
+function bridge_forward_tracelink!(state::BridgeSenderState, msg::TraceLinkSet.Decoder)
+    state.config.forward_tracelink || return false
+    TraceLinkSet.streamId(msg) == state.mapping.source_stream_id || return false
+    msg_len = TRACELINK_MESSAGE_HEADER_LEN + Int(TraceLinkSet.sbe_decoded_length(msg))
+    parents = TraceLinkSet.parents(msg)
+    sent = with_claimed_buffer!(state.pub_control, state.control_claim, msg_len) do buf
+        TraceLinkSet.wrap_and_apply_header!(state.tracelink_encoder, buf, 0)
+        TraceLinkSet.streamId!(state.tracelink_encoder, state.mapping.dest_stream_id)
+        TraceLinkSet.epoch!(state.tracelink_encoder, TraceLinkSet.epoch(msg))
+        TraceLinkSet.seq!(state.tracelink_encoder, TraceLinkSet.seq(msg))
+        TraceLinkSet.traceId!(state.tracelink_encoder, TraceLinkSet.traceId(msg))
+        group = TraceLinkSet.parents!(state.tracelink_encoder, parents.count)
+        for parent in parents
+            entry = TraceLinkSet.Parents.next!(group)
+            TraceLinkSet.Parents.traceId!(entry, TraceLinkSet.Parents.traceId(parent))
+        end
+    end
+    sent || return false
+    state.metrics.control_forwarded += 1
+    return true
+end
+
+"""
 Publish QosProducer on the local control channel.
 
 Arguments:
@@ -342,6 +374,45 @@ function bridge_publish_progress!(state::BridgeReceiverState, msg::FrameProgress
         FrameProgress.seq!(state.progress_encoder, FrameProgress.seq(msg))
         FrameProgress.payloadBytesFilled!(state.progress_encoder, FrameProgress.payloadBytesFilled(msg))
         FrameProgress.state!(state.progress_encoder, FrameProgress.state(msg))
+    end
+    sent || return false
+    state.metrics.control_forwarded += 1
+    return true
+end
+
+"""
+Publish TraceLinkSet on the local control channel and update trace mapping.
+
+Arguments:
+- `state`: bridge receiver state.
+- `msg`: decoded TraceLinkSet message.
+
+Returns:
+- `true` if the message was committed, `false` otherwise.
+"""
+function bridge_publish_tracelink!(state::BridgeReceiverState, msg::TraceLinkSet.Decoder)
+    state.config.forward_tracelink || return false
+    TraceLinkSet.streamId(msg) == state.mapping.dest_stream_id || return false
+    msg_len = TRACELINK_MESSAGE_HEADER_LEN + Int(TraceLinkSet.sbe_decoded_length(msg))
+    pub = state.pub_control_local
+    pub === nothing && return false
+
+    trace_id = TraceLinkSet.traceId(msg)
+    if trace_id != 0
+        state.trace_id_by_seq[TraceLinkSet.seq(msg)] = trace_id
+    end
+    parents = TraceLinkSet.parents(msg)
+    sent = with_claimed_buffer!(pub, state.control_claim, msg_len) do buf
+        TraceLinkSet.wrap_and_apply_header!(state.tracelink_encoder, buf, 0)
+        TraceLinkSet.streamId!(state.tracelink_encoder, state.mapping.dest_stream_id)
+        TraceLinkSet.epoch!(state.tracelink_encoder, TraceLinkSet.epoch(msg))
+        TraceLinkSet.seq!(state.tracelink_encoder, TraceLinkSet.seq(msg))
+        TraceLinkSet.traceId!(state.tracelink_encoder, trace_id)
+        group = TraceLinkSet.parents!(state.tracelink_encoder, parents.count)
+        for parent in parents
+            entry = TraceLinkSet.Parents.next!(group)
+            TraceLinkSet.Parents.traceId!(entry, TraceLinkSet.Parents.traceId(parent))
+        end
     end
     sent || return false
     state.metrics.control_forwarded += 1
