@@ -308,6 +308,34 @@ function supervisor_config_from_driver(
     )
 end
 
+function bridge_profile_params(profile::AbstractString, payload_bytes::Int)
+    if profile == "udp-jumbo"
+        chunk_bytes = UInt32(8192)
+        max_chunk_bytes = UInt32(8192)
+        mtu_bytes = UInt32(9000)
+    elseif profile == "ipc-heavy"
+        chunk_bytes = UInt32(65536)
+        max_chunk_bytes = UInt32(65536)
+        mtu_bytes = UInt32(chunk_bytes + 256)
+    else
+        chunk_bytes = UInt32(1024)
+        max_chunk_bytes = UInt32(0)
+        mtu_bytes = UInt32(1408)
+    end
+    msg_len = AeronTensorPool.Bridge.bridge_chunk_message_length(HEADER_SLOT_BYTES, Int(chunk_bytes))
+    mtu_min = UInt32(msg_len + 64)
+    mtu_bytes = max(mtu_bytes, mtu_min)
+    mtu_bytes = UInt32(cld(Int(mtu_bytes), 32) * 32)
+    max_payload_bytes = UInt32(max(payload_bytes, 1))
+    integrity_crc32c = false
+    return mtu_bytes, chunk_bytes, max_chunk_bytes, max_payload_bytes, integrity_crc32c
+end
+
+function bridge_payload_channel(base::AbstractString, mtu_bytes::UInt32)
+    mtu_bytes == 0 && return base
+    return string(base, "?mtu=", mtu_bytes)
+end
+
 function run_system_bench(
     config_path::AbstractString,
     duration_s::Float64;
@@ -655,6 +683,7 @@ function run_bridge_bench_runners(
     poll_timers::Bool = true,
     do_publish::Bool = true,
     poll_subs::Bool = true,
+    bridge_profile::AbstractString = "udp-safe",
 )
     if Threads.nthreads() < 2
         println("Bridge runners benchmark requires JULIA_NUM_THREADS >= 2")
@@ -762,21 +791,24 @@ function run_bridge_bench_runners(
                                 bridge_consumer_cfg = apply_canonical_layout(bridge_consumer_cfg, src_dir)
                                 consumer_dst_cfg = apply_canonical_layout(consumer_dst_cfg, dst_dir)
 
+                                mtu_bytes, chunk_bytes, max_chunk_bytes, max_payload_bytes, integrity_crc32c =
+                                    bridge_profile_params(bridge_profile, bytes)
+                                payload_channel = bridge_payload_channel("aeron:ipc", mtu_bytes)
                                 bridge_cfg = BridgeConfig(
                                     "bridge-bench",
                                     Aeron.MediaDriver.aeron_dir(driver),
-                                    "aeron:ipc",
+                                    payload_channel,
                                     Int32(3100),
                                     "aeron:ipc",
                                     Int32(3000),
                                     "",
                                     Int32(0),
                                     Int32(0),
-                                    UInt32(1408),
-                                    UInt32(1024),
-                                    UInt32(0),
-                                    UInt32(max(bytes, 1)),
-                                    false,
+                                    mtu_bytes,
+                                    chunk_bytes,
+                                    max_chunk_bytes,
+                                    max_payload_bytes,
+                                    integrity_crc32c,
                                     UInt64(250_000_000),
                                     false,
                                     false,
@@ -994,6 +1026,7 @@ function run_bridge_bench(
     poll_timers::Bool = true,
     do_publish::Bool = true,
     poll_subs::Bool = true,
+    bridge_profile::AbstractString = "udp-safe",
 )
     Aeron.MediaDriver.launch_embedded() do driver
         GC.@preserve driver begin
@@ -1097,21 +1130,24 @@ function run_bridge_bench(
                                 bridge_consumer_cfg = apply_canonical_layout(bridge_consumer_cfg, src_dir)
                                 consumer_dst_cfg = apply_canonical_layout(consumer_dst_cfg, dst_dir)
 
+                                mtu_bytes, chunk_bytes, max_chunk_bytes, max_payload_bytes, integrity_crc32c =
+                                    bridge_profile_params(bridge_profile, bytes)
+                                payload_channel = bridge_payload_channel("aeron:ipc", mtu_bytes)
                                 bridge_cfg = BridgeConfig(
                                     "bridge-bench",
                                     Aeron.MediaDriver.aeron_dir(driver),
-                                    "aeron:ipc",
+                                    payload_channel,
                                     Int32(3100),
                                     "aeron:ipc",
                                     Int32(3000),
                                     "",
                                     Int32(0),
                                     Int32(0),
-                                    UInt32(1408),
-                                    UInt32(1024),
-                                    UInt32(0),
-                                    UInt32(max(bytes, 1)),
-                                    false,
+                                    mtu_bytes,
+                                    chunk_bytes,
+                                    max_chunk_bytes,
+                                    max_payload_bytes,
+                                    integrity_crc32c,
                                     UInt64(250_000_000),
                                     false,
                                     false,

@@ -21,6 +21,7 @@ function parse_args(args)
     poll_timers = true
     do_publish = true
     poll_subs = true
+    bridge_profile = "udp-safe"
     run_system = false
     run_bridge = false
     run_bridge_runners = false
@@ -68,6 +69,9 @@ function parse_args(args)
             do_publish = false
         elseif arg == "--no-poll-subs"
             poll_subs = false
+        elseif arg == "--bridge-profile" && i < length(args)
+            i += 1
+            bridge_profile = args[i]
         end
         i += 1
     end
@@ -87,7 +91,8 @@ function parse_args(args)
     do_yield,
     poll_timers,
     do_publish,
-    poll_subs
+    poll_subs,
+    bridge_profile
 end
 
 run_system,
@@ -106,7 +111,8 @@ noop_loop,
 do_yield,
 poll_timers,
 do_publish,
-poll_subs = parse_args(ARGS)
+poll_subs,
+bridge_profile = parse_args(ARGS)
 
 run_benchmarks()
 
@@ -147,6 +153,7 @@ if run_bridge
         poll_timers = poll_timers,
         do_publish = do_publish,
         poll_subs = poll_subs,
+        bridge_profile = bridge_profile,
     )
 end
 if run_bridge_runners
@@ -165,5 +172,6 @@ if run_bridge_runners
         poll_timers = poll_timers,
         do_publish = do_publish,
         poll_subs = poll_subs,
+        bridge_profile = bridge_profile,
     )
 end
