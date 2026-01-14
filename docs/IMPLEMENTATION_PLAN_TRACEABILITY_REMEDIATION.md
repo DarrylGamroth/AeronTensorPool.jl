@@ -17,7 +17,7 @@ Status: complete
 - Verify each requirement has a direct unit/integration test reference; add missing tests if needed.
 
 ## Phase 2: Bridge/RateLimiter/Discovery/JoinBarrier Precision
-Status: in progress
+Status: complete
 - Bridge:
   - Chunk header validation, payload length cap, CRC policy, progress/QoS forwarding rules.
 - RateLimiter:
