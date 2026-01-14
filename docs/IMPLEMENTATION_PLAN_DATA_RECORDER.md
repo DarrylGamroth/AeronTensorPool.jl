@@ -52,6 +52,11 @@ Status: in progress.
   - `sqlite_busy_timeout_ms`: 2000
   - `sqlite_synchronous`: "NORMAL"
   - `retention_max_bytes`: 0 (disabled unless set)
+- Auto-size rule when `header_nslots` and `pool_nslots` are 0:
+  - Compute `header_nslots = floor_pow2(segment_max_bytes /
+    (header_slot_bytes + sum(pool_stride_bytes)))`.
+  - Set `pool_nslots = header_nslots` for every pool to guarantee a pool slot
+    for each header slot regardless of pool selection.
 - Per-stream overrides (optional `[[streams]]` list):
   - `stream_id` (required)
   - `descriptor_channel`, `descriptor_stream_id` (optional overrides)
