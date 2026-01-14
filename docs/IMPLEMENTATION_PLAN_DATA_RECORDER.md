@@ -125,6 +125,32 @@ Status: pending.
   - compute checksum (enabled by default; algorithm configurable).
   - update SQLite `segments` with `seq_end`, `t_end_ns`, `size_bytes`.
 
+Detailing:
+- Segment path resolution:
+  - `<dataset_root>/tensorpool-${USER}/<namespace>/<stream_id>/<epoch>/`.
+  - Always write `header.ring` and one `<pool_id>.pool` per pool.
+- Preallocation strategy:
+  - Prefer `posix_fallocate`/`ftruncate` to full size; no sparse files.
+  - Write superblock immediately after allocation.
+  - Optionally `mmap` files with `Mmap.mmap` for direct writes.
+- Header layout:
+  - `header_slot_bytes` must match wire spec for `SlotHeader.headerBytes`.
+  - `header.ring` size = `header_nslots * header_slot_bytes`.
+- Pool layout:
+  - Pool file size = `pool_nslots * stride_bytes` per pool.
+- `segment_write!` specifics:
+  - For each frame, write payload bytes first, then slot header, then commit
+    seqlock (matches wire spec ordering).
+  - Use preallocated scratch buffers for header encoding if needed.
+- `segment_full?` guard:
+  - Track `seq_start` for the segment; seal when `(seq - seq_start)` would
+    exceed `header_nslots` or any `pool_nslots` for the selected pool.
+  - Seal before writing the frame that would wrap.
+- `seal_segment!` specifics:
+  - Update `segments.seq_end`, `segments.t_end_ns`, `segments.size_bytes`.
+  - Compute checksum over `header.ring` then pools in ascending `pool_id`.
+  - `fsync` all region files and SQLite transaction after seal.
+
 Status: pending.
 
 ---
