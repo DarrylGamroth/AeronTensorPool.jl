@@ -172,6 +172,28 @@ Status: pending.
   - Use `SlotHeader.timestamp_ns` when present, else descriptor time.
 - Handle epoch changes by closing current segment and starting a new epoch.
 
+Detailing:
+- Descriptor handling:
+  - Use `FragmentAssembler` and decode only when `schemaId` matches.
+  - Drop descriptors for unknown streams (or log once per stream).
+- SHM mapping:
+  - Reuse `src/shm/paths.jl` for epoch path resolution.
+  - On first descriptor or epoch change, map `header.ring` and pools read-only.
+  - Validate `layout_version`, `epoch`, `stream_id`, pool counts/strides.
+- Seqlock read:
+  - Read `SlotHeader` using `seqlock_read_header` helper.
+  - Validate `seq_commit == seq` and `commit_flag == 1`.
+  - Read payload bytes only after header commit is verified.
+  - If seqlock fails, skip and rely on next descriptor.
+- Timestamp selection:
+  - `t_ns = SlotHeader.timestamp_ns` when nonzero; else use descriptor time.
+  - If both are absent, set `t_ns = 0` and proceed.
+- Payload size validation:
+  - Ensure `values_len <= pool_stride_bytes`; error/log on overflow.
+- Epoch transition:
+  - When descriptor epoch differs from current mapping, seal the current segment,
+    unmap old SHM, map new epoch, start new segment.
+
 Status: pending.
 
 ---
