@@ -83,8 +83,25 @@ Status: pending.
   - `recordings`, `streams`, `segments`, `segment_pools`, `frames`.
   - Optional: `metadata_events`, `trace_links`, `events`, `data_loss`.
 - Ensure `recordings.manifest_version` exists.
-- Enable WAL mode and tune pragmas (busy timeout, synchronous mode).
+- Schema versioning/migrations:
+  - Store `manifest_version` in `recordings` (single row per dataset).
+  - Refuse to open if `manifest_version` is newer than the binary supports.
+  - Allow forward-compatible additions via nullable columns + new tables.
+  - Keep a `manifest_schema.sql` in `docs/` for reference; generator owns code.
+- SQLite pragmas (defaults, configurable):
+  - `journal_mode=WAL`
+  - `synchronous=NORMAL` (warn if OFF)
+  - `temp_store=MEMORY`
+  - `busy_timeout=<sqlite_busy_timeout_ms>`
+  - `cache_size` optional, in KiB (negative for KiB units).
 - Add prepared statements and a batched insert buffer for `frames`.
+- Prepared statement set (minimum):
+  - Insert/select `recordings` (lookup by root path).
+  - Insert/update `streams`.
+  - Insert `segments`; update `segments` on seal.
+  - Insert `segment_pools`.
+  - Insert `frames` (bulk via `executemany` or manual bind loop).
+  - Delete `frames`/`segment_pools`/`segments` for retention cleanup.
 - Commit cadence: `batch_rows` or `batch_ms` (spec default 5k/100ms).
 - Periodic WAL checkpoints (>= 1s) and optional on-seal checkpoint.
 
