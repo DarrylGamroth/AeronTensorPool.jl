@@ -5,8 +5,11 @@ mutable struct JoinBarrierResult
     ready::Bool
     missing_count::Int
     stale_count::Int
+    rejected_count::Int
     missing_inputs::Vector{UInt32}
     stale_inputs::Vector{UInt32}
+    rejected_inputs::Vector{UInt32}
+    output_rejected::Bool
 end
 
 """
@@ -33,11 +36,17 @@ mutable struct JoinBarrierState
     seen_any::Vector{Bool}
     seen_seq::Vector{Bool}
     seen_time::Vector{Bool}
+    rejected_inputs::Vector{Bool}
+    last_out_seq::UInt64
+    last_out_time::UInt64
+    seen_out_seq::Bool
+    seen_out_time::Bool
+    output_rejected::Bool
     result::JoinBarrierResult
 end
 
 function JoinBarrierResult()
-    return JoinBarrierResult(false, 0, 0, UInt32[], UInt32[])
+    return JoinBarrierResult(false, 0, 0, 0, UInt32[], UInt32[], UInt32[], false)
 end
 
 function JoinBarrierState(config::JoinBarrierConfig)
@@ -62,6 +71,12 @@ function JoinBarrierState(config::JoinBarrierConfig)
         Bool[],
         Bool[],
         Bool[],
+        Bool[],
+        UInt64(0),
+        UInt64(0),
+        false,
+        false,
+        false,
         JoinBarrierResult(),
     )
 end

@@ -470,6 +470,7 @@ function handle_consumer_hello!(state::ProducerState, msg::ConsumerHello.Decoder
         state.supports_progress = true
         interval = ConsumerHello.progressIntervalUs(msg)
         bytes_delta = ConsumerHello.progressBytesDelta(msg)
+        major_units = ConsumerHello.progressMajorDeltaUnits(msg)
 
         if interval != typemax(UInt32)
             hint_ns = UInt64(interval) * 1000
@@ -485,6 +486,13 @@ function handle_consumer_hello!(state::ProducerState, msg::ConsumerHello.Decoder
                 state.config.progress_bytes_delta,
                 min(state.progress_bytes_delta, hint_bytes),
             )
+        end
+        if major_units != typemax(UInt32)
+            hint_units = UInt64(major_units)
+            floor_units = UInt64(state.config.progress_major_delta_units)
+            current = state.progress_major_delta_units
+            candidate = current == 0 ? hint_units : min(current, hint_units)
+            state.progress_major_delta_units = max(floor_units, candidate)
         end
     end
     update_consumer_streams!(state, msg)

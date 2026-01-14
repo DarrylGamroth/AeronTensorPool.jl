@@ -11,25 +11,17 @@ function offer_shm_pool_announce!(
     header_uri::AbstractString,
     pool_uri::AbstractString,
 )
-    buf = Vector{UInt8}(undef, 1024)
-    enc = AeronTensorPool.ShmPoolAnnounce.Encoder(Vector{UInt8})
-    AeronTensorPool.ShmPoolAnnounce.wrap_and_apply_header!(enc, buf, 0)
-    AeronTensorPool.ShmPoolAnnounce.streamId!(enc, stream_id)
-    AeronTensorPool.ShmPoolAnnounce.producerId!(enc, producer_id)
-    AeronTensorPool.ShmPoolAnnounce.epoch!(enc, UInt64(1))
-    AeronTensorPool.ShmPoolAnnounce.announceTimestampNs!(enc, UInt64(time_ns()))
-    AeronTensorPool.ShmPoolAnnounce.announceClockDomain!(enc, AeronTensorPool.ClockDomain.MONOTONIC)
-    AeronTensorPool.ShmPoolAnnounce.layoutVersion!(enc, UInt32(1))
-    AeronTensorPool.ShmPoolAnnounce.headerNslots!(enc, UInt32(8))
-    AeronTensorPool.ShmPoolAnnounce.headerSlotBytes!(enc, UInt16(AeronTensorPool.HEADER_SLOT_BYTES))
-    pools = AeronTensorPool.ShmPoolAnnounce.payloadPools!(enc, 1)
-    pool_entry = AeronTensorPool.ShmPoolAnnounce.PayloadPools.next!(pools)
-    AeronTensorPool.ShmPoolAnnounce.PayloadPools.poolId!(pool_entry, UInt16(1))
-    AeronTensorPool.ShmPoolAnnounce.PayloadPools.poolNslots!(pool_entry, UInt32(8))
-    AeronTensorPool.ShmPoolAnnounce.PayloadPools.strideBytes!(pool_entry, UInt32(1024))
-    AeronTensorPool.ShmPoolAnnounce.PayloadPools.regionUri!(pool_entry, pool_uri)
-    AeronTensorPool.ShmPoolAnnounce.headerRegionUri!(enc, header_uri)
-    Aeron.offer(pub, view(buf, 1:sbe_message_length(enc)))
+    announce = build_shm_pool_announce(
+        stream_id = stream_id,
+        producer_id = producer_id,
+        epoch = UInt64(1),
+        layout_version = UInt32(1),
+        nslots = UInt32(8),
+        stride_bytes = UInt32(1024),
+        header_uri = header_uri,
+        pool_uri = pool_uri,
+    )
+    Aeron.offer(pub, view(announce.buf, 1:announce.len))
     return nothing
 end
 

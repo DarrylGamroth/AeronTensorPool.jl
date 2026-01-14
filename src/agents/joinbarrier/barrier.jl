@@ -2,6 +2,8 @@
     result.ready = false
     result.missing_count = 0
     result.stale_count = 0
+    result.rejected_count = 0
+    result.output_rejected = false
     return nothing
 end
 
@@ -14,6 +16,7 @@ end
     state.seen_any[idx] = false
     state.seen_seq[idx] = false
     state.seen_time[idx] = false
+    state.rejected_inputs[idx] = false
     return nothing
 end
 
@@ -30,6 +33,13 @@ end
 
 @inline function saturating_sub_u64(value::UInt64, sub::UInt64)
     return value >= sub ? value - sub : UInt64(0)
+end
+
+function reject_slots!(state::JoinBarrierState, slots::Vector{Int})
+    for idx in slots
+        state.rejected_inputs[idx] = true
+    end
+    return nothing
 end
 
 function sequence_required_seq(rule::SequenceMergeRule, out_seq::UInt64)
@@ -134,15 +144,21 @@ function update_observed_time_epoch!(
     now_ns::UInt64,
     clock_domain::Merge.ClockDomain.SbeEnum,
 )
-    state.clock_domain === nothing && return false
-    state.clock_domain == clock_domain || return false
     key = merge_time_key(stream_id, source)
     slots = get(state.time_index, key, nothing)
     slots === nothing && return false
+    if state.clock_domain === nothing || state.clock_domain != clock_domain
+        reject_slots!(state, slots)
+        return false
+    end
     for idx in slots
         if epoch != UInt64(0) && state.observed_epoch[idx] != epoch
             state.observed_epoch[idx] = epoch
             reset_input_state!(state, idx)
+        end
+        if timestamp_ns < state.observed_time[idx]
+            state.rejected_inputs[idx] = true
+            continue
         end
         if timestamp_ns > state.observed_time[idx]
             state.observed_time[idx] = timestamp_ns
@@ -166,6 +182,10 @@ function update_processed_time_epoch!(
         if epoch != UInt64(0) && state.observed_epoch[idx] != epoch
             state.observed_epoch[idx] = epoch
             reset_input_state!(state, idx)
+        end
+        if timestamp_ns < state.processed_time[idx]
+            state.rejected_inputs[idx] = true
+            continue
         end
         if timestamp_ns > state.processed_time[idx]
             state.processed_time[idx] = timestamp_ns
@@ -210,12 +230,29 @@ end
 
 function sequence_ready!(state::JoinBarrierState, out_seq::UInt64, now_ns::UInt64)
     reset_result!(state.result)
+    if state.output_rejected
+        state.result.output_rejected = true
+        return state.result
+    end
+    if state.seen_out_seq && out_seq < state.last_out_seq
+        state.output_rejected = true
+        state.result.output_rejected = true
+        return state.result
+    end
+    state.last_out_seq = out_seq
+    state.seen_out_seq = true
+
     map = state.sequence_map
     map === nothing && return state.result
 
     stale_timeout = state.stale_timeout_ns
     use_processed = state.config.use_processed_cursor
     for (i, rule) in enumerate(map.rules)
+        if state.rejected_inputs[i]
+            state.result.rejected_count += 1
+            state.result.rejected_inputs[state.result.rejected_count] = rule.input_stream_id
+            continue
+        end
         required = sequence_required_seq(rule, out_seq)
         if required === nothing
             state.result.missing_count += 1
@@ -236,12 +273,24 @@ function sequence_ready!(state::JoinBarrierState, out_seq::UInt64, now_ns::UInt6
         end
     end
 
-    state.result.ready = state.result.missing_count == 0
+    state.result.ready = state.result.missing_count == 0 && state.result.rejected_count == 0
     return state.result
 end
 
 function timestamp_ready!(state::JoinBarrierState, out_time::UInt64, now_ns::UInt64)
     reset_result!(state.result)
+    if state.output_rejected
+        state.result.output_rejected = true
+        return state.result
+    end
+    if state.seen_out_time && out_time < state.last_out_time
+        state.output_rejected = true
+        state.result.output_rejected = true
+        return state.result
+    end
+    state.last_out_time = out_time
+    state.seen_out_time = true
+
     map = state.timestamp_map
     map === nothing && return state.result
 
@@ -249,6 +298,11 @@ function timestamp_ready!(state::JoinBarrierState, out_time::UInt64, now_ns::UIn
     use_processed = state.config.use_processed_cursor
     lateness_ns = state.lateness_ns
     for (i, rule) in enumerate(map.rules)
+        if state.rejected_inputs[i]
+            state.result.rejected_count += 1
+            state.result.rejected_inputs[state.result.rejected_count] = rule.input_stream_id
+            continue
+        end
         required = timestamp_required_time(rule, out_time, lateness_ns)
         if required === nothing
             state.result.missing_count += 1
@@ -269,12 +323,16 @@ function timestamp_ready!(state::JoinBarrierState, out_time::UInt64, now_ns::UIn
         end
     end
 
-    state.result.ready = state.result.missing_count == 0
+    state.result.ready = state.result.missing_count == 0 && state.result.rejected_count == 0
     return state.result
 end
 
 function latest_value_ready!(state::JoinBarrierState, now_ns::UInt64)
     reset_result!(state.result)
+    if state.output_rejected
+        state.result.output_rejected = true
+        return state.result
+    end
     map = state.sequence_map === nothing ? state.timestamp_map : state.sequence_map
     map === nothing && return state.result
 
@@ -295,6 +353,11 @@ function latest_value_ready!(state::JoinBarrierState, now_ns::UInt64)
         return state.result
     end
     for (i, rule) in enumerate(map.rules)
+        if state.rejected_inputs[i]
+            state.result.rejected_count += 1
+            state.result.rejected_inputs[state.result.rejected_count] = rule.input_stream_id
+            continue
+        end
         has_value = use_timestamp ? state.seen_time[i] : state.seen_seq[i]
         has_value || begin
             state.result.missing_count += 1
@@ -308,7 +371,7 @@ function latest_value_ready!(state::JoinBarrierState, now_ns::UInt64)
         end
     end
 
-    state.result.ready = state.result.missing_count == 0
+    state.result.ready = state.result.missing_count == 0 && state.result.rejected_count == 0
     return state.result
 end
 

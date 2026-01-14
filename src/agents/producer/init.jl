@@ -72,6 +72,8 @@ function init_producer(config::ProducerConfig; client::Aeron.Client)
         UInt64(0),
         config.progress_interval_ns,
         config.progress_bytes_delta,
+        UInt64(config.progress_major_delta_units),
+        UInt64(0),
         PolledTimer(config.progress_interval_ns),
         nothing,
         Int64(0),
@@ -137,6 +139,7 @@ function producer_config_from_attach(config::ProducerConfig, attach::AttachRespo
         config.qos_interval_ns,
         config.progress_interval_ns,
         config.progress_bytes_delta,
+        config.progress_major_delta_units,
         config.mlock_shm,
     )
 end
@@ -257,6 +260,8 @@ function init_producer_from_attach(
         UInt64(0),
         driver_config.progress_interval_ns,
         driver_config.progress_bytes_delta,
+        UInt64(driver_config.progress_major_delta_units),
+        UInt64(0),
         PolledTimer(driver_config.progress_interval_ns),
         driver_client,
         Int64(0),

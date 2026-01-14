@@ -32,7 +32,57 @@ struct ProducerConfig
     qos_interval_ns::UInt64
     progress_interval_ns::UInt64
     progress_bytes_delta::UInt64
+    progress_major_delta_units::UInt32
     mlock_shm::Bool
+end
+
+function ProducerConfig(
+    aeron_dir::AbstractString,
+    aeron_uri::AbstractString,
+    descriptor_stream_id::Int32,
+    control_stream_id::Int32,
+    qos_stream_id::Int32,
+    metadata_stream_id::Int32,
+    stream_id::UInt32,
+    producer_id::UInt32,
+    layout_version::UInt32,
+    nslots::UInt32,
+    shm_base_dir::AbstractString,
+    shm_namespace::AbstractString,
+    producer_instance_id::AbstractString,
+    header_uri::AbstractString,
+    payload_pools::AbstractVector{PayloadPoolConfig},
+    max_dims::UInt8,
+    announce_interval_ns::UInt64,
+    qos_interval_ns::UInt64,
+    progress_interval_ns::UInt64,
+    progress_bytes_delta::UInt64,
+    mlock_shm::Bool,
+)
+    return ProducerConfig(
+        String(aeron_dir),
+        String(aeron_uri),
+        descriptor_stream_id,
+        control_stream_id,
+        qos_stream_id,
+        metadata_stream_id,
+        stream_id,
+        producer_id,
+        layout_version,
+        nslots,
+        String(shm_base_dir),
+        String(shm_namespace),
+        String(producer_instance_id),
+        String(header_uri),
+        Vector{PayloadPoolConfig}(payload_pools),
+        max_dims,
+        announce_interval_ns,
+        qos_interval_ns,
+        progress_interval_ns,
+        progress_bytes_delta,
+        UInt32(0),
+        mlock_shm,
+    )
 end
 
 """

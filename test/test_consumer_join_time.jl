@@ -1,11 +1,14 @@
-@testset "Consumer PID change handling" begin
+using Test
+using AeronTensorPool
+
+@testset "Consumer join-time gating" begin
     with_driver_and_client() do driver, client
         mktempdir("/dev/shm") do dir
             nslots = UInt32(8)
             stride = UInt32(4096)
             epoch = UInt64(1)
             layout_version = UInt32(1)
-            stream_id = UInt32(55)
+            stream_id = UInt32(12345)
 
             _, header_path, pool_path = prepare_canonical_shm_layout(
                 dir;
@@ -39,7 +42,6 @@
                     UInt64(0),
                 ),
             )
-
             wrap_superblock!(sb_enc, pool_mmap, 0)
             write_superblock!(
                 sb_enc,
@@ -59,40 +61,18 @@
                 ),
             )
 
-            consumer_cfg = ConsumerConfig(
-                Aeron.MediaDriver.aeron_dir(driver),
-                "aeron:ipc",
-                Int32(12002),
-                Int32(12001),
-                Int32(12003),
-                stream_id,
-                UInt32(42),
-                layout_version,
-                UInt8(MAX_DIMS),
-                Mode.STREAM,
-                UInt32(256),
-                true,
-                true,
-                false,
-                UInt16(0),
-                "",
-                dir,
-                String[],
-                false,
-                UInt32(250),
-                UInt32(65536),
-                UInt32(0),
-                UInt64(1_000_000_000),
-                UInt64(1_000_000_000),
-                UInt64(3_000_000_000),
-                "",
-                UInt32(0),
-                "",
-                UInt32(0),
-                false,
+            cfg = default_consumer_config(
+                aeron_dir = Aeron.MediaDriver.aeron_dir(driver),
+                stream_id = stream_id,
+                shm_base_dir = dir,
+                expected_layout_version = layout_version,
+                announce_freshness_ns = UInt64(1_000_000_000),
             )
-            state = Consumer.init_consumer(consumer_cfg; client = client)
+            state = Consumer.init_consumer(cfg; client = client)
             try
+                now_ns = UInt64(Clocks.time_nanos(state.clock))
+                state.announce_join_ns_ref[] = now_ns + state.config.announce_freshness_ns + 1
+
                 announce = build_shm_pool_announce(
                     stream_id = stream_id,
                     epoch = epoch,
@@ -101,18 +81,23 @@
                     stride_bytes = stride,
                     header_uri = header_uri,
                     pool_uri = pool_uri,
+                    announce_ts = now_ns - 1,
+                    clock_domain = AeronTensorPool.ClockDomain.MONOTONIC,
                 )
-                announce_dec = announce.dec
+                @test !Consumer.handle_shm_pool_announce!(state, announce.dec)
 
-                @test Consumer.map_from_announce!(state, announce_dec)
-                @test state.mappings.mapped_pid == UInt64(1234)
-
-                wrap_superblock!(sb_enc, header_mmap, 0)
-                ShmRegionSuperblock.pid!(sb_enc, UInt64(5678))
-
-                @test Consumer.validate_mapped_superblocks!(state, announce_dec) == :pid_changed
-                @test !Consumer.handle_shm_pool_announce!(state, announce_dec)
-                @test state.mappings.header_mmap === nothing
+                announce = build_shm_pool_announce(
+                    stream_id = stream_id,
+                    epoch = epoch,
+                    layout_version = layout_version,
+                    nslots = nslots,
+                    stride_bytes = stride,
+                    header_uri = header_uri,
+                    pool_uri = pool_uri,
+                    announce_ts = now_ns - 1,
+                    clock_domain = AeronTensorPool.ClockDomain.REALTIME_SYNCED,
+                )
+                @test Consumer.handle_shm_pool_announce!(state, announce.dec)
             finally
                 close_consumer_state!(state)
             end

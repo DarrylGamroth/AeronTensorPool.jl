@@ -132,6 +132,74 @@ function close_driver_state!(state::DriverState)
     return nothing
 end
 
+function build_shm_pool_announce(;
+    stream_id::UInt32 = UInt32(10000),
+    producer_id::UInt32 = UInt32(7),
+    epoch::UInt64 = UInt64(1),
+    layout_version::UInt32 = UInt32(1),
+    nslots::UInt32 = UInt32(8),
+    pool_id::UInt16 = UInt16(1),
+    stride_bytes::UInt32 = UInt32(4096),
+    header_uri::AbstractString = "shm:file?path=/dev/shm/tp_header",
+    pool_uri::AbstractString = "shm:file?path=/dev/shm/tp_pool",
+    announce_ts::UInt64 = UInt64(time_ns()),
+    clock_domain::AeronTensorPool.ClockDomain.SbeEnum = AeronTensorPool.ClockDomain.MONOTONIC,
+    payload_entries::Union{Nothing, AbstractVector{<:NamedTuple}} = nothing,
+)
+    buf = Vector{UInt8}(undef, 2048)
+    enc = AeronTensorPool.ShmPoolAnnounce.Encoder(Vector{UInt8})
+    AeronTensorPool.ShmPoolAnnounce.wrap_and_apply_header!(enc, buf, 0)
+    AeronTensorPool.ShmPoolAnnounce.streamId!(enc, stream_id)
+    AeronTensorPool.ShmPoolAnnounce.producerId!(enc, producer_id)
+    AeronTensorPool.ShmPoolAnnounce.epoch!(enc, epoch)
+    AeronTensorPool.ShmPoolAnnounce.announceTimestampNs!(enc, announce_ts)
+    AeronTensorPool.ShmPoolAnnounce.announceClockDomain!(enc, clock_domain)
+    AeronTensorPool.ShmPoolAnnounce.layoutVersion!(enc, layout_version)
+    AeronTensorPool.ShmPoolAnnounce.headerNslots!(enc, nslots)
+    AeronTensorPool.ShmPoolAnnounce.headerSlotBytes!(enc, UInt16(HEADER_SLOT_BYTES))
+
+    entries = payload_entries === nothing ?
+        [(; pool_id = pool_id, nslots = nslots, stride_bytes = stride_bytes, uri = pool_uri)] :
+        payload_entries
+    pools = AeronTensorPool.ShmPoolAnnounce.payloadPools!(enc, length(entries))
+    for entry_data in entries
+        entry = AeronTensorPool.ShmPoolAnnounce.PayloadPools.next!(pools)
+        AeronTensorPool.ShmPoolAnnounce.PayloadPools.poolId!(entry, entry_data.pool_id)
+        AeronTensorPool.ShmPoolAnnounce.PayloadPools.regionUri!(entry, entry_data.uri)
+        AeronTensorPool.ShmPoolAnnounce.PayloadPools.poolNslots!(entry, entry_data.nslots)
+        AeronTensorPool.ShmPoolAnnounce.PayloadPools.strideBytes!(entry, entry_data.stride_bytes)
+    end
+
+    AeronTensorPool.ShmPoolAnnounce.headerRegionUri!(enc, header_uri)
+
+    header = AeronTensorPool.MessageHeader.Decoder(buf, 0)
+    dec = AeronTensorPool.ShmPoolAnnounce.Decoder(Vector{UInt8})
+    AeronTensorPool.ShmPoolAnnounce.wrap!(dec, buf, 0; header = header)
+    return (; buf = buf, dec = dec, len = sbe_message_length(enc))
+end
+
+function build_frame_descriptor(;
+    stream_id::UInt32 = UInt32(10000),
+    epoch::UInt64 = UInt64(1),
+    seq::UInt64 = UInt64(0),
+    timestamp_ns::UInt64 = UInt64(0),
+    meta_version::UInt32 = UInt32(0),
+    trace_id::UInt64 = UInt64(0),
+)
+    buf = Vector{UInt8}(undef, AeronTensorPool.FRAME_DESCRIPTOR_LEN)
+    enc = AeronTensorPool.FrameDescriptor.Encoder(Vector{UInt8})
+    AeronTensorPool.FrameDescriptor.wrap_and_apply_header!(enc, buf, 0)
+    AeronTensorPool.FrameDescriptor.streamId!(enc, stream_id)
+    AeronTensorPool.FrameDescriptor.epoch!(enc, epoch)
+    AeronTensorPool.FrameDescriptor.seq!(enc, seq)
+    AeronTensorPool.FrameDescriptor.timestampNs!(enc, timestamp_ns)
+    AeronTensorPool.FrameDescriptor.metaVersion!(enc, meta_version)
+    AeronTensorPool.FrameDescriptor.traceId!(enc, trace_id)
+    dec = AeronTensorPool.FrameDescriptor.Decoder(Vector{UInt8})
+    AeronTensorPool.FrameDescriptor.wrap!(dec, buf, 0; header = AeronTensorPool.MessageHeader.Decoder(buf, 0))
+    return buf, dec
+end
+
 """
 Poll until an attach response with the given correlation id is received.
 """

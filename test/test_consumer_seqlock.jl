@@ -92,118 +92,101 @@
             )
             state = Consumer.init_consumer(consumer_cfg; client = client)
             try
+                announce = build_shm_pool_announce(
+                    stream_id = stream_id,
+                    epoch = epoch,
+                    layout_version = layout_version,
+                    nslots = nslots,
+                    stride_bytes = stride,
+                    header_uri = header_uri,
+                    pool_uri = pool_uri,
+                )
+                @test Consumer.map_from_announce!(state, announce.dec)
 
-            announce_buf = Vector{UInt8}(undef, 1024)
-            announce_enc = AeronTensorPool.ShmPoolAnnounce.Encoder(Vector{UInt8})
-            AeronTensorPool.ShmPoolAnnounce.wrap_and_apply_header!(announce_enc, announce_buf, 0)
-            AeronTensorPool.ShmPoolAnnounce.streamId!(announce_enc, stream_id)
-            AeronTensorPool.ShmPoolAnnounce.producerId!(announce_enc, UInt32(7))
-            AeronTensorPool.ShmPoolAnnounce.epoch!(announce_enc, epoch)
-            AeronTensorPool.ShmPoolAnnounce.announceTimestampNs!(announce_enc, UInt64(time_ns()))
-            AeronTensorPool.ShmPoolAnnounce.announceClockDomain!(announce_enc, AeronTensorPool.ClockDomain.MONOTONIC)
-            AeronTensorPool.ShmPoolAnnounce.layoutVersion!(announce_enc, layout_version)
-            AeronTensorPool.ShmPoolAnnounce.headerNslots!(announce_enc, nslots)
-            AeronTensorPool.ShmPoolAnnounce.headerSlotBytes!(announce_enc, UInt16(HEADER_SLOT_BYTES))
-            pools = AeronTensorPool.ShmPoolAnnounce.payloadPools!(announce_enc, 1)
-            pool = AeronTensorPool.ShmPoolAnnounce.PayloadPools.next!(pools)
-            AeronTensorPool.ShmPoolAnnounce.PayloadPools.poolId!(pool, UInt16(1))
-            AeronTensorPool.ShmPoolAnnounce.PayloadPools.regionUri!(pool, pool_uri)
-            AeronTensorPool.ShmPoolAnnounce.PayloadPools.poolNslots!(pool, nslots)
-            AeronTensorPool.ShmPoolAnnounce.PayloadPools.strideBytes!(pool, stride)
-            AeronTensorPool.ShmPoolAnnounce.headerRegionUri!(announce_enc, header_uri)
-            header = MessageHeader.Decoder(announce_buf, 0)
-            announce_dec = AeronTensorPool.ShmPoolAnnounce.Decoder(Vector{UInt8})
-            AeronTensorPool.ShmPoolAnnounce.wrap!(announce_dec, announce_buf, 0; header = header)
-            @test Consumer.map_from_announce!(state, announce_dec)
+                (_, desc_dec) = build_frame_descriptor(
+                    stream_id = stream_id,
+                    epoch = epoch,
+                    seq = UInt64(1),
+                    timestamp_ns = UInt64(0),
+                    meta_version = UInt32(1),
+                    trace_id = UInt64(0),
+                )
 
-            desc_buf = Vector{UInt8}(undef, 256)
-            desc_enc = FrameDescriptor.Encoder(Vector{UInt8})
-            FrameDescriptor.wrap_and_apply_header!(desc_enc, desc_buf, 0)
-            FrameDescriptor.streamId!(desc_enc, stream_id)
-            FrameDescriptor.epoch!(desc_enc, epoch)
-            FrameDescriptor.seq!(desc_enc, UInt64(1))
-            FrameDescriptor.timestampNs!(desc_enc, UInt64(0))
-            FrameDescriptor.metaVersion!(desc_enc, UInt32(1))
-            FrameDescriptor.traceId!(desc_enc, UInt64(0))
-            desc_header = MessageHeader.Decoder(desc_buf, 0)
-            desc_dec = FrameDescriptor.Decoder(Vector{UInt8})
-            FrameDescriptor.wrap!(desc_dec, desc_buf, 0; header = desc_header)
+                header_offset = header_slot_offset(UInt32(0))
+                slot_enc = SlotHeaderMsg.Encoder(Vector{UInt8})
+                tensor_enc = TensorHeaderMsg.Encoder(Vector{UInt8})
+                wrap_slot_header!(slot_enc, header_mmap, header_offset)
+                write_slot_header!(
+                    slot_enc,
+                    tensor_enc,
+                    UInt64(0),
+                    UInt32(0),
+                    UInt32(16),
+                    UInt32(0),
+                    UInt32(0),
+                    UInt16(1),
+                    Dtype.UINT8,
+                    MajorOrder.ROW,
+                    UInt8(1),
+                    AeronTensorPool.ProgressUnit.NONE,
+                    UInt32(0),
+                    vcat(Int32(16), zeros(Int32, MAX_DIMS - 1)),
+                    vcat(Int32(0), zeros(Int32, MAX_DIMS - 1)),
+                )
 
-            header_offset = header_slot_offset(UInt32(0))
-            slot_enc = SlotHeaderMsg.Encoder(Vector{UInt8})
-            tensor_enc = TensorHeaderMsg.Encoder(Vector{UInt8})
-            wrap_slot_header!(slot_enc, header_mmap, header_offset)
-            write_slot_header!(
-                slot_enc,
-                tensor_enc,
-                UInt64(0),
-                UInt32(0),
-                UInt32(16),
-                UInt32(0),
-                UInt32(0),
-                UInt16(1),
-                Dtype.UINT8,
-                MajorOrder.ROW,
-                UInt8(1),
-                AeronTensorPool.ProgressUnit.NONE,
-                UInt32(0),
-                vcat(Int32(16), zeros(Int32, MAX_DIMS - 1)),
-                vcat(Int32(0), zeros(Int32, MAX_DIMS - 1)),
-            )
+                commit_ptr = header_commit_ptr_from_offset(header_mmap, header_offset)
 
-            commit_ptr = header_commit_ptr_from_offset(header_mmap, header_offset)
+                seqlock_begin_write!(commit_ptr, UInt64(1))
+                drops_before = state.metrics.drops_late
+                @test Consumer.try_read_frame!(state, desc_dec) == false
+                @test state.metrics.drops_late == drops_before + 1
 
-            seqlock_begin_write!(commit_ptr, UInt64(1))
-            drops_before = state.metrics.drops_late
-            @test Consumer.try_read_frame!(state, desc_dec) == false
-            @test state.metrics.drops_late == drops_before + 1
+                seqlock_commit_write!(commit_ptr, UInt64(1))
+                state.mappings.last_commit_words[1] = UInt64(4) << 1
+                drops_before = state.metrics.drops_late
+                @test Consumer.try_read_frame!(state, desc_dec) == false
+                @test state.metrics.drops_late == drops_before + 1
+                state.mappings.last_commit_words[1] = UInt64(0)
 
-            seqlock_commit_write!(commit_ptr, UInt64(1))
-            state.mappings.last_commit_words[1] = UInt64(4) << 1
-            drops_before = state.metrics.drops_late
-            @test Consumer.try_read_frame!(state, desc_dec) == false
-            @test state.metrics.drops_late == drops_before + 1
-            state.mappings.last_commit_words[1] = UInt64(0)
+                write_slot_header!(
+                    slot_enc,
+                    tensor_enc,
+                    UInt64(2),
+                    UInt32(0),
+                    UInt32(1),
+                    UInt32(16),
+                    UInt32(0),
+                    UInt16(1),
+                    Dtype.UINT8,
+                    MajorOrder.ROW,
+                    UInt8(1),
+                    AeronTensorPool.ProgressUnit.NONE,
+                    UInt32(0),
+                    vcat(Int32(16), zeros(Int32, MAX_DIMS - 1)),
+                    vcat(Int32(0), zeros(Int32, MAX_DIMS - 1)),
+                )
+                seqlock_commit_write!(commit_ptr, UInt64(1))
+                @test Consumer.try_read_frame!(state, desc_dec) == false
 
-            write_slot_header!(
-                slot_enc,
-                tensor_enc,
-                UInt64(2),
-                UInt32(0),
-                UInt32(1),
-                UInt32(16),
-                UInt32(0),
-                UInt16(1),
-                Dtype.UINT8,
-                MajorOrder.ROW,
-                UInt8(1),
-                AeronTensorPool.ProgressUnit.NONE,
-                UInt32(0),
-                vcat(Int32(16), zeros(Int32, MAX_DIMS - 1)),
-                vcat(Int32(0), zeros(Int32, MAX_DIMS - 1)),
-            )
-            seqlock_commit_write!(commit_ptr, UInt64(1))
-            @test Consumer.try_read_frame!(state, desc_dec) == false
-
-            write_slot_header!(
-                slot_enc,
-                tensor_enc,
-                UInt64(1),
-                UInt32(0),
-                UInt32(1),
-                UInt32(16),
-                UInt32(4),
-                UInt16(1),
-                Dtype.UINT8,
-                MajorOrder.ROW,
-                UInt8(1),
-                AeronTensorPool.ProgressUnit.NONE,
-                UInt32(0),
-                vcat(Int32(16), zeros(Int32, MAX_DIMS - 1)),
-                vcat(Int32(0), zeros(Int32, MAX_DIMS - 1)),
-            )
-            seqlock_commit_write!(commit_ptr, UInt64(1))
-            @test Consumer.try_read_frame!(state, desc_dec) == false
+                write_slot_header!(
+                    slot_enc,
+                    tensor_enc,
+                    UInt64(1),
+                    UInt32(0),
+                    UInt32(1),
+                    UInt32(16),
+                    UInt32(4),
+                    UInt16(1),
+                    Dtype.UINT8,
+                    MajorOrder.ROW,
+                    UInt8(1),
+                    AeronTensorPool.ProgressUnit.NONE,
+                    UInt32(0),
+                    vcat(Int32(16), zeros(Int32, MAX_DIMS - 1)),
+                    vcat(Int32(0), zeros(Int32, MAX_DIMS - 1)),
+                )
+                seqlock_commit_write!(commit_ptr, UInt64(1))
+                @test Consumer.try_read_frame!(state, desc_dec) == false
             finally
                 close_consumer_state!(state)
             end

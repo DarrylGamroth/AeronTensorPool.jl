@@ -92,42 +92,26 @@
             )
             state = Consumer.init_consumer(consumer_cfg; client = client)
             try
-                announce_buf = Vector{UInt8}(undef, 1024)
-                announce_enc = AeronTensorPool.ShmPoolAnnounce.Encoder(Vector{UInt8})
-                AeronTensorPool.ShmPoolAnnounce.wrap_and_apply_header!(announce_enc, announce_buf, 0)
-                AeronTensorPool.ShmPoolAnnounce.streamId!(announce_enc, stream_id)
-                AeronTensorPool.ShmPoolAnnounce.producerId!(announce_enc, UInt32(7))
-                AeronTensorPool.ShmPoolAnnounce.epoch!(announce_enc, epoch)
-                AeronTensorPool.ShmPoolAnnounce.announceTimestampNs!(announce_enc, UInt64(time_ns()))
-                AeronTensorPool.ShmPoolAnnounce.announceClockDomain!(announce_enc, AeronTensorPool.ClockDomain.MONOTONIC)
-                AeronTensorPool.ShmPoolAnnounce.layoutVersion!(announce_enc, layout_version)
-                AeronTensorPool.ShmPoolAnnounce.headerNslots!(announce_enc, nslots)
-                AeronTensorPool.ShmPoolAnnounce.headerSlotBytes!(announce_enc, UInt16(HEADER_SLOT_BYTES))
-                pools = AeronTensorPool.ShmPoolAnnounce.payloadPools!(announce_enc, 1)
-                pool = AeronTensorPool.ShmPoolAnnounce.PayloadPools.next!(pools)
-                AeronTensorPool.ShmPoolAnnounce.PayloadPools.poolId!(pool, UInt16(1))
-                AeronTensorPool.ShmPoolAnnounce.PayloadPools.regionUri!(pool, pool_uri)
-                AeronTensorPool.ShmPoolAnnounce.PayloadPools.poolNslots!(pool, nslots)
-                AeronTensorPool.ShmPoolAnnounce.PayloadPools.strideBytes!(pool, stride)
-                AeronTensorPool.ShmPoolAnnounce.headerRegionUri!(announce_enc, header_uri)
-                header = MessageHeader.Decoder(announce_buf, 0)
-                announce_dec = AeronTensorPool.ShmPoolAnnounce.Decoder(Vector{UInt8})
-                AeronTensorPool.ShmPoolAnnounce.wrap!(announce_dec, announce_buf, 0; header = header)
-                @test Consumer.map_from_announce!(state, announce_dec)
+                announce = build_shm_pool_announce(
+                    stream_id = stream_id,
+                    epoch = epoch,
+                    layout_version = layout_version,
+                    nslots = nslots,
+                    stride_bytes = stride,
+                    header_uri = header_uri,
+                    pool_uri = pool_uri,
+                )
+                @test Consumer.map_from_announce!(state, announce.dec)
 
-                desc_buf = Vector{UInt8}(undef, 256)
-                desc_enc = FrameDescriptor.Encoder(Vector{UInt8})
-                FrameDescriptor.wrap_and_apply_header!(desc_enc, desc_buf, 0)
-                FrameDescriptor.streamId!(desc_enc, stream_id)
-                FrameDescriptor.epoch!(desc_enc, epoch)
                 seq = UInt64(1)
-                FrameDescriptor.seq!(desc_enc, seq)
-                FrameDescriptor.timestampNs!(desc_enc, UInt64(0))
-                FrameDescriptor.metaVersion!(desc_enc, UInt32(1))
-                FrameDescriptor.traceId!(desc_enc, UInt64(0))
-                desc_header = MessageHeader.Decoder(desc_buf, 0)
-                desc_dec = FrameDescriptor.Decoder(Vector{UInt8})
-                FrameDescriptor.wrap!(desc_dec, desc_buf, 0; header = desc_header)
+                (_, desc_dec) = build_frame_descriptor(
+                    stream_id = stream_id,
+                    epoch = epoch,
+                    seq = seq,
+                    timestamp_ns = UInt64(0),
+                    meta_version = UInt32(1),
+                    trace_id = UInt64(0),
+                )
 
                 header_index = UInt32(seq & UInt64(nslots - 1))
                 header_offset = header_slot_offset(header_index)

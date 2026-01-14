@@ -14,7 +14,7 @@ function emit_consumer_hello!(state::ConsumerState)
     if !state.config.supports_progress
         progress_interval = typemax(UInt32)
         progress_bytes = typemax(UInt32)
-        progress_rows = typemax(UInt32)
+        progress_major_units = typemax(UInt32)
     end
 
     requested_descriptor_channel =

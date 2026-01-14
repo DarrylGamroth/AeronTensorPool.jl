@@ -78,7 +78,7 @@ Mutable consumer runtime state including SHM mappings and QoS counters.
 mutable struct ConsumerState{ClockT}
     config::ConsumerConfig
     clock::ClockT
-    announce_join_ns::UInt64
+    announce_join_ns_ref::Base.RefValue{UInt64}
     runtime::ConsumerRuntime
     mappings::ConsumerMappings
     metrics::ConsumerMetrics

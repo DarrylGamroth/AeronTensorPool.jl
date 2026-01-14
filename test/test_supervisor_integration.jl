@@ -23,32 +23,18 @@
         sub_cfg = nothing
 
         try
-            announce_buf = Vector{UInt8}(undef, 1024)
-            announce_enc = AeronTensorPool.ShmPoolAnnounce.Encoder(Vector{UInt8})
-            AeronTensorPool.ShmPoolAnnounce.wrap_and_apply_header!(announce_enc, announce_buf, 0)
-            AeronTensorPool.ShmPoolAnnounce.streamId!(announce_enc, stream_id)
-            AeronTensorPool.ShmPoolAnnounce.producerId!(announce_enc, UInt32(11))
-            AeronTensorPool.ShmPoolAnnounce.epoch!(announce_enc, UInt64(3))
-            AeronTensorPool.ShmPoolAnnounce.announceTimestampNs!(announce_enc, UInt64(time_ns()))
-            AeronTensorPool.ShmPoolAnnounce.announceClockDomain!(announce_enc, AeronTensorPool.ClockDomain.MONOTONIC)
-            AeronTensorPool.ShmPoolAnnounce.layoutVersion!(announce_enc, UInt32(1))
-            AeronTensorPool.ShmPoolAnnounce.headerNslots!(announce_enc, UInt32(8))
-            AeronTensorPool.ShmPoolAnnounce.headerSlotBytes!(announce_enc, UInt16(HEADER_SLOT_BYTES))
-            pools = AeronTensorPool.ShmPoolAnnounce.payloadPools!(announce_enc, 1)
-            pool = AeronTensorPool.ShmPoolAnnounce.PayloadPools.next!(pools)
-            AeronTensorPool.ShmPoolAnnounce.PayloadPools.poolId!(pool, UInt16(1))
             user = AeronTensorPool.Shm.canonical_user_name()
-            AeronTensorPool.ShmPoolAnnounce.PayloadPools.regionUri!(
-                pool,
-                "shm:file?path=/dev/shm/tensorpool-$(user)/default/7/3/1.pool",
+            announce = build_shm_pool_announce(
+                stream_id = stream_id,
+                producer_id = UInt32(11),
+                epoch = UInt64(3),
+                layout_version = UInt32(1),
+                nslots = UInt32(8),
+                stride_bytes = UInt32(4096),
+                header_uri = "shm:file?path=/dev/shm/tensorpool-$(user)/default/7/3/header.ring",
+                pool_uri = "shm:file?path=/dev/shm/tensorpool-$(user)/default/7/3/1.pool",
             )
-            AeronTensorPool.ShmPoolAnnounce.PayloadPools.poolNslots!(pool, UInt32(8))
-            AeronTensorPool.ShmPoolAnnounce.PayloadPools.strideBytes!(pool, UInt32(4096))
-            AeronTensorPool.ShmPoolAnnounce.headerRegionUri!(
-                announce_enc,
-                "shm:file?path=/dev/shm/tensorpool-$(user)/default/7/3/header.ring",
-            )
-            Aeron.offer(pub_control, view(announce_buf, 1:sbe_message_length(announce_enc)))
+            Aeron.offer(pub_control, view(announce.buf, 1:announce.len))
 
         hello_buf = Vector{UInt8}(undef, 256)
         hello_enc = ConsumerHello.Encoder(Vector{UInt8})

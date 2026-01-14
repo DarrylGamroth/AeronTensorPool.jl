@@ -81,6 +81,8 @@ mutable struct ProducerState{ClockT}
     seq::UInt64
     progress_interval_ns::UInt64
     progress_bytes_delta::UInt64
+    progress_major_delta_units::UInt64
+    progress_major_stride_bytes::UInt64
     progress_timer::PolledTimer
     driver_client::Union{DriverClientState, Nothing}
     pending_attach_id::Int64

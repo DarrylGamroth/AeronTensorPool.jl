@@ -23,6 +23,7 @@ function default_producer_config(;
     qos_interval_ns::UInt64 = UInt64(1_000_000_000),
     progress_interval_ns::UInt64 = UInt64(250_000),
     progress_bytes_delta::UInt64 = UInt64(65_536),
+    progress_major_delta_units::UInt32 = UInt32(0),
     mlock_shm::Bool = false,
 )
     instance_id = isempty(producer_instance_id) ? string(uuid4()) : String(producer_instance_id)
@@ -47,6 +48,7 @@ function default_producer_config(;
         qos_interval_ns,
         progress_interval_ns,
         progress_bytes_delta,
+        progress_major_delta_units,
         mlock_shm,
     )
 end

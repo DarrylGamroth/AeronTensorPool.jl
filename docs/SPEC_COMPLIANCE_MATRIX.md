@@ -14,7 +14,7 @@ Correctness legend:
 - Noncompliant
 - N/A
 
-Last updated: 2026-xx-xx
+Last updated: 2026-01-14
 
 ---
 
@@ -34,12 +34,10 @@ Last updated: 2026-xx-xx
 | 10.5 Supervisor | Implemented | Needs Review | Supervisor agent exists; coverage of "unified management" scenarios not fully exercised in tests. |
 | 11 Consumer Modes | Implemented | Compliant | RATE_LIMITED enforced in consumer (`should_process`). |
 | 12 Bridge Service | Implemented | Compliant | Bridging agents + tests; see Bridge spec v1.1 matrix. |
-| 15 Normative Requirements | Partial | Needs Review | See gaps below. |
+| 15 Normative Requirements | Implemented | Compliant | Joins, progress hints, and seqlock rules covered by tests. |
 | 15.21–15.22 FS layout + validation | Implemented | Compliant | Canonical layout + containment checks in `src/shm/paths.jl` and `src/agents/consumer/mapping.jl`. |
 
 Known gaps / open questions:
-- Consumer join-time gating uses init time, not image-available time, which can drop valid `ShmPoolAnnounce` messages on replay (`src/agents/consumer/init.jl`, `src/agents/consumer/mapping.jl`).
-- Producer ignores `progress_major_delta_units` hints from `ConsumerHello` (spec §10.1.3, §10.4; `src/agents/producer/handlers.jl`).
 - Join/Rate-limiter/TraceLink sections are covered in their own specs; wire-spec references are satisfied by those modules.
 
 ---
@@ -102,10 +100,10 @@ Known gaps / open questions:
 
 | Section | Status | Correctness | Notes / Evidence |
 | --- | --- | --- | --- |
-| 5 Requirements/Constraints | Implemented | Needs Review | Constraints enforced in merge map validation + readiness checks. |
+| 5 Requirements/Constraints | Implemented | Compliant | Constraints enforced in merge map validation + readiness checks. |
 | 6 MergeMap | Implemented | Compliant | Requests/announces + validation. |
-| 7 SequenceJoinBarrier | Implemented | Needs Review | Sequence readiness checks implemented; output monotonicity not enforced. |
-| 8 TimestampJoinBarrier | Implemented | Needs Review | Timestamp readiness checks implemented; monotonic input/output enforcement not implemented; clock-domain mismatch currently just ignores updates rather than rejecting the stream. |
+| 7 SequenceJoinBarrier | Implemented | Compliant | Output monotonicity and input checks enforced in readiness. |
+| 8 TimestampJoinBarrier | Implemented | Compliant | Monotonic input/output and clock-domain validation enforced. |
 | 9 LatestValueJoinBarrier | Implemented | Compliant | Best-effort join implemented. |
 | 10 Wire Format | Implemented | Compliant | Merge schema (`src/gen/ShmTensorpoolMerge.jl`). |
 

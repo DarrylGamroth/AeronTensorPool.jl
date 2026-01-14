@@ -23,35 +23,35 @@
             layout_version = UInt32(1)
             nslots = UInt32(8)
 
-            buf = Vector{UInt8}(undef, 512)
-            enc = AeronTensorPool.ShmPoolAnnounce.Encoder(Vector{UInt8})
-            AeronTensorPool.ShmPoolAnnounce.wrap_and_apply_header!(enc, buf, 0)
-            AeronTensorPool.ShmPoolAnnounce.streamId!(enc, stream_id)
-            AeronTensorPool.ShmPoolAnnounce.producerId!(enc, UInt32(1))
-            AeronTensorPool.ShmPoolAnnounce.epoch!(enc, epoch)
-            AeronTensorPool.ShmPoolAnnounce.announceTimestampNs!(enc, UInt64(time_ns()))
-            AeronTensorPool.ShmPoolAnnounce.announceClockDomain!(enc, AeronTensorPool.ClockDomain.MONOTONIC)
-            AeronTensorPool.ShmPoolAnnounce.layoutVersion!(enc, layout_version)
-            AeronTensorPool.ShmPoolAnnounce.headerNslots!(enc, nslots)
-            AeronTensorPool.ShmPoolAnnounce.headerSlotBytes!(enc, UInt16(HEADER_SLOT_BYTES))
-            pools = AeronTensorPool.ShmPoolAnnounce.payloadPools!(enc, 0)
-            AeronTensorPool.ShmPoolAnnounce.headerRegionUri!(enc, "shm:file?path=/dev/shm/none")
-            header = MessageHeader.Decoder(buf, 0)
-            dec = AeronTensorPool.ShmPoolAnnounce.Decoder(Vector{UInt8})
-            AeronTensorPool.ShmPoolAnnounce.wrap!(dec, buf, 0; header = header)
+            announce_a = build_shm_pool_announce(
+                stream_id = stream_id,
+                producer_id = UInt32(1),
+                epoch = epoch,
+                layout_version = layout_version,
+                nslots = nslots,
+                header_uri = "shm:file?path=/dev/shm/none",
+                payload_entries = NamedTuple[],
+            )
 
-            AeronTensorPool.ShmPoolAnnounce.wrap!(dec, buf, 0; header = header)
             AeronTensorPool.Agents.Discovery.update_entry_from_announce!(
                 state,
-                dec,
+                announce_a.dec,
                 "driver-a",
                 "aeron:ipc",
                 UInt32(18010),
             )
-            AeronTensorPool.ShmPoolAnnounce.wrap!(dec, buf, 0; header = header)
+            announce_b = build_shm_pool_announce(
+                stream_id = stream_id,
+                producer_id = UInt32(1),
+                epoch = epoch,
+                layout_version = layout_version,
+                nslots = nslots,
+                header_uri = "shm:file?path=/dev/shm/none",
+                payload_entries = NamedTuple[],
+            )
             AeronTensorPool.Agents.Discovery.update_entry_from_announce!(
                 state,
-                dec,
+                announce_b.dec,
                 "driver-b",
                 "aeron:ipc",
                 UInt32(18011),

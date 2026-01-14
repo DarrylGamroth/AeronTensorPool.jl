@@ -141,6 +141,7 @@ function offer_frame!(
     (shared_sent || per_consumer_sent) || return false
     callbacks.on_frame_published!(state, seq, header_index)
 
+    update_progress_major_stride!(state, strides, MajorOrder.ROW)
     if state.supports_progress && should_emit_progress!(state, UInt64(values_len), true)
         emit_progress_complete!(state, seq, UInt64(values_len))
     end
@@ -493,6 +494,7 @@ function commit_slot!(
         publish_descriptor_to_consumers!(state, claim.seq, meta_version, now_ns, trace_id)
     (shared_sent || per_consumer_sent) || return false
 
+    update_progress_major_stride!(state, strides, MajorOrder.ROW)
     if state.supports_progress && should_emit_progress!(state, UInt64(values_len), true)
         emit_progress_complete!(state, seq, UInt64(values_len))
     end

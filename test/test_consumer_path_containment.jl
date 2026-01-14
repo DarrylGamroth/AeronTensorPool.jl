@@ -45,30 +45,17 @@
                     header_uri = "shm:file?path=$(joinpath(other_dir, "header.ring"))"
                     pool_uri = "shm:file?path=$(joinpath(other_dir, "1.pool"))"
 
-                    buf = Vector{UInt8}(undef, 1024)
-                    enc = AeronTensorPool.ShmPoolAnnounce.Encoder(Vector{UInt8})
-                    AeronTensorPool.ShmPoolAnnounce.wrap_and_apply_header!(enc, buf, 0)
-                    AeronTensorPool.ShmPoolAnnounce.streamId!(enc, stream_id)
-                    AeronTensorPool.ShmPoolAnnounce.producerId!(enc, UInt32(7))
-                    AeronTensorPool.ShmPoolAnnounce.epoch!(enc, epoch)
-                    AeronTensorPool.ShmPoolAnnounce.announceTimestampNs!(enc, UInt64(time_ns()))
-                    AeronTensorPool.ShmPoolAnnounce.announceClockDomain!(enc, AeronTensorPool.ClockDomain.MONOTONIC)
-                    AeronTensorPool.ShmPoolAnnounce.layoutVersion!(enc, UInt32(1))
-                    AeronTensorPool.ShmPoolAnnounce.headerNslots!(enc, nslots)
-                    AeronTensorPool.ShmPoolAnnounce.headerSlotBytes!(enc, UInt16(HEADER_SLOT_BYTES))
-                    pools = AeronTensorPool.ShmPoolAnnounce.payloadPools!(enc, 1)
-                    pool = AeronTensorPool.ShmPoolAnnounce.PayloadPools.next!(pools)
-                    AeronTensorPool.ShmPoolAnnounce.PayloadPools.poolId!(pool, UInt16(1))
-                    AeronTensorPool.ShmPoolAnnounce.PayloadPools.poolNslots!(pool, nslots)
-                    AeronTensorPool.ShmPoolAnnounce.PayloadPools.strideBytes!(pool, stride)
-                    AeronTensorPool.ShmPoolAnnounce.PayloadPools.regionUri!(pool, pool_uri)
-                    AeronTensorPool.ShmPoolAnnounce.headerRegionUri!(enc, header_uri)
+                    announce = build_shm_pool_announce(
+                        stream_id = stream_id,
+                        epoch = epoch,
+                        layout_version = UInt32(1),
+                        nslots = nslots,
+                        stride_bytes = stride,
+                        header_uri = header_uri,
+                        pool_uri = pool_uri,
+                    )
 
-                    dec = AeronTensorPool.ShmPoolAnnounce.Decoder(Vector{UInt8})
-                    header = AeronTensorPool.MessageHeader.Decoder(buf, 0)
-                    AeronTensorPool.ShmPoolAnnounce.wrap!(dec, buf, 0; header = header)
-
-                    @test !Consumer.map_from_announce!(state, dec)
+                    @test !Consumer.map_from_announce!(state, announce.dec)
                 finally
                     close_consumer_state!(state)
                 end

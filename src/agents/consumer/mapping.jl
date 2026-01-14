@@ -399,7 +399,8 @@ function handle_shm_pool_announce!(state::ConsumerState, msg::ShmPoolAnnounce.De
         ShmPoolAnnounce.epoch(msg) layout_version = ShmPoolAnnounce.layoutVersion(msg) clock_domain = clock_domain
 
     if clock_domain == ClockDomain.MONOTONIC
-        if announce_ts + state.config.announce_freshness_ns < state.announce_join_ns ||
+        join_ns = state.announce_join_ns_ref[]
+        if announce_ts + state.config.announce_freshness_ns < join_ns ||
            now_ns > announce_ts + state.config.announce_freshness_ns
             return false
         end

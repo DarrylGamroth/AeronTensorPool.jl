@@ -69,32 +69,6 @@
             state = Consumer.init_consumer(consumer_cfg; client = client)
             fallback_state = nothing
             try
-                    function build_announce(epoch::UInt64, header_region_uri::String, pool_region_uri::String)
-                        buf = Vector{UInt8}(undef, 2048)
-                        enc = AeronTensorPool.ShmPoolAnnounce.Encoder(Vector{UInt8})
-                        AeronTensorPool.ShmPoolAnnounce.wrap_and_apply_header!(enc, buf, 0)
-                        AeronTensorPool.ShmPoolAnnounce.streamId!(enc, stream_id)
-                        AeronTensorPool.ShmPoolAnnounce.producerId!(enc, UInt32(7))
-                        AeronTensorPool.ShmPoolAnnounce.epoch!(enc, epoch)
-                        AeronTensorPool.ShmPoolAnnounce.announceTimestampNs!(enc, UInt64(time_ns()))
-                        AeronTensorPool.ShmPoolAnnounce.announceClockDomain!(enc, AeronTensorPool.ClockDomain.MONOTONIC)
-                        AeronTensorPool.ShmPoolAnnounce.layoutVersion!(enc, layout_version)
-                        AeronTensorPool.ShmPoolAnnounce.headerNslots!(enc, nslots)
-                        AeronTensorPool.ShmPoolAnnounce.headerSlotBytes!(enc, UInt16(HEADER_SLOT_BYTES))
-                        pools = AeronTensorPool.ShmPoolAnnounce.payloadPools!(enc, 1)
-                        pool = AeronTensorPool.ShmPoolAnnounce.PayloadPools.next!(pools)
-                        AeronTensorPool.ShmPoolAnnounce.PayloadPools.poolId!(pool, UInt16(1))
-                        AeronTensorPool.ShmPoolAnnounce.PayloadPools.regionUri!(pool, pool_region_uri)
-                        AeronTensorPool.ShmPoolAnnounce.PayloadPools.poolNslots!(pool, nslots)
-                        AeronTensorPool.ShmPoolAnnounce.PayloadPools.strideBytes!(pool, stride)
-                        AeronTensorPool.ShmPoolAnnounce.headerRegionUri!(enc, header_region_uri)
-
-                        header = MessageHeader.Decoder(buf, 0)
-                        dec = AeronTensorPool.ShmPoolAnnounce.Decoder(Vector{UInt8})
-                        AeronTensorPool.ShmPoolAnnounce.wrap!(dec, buf, 0; header = header)
-                        return buf, dec
-                    end
-
                     wrap_superblock!(sb_enc, header_mmap1, 0)
                     write_superblock!(
                         sb_enc,
@@ -132,7 +106,16 @@
                         ),
                     )
 
-                    (_, announce_dec1) = build_announce(epoch1, header_uri1, pool_uri1)
+                    announce = build_shm_pool_announce(
+                        stream_id = stream_id,
+                        epoch = epoch1,
+                        layout_version = layout_version,
+                        nslots = nslots,
+                        stride_bytes = stride,
+                        header_uri = header_uri1,
+                        pool_uri = pool_uri1,
+                    )
+                    announce_dec1 = announce.dec
                     @test Consumer.handle_shm_pool_announce!(state, announce_dec1)
                     @test state.mappings.mapped_epoch == epoch1
 
@@ -173,7 +156,16 @@
                         ),
                     )
 
-                    (_, announce_dec2) = build_announce(epoch2, header_uri2, pool_uri2)
+                    announce = build_shm_pool_announce(
+                        stream_id = stream_id,
+                        epoch = epoch2,
+                        layout_version = layout_version,
+                        nslots = nslots,
+                        stride_bytes = stride,
+                        header_uri = header_uri2,
+                        pool_uri = pool_uri2,
+                    )
+                    announce_dec2 = announce.dec
                     @test Consumer.handle_shm_pool_announce!(state, announce_dec2)
                     @test state.mappings.mapped_epoch == epoch2
 
@@ -212,7 +204,16 @@
                         false,
                 )
                     fallback_state = Consumer.init_consumer(fallback_cfg; client = client)
-                    (_, announce_dec_bad) = build_announce(epoch2, header_uri2, bad_pool_uri)
+                    announce = build_shm_pool_announce(
+                        stream_id = stream_id,
+                        epoch = epoch2,
+                        layout_version = layout_version,
+                        nslots = nslots,
+                        stride_bytes = stride,
+                        header_uri = header_uri2,
+                        pool_uri = bad_pool_uri,
+                    )
+                    announce_dec_bad = announce.dec
                     @test Consumer.handle_shm_pool_announce!(fallback_state, announce_dec_bad)
                     @test fallback_state.config.use_shm == false
                     @test fallback_state.mappings.header_mmap === nothing

@@ -109,17 +109,14 @@
             strides = Int32[1]
             Producer.offer_frame!(producer, payload, shape, strides, Dtype.UINT8, UInt32(0))
 
-            desc_buf = Vector{UInt8}(undef, AeronTensorPool.FRAME_DESCRIPTOR_LEN)
-            desc_enc = FrameDescriptor.Encoder(Vector{UInt8})
-            FrameDescriptor.wrap_and_apply_header!(desc_enc, desc_buf, 0)
-            FrameDescriptor.streamId!(desc_enc, UInt32(1))
-            FrameDescriptor.epoch!(desc_enc, UInt64(1))
-            FrameDescriptor.seq!(desc_enc, UInt64(0))
-            FrameDescriptor.timestampNs!(desc_enc, UInt64(time_ns()))
-            FrameDescriptor.metaVersion!(desc_enc, UInt32(0))
-            FrameDescriptor.traceId!(desc_enc, UInt64(0))
-            desc_dec = FrameDescriptor.Decoder(Vector{UInt8})
-            FrameDescriptor.wrap!(desc_dec, desc_buf, 0; header = MessageHeader.Decoder(desc_buf, 0))
+            (_, desc_dec) = build_frame_descriptor(
+                stream_id = UInt32(1),
+                epoch = UInt64(1),
+                seq = UInt64(0),
+                timestamp_ns = UInt64(time_ns()),
+                meta_version = UInt32(0),
+                trace_id = UInt64(0),
+            )
 
             sent = Bridge.bridge_send_frame!(bridge_sender, desc_dec)
             if !sent
@@ -240,17 +237,14 @@ end
             strides = Int32[1]
             Producer.offer_frame!(producer, payload, shape, strides, Dtype.UINT8, UInt32(0))
 
-            desc_buf = Vector{UInt8}(undef, AeronTensorPool.FRAME_DESCRIPTOR_LEN)
-            desc_enc = FrameDescriptor.Encoder(Vector{UInt8})
-            FrameDescriptor.wrap_and_apply_header!(desc_enc, desc_buf, 0)
-            FrameDescriptor.streamId!(desc_enc, UInt32(2))
-            FrameDescriptor.epoch!(desc_enc, UInt64(1))
-            FrameDescriptor.seq!(desc_enc, UInt64(0))
-            FrameDescriptor.timestampNs!(desc_enc, UInt64(time_ns()))
-            FrameDescriptor.metaVersion!(desc_enc, UInt32(0))
-            FrameDescriptor.traceId!(desc_enc, UInt64(0))
-            desc_dec = FrameDescriptor.Decoder(Vector{UInt8})
-            FrameDescriptor.wrap!(desc_dec, desc_buf, 0; header = MessageHeader.Decoder(desc_buf, 0))
+            (_, desc_dec) = build_frame_descriptor(
+                stream_id = UInt32(2),
+                epoch = UInt64(1),
+                seq = UInt64(0),
+                timestamp_ns = UInt64(time_ns()),
+                meta_version = UInt32(0),
+                trace_id = UInt64(0),
+            )
 
             sent = Bridge.bridge_send_frame!(bridge_sender, desc_dec)
             @test sent == false

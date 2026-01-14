@@ -65,11 +65,20 @@ function reset_join_barrier_state!(state::JoinBarrierState, rule_count::Int)
     state.seen_any = fill(false, rule_count)
     state.seen_seq = fill(false, rule_count)
     state.seen_time = fill(false, rule_count)
+    state.rejected_inputs = fill(false, rule_count)
     state.result.missing_inputs = Vector{UInt32}(undef, rule_count)
     state.result.stale_inputs = Vector{UInt32}(undef, rule_count)
+    state.result.rejected_inputs = Vector{UInt32}(undef, rule_count)
     state.result.ready = false
     state.result.missing_count = 0
     state.result.stale_count = 0
+    state.result.rejected_count = 0
+    state.result.output_rejected = false
+    state.last_out_seq = UInt64(0)
+    state.last_out_time = UInt64(0)
+    state.seen_out_seq = false
+    state.seen_out_time = false
+    state.output_rejected = false
     empty!(state.input_index)
     empty!(state.time_index)
     return nothing

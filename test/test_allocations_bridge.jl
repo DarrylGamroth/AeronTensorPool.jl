@@ -160,27 +160,17 @@
             GC.gc()
             @test @allocated(Bridge.bridge_send_frame!(sender, desc_dec)) == 0
 
-            announce_buf = Vector{UInt8}(undef, 1024)
-            announce_enc = AeronTensorPool.ShmPoolAnnounce.Encoder(Vector{UInt8})
-            AeronTensorPool.ShmPoolAnnounce.wrap_and_apply_header!(announce_enc, announce_buf, 0)
-            AeronTensorPool.ShmPoolAnnounce.streamId!(announce_enc, mapping.dest_stream_id)
-            AeronTensorPool.ShmPoolAnnounce.producerId!(announce_enc, UInt32(0))
-            AeronTensorPool.ShmPoolAnnounce.epoch!(announce_enc, UInt64(1))
-            AeronTensorPool.ShmPoolAnnounce.announceTimestampNs!(announce_enc, UInt64(time_ns()))
-            AeronTensorPool.ShmPoolAnnounce.layoutVersion!(announce_enc, UInt32(1))
-            AeronTensorPool.ShmPoolAnnounce.headerNslots!(announce_enc, UInt32(8))
-            AeronTensorPool.ShmPoolAnnounce.headerSlotBytes!(announce_enc, UInt16(AeronTensorPool.HEADER_SLOT_BYTES))
-            AeronTensorPool.ShmPoolAnnounce.announceClockDomain!(announce_enc, AeronTensorPool.ClockDomain.MONOTONIC)
-            pools = AeronTensorPool.ShmPoolAnnounce.payloadPools!(announce_enc, 1)
-            entry = AeronTensorPool.ShmPoolAnnounce.PayloadPools.next!(pools)
-            AeronTensorPool.ShmPoolAnnounce.PayloadPools.poolId!(entry, UInt16(1))
-            AeronTensorPool.ShmPoolAnnounce.PayloadPools.poolNslots!(entry, UInt32(8))
-            AeronTensorPool.ShmPoolAnnounce.PayloadPools.strideBytes!(entry, UInt32(4096))
-            AeronTensorPool.ShmPoolAnnounce.PayloadPools.regionUri!(entry, "shm:file?path=/dev/shm/dummy")
-            AeronTensorPool.ShmPoolAnnounce.headerRegionUri!(announce_enc, "shm:file?path=/dev/shm/dummy")
-            announce_dec = AeronTensorPool.ShmPoolAnnounce.Decoder(Vector{UInt8})
-            AeronTensorPool.ShmPoolAnnounce.wrap!(announce_dec, announce_buf, 0; header = MessageHeader.Decoder(announce_buf, 0))
-            Bridge.bridge_apply_source_announce!(receiver, announce_dec)
+            announce = build_shm_pool_announce(
+                stream_id = mapping.dest_stream_id,
+                producer_id = UInt32(0),
+                epoch = UInt64(1),
+                layout_version = UInt32(1),
+                nslots = UInt32(8),
+                stride_bytes = UInt32(4096),
+                header_uri = "shm:file?path=/dev/shm/dummy",
+                pool_uri = "shm:file?path=/dev/shm/dummy",
+            )
+            Bridge.bridge_apply_source_announce!(receiver, announce.dec)
 
             header_buf = Vector{UInt8}(undef, AeronTensorPool.HEADER_SLOT_BYTES)
             slot_enc = AeronTensorPool.SlotHeaderMsg.Encoder(Vector{UInt8})

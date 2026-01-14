@@ -65,3 +65,19 @@ end
     result = join_barrier_ready!(state, UInt64(10), UInt64(20))
     @test !result.ready
 end
+
+@testset "JoinBarrier sequence output monotonic" begin
+    config = JoinBarrierConfig(UInt32(10), SEQUENCE, false, false)
+    state = JoinBarrierState(config)
+    rules = SequenceMergeRule[
+        SequenceMergeRule(UInt32(1), Merge.MergeRuleType.OFFSET, Int32(0), nothing),
+    ]
+    map = SequenceMergeMap(UInt32(10), UInt64(1), nothing, rules)
+    @test apply_sequence_merge_map!(state, map)
+
+    result = join_barrier_ready!(state, UInt64(10), UInt64(0))
+    @test !result.output_rejected
+    result = join_barrier_ready!(state, UInt64(9), UInt64(0))
+    @test result.output_rejected
+    @test !result.ready
+end

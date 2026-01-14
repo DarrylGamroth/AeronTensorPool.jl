@@ -12,6 +12,7 @@ function init_consumer(config::ConsumerConfig; client::Aeron.Client)
     clock = Clocks.CachedEpochClock(Clocks.MonotonicClock())
     fetch!(clock)
     announce_join_ns = UInt64(Clocks.time_nanos(clock))
+    join_time_ref = Ref{UInt64}(announce_join_ns)
     config.allowed_base_dirs = canonical_allowed_dirs(config.shm_base_dir, config.allowed_base_dirs)
 
     pub_control = Aeron.add_publication(client, config.aeron_uri, config.control_stream_id)
@@ -27,7 +28,24 @@ function init_consumer(config::ConsumerConfig; client::Aeron.Client)
     sub_descriptor = Aeron.add_subscription(client, config.aeron_uri, config.descriptor_stream_id)
     @tp_info "Consumer descriptor subscription ready" stream_id = config.descriptor_stream_id channel =
         Aeron.channel(sub_descriptor) channel_status_indicator_id = Aeron.channel_status_indicator_id(sub_descriptor)
-    sub_control = Aeron.add_subscription(client, config.aeron_uri, config.control_stream_id)
+    on_control_available = let ref = join_time_ref
+        _ -> begin
+            ref[] = UInt64(time_ns())
+            @tp_info "Consumer control image available" join_time_ns = ref[]
+            return nothing
+        end
+    end
+    on_control_unavailable = _ -> begin
+        @tp_info "Consumer control image unavailable"
+        return nothing
+    end
+    sub_control = Aeron.add_subscription(
+        client,
+        config.aeron_uri,
+        config.control_stream_id;
+        on_available_image = on_control_available,
+        on_unavailable_image = on_control_unavailable,
+    )
     @tp_info "Consumer control subscription ready" stream_id = config.control_stream_id channel =
         Aeron.channel(sub_control) channel_status_indicator_id = Aeron.channel_status_indicator_id(sub_control)
     sub_qos = Aeron.add_subscription(client, config.aeron_uri, config.qos_stream_id)
@@ -121,7 +139,7 @@ function init_consumer(config::ConsumerConfig; client::Aeron.Client)
     state = ConsumerState(
         config,
         clock,
-        announce_join_ns,
+        join_time_ref,
         runtime,
         mappings,
         metrics,

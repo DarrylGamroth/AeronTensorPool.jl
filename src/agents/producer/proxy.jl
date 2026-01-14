@@ -1,3 +1,27 @@
+function update_progress_major_stride!(
+    state::ProducerState,
+    strides::AbstractVector{Int32},
+    major_order::MajorOrder.SbeEnum,
+)
+    if state.progress_major_delta_units == 0 || isempty(strides)
+        state.progress_major_stride_bytes = UInt64(0)
+        return nothing
+    end
+    idx = major_order == MajorOrder.ROW ? 1 :
+        major_order == MajorOrder.COLUMN ? length(strides) : 0
+    if idx == 0
+        state.progress_major_stride_bytes = UInt64(0)
+        return nothing
+    end
+    stride = strides[idx]
+    if stride <= 0
+        state.progress_major_stride_bytes = UInt64(0)
+        return nothing
+    end
+    state.progress_major_stride_bytes = UInt64(stride)
+    return nothing
+end
+
 """
 Return true if a progress update should be emitted.
 """
@@ -6,8 +30,13 @@ function should_emit_progress!(state::ProducerState, bytes_filled::UInt64, final
         return true
     end
     now_ns = UInt64(Clocks.time_nanos(state.clock))
+    delta_bytes = state.progress_bytes_delta
+    if state.progress_major_delta_units > 0 && state.progress_major_stride_bytes > 0
+        major_bytes = state.progress_major_delta_units * state.progress_major_stride_bytes
+        major_bytes < delta_bytes && (delta_bytes = major_bytes)
+    end
     if !expired(state.progress_timer, now_ns) &&
-       bytes_filled - state.metrics.last_progress_bytes < state.progress_bytes_delta
+       bytes_filled - state.metrics.last_progress_bytes < delta_bytes
         return false
     end
     return true
