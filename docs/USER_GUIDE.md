@@ -83,8 +83,8 @@ ctx = TensorPoolContext(driver_cfg.endpoints;
     discovery_stream_id = 7000)
 client = connect(ctx)
 entry = discover_stream!(client; data_source_name = "camera-01")
-consumer_cfg.stream_id = entry.stream_id
-handle = attach(client, consumer_cfg; discover = false)
+handle = attach(client, consumer_cfg, entry)
+stream_id = resolved_stream_id(handle)
 ```
 
 ### Where does `data_source_name` come from?

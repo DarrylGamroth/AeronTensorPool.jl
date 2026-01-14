@@ -47,6 +47,12 @@ handle_state(handle::ConsumerHandle) = handle.consumer_agent.state
 handle_state(handle::ProducerHandle) = handle.producer_agent.state
 
 """
+Return the resolved stream ID for a handle.
+"""
+resolved_stream_id(handle::ConsumerHandle) = handle.consumer_agent.state.config.stream_id
+resolved_stream_id(handle::ProducerHandle) = handle.producer_agent.state.config.stream_id
+
+"""
 Return current Aeron connection status for consumer subscriptions/publications.
 """
 function consumer_connections(handle::ConsumerHandle)

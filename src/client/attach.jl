@@ -62,6 +62,19 @@ function await_attach_response(
     throw(AttachTimeoutError("attach timed out"))
 end
 
+function resolve_entry_attach_params(
+    client::TensorPoolClient,
+    entry::DiscoveryEntry,
+)
+    control_channel = client.context.control_channel
+    control_stream_id = client.context.control_stream_id
+    if !isempty(entry.driver_control_channel) && entry.driver_control_stream_id != 0
+        control_channel = String(entry.driver_control_channel)
+        control_stream_id = Int32(entry.driver_control_stream_id)
+    end
+    return (entry.stream_id, control_channel, control_stream_id)
+end
+
 """
 Send a consumer attach request and return an AttachRequestHandle.
 """
@@ -94,6 +107,26 @@ function request_attach_consumer(
 end
 
 """
+Send an attach request for a discovered stream and return an AttachRequestHandle.
+"""
+function request_attach(
+    client::TensorPoolClient,
+    settings::ConsumerConfig,
+    entry::DiscoveryEntry;
+    desired_node_id::Union{UInt32, Nothing} = nothing,
+)
+    stream_id, control_channel, control_stream_id = resolve_entry_attach_params(client, entry)
+    return request_attach_consumer(
+        client,
+        settings;
+        stream_id = stream_id,
+        control_channel = control_channel,
+        control_stream_id = control_stream_id,
+        desired_node_id = desired_node_id,
+    )
+end
+
+"""
 Send a producer attach request and return an AttachRequestHandle.
 """
 function request_attach_producer(
@@ -121,6 +154,26 @@ function request_attach_producer(
     )
     correlation_id == 0 && throw(AttachRejectedError("attach request send failed"))
     return AttachRequestHandle(driver_client, correlation_id)
+end
+
+"""
+Send an attach request for a discovered stream and return an AttachRequestHandle.
+"""
+function request_attach(
+    client::TensorPoolClient,
+    config::ProducerConfig,
+    entry::DiscoveryEntry;
+    desired_node_id::Union{UInt32, Nothing} = nothing,
+)
+    stream_id, control_channel, control_stream_id = resolve_entry_attach_params(client, entry)
+    return request_attach_producer(
+        client,
+        config;
+        stream_id = stream_id,
+        control_channel = control_channel,
+        control_stream_id = control_stream_id,
+        desired_node_id = desired_node_id,
+    )
 end
 
 """
@@ -186,23 +239,21 @@ function attach_consumer(
     desired_node_id::Union{UInt32, Nothing} = nothing,
     callbacks::Union{ConsumerCallbacks, ClientCallbacks} = Consumer.NOOP_CONSUMER_CALLBACKS,
 )
+    consumer_cfg = settings
     stream_id = settings.stream_id
     control_channel = client.context.control_channel
     control_stream_id = client.context.control_stream_id
 
     if discover && discovery_enabled(client.context)
         entry = discover_stream!(client; data_source_name = data_source_name)
-        stream_id = entry.stream_id
-        settings.stream_id = stream_id
-        if !isempty(entry.driver_control_channel) && entry.driver_control_stream_id != 0
-            control_channel = String(entry.driver_control_channel)
-            control_stream_id = Int32(entry.driver_control_stream_id)
-        end
+        stream_id, control_channel, control_stream_id = resolve_entry_attach_params(client, entry)
+        consumer_cfg = deepcopy(settings)
+        consumer_cfg.stream_id = stream_id
     end
 
     request = request_attach_consumer(
         client,
-        settings;
+        consumer_cfg;
         stream_id = stream_id,
         control_channel = control_channel,
         control_stream_id = control_stream_id,
@@ -215,13 +266,60 @@ function attach_consumer(
         retry_fn = () -> send_attach_request!(
             request.driver_client;
             stream_id = stream_id,
-            expected_layout_version = settings.expected_layout_version,
-            require_hugepages = settings.require_hugepages,
+            expected_layout_version = consumer_cfg.expected_layout_version,
+            require_hugepages = consumer_cfg.require_hugepages,
             desired_node_id = desired_node_id,
         ),
     )
     consumer_state = Consumer.init_consumer_from_attach(
-        settings,
+        consumer_cfg,
+        attach;
+        driver_client = request.driver_client,
+        client = client.aeron_client,
+    )
+    consumer_cbs = consumer_callbacks(callbacks)
+    descriptor_asm = Consumer.make_descriptor_assembler(consumer_state; callbacks = consumer_cbs)
+    control_asm = Consumer.make_control_assembler(consumer_state)
+    counters = ConsumerCounters(consumer_state.runtime.control.client, Int(settings.consumer_id), "Consumer")
+    consumer_agent = ConsumerAgent(consumer_state, descriptor_asm, control_asm, counters)
+    return ConsumerHandle(client, request.driver_client, consumer_agent)
+end
+
+"""
+Attach a consumer to a discovered stream.
+"""
+function attach(
+    client::TensorPoolClient,
+    settings::ConsumerConfig,
+    entry::DiscoveryEntry;
+    desired_node_id::Union{UInt32, Nothing} = nothing,
+    callbacks::Union{ConsumerCallbacks, ClientCallbacks} = Consumer.NOOP_CONSUMER_CALLBACKS,
+)
+    stream_id, control_channel, control_stream_id = resolve_entry_attach_params(client, entry)
+    consumer_cfg = deepcopy(settings)
+    consumer_cfg.stream_id = stream_id
+    request = request_attach_consumer(
+        client,
+        consumer_cfg;
+        stream_id = stream_id,
+        control_channel = control_channel,
+        control_stream_id = control_stream_id,
+        desired_node_id = desired_node_id,
+    )
+    attach = await_attach_response(
+        client,
+        request.driver_client,
+        request.correlation_id;
+        retry_fn = () -> send_attach_request!(
+            request.driver_client;
+            stream_id = stream_id,
+            expected_layout_version = consumer_cfg.expected_layout_version,
+            require_hugepages = consumer_cfg.require_hugepages,
+            desired_node_id = desired_node_id,
+        ),
+    )
+    consumer_state = Consumer.init_consumer_from_attach(
+        consumer_cfg,
         attach;
         driver_client = request.driver_client,
         client = client.aeron_client,
@@ -274,13 +372,63 @@ function attach_producer(
 
     if discover && discovery_enabled(client.context)
         entry = discover_stream!(client; data_source_name = data_source_name)
-        stream_id = entry.stream_id
-        if !isempty(entry.driver_control_channel) && entry.driver_control_stream_id != 0
-            control_channel = String(entry.driver_control_channel)
-            control_stream_id = Int32(entry.driver_control_stream_id)
-        end
+        stream_id, control_channel, control_stream_id = resolve_entry_attach_params(client, entry)
     end
 
+    request = request_attach_producer(
+        client,
+        config;
+        stream_id = stream_id,
+        control_channel = control_channel,
+        control_stream_id = control_stream_id,
+        desired_node_id = desired_node_id,
+    )
+    attach = await_attach_response(
+        client,
+        request.driver_client,
+        request.correlation_id;
+        retry_fn = () -> send_attach_request!(
+            request.driver_client;
+            stream_id = stream_id,
+            expected_layout_version = config.layout_version,
+            desired_node_id = desired_node_id,
+        ),
+    )
+    producer_state = Producer.init_producer_from_attach(
+        config,
+        attach;
+        driver_client = request.driver_client,
+        client = client.aeron_client,
+    )
+    producer_cbs = producer_callbacks(callbacks)
+    control_asm = Producer.make_control_assembler(producer_state; callbacks = producer_cbs)
+    qos_asm = Producer.make_qos_assembler(producer_state; callbacks = producer_cbs)
+    counters = ProducerCounters(producer_state.runtime.control.client, Int(config.producer_id), "Producer")
+    producer_agent = ProducerAgent(
+        producer_state,
+        control_asm,
+        qos_asm,
+        counters,
+        producer_cbs,
+        qos_monitor,
+        PolledTimer(qos_interval_ns),
+    )
+    return ProducerHandle(client, request.driver_client, producer_agent)
+end
+
+"""
+Attach a producer to a discovered stream.
+"""
+function attach(
+    client::TensorPoolClient,
+    config::ProducerConfig,
+    entry::DiscoveryEntry;
+    desired_node_id::Union{UInt32, Nothing} = nothing,
+    callbacks::Union{ProducerCallbacks, ClientCallbacks} = Producer.NOOP_PRODUCER_CALLBACKS,
+    qos_monitor::Union{AbstractQosMonitor, Nothing} = nothing,
+    qos_interval_ns::UInt64 = config.qos_interval_ns,
+)
+    stream_id, control_channel, control_stream_id = resolve_entry_attach_params(client, entry)
     request = request_attach_producer(
         client,
         config;
