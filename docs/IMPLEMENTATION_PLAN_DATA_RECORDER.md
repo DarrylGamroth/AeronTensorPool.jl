@@ -226,6 +226,8 @@ Concurrency model (optional, defaults to single-threaded):
 - Use a conservative queue depth (default: `header_nslots`) to avoid backlog
   larger than the source ring; log data loss if exceeded.
 - Filesystem layout handles placement (no explicit per-stream root overrides).
+- Aeron threading: `Aeron.Client` is thread-safe, but subscriptions are not, so
+  each worker owns its subscription (and `FragmentAssembler`) on its thread.
 
 Status: pending.
 
