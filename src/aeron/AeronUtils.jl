@@ -10,6 +10,8 @@ include("counters.jl")
 
 export with_claimed_buffer!,
     set_aeron_dir!,
+    log_publication_ready,
+    log_subscription_ready,
     AeronInitError,
     make_counter_type_id,
     add_counter,

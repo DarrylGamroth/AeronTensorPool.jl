@@ -48,3 +48,16 @@ function set_aeron_dir!(ctx::Aeron.Context, aeron_dir::AbstractString)
     isempty(aeron_dir) || Aeron.aeron_dir!(ctx, aeron_dir)
     return nothing
 end
+
+function log_publication_ready(label::AbstractString, pub::Aeron.Publication, stream_id::Integer)
+    @tp_info "$(label) publication ready" stream_id = stream_id channel = Aeron.channel(pub) max_payload_length =
+        Aeron.max_payload_length(pub) max_message_length = Aeron.max_message_length(pub) channel_status_indicator_id =
+        Aeron.channel_status_indicator_id(pub)
+    return nothing
+end
+
+function log_subscription_ready(label::AbstractString, sub::Aeron.Subscription, stream_id::Integer)
+    @tp_info "$(label) subscription ready" stream_id = stream_id channel = Aeron.channel(sub) channel_status_indicator_id =
+        Aeron.channel_status_indicator_id(sub)
+    return nothing
+end

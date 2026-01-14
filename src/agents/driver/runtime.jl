@@ -12,23 +12,14 @@ function init_driver(config::DriverConfig; client::Aeron.Client)
     clock = Clocks.CachedEpochClock(Clocks.MonotonicClock())
 
     pub_control = Aeron.add_publication(client, config.endpoints.control_channel, config.endpoints.control_stream_id)
-    @tp_info "Driver control publication ready" stream_id = config.endpoints.control_stream_id channel =
-        Aeron.channel(pub_control) max_payload_length = Aeron.max_payload_length(pub_control) max_message_length =
-        Aeron.max_message_length(pub_control) channel_status_indicator_id =
-        Aeron.channel_status_indicator_id(pub_control)
+    log_publication_ready("Driver control", pub_control, config.endpoints.control_stream_id)
     pub_announce =
         Aeron.add_publication(client, config.endpoints.announce_channel, config.endpoints.announce_stream_id)
-    @tp_info "Driver announce publication ready" stream_id = config.endpoints.announce_stream_id channel =
-        Aeron.channel(pub_announce) max_payload_length = Aeron.max_payload_length(pub_announce) max_message_length =
-        Aeron.max_message_length(pub_announce) channel_status_indicator_id =
-        Aeron.channel_status_indicator_id(pub_announce)
+    log_publication_ready("Driver announce", pub_announce, config.endpoints.announce_stream_id)
     pub_qos = Aeron.add_publication(client, config.endpoints.qos_channel, config.endpoints.qos_stream_id)
-    @tp_info "Driver qos publication ready" stream_id = config.endpoints.qos_stream_id channel =
-        Aeron.channel(pub_qos) max_payload_length = Aeron.max_payload_length(pub_qos) max_message_length =
-        Aeron.max_message_length(pub_qos) channel_status_indicator_id = Aeron.channel_status_indicator_id(pub_qos)
+    log_publication_ready("Driver qos", pub_qos, config.endpoints.qos_stream_id)
     sub_control = Aeron.add_subscription(client, config.endpoints.control_channel, config.endpoints.control_stream_id)
-    @tp_info "Driver control subscription ready" stream_id = config.endpoints.control_stream_id channel =
-        Aeron.channel(sub_control) channel_status_indicator_id = Aeron.channel_status_indicator_id(sub_control)
+    log_subscription_ready("Driver control", sub_control, config.endpoints.control_stream_id)
 
     control = ControlPlaneRuntime(client, pub_control, sub_control)
     runtime = DriverRuntime(
