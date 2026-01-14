@@ -1,0 +1,14 @@
+# Spec lock file. Update only when intentionally changing spec versions.
+# Generated against commit 09fdc6b98f9d01f2096180e358dc40bd351e33c4.
+
+[specs]
+"docs/SHM_Tensor_Pool_Wire_Spec_v1.2.md" = "f7a0ca085d301fa71d98d0da2bf44655f2e3a9d2472b1bd94de788264815fd6e"
+"docs/SHM_Driver_Model_Spec_v1.0.md" = "bc2e649b3ca786b54e75fdd7313a7bd5c66e52160355693b9c61da3b0c134ae1"
+"docs/SHM_Aeron_UDP_Bridge_Spec_v1.1.md" = "6b114c4d00dcad0ac2992a024879734451bde6cba638e12df38fe44187d11579"
+"docs/SHM_Discovery_Service_Spec_v_1.0.md" = "54e012acedd443e089a0c16984f341a606a614252dbc5d6c7d60a4704202c754"
+"docs/SHM_RateLimiter_Spec_v1.0.md" = "bd52751470cfe90c55546dedb6eb13177a1ea58b42aa464e011de99a878c21f2"
+"docs/SHM_Join_Barrier_Spec_v1.0.md" = "60698644e707dcbf4a4af27105a07261503abafbb66270f63094059867374213"
+"docs/SHM_TraceLink_Spec_v1.0.md" = "d2559589890cd4d82eb6cbed3d812ced5a8faba1b6818bcfff94349d1a88f807"
+
+[git]
+commit = "09fdc6b98f9d01f2096180e358dc40bd351e33c4"
