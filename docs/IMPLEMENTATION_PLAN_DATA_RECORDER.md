@@ -217,6 +217,15 @@ Status: pending.
   - Fetch clock at top of cycle.
   - Poll descriptors and route to handler.
   - Flush manifest batch on interval/size.
+Concurrency model (optional, defaults to single-threaded):
+- Per-stream Aeron subscriptions owned by writer workers.
+- Each writer handles:
+  - Descriptor poll, SHM read, segment write.
+  - Enqueue `frames` rows and segment updates to a single SQLite writer.
+- SQLite access remains single-threaded; workers communicate via a bounded queue.
+- Use a conservative queue depth (default: `header_nslots`) to avoid backlog
+  larger than the source ring; log data loss if exceeded.
+- Filesystem layout handles placement (no explicit per-stream root overrides).
 
 Status: pending.
 
