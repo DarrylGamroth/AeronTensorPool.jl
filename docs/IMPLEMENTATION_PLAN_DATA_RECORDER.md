@@ -314,9 +314,29 @@ Status: pending.
   - `docs/CONFIG_REFERENCE.md` recorder config.
   - `AGENTS.md` update to list recorder agent role.
 
+Detailing:
+- `scripts/run_recorder.jl`:
+  - Load config, start recorder agent, block until SIGINT.
+  - Emit periodic status (active streams, segment IDs, queue depth).
+- `scripts/run_recorder_smoke.jl`:
+  - Spin up local driver + producer, record for N frames, exit.
+  - Validate manifest row counts and segment files exist.
+- Unit tests:
+  - `manifest` migrations, WAL pragma application, batch flush timing.
+  - `segment_write!` correctness (header/payload positions and seqlock flags).
+  - `segment_full?` rollover behavior with mixed pools.
+  - Retention delete order and DB/file consistency.
+- Integration tests:
+  - End-to-end record/replay of a short stream (no payload decode).
+  - Multi-stream recording with shared dataset root.
+  - Concurrency mode: per-stream writer threads + single SQLite writer.
+- Performance checks (non-gating):
+  - Measure sustained `frames` insert rate with WAL batching.
+  - Measure segment write throughput (pwrite, no mmap).
+
 Status: pending.
 
 ---
 
 ## Open questions
-- Should datasets be per-stream or multi-stream by default?
+- None (current decisions captured above).
