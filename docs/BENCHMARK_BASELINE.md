@@ -84,3 +84,41 @@ Results:
 - GC live delta (loop): 27,778,848 bytes
 - GC allocd delta (total): 0 bytes
 - GC live delta (total): 55,688 bytes
+
+## Bridge Bench (Invoker path, udp-jumbo profile)
+
+Run at: 2026-01-14 13:22:50 PST
+
+Command:
+```bash
+julia --project scripts/run_benchmarks.jl --bridge --duration 10 --payload-bytes 655360 --bridge-profile udp-jumbo --config config/driver_integration_example.toml
+```
+
+Results:
+- Publish rate: 13,103.6 fps
+- Consume rate: 1,552.9 fps
+- Publish bandwidth: 8,189.7 MiB/s
+- Consume bandwidth: 970.6 MiB/s
+- GC allocd delta (loop): 38,149,328 bytes
+- GC live delta (loop): 38,149,328 bytes
+- GC allocd delta (total): 0 bytes
+- GC live delta (total): 54,792 bytes
+
+## Bridge Bench (Invoker path, ipc-heavy profile)
+
+Run at: 2026-01-14 13:22:50 PST
+
+Command:
+```bash
+julia --project scripts/run_benchmarks.jl --bridge --duration 10 --payload-bytes 655360 --bridge-profile ipc-heavy --config config/driver_integration_example.toml
+```
+
+Results:
+- Publish rate: 4,737.5 fps
+- Consume rate: 4,147.0 fps
+- Publish bandwidth: 2,960.9 MiB/s
+- Consume bandwidth: 2,591.9 MiB/s
+- GC allocd delta (loop): 57,346,560 bytes
+- GC live delta (loop): 57,346,560 bytes
+- GC allocd delta (total): 0 bytes
+- GC live delta (total): 56,600 bytes
