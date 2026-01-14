@@ -104,6 +104,15 @@ Status: pending.
   - Delete `frames`/`segment_pools`/`segments` for retention cleanup.
 - Commit cadence: `batch_rows` or `batch_ms` (spec default 5k/100ms).
 - Periodic WAL checkpoints (>= 1s) and optional on-seal checkpoint.
+Batching details (to meet 5k+ rows/s reliably):
+- Maintain a preallocated `frames` row buffer and bind/execute in a tight loop.
+- Flush batch when either:
+  - `frame_batch_rows` reached (default 5000), or
+  - `frame_batch_ms` elapsed since last commit (default 100 ms).
+- Use a single SQLite transaction per batch; avoid per-row commits.
+- After each commit, update `last_commit_ns` and reset the buffer cursor.
+- Optionally trigger a WAL checkpoint every `wal_checkpoint_ms` (default 1000 ms)
+  or after each sealed segment, whichever comes first.
 
 Status: pending.
 
