@@ -238,6 +238,22 @@ Concurrency model (optional, defaults to single-threaded):
     preserve SQLite as the authoritative index.
   - Log or persist a data-loss event for dropped frames.
 
+Detailing:
+- `RecorderState` contents:
+  - `recording_id`, `dataset_root`, `manifest_version`.
+  - `streams::Dict{Int,StreamRecorderState}` keyed by `stream_id`.
+  - `sqlite_writer` task + queue handles.
+- `StreamRecorderState`:
+  - Current `epoch`, `segment_id`, `seq_start`, `seq_end`.
+  - File descriptors + preallocated I/O buffers.
+  - Mapped live SHM header/pool views.
+- Message types for SQLite writer:
+  - `SegmentOpen`, `SegmentSeal`, `FrameBatch`, `RetentionDelete`.
+  - Optional `DataLossEvent` for dropped frames.
+- Queue implementation:
+  - Preallocated ring buffer; MPSC if multiple writers, SPSC if single.
+  - Non-blocking enqueue; drop on overflow per backpressure policy.
+
 Status: pending.
 
 ---
@@ -250,6 +266,20 @@ Status: pending.
 - Optional `commit [t0, t1]` support:
   - Copy sealed segments and create new manifest.
 - Data loss detection on missing/truncated segment files.
+
+Detailing:
+- Rollover:
+  - Emit `SegmentSeal` message before creating the next segment.
+  - Update `seq_start` for the new segment to the first recorded `seq`.
+- Retention selection:
+  - Prefer `t_end_ns` ordering; fall back to `seq_end` if timestamps are 0.
+  - Only delete segments with `sealed=1`.
+  - Delete in a single SQLite transaction:
+    - `frames` rows, then `segment_pools`, then `segments`.
+  - Remove files from disk after DB commit.
+- Missing/truncated detection:
+  - On startup or periodic sweep, `stat` segment files; if size < expected,
+    emit a data-loss event and mark segment as missing.
 
 Status: pending.
 
