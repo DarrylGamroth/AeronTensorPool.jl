@@ -150,6 +150,7 @@ function bridge_send_frame!(state::BridgeSenderState, desc::FrameDescriptor.Deco
 
     payload_len = Int(header.values_len_bytes)
     payload_len <= Int(pool_stride) || return false
+    payload_len <= Int(state.config.max_payload_bytes) || return false
 
     payload_offset = SUPERBLOCK_SIZE + Int(header.payload_slot) * Int(pool_stride)
     payload_mmap_vec = payload_mmap::Vector{UInt8}
