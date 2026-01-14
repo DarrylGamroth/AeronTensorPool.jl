@@ -111,6 +111,8 @@ function load_bridge_config(path::AbstractString; env::AbstractDict = ENV)
         UInt32(env_override(env, "bridge.max_chunk_bytes", UInt32(get(bridge_tbl, "max_chunk_bytes", 65535))))
     max_payload_bytes =
         UInt32(env_override(env, "bridge.max_payload_bytes", UInt32(get(bridge_tbl, "max_payload_bytes", 1073741824))))
+    integrity_crc32c =
+        env_override(env, "bridge.integrity_crc32c", Bool(get(bridge_tbl, "integrity_crc32c", false)))
     assembly_timeout_ms =
         UInt32(env_override(env, "bridge.assembly_timeout_ms", UInt32(get(bridge_tbl, "assembly_timeout_ms", 250))))
     forward_metadata =
@@ -136,6 +138,7 @@ function load_bridge_config(path::AbstractString; env::AbstractDict = ENV)
         chunk_bytes,
         max_chunk_bytes,
         max_payload_bytes,
+        integrity_crc32c,
         UInt64(assembly_timeout_ms) * 1_000_000,
         forward_metadata,
         forward_qos,

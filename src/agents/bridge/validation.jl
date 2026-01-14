@@ -94,3 +94,27 @@ function validate_bridge_config(config::BridgeConfig, mappings::Vector{BridgeMap
     end
     return true
 end
+
+"""
+Compute CRC32C for a bridge chunk.
+
+Arguments:
+- `header_bytes`: header byte vector (ignored when `header_included=false`).
+- `payload_bytes`: payload byte vector.
+- `header_included`: whether the header bytes are part of the CRC input.
+
+Returns:
+- CRC32C of `header_bytes || payload_bytes` when `header_included=true`,
+  otherwise CRC32C of `payload_bytes` only.
+"""
+function bridge_chunk_crc32c(
+    header_bytes::AbstractVector{UInt8},
+    payload_bytes::AbstractVector{UInt8},
+    header_included::Bool,
+)
+    if header_included
+        crc = CRC32c.crc32c(header_bytes)
+        return CRC32c.crc32c(payload_bytes, crc)
+    end
+    return CRC32c.crc32c(payload_bytes)
+end

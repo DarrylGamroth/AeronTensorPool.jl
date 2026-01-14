@@ -35,6 +35,7 @@ mutable struct BridgeConfig
     chunk_bytes::UInt32
     max_chunk_bytes::UInt32
     max_payload_bytes::UInt32
+    integrity_crc32c::Bool
     assembly_timeout_ns::UInt64
     forward_metadata::Bool
     forward_qos::Bool
@@ -57,6 +58,7 @@ BridgeConfig(
     chunk_bytes::UInt32,
     max_chunk_bytes::UInt32,
     max_payload_bytes::UInt32,
+    integrity_crc32c::Bool,
     assembly_timeout_ns::UInt64,
     forward_metadata::Bool,
     forward_qos::Bool,
@@ -76,6 +78,7 @@ BridgeConfig(
     chunk_bytes,
     max_chunk_bytes,
     max_payload_bytes,
+    integrity_crc32c,
     assembly_timeout_ns,
     forward_metadata,
     forward_qos,

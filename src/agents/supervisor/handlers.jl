@@ -307,32 +307,18 @@ function emit_consumer_config!(
         control_stream_id = control_stream_id
         with_claimed_buffer!(st.runtime.control.pub_control, st.runtime.config_claim, msg_len) do buf
             ConsumerConfigMsg.wrap_and_apply_header!(st.runtime.config_encoder, buf, 0)
-            ConsumerConfigMsg.streamId!(st.runtime.config_encoder, st.config.stream_id)
-            ConsumerConfigMsg.consumerId!(st.runtime.config_encoder, consumer_id)
-            ConsumerConfigMsg.useShm!(
+            encode_consumer_config!(
                 st.runtime.config_encoder,
-                use_shm ? ShmTensorpoolControl.Bool_.TRUE : ShmTensorpoolControl.Bool_.FALSE,
+                st.config.stream_id,
+                consumer_id;
+                use_shm = use_shm,
+                mode = mode,
+                descriptor_stream_id = descriptor_stream_id,
+                control_stream_id = control_stream_id,
+                payload_fallback_uri = payload_fallback_uri,
+                descriptor_channel = descriptor_channel,
+                control_channel = control_channel,
             )
-            ConsumerConfigMsg.mode!(st.runtime.config_encoder, mode)
-            ConsumerConfigMsg.descriptorStreamId!(
-                st.runtime.config_encoder,
-                descriptor_stream_id != 0 ? descriptor_stream_id : UInt32(0),
-            )
-            ConsumerConfigMsg.controlStreamId!(
-                st.runtime.config_encoder,
-                control_stream_id != 0 ? control_stream_id : UInt32(0),
-            )
-            ConsumerConfigMsg.payloadFallbackUri!(st.runtime.config_encoder, payload_fallback_uri)
-            if isempty(descriptor_channel)
-                ConsumerConfigMsg.descriptorChannel_length!(st.runtime.config_encoder, 0)
-            else
-                ConsumerConfigMsg.descriptorChannel!(st.runtime.config_encoder, descriptor_channel)
-            end
-            if isempty(control_channel)
-                ConsumerConfigMsg.controlChannel_length!(st.runtime.config_encoder, 0)
-            else
-                ConsumerConfigMsg.controlChannel!(st.runtime.config_encoder, control_channel)
-            end
         end
     end
 

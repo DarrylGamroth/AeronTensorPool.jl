@@ -109,3 +109,110 @@ Returns:
 function sbe_message_length(msg::SBE.AbstractSbeMessage)
     return MESSAGE_HEADER_LEN + sbe_encoded_length(msg)
 end
+
+"""
+Populate a ConsumerConfig message encoder.
+
+Arguments:
+- `enc`: ConsumerConfig encoder.
+- `stream_id`: stream identifier.
+- `consumer_id`: consumer identifier.
+- `use_shm`: enable SHM usage.
+- `mode`: consumer mode.
+- `descriptor_stream_id`: descriptor stream id (0 for shared).
+- `control_stream_id`: control stream id (0 for shared).
+- `payload_fallback_uri`: fallback URI (empty string for none).
+- `descriptor_channel`: optional per-consumer descriptor channel.
+- `control_channel`: optional per-consumer control channel.
+
+Returns:
+- `nothing`.
+"""
+function encode_consumer_config!(
+    enc::ConsumerConfigMsg.Encoder,
+    stream_id::UInt32,
+    consumer_id::UInt32;
+    use_shm::Bool,
+    mode::Mode.SbeEnum,
+    descriptor_stream_id::UInt32,
+    control_stream_id::UInt32,
+    payload_fallback_uri::AbstractString,
+    descriptor_channel::AbstractString,
+    control_channel::AbstractString,
+)
+    ConsumerConfigMsg.streamId!(enc, stream_id)
+    ConsumerConfigMsg.consumerId!(enc, consumer_id)
+    ConsumerConfigMsg.useShm!(enc, use_shm ? ShmTensorpoolControl.Bool_.TRUE : ShmTensorpoolControl.Bool_.FALSE)
+    ConsumerConfigMsg.mode!(enc, mode)
+    ConsumerConfigMsg.descriptorStreamId!(enc, descriptor_stream_id)
+    ConsumerConfigMsg.controlStreamId!(enc, control_stream_id)
+    ConsumerConfigMsg.payloadFallbackUri!(enc, payload_fallback_uri)
+    if isempty(descriptor_channel)
+        ConsumerConfigMsg.descriptorChannel_length!(enc, 0)
+    else
+        ConsumerConfigMsg.descriptorChannel!(enc, descriptor_channel)
+    end
+    if isempty(control_channel)
+        ConsumerConfigMsg.controlChannel_length!(enc, 0)
+    else
+        ConsumerConfigMsg.controlChannel!(enc, control_channel)
+    end
+    return nothing
+end
+
+"""
+Populate a DataSourceAnnounce encoder from a decoded message.
+
+Arguments:
+- `enc`: DataSourceAnnounce encoder.
+- `stream_id`: stream identifier for the forwarded announce.
+- `msg`: decoded DataSourceAnnounce.
+
+Returns:
+- `nothing`.
+"""
+function encode_metadata_announce!(
+    enc::DataSourceAnnounce.Encoder,
+    stream_id::UInt32,
+    msg::DataSourceAnnounce.Decoder,
+)
+    name = DataSourceAnnounce.name(msg, StringView)
+    summary = DataSourceAnnounce.summary(msg, StringView)
+    DataSourceAnnounce.streamId!(enc, stream_id)
+    DataSourceAnnounce.producerId!(enc, DataSourceAnnounce.producerId(msg))
+    DataSourceAnnounce.epoch!(enc, DataSourceAnnounce.epoch(msg))
+    DataSourceAnnounce.metaVersion!(enc, DataSourceAnnounce.metaVersion(msg))
+    DataSourceAnnounce.name!(enc, name)
+    DataSourceAnnounce.summary!(enc, summary)
+    return nothing
+end
+
+"""
+Populate a DataSourceMeta encoder from a decoded message.
+
+Arguments:
+- `enc`: DataSourceMeta encoder.
+- `stream_id`: stream identifier for the forwarded meta.
+- `msg`: decoded DataSourceMeta.
+
+Returns:
+- `nothing`.
+"""
+function encode_metadata_meta!(
+    enc::DataSourceMeta.Encoder,
+    stream_id::UInt32,
+    msg::DataSourceMeta.Decoder,
+)
+    DataSourceMeta.streamId!(enc, stream_id)
+    DataSourceMeta.metaVersion!(enc, DataSourceMeta.metaVersion(msg))
+    DataSourceMeta.timestampNs!(enc, DataSourceMeta.timestampNs(msg))
+    attrs = DataSourceMeta.attributes(msg)
+    attrs_enc = DataSourceMeta.attributes!(enc, length(attrs))
+    for attr in attrs
+        entry = DataSourceMeta.Attributes.next!(attrs_enc)
+        DataSourceMeta.Attributes.key!(entry, DataSourceMeta.Attributes.key(attr, StringView))
+        DataSourceMeta.Attributes.format!(entry, DataSourceMeta.Attributes.format(attr, StringView))
+        DataSourceMeta.Attributes.value!(entry, DataSourceMeta.Attributes.value(attr))
+    end
+    return nothing
+end

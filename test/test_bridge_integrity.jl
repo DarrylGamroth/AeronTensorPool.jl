@@ -1,6 +1,6 @@
 using Test
 
-@testset "Bridge header validation drops invalid TensorHeader" begin
+@testset "Bridge CRC32C integrity validation" begin
     with_driver_and_client() do driver, client
         mktempdir("/dev/shm") do dir
             base = joinpath(dir, "dst")
@@ -8,28 +8,28 @@ using Test
             prepare_canonical_shm_layout(
                 base;
                 namespace = "tensorpool",
-                stream_id = 9,
+                stream_id = 12,
                 epoch = 1,
                 pool_id = 1,
             )
-            header_uri = canonical_header_uri(base, "tensorpool", 9, 1)
-            pool_uri = canonical_pool_uri(base, "tensorpool", 9, 1, 1)
-
+            header_uri = canonical_header_uri(base, "tensorpool", 12, 1)
+            pool_uri = canonical_pool_uri(base, "tensorpool", 12, 1, 1)
             pool = PayloadPoolConfig(UInt16(1), pool_uri, UInt32(4096), UInt32(8))
+
             producer_cfg = ProducerConfig(
                 Aeron.MediaDriver.aeron_dir(driver),
                 "aeron:ipc",
-                Int32(17010),
-                Int32(17011),
-                Int32(17012),
-                Int32(17013),
-                UInt32(9),
-                UInt32(90),
+                Int32(18010),
+                Int32(18011),
+                Int32(18012),
+                Int32(18013),
+                UInt32(12),
+                UInt32(120),
                 UInt32(1),
                 UInt32(8),
                 base,
                 "tensorpool",
-                "bridge-hdr",
+                "bridge-crc",
                 header_uri,
                 [pool],
                 UInt8(MAX_DIMS),
@@ -41,15 +41,16 @@ using Test
             )
 
             producer_state = Producer.init_producer(producer_cfg; client = client)
+            producer_state.driver_client = nothing
             try
-                mapping = BridgeMapping(UInt32(9), UInt32(9), "default", UInt32(0), Int32(0), Int32(0))
+                mapping = BridgeMapping(UInt32(12), UInt32(12), "default", UInt32(0), Int32(0), Int32(0))
                 bridge_cfg = BridgeConfig(
-                    "bridge-hdr",
+                    "bridge-crc",
                     Aeron.MediaDriver.aeron_dir(driver),
                     "aeron:ipc",
-                    Int32(17100),
+                    Int32(18100),
                     "aeron:ipc",
-                    Int32(17101),
+                    Int32(18101),
                     "",
                     Int32(0),
                     Int32(0),
@@ -57,44 +58,36 @@ using Test
                     UInt32(512),
                     UInt32(1024),
                     UInt32(2048),
-                    false,
+                    true,
                     UInt64(1_000_000_000),
                     false,
                     false,
                     false,
                     false,
                 )
-                receiver = Bridge.init_bridge_receiver(bridge_cfg, mapping; producer_state = producer_state, client = client)
-
-                announce_buf = Vector{UInt8}(undef, 1024)
-                announce_enc = AeronTensorPool.Control.ShmPoolAnnounce.Encoder(Vector{UInt8})
-                AeronTensorPool.Control.ShmPoolAnnounce.wrap_and_apply_header!(announce_enc, announce_buf, 0)
-                AeronTensorPool.Control.ShmPoolAnnounce.streamId!(announce_enc, UInt32(9))
-                AeronTensorPool.Control.ShmPoolAnnounce.producerId!(announce_enc, UInt32(10))
-                AeronTensorPool.Control.ShmPoolAnnounce.epoch!(announce_enc, UInt64(1))
-                AeronTensorPool.Control.ShmPoolAnnounce.announceTimestampNs!(announce_enc, UInt64(time_ns()))
-                AeronTensorPool.Control.ShmPoolAnnounce.announceClockDomain!(
-                    announce_enc,
-                    AeronTensorPool.Control.ClockDomain.MONOTONIC,
+                receiver = Bridge.init_bridge_receiver(
+                    bridge_cfg,
+                    mapping;
+                    producer_state = producer_state,
+                    client = client,
                 )
-                AeronTensorPool.Control.ShmPoolAnnounce.layoutVersion!(announce_enc, UInt32(1))
-                AeronTensorPool.Control.ShmPoolAnnounce.headerNslots!(announce_enc, UInt32(8))
-                AeronTensorPool.Control.ShmPoolAnnounce.headerSlotBytes!(
-                    announce_enc,
-                    UInt16(AeronTensorPool.HEADER_SLOT_BYTES),
-                )
-                pools = AeronTensorPool.Control.ShmPoolAnnounce.payloadPools!(announce_enc, 1)
-                pool_entry = AeronTensorPool.Control.ShmPoolAnnounce.PayloadPools.next!(pools)
-                AeronTensorPool.Control.ShmPoolAnnounce.PayloadPools.poolId!(pool_entry, UInt16(1))
-                AeronTensorPool.Control.ShmPoolAnnounce.PayloadPools.regionUri!(pool_entry, pool_uri)
-                AeronTensorPool.Control.ShmPoolAnnounce.PayloadPools.poolNslots!(pool_entry, UInt32(8))
-                AeronTensorPool.Control.ShmPoolAnnounce.PayloadPools.strideBytes!(pool_entry, UInt32(4096))
-                AeronTensorPool.Control.ShmPoolAnnounce.headerRegionUri!(announce_enc, header_uri)
-                announce_header = AeronTensorPool.Control.MessageHeader.Decoder(announce_buf, 0)
-                announce_dec = AeronTensorPool.Control.ShmPoolAnnounce.Decoder(Vector{UInt8})
-                AeronTensorPool.Control.ShmPoolAnnounce.wrap!(announce_dec, announce_buf, 0; header = announce_header)
-                @test Bridge.bridge_apply_source_announce!(receiver, announce_dec)
 
+                announce = build_shm_pool_announce(
+                    stream_id = UInt32(12),
+                    epoch = UInt64(1),
+                    layout_version = UInt32(1),
+                    nslots = UInt32(8),
+                    header_uri = header_uri,
+                    payload_entries = [(
+                        pool_id = UInt16(1),
+                        nslots = UInt32(8),
+                        stride_bytes = UInt32(4096),
+                        uri = pool_uri,
+                    )],
+                )
+                @test Bridge.bridge_apply_source_announce!(receiver, announce.dec)
+
+                payload = fill(UInt8(0x2a), 16)
                 header_bytes = Vector{UInt8}(undef, AeronTensorPool.HEADER_SLOT_BYTES)
                 slot_enc = SlotHeaderMsg.Encoder(Vector{UInt8})
                 tensor_enc = TensorHeaderMsg.Encoder(Vector{UInt8})
@@ -104,7 +97,7 @@ using Test
                     tensor_enc,
                     UInt64(1),
                     UInt32(0),
-                    UInt32(16),
+                    UInt32(length(payload)),
                     UInt32(0),
                     UInt32(0),
                     UInt16(1),
@@ -113,41 +106,36 @@ using Test
                     UInt8(1),
                     AeronTensorPool.ProgressUnit.NONE,
                     UInt32(0),
-                    vcat(Int32(16), zeros(Int32, AeronTensorPool.MAX_DIMS - 1)),
+                    vcat(Int32(length(payload)), zeros(Int32, AeronTensorPool.MAX_DIMS - 1)),
                     vcat(Int32(0), zeros(Int32, AeronTensorPool.MAX_DIMS - 1)),
                 )
                 SlotHeaderMsg.seqCommit!(slot_enc, UInt64(1) << 1)
-                header_pos = SlotHeaderMsg.sbe_position(slot_enc) - AeronTensorPool.TENSOR_HEADER_LEN
-                header_view = view(
-                    header_bytes,
-                    header_pos + 1:header_pos + Int(
-                        AeronTensorPool.ShmTensorpoolBridge.MessageHeader.sbe_encoded_length(
-                            AeronTensorPool.ShmTensorpoolBridge.MessageHeader.Encoder,
-                        ),
-                    ),
-                )
-                header_msg = AeronTensorPool.ShmTensorpoolBridge.MessageHeader.Encoder(header_view)
-                AeronTensorPool.ShmTensorpoolBridge.MessageHeader.schemaId!(header_msg, UInt16(999))
 
-                payload = Vector{UInt8}(undef, 16)
-                fill!(payload, 0x7f)
+                crc = Bridge.bridge_chunk_crc32c(header_bytes, payload, true)
                 buf = Vector{UInt8}(
                     undef,
                     AeronTensorPool.Bridge.bridge_chunk_message_length(
                         AeronTensorPool.HEADER_SLOT_BYTES,
-                        16,
+                        length(payload),
                     ),
                 )
                 chunk_enc = AeronTensorPool.ShmTensorpoolBridge.BridgeFrameChunk.Encoder(Vector{UInt8})
                 AeronTensorPool.ShmTensorpoolBridge.BridgeFrameChunk.wrap_and_apply_header!(chunk_enc, buf, 0)
-                AeronTensorPool.ShmTensorpoolBridge.BridgeFrameChunk.streamId!(chunk_enc, UInt32(9))
+                AeronTensorPool.ShmTensorpoolBridge.BridgeFrameChunk.streamId!(chunk_enc, UInt32(12))
                 AeronTensorPool.ShmTensorpoolBridge.BridgeFrameChunk.epoch!(chunk_enc, UInt64(1))
                 AeronTensorPool.ShmTensorpoolBridge.BridgeFrameChunk.seq!(chunk_enc, UInt64(1))
                 AeronTensorPool.ShmTensorpoolBridge.BridgeFrameChunk.chunkIndex!(chunk_enc, UInt32(0))
                 AeronTensorPool.ShmTensorpoolBridge.BridgeFrameChunk.chunkCount!(chunk_enc, UInt32(1))
                 AeronTensorPool.ShmTensorpoolBridge.BridgeFrameChunk.chunkOffset!(chunk_enc, UInt32(0))
-                AeronTensorPool.ShmTensorpoolBridge.BridgeFrameChunk.chunkLength!(chunk_enc, UInt32(16))
-                AeronTensorPool.ShmTensorpoolBridge.BridgeFrameChunk.payloadLength!(chunk_enc, UInt32(16))
+                AeronTensorPool.ShmTensorpoolBridge.BridgeFrameChunk.chunkLength!(
+                    chunk_enc,
+                    UInt32(length(payload)),
+                )
+                AeronTensorPool.ShmTensorpoolBridge.BridgeFrameChunk.payloadLength!(
+                    chunk_enc,
+                    UInt32(length(payload)),
+                )
+                AeronTensorPool.ShmTensorpoolBridge.BridgeFrameChunk.payloadCrc32c!(chunk_enc, crc)
                 AeronTensorPool.ShmTensorpoolBridge.BridgeFrameChunk.headerIncluded!(
                     chunk_enc,
                     AeronTensorPool.ShmTensorpoolBridge.Bool_.TRUE,
@@ -164,7 +152,16 @@ using Test
                     header = chunk_header,
                 )
 
+                @test Bridge.bridge_chunk_crc32c(header_bytes, payload, true) == crc
+                Bridge.bridge_receive_chunk!(receiver, chunk_dec, UInt64(time_ns()))
                 dropped_before = receiver.metrics.chunks_dropped
+                AeronTensorPool.ShmTensorpoolBridge.BridgeFrameChunk.payloadCrc32c!(chunk_enc, crc + 1)
+                AeronTensorPool.ShmTensorpoolBridge.BridgeFrameChunk.wrap!(
+                    chunk_dec,
+                    buf,
+                    0;
+                    header = chunk_header,
+                )
                 @test Bridge.bridge_receive_chunk!(receiver, chunk_dec, UInt64(time_ns())) == false
                 @test receiver.metrics.chunks_dropped == dropped_before + 1
             finally

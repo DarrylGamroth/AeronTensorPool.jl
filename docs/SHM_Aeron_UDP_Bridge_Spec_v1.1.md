@@ -94,6 +94,7 @@ The bridge transports frames as a sequence of chunks. Each chunk carries a small
 - `chunkOffset : u32` (offset into payload)
 - `chunkLength : u32`
 - `payloadLength : u32` (total payload bytes)
+- `payloadCrc32c : u32` (optional; 0 means absent unless integrity enabled)
 - `headerIncluded : Bool` (TRUE only for `chunkIndex==0`)
 - `headerBytes[256]` (present only when `headerIncluded=TRUE`)
 - `payloadBytes` (varData)
@@ -118,6 +119,7 @@ The bridge transports frames as a sequence of chunks. Each chunk carries a small
 - Receivers MUST drop chunks where `headerIncluded=TRUE` but `headerBytes.length != 256`, or `headerIncluded=FALSE` and `headerBytes.length > 0`.
 - `payloadBytes` length MUST equal `chunkLength`.
 - `traceId` MUST be identical across all chunks for a given frame.
+- If integrity is enabled, `payloadCrc32c` MUST be populated and receivers MUST drop chunks that fail CRC validation.
 - If the source `FrameDescriptor.trace_id` is non-zero, bridge senders MUST set
   `traceId` to that value; otherwise they MUST set `traceId=0`.
 - Receivers MUST drop the frame if `traceId` differs across chunks for the same
@@ -141,7 +143,12 @@ The timeout SHOULD be configurable via `bridge.assembly_timeout_ms`.
 
 ### 5.4 Integrity (Informative)
 
-The bridge assumes Aeron UDP reliability. If additional integrity is required, deployments MAY add an out-of-band CRC32C policy or a future schema version with checksums; this v1.0 spec does not require per-chunk or per-frame CRCs.
+The bridge assumes Aeron UDP reliability. If additional integrity is required, deployments MAY enable a CRC32C policy. When `bridge.integrity_crc32c=true`, senders MUST populate `payloadCrc32c` and receivers MUST drop chunks whose CRC does not match.
+
+CRC32C policy (when enabled):
+- For chunks where `headerIncluded=TRUE`, `payloadCrc32c` MUST be computed over `headerBytes || payloadBytes`.
+- For chunks where `headerIncluded=FALSE`, `payloadCrc32c` MUST be computed over `payloadBytes` only.
+- Receivers MUST treat missing or zero `payloadCrc32c` as invalid when integrity is enabled.
 
 ---
 
@@ -251,6 +258,7 @@ Optional keys and defaults:
 - `bridge.chunk_bytes` (uint32): payload bytes per chunk. If set, the effective chunk size is `min(bridge.chunk_bytes, bridge.mtu_bytes - 128)`; if unset, the default is `bridge.mtu_bytes - 128`.
 - `bridge.max_chunk_bytes` (uint32): hard cap for chunk length. Default: `65535`.
 - `bridge.max_payload_bytes` (uint32): hard cap for total payload length. Default: `1073741824`.
+- `bridge.integrity_crc32c` (bool): enable CRC32C validation for bridge chunks. Default: `false`.
 - `bridge.dest_stream_id_range` (string or array): inclusive range for dynamically allocated destination stream IDs when `dest_stream_id=0`. Ranges MUST NOT overlap metadata/control/QoS stream IDs or other bridge ranges. Default: empty (disabled).
 - `bridge.forward_metadata` (bool): forward `DataSourceAnnounce`/`DataSourceMeta`. Default: `true`.
 - `bridge.forward_tracelink` (bool): forward `TraceLinkSet` messages over the metadata channel. Default: `false`.
@@ -323,6 +331,7 @@ The bridge control channel carries `ShmPoolAnnounce`, `QosProducer`, `QosConsume
     <field name="chunkOffset"    id="6" type="uint32"/>
     <field name="chunkLength"    id="7" type="uint32" maxValue="65535"/>
     <field name="payloadLength"  id="8" type="uint32" maxValue="1073741824"/>
+    <field name="payloadCrc32c"  id="13" type="uint32"/>
     <field name="headerIncluded" id="9" type="Bool"/>
     <data  name="headerBytes"    id="10" type="varDataEncoding256"/>
     <data  name="payloadBytes"   id="11" type="varDataEncoding"/>

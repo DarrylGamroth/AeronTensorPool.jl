@@ -22,12 +22,7 @@ function forward_data_source_announce!(
 
     return with_claimed_buffer!(pub, mapping.metadata_claim, msg_len) do buf
         DataSourceAnnounce.wrap_and_apply_header!(state.metadata_announce_encoder, buf, 0)
-        DataSourceAnnounce.streamId!(state.metadata_announce_encoder, mapping.mapping.dest_stream_id)
-        DataSourceAnnounce.producerId!(state.metadata_announce_encoder, DataSourceAnnounce.producerId(msg))
-        DataSourceAnnounce.epoch!(state.metadata_announce_encoder, DataSourceAnnounce.epoch(msg))
-        DataSourceAnnounce.metaVersion!(state.metadata_announce_encoder, DataSourceAnnounce.metaVersion(msg))
-        DataSourceAnnounce.name!(state.metadata_announce_encoder, name)
-        DataSourceAnnounce.summary!(state.metadata_announce_encoder, summary)
+        encode_metadata_announce!(state.metadata_announce_encoder, mapping.mapping.dest_stream_id, msg)
     end
 end
 
@@ -58,17 +53,7 @@ function forward_data_source_meta!(
 
     return with_claimed_buffer!(pub, mapping.metadata_claim, msg_len) do buf
         DataSourceMeta.wrap_and_apply_header!(state.metadata_meta_encoder, buf, 0)
-        DataSourceMeta.streamId!(state.metadata_meta_encoder, mapping.mapping.dest_stream_id)
-        DataSourceMeta.metaVersion!(state.metadata_meta_encoder, DataSourceMeta.metaVersion(msg))
-        DataSourceMeta.timestampNs!(state.metadata_meta_encoder, DataSourceMeta.timestampNs(msg))
-        attrs_encoder = DataSourceMeta.attributes!(state.metadata_meta_encoder, attr_count)
-        attrs = DataSourceMeta.attributes(msg)
-        for attr in attrs
-            entry = DataSourceMeta.Attributes.next!(attrs_encoder)
-            DataSourceMeta.Attributes.key!(entry, DataSourceMeta.Attributes.key(attr, StringView))
-            DataSourceMeta.Attributes.format!(entry, DataSourceMeta.Attributes.format(attr, StringView))
-            DataSourceMeta.Attributes.value!(entry, DataSourceMeta.Attributes.value(attr))
-        end
+        encode_metadata_meta!(state.metadata_meta_encoder, mapping.mapping.dest_stream_id, msg)
     end
 end
 

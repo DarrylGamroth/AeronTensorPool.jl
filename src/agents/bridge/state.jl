@@ -63,6 +63,7 @@ mutable struct BridgeChunkFill
     chunk_offset::UInt32
     chunk_length::UInt32
     payload_length::UInt32
+    payload_crc32c::UInt32
     header_included::Bool
     header_mmap_vec::Vector{UInt8}
     header_offset::Int
@@ -85,6 +86,7 @@ function (fill::BridgeChunkFill)(buf::AbstractArray{UInt8})
     BridgeFrameChunk.chunkOffset!(fill.encoder, fill.chunk_offset)
     BridgeFrameChunk.chunkLength!(fill.encoder, fill.chunk_length)
     BridgeFrameChunk.payloadLength!(fill.encoder, fill.payload_length)
+    BridgeFrameChunk.payloadCrc32c!(fill.encoder, fill.payload_crc32c)
     BridgeFrameChunk.headerIncluded!(
         fill.encoder,
         fill.header_included ? BridgeBool.TRUE : BridgeBool.FALSE,

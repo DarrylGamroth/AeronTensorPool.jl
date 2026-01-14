@@ -245,29 +245,18 @@ function emit_driver_consumer_config!(
         control_stream_id = control_stream_id
         with_claimed_buffer!(st.runtime.control.pub_control, st.runtime.control_claim, msg_len) do buf
             ConsumerConfigMsg.wrap_and_apply_header!(st.runtime.config_encoder, buf, 0)
-            ConsumerConfigMsg.streamId!(st.runtime.config_encoder, stream_id)
-            ConsumerConfigMsg.consumerId!(st.runtime.config_encoder, consumer_id)
-            ConsumerConfigMsg.useShm!(st.runtime.config_encoder, ShmTensorpoolControl.Bool_.TRUE)
-            ConsumerConfigMsg.mode!(st.runtime.config_encoder, Mode.STREAM)
-            ConsumerConfigMsg.descriptorStreamId!(
+            encode_consumer_config!(
                 st.runtime.config_encoder,
-                descriptor_stream_id != 0 ? descriptor_stream_id : UInt32(0),
+                stream_id,
+                consumer_id;
+                use_shm = true,
+                mode = Mode.STREAM,
+                descriptor_stream_id = descriptor_stream_id,
+                control_stream_id = control_stream_id,
+                payload_fallback_uri = "",
+                descriptor_channel = descriptor_channel,
+                control_channel = control_channel,
             )
-            ConsumerConfigMsg.controlStreamId!(
-                st.runtime.config_encoder,
-                control_stream_id != 0 ? control_stream_id : UInt32(0),
-            )
-            ConsumerConfigMsg.payloadFallbackUri!(st.runtime.config_encoder, "")
-            if isempty(descriptor_channel)
-                ConsumerConfigMsg.descriptorChannel_length!(st.runtime.config_encoder, 0)
-            else
-                ConsumerConfigMsg.descriptorChannel!(st.runtime.config_encoder, descriptor_channel)
-            end
-            if isempty(control_channel)
-                ConsumerConfigMsg.controlChannel_length!(st.runtime.config_encoder, 0)
-            else
-                ConsumerConfigMsg.controlChannel!(st.runtime.config_encoder, control_channel)
-            end
         end
     end
 end

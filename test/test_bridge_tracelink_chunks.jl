@@ -94,6 +94,7 @@ function make_bridge_receiver_with_producer(driver, client; stream_id::UInt32)
             UInt32(512),
             UInt32(1024),
             UInt32(2048),
+            false,
             UInt64(1_000_000_000),
             false,
             false,

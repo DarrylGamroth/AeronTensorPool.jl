@@ -47,6 +47,7 @@ function init_bridge_sender(
         0,
         0,
         0,
+        0,
         false,
         Vector{UInt8}(undef, 0),
         0,
@@ -171,6 +172,7 @@ function bridge_send_frame!(state::BridgeSenderState, desc::FrameDescriptor.Deco
     fill.header_mmap_vec = header_mmap_vec
     fill.header_offset = header_offset
     fill.payload_mmap_vec = payload_mmap_vec
+    crc_enabled = state.config.integrity_crc32c
 
     for chunk_index in 0:(chunk_count - 1)
         payload_pos = payload_offset + chunk_index * chunk_bytes
@@ -184,6 +186,17 @@ function bridge_send_frame!(state::BridgeSenderState, desc::FrameDescriptor.Deco
         fill.chunk_offset = UInt32(chunk_index * chunk_bytes)
         fill.chunk_length = UInt32(payload_chunk_len)
         fill.header_included = header_included
+        if crc_enabled
+            header_view = header_included ? @view(header_mmap_vec[
+                header_offset + 1:header_offset + HEADER_SLOT_BYTES
+            ]) : payload_mmap_vec
+            payload_view = @view(payload_mmap_vec[
+                payload_pos + 1:payload_pos + payload_chunk_len
+            ])
+            fill.payload_crc32c = bridge_chunk_crc32c(header_view, payload_view, header_included)
+        else
+            fill.payload_crc32c = UInt32(0)
+        end
         fill.payload_pos = payload_pos
         fill.payload_chunk_len = payload_chunk_len
         sent = with_claimed_buffer!(fill, state.pub_payload, state.chunk_claim, msg_len)

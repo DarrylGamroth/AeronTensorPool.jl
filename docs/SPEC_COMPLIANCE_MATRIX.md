@@ -65,7 +65,7 @@ Known gaps / open questions:
 | 1–4 Scope/Roles/Transport/IDs | Implemented | Compliant | Sender/receiver agents + config validation. |
 | 5 BridgeFrameChunk + Chunking | Implemented | Compliant | `src/agents/bridge/sender.jl`, `receiver.jl`, tests. |
 | 5.3a Assembly Timeout | Implemented | Compliant | `bridge.assembly_timeout_ms` enforced. |
-| 5.4 Integrity | Not implemented | N/A | Optional CRC/integrity not implemented. |
+| 5.4 Integrity | Implemented | Compliant | Optional CRC32C policy enabled via `bridge.integrity_crc32c`. |
 | 6 Re-materialization | Implemented | Compliant | Receiver writes local SHM + descriptor publish. |
 | 7 Descriptor semantics | Implemented | Compliant | TraceId propagated and seq preserved. |
 | 7.1 Metadata/TraceLink forwarding | Implemented | Compliant | Forwarders in `src/agents/bridge/proxy.jl`. |

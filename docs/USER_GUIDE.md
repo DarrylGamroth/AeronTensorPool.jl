@@ -393,6 +393,8 @@ If a consumer is on another host:
 
 Consumers attach locally to the receiver’s SHM, not to the remote producer.
 
+Optional integrity: set `bridge.integrity_crc32c=true` to enable CRC32C validation for bridge chunks; receivers drop mismatched chunks.
+
 ---
 
 ## 12. Failure handling
@@ -400,6 +402,8 @@ Consumers attach locally to the receiver’s SHM, not to the remote producer.
 - **Driver down**: attach fails; wait and retry.
 - **Epoch change**: unmap, drop in‑flight frames, remap on new announce.
 - **Lease revoked**: stop using SHM immediately, reattach.
+
+Join-time gating note: consumers use Aeron `on_available_image` callbacks to set join time; MONOTONIC-domain announces older than the image availability time are ignored.
 
 ---
 

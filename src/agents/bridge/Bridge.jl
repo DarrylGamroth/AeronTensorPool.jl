@@ -11,6 +11,7 @@ using ...Discovery
 using ...Timers
 using ...AeronUtils
 using ...Clocks
+using CRC32c
 using ...FixedSizeArrays
 using ...SBE
 using ...StringViews

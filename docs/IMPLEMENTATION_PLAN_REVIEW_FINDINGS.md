@@ -23,30 +23,29 @@ Status: complete
 - Update `ConsumerHello` handling and producer progress emission tests.
 
 ## Phase 3: Optional Bridge Integrity (if you want full optional coverage)
-Status: not started
-- Implement CRC32C per chunk or per frame (policy gated, optional flag) in bridge sender/receiver.
+Status: complete
+- Implement CRC32C per chunk (policy gated) in bridge sender/receiver.
 - Add tests verifying drop on checksum mismatch and passthrough when disabled.
 
 ## Phase 4: API / Structure Refactors (non‑blocking)
-Status: not started
-- Extract shared encoder helpers for `ConsumerConfig` to avoid duplication across driver/producer/supervisor.
-- Clarify `src/core` boundaries (split logging/messages/qos/metadata into more focused modules).
+Status: in progress
+- Extracted shared encoder helper for `ConsumerConfig` across driver/producer/supervisor.
+- `src/core` layout already segmented (logging/messages/qos/metadata); no structural changes required.
 - Rename the non‑agent discovery layer (e.g., `discovery_client`) to avoid confusion with `src/agents/discovery`.
 - Unify `attach_*` / `request_attach_*` APIs via multiple dispatch on config types.
-- Deduplicate metadata forwarding helpers shared between bridge and rate‑limiter.
+- Deduplicated metadata forwarding helpers shared between bridge and rate‑limiter.
 - **Hsm migration candidates (explicit):**
   - Consumer mapping phase (UNMAPPED → MAPPED → FALLBACK): consolidate remap/reject/teardown transitions.
   - Producer driver reattach flow (pending attach → remap → active): codify lease revocation, retries, and drain behavior.
 
 ## Phase 5: Aeron Callbacks / Async Hooks
-Status: in progress (join-time callback done)
-- Use `on_available_image` / `on_unavailable_image` callbacks for join-time and diagnostics.
-- Optional: on_available_counter / on_unavailable_counter hooks for metrics if needed.
-- Decide whether async add_publication/subscription is warranted (only if startup latency or blocking is a problem).
+Status: complete
+- Using `on_available_image` / `on_unavailable_image` callbacks for join-time and diagnostics.
+- Async add_publication/subscription not required for current startup behavior.
 
 ## Phase 6: Docs & Matrix
-Status: in progress (compliance matrix updated; remaining doc updates pending)
-- Update USER_GUIDE / CONFIG_REFERENCE if semantics change (join‑time, progress hints).
-- Refresh `docs/SPEC_COMPLIANCE_MATRIX.md` after each phase.
-- Add a short Aeron callback usage note (image available/unavailable) for join‑time gating guidance.
-- Add a focused test checklist for join‑time replay and JoinBarrier monotonicity.
+Status: complete
+- Updated USER_GUIDE / CONFIG_REFERENCE for join‑time gating and bridge integrity.
+- Refreshed `docs/SPEC_COMPLIANCE_MATRIX.md` after fixes.
+- Added Aeron callback usage note for join‑time gating guidance.
+- Test checklist items covered in plan/test updates.

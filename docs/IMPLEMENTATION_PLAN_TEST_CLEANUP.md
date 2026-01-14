@@ -19,15 +19,14 @@ Status: complete
 - Ensure helpers track schema changes by using generated codec constants.
 
 ## Phase 2: Integration Test Clarity
-Status: not started
-- Split multi‑feature integration tests into smaller, focused cases or add explicit sub‑sections.
-- Keep per‑feature tests in their own files (consistent with existing pattern).
+Status: complete
+- Reviewed integration tests; current files already isolate features with clear focus.
 
 ## Phase 3: Optional Coverage
-Status: not started
-- If optional bridge integrity is implemented, add checksum success/failure tests.
+Status: complete
+- Added checksum success/failure tests for bridge integrity.
 
 ## Phase 4: Docs & Matrix
-Status: in progress
-- Update `docs/SPEC_COMPLIANCE_MATRIX.md` entries after new coverage is added.
-- Add a short test checklist note to `docs/IMPLEMENTATION_PLAN_REVIEW_FINDINGS.md` if needed.
+Status: complete
+- Updated `docs/SPEC_COMPLIANCE_MATRIX.md` after new coverage.
+- Test checklist notes captured in review plan.

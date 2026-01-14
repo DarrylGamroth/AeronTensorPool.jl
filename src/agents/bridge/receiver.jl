@@ -400,6 +400,14 @@ function bridge_receive_chunk!(
     header_included && header_len != HEADER_SLOT_BYTES && return bridge_drop_chunk!(state)
     !header_included && header_len != 0 && return bridge_drop_chunk!(state)
 
+    if state.config.integrity_crc32c
+        BridgeFrameChunk.payloadCrc32c_in_acting_version(decoder) || return bridge_drop_chunk!(state)
+        expected_crc = BridgeFrameChunk.payloadCrc32c(decoder)
+        expected_crc == UInt32(0) && return bridge_drop_chunk!(state)
+        computed_crc = bridge_chunk_crc32c(header_bytes, payload_bytes, header_included)
+        computed_crc == expected_crc || return bridge_drop_chunk!(state)
+    end
+
     (chunk_index == 0) == header_included || return bridge_drop_chunk!(state)
 
     seq = BridgeFrameChunk.seq(decoder)

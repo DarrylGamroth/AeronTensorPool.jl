@@ -40,6 +40,7 @@
     <field name="chunkOffset"    id="6" type="uint32"/>
     <field name="chunkLength"    id="7" type="uint32" maxValue="65535"/>
     <field name="payloadLength"  id="8" type="uint32" maxValue="1073741824"/>
+    <field name="payloadCrc32c"  id="13" type="uint32"/>
     <field name="headerIncluded" id="9" type="Bool"/>
     <data  name="headerBytes"    id="10" type="varDataEncoding256"/>
     <data  name="payloadBytes"   id="11" type="varDataEncoding"/>

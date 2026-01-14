@@ -102,6 +102,7 @@ Optional keys and defaults:
 - `bridge.chunk_bytes` (uint32): payload bytes per chunk. Default: `bridge.mtu_bytes - 128`.
 - `bridge.max_chunk_bytes` (uint32): hard cap for chunk length. Default: `65535`.
 - `bridge.max_payload_bytes` (uint32): hard cap for payload length. Default: `1073741824`.
+- `bridge.integrity_crc32c` (bool): enable CRC32C validation for bridge chunks. Default: `false`.
 - `bridge.dest_stream_id_range` (string or array): inclusive range for dynamically allocated destination stream IDs. Default: empty (disabled).
 - `bridge.forward_metadata` (bool): forward `DataSourceAnnounce`/`DataSourceMeta`. Default: `true`.
 - `bridge.metadata_channel` (string): Aeron UDP channel for metadata forwarding. Default: empty (disabled unless set).
