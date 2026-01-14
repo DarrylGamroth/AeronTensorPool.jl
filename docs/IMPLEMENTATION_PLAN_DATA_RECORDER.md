@@ -66,6 +66,13 @@ Status: in progress.
   - `header_nslots` and `pool_nslots` are powers of two.
   - Pool strides can accommodate expected payload sizes.
   - Optional stream IDs for metadata/control/QoS are consistent.
+- Config safety checks (fail fast or warn):
+  - Error if computed minimum segment size exceeds `segment_max_bytes`; include
+    the required size in the message.
+  - Error if explicit `header_nslots`/`pool_nslots` are not powers of two.
+  - Warn if any `pool_nslots < header_nslots` (pool wrap may seal early).
+  - Warn if `sqlite_synchronous` is "OFF" or WAL mode is disabled.
+  - Error if a payload does not fit any configured pool stride.
 
 Status: pending.
 
