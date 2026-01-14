@@ -49,7 +49,7 @@ Known gaps / open questions:
 | Section | Status | Correctness | Notes / Evidence |
 | --- | --- | --- | --- |
 | 1–3 Scope/Roles/Authority | Implemented | Compliant | Driver owns SHM + control-plane. |
-| 4 Attach/Detach/Keepalive | Implemented | Needs Review | Driver HSM + tests; control schema gating lacks explicit test (spec §137). |
+| 4 Attach/Detach/Keepalive | Implemented | Compliant | Driver HSM + tests; control schema gating covered in `test/test_driver_control_schema_gating.jl`. |
 | 5 Exclusive Producer Rule | Implemented | Compliant | Enforced by driver. |
 | 6 Epoch Management | Implemented | Compliant | Epoch bump/remap logic. |
 | 7 Failure/Recovery | Implemented | Compliant | Shutdown/epoch bump + tests. |

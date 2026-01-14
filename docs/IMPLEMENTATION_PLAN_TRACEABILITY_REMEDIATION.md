@@ -29,9 +29,9 @@ Status: complete
 - Replace defaults with explicit code/test refs for each normative clause.
 
 ## Phase 3: Traceability Gaps → Tests
-Status: in progress
-- Add a driver control schema gating test for Driver spec §137 (or adjust mapping if test already exists).
-- Re‑scan for gaps after the new test is added.
+Status: complete
+- Added driver control schema gating test for Driver spec §137.
+- Re‑scanned traceability matrix; no remaining gaps.
 
 ## Phase 4: CI / Regression Safeguards
 Status: pending
