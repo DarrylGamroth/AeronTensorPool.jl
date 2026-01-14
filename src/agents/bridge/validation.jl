@@ -16,9 +16,13 @@ function validate_bridge_config(config::BridgeConfig, mappings::Vector{BridgeMap
     config.payload_stream_id == 0 && throw(BridgeConfigError("bridge payload_stream_id must be nonzero"))
     isempty(config.control_channel) && throw(BridgeConfigError("bridge control_channel must be set"))
     config.control_stream_id == 0 && throw(BridgeConfigError("bridge control_stream_id must be nonzero"))
-    if config.forward_metadata
-        isempty(config.metadata_channel) && throw(BridgeConfigError("bridge metadata_channel must be set when forward_metadata=true"))
-        config.metadata_stream_id == 0 && throw(BridgeConfigError("bridge metadata_stream_id must be nonzero when forward_metadata=true"))
+    if config.forward_metadata || config.forward_tracelink
+        isempty(config.metadata_channel) &&
+            throw(BridgeConfigError("bridge metadata_channel must be set when forwarding metadata/tracelink"))
+        config.metadata_stream_id == 0 &&
+            throw(BridgeConfigError("bridge metadata_stream_id must be nonzero when forwarding metadata/tracelink"))
+        config.source_metadata_stream_id == 0 &&
+            throw(BridgeConfigError("bridge source_metadata_stream_id must be nonzero when forwarding metadata/tracelink"))
     end
     if config.max_payload_bytes == 0
         throw(BridgeConfigError("bridge max_payload_bytes must be nonzero"))
@@ -79,9 +83,9 @@ function validate_bridge_config(config::BridgeConfig, mappings::Vector{BridgeMap
                     throw(BridgeConfigError("bridge dest_stream_id_range overlaps metadata_stream_id"))
             end
         end
-        if config.forward_qos || config.forward_progress || config.forward_tracelink
+        if config.forward_qos || config.forward_progress
             if mapping.source_control_stream_id == 0 || mapping.dest_control_stream_id == 0
-                throw(BridgeConfigError("bridge mapping requires control stream IDs when forwarding QoS/progress/tracelink"))
+                throw(BridgeConfigError("bridge mapping requires control stream IDs when forwarding QoS/progress"))
             end
         end
         pair = (mapping.source_stream_id, mapping.dest_stream_id)

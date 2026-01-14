@@ -16,7 +16,7 @@ function init_bridge_sender(
     mapping::BridgeMapping;
     client::Aeron.Client,
 )
-    if (config.forward_progress || config.forward_qos || config.forward_tracelink) &&
+    if (config.forward_progress || config.forward_qos) &&
        (mapping.source_control_stream_id == 0 || mapping.dest_control_stream_id == 0)
         throw(ArgumentError("bridge mapping requires nonzero control stream IDs for progress/QoS forwarding"))
     end
@@ -31,7 +31,7 @@ function init_bridge_sender(
     pub_metadata = nothing
     sub_metadata = nothing
     metadata_assembler = nothing
-    if config.forward_metadata && !isempty(config.metadata_channel)
+    if (config.forward_metadata || config.forward_tracelink) && !isempty(config.metadata_channel)
         pub_metadata = Aeron.add_publication(client, config.metadata_channel, config.metadata_stream_id)
         sub_metadata = Aeron.add_subscription(client, consumer_state.config.aeron_uri, config.source_metadata_stream_id)
     end

@@ -52,11 +52,6 @@ function make_bridge_control_assembler(state::BridgeReceiverState)
                template_id == TEMPLATE_FRAME_PROGRESS
             FrameProgress.wrap!(st.progress_decoder, buffer, 0; header = header)
             st.config.forward_progress && bridge_publish_progress!(st, st.progress_decoder)
-        elseif schema_id == TraceLinkMessageHeader.sbe_schema_id(TraceLinkMessageHeader.Decoder) &&
-               template_id == TraceLinkSet.sbe_template_id(TraceLinkSet.Decoder)
-            trace_header = TraceLinkMessageHeader.Decoder(buffer, 0)
-            TraceLinkSet.wrap!(st.tracelink_decoder, buffer, 0; header = trace_header)
-            st.config.forward_tracelink && bridge_publish_tracelink!(st, st.tracelink_decoder)
         end
         nothing
     end
@@ -93,11 +88,6 @@ function make_bridge_control_sender_assembler(state::BridgeSenderState)
                template_id == TEMPLATE_FRAME_PROGRESS
             FrameProgress.wrap!(st.progress_decoder, buffer, 0; header = header)
             st.config.forward_progress && bridge_forward_progress!(st, st.progress_decoder)
-        elseif schema_id == TraceLinkMessageHeader.sbe_schema_id(TraceLinkMessageHeader.Decoder) &&
-               template_id == TraceLinkSet.sbe_template_id(TraceLinkSet.Decoder)
-            trace_header = TraceLinkMessageHeader.Decoder(buffer, 0)
-            TraceLinkSet.wrap!(st.tracelink_decoder, buffer, 0; header = trace_header)
-            st.config.forward_tracelink && bridge_forward_tracelink!(st, st.tracelink_decoder)
         end
         nothing
     end
@@ -116,13 +106,21 @@ Returns:
 function make_bridge_metadata_sender_assembler(state::BridgeSenderState)
     handler = Aeron.FragmentHandler(state) do st, buffer, _
         header = MessageHeader.Decoder(buffer, 0)
+        schema_id = MessageHeader.schemaId(header)
         template_id = MessageHeader.templateId(header)
-        if template_id == TEMPLATE_DATA_SOURCE_ANNOUNCE
+        if schema_id == MessageHeader.sbe_schema_id(MessageHeader.Decoder) &&
+           template_id == TEMPLATE_DATA_SOURCE_ANNOUNCE
             DataSourceAnnounce.wrap!(st.metadata_announce_decoder, buffer, 0; header = header)
             bridge_forward_metadata_announce!(st, st.metadata_announce_decoder)
-        elseif template_id == TEMPLATE_DATA_SOURCE_META
+        elseif schema_id == MessageHeader.sbe_schema_id(MessageHeader.Decoder) &&
+               template_id == TEMPLATE_DATA_SOURCE_META
             DataSourceMeta.wrap!(st.metadata_meta_decoder, buffer, 0; header = header)
             bridge_forward_metadata_meta!(st, st.metadata_meta_decoder)
+        elseif schema_id == TraceLinkMessageHeader.sbe_schema_id(TraceLinkMessageHeader.Decoder) &&
+               template_id == TraceLinkSet.sbe_template_id(TraceLinkSet.Decoder)
+            trace_header = TraceLinkMessageHeader.Decoder(buffer, 0)
+            TraceLinkSet.wrap!(st.tracelink_decoder, buffer, 0; header = trace_header)
+            st.config.forward_tracelink && bridge_forward_tracelink!(st, st.tracelink_decoder)
         end
         nothing
     end
@@ -141,13 +139,21 @@ Returns:
 function make_bridge_metadata_receiver_assembler(state::BridgeReceiverState)
     handler = Aeron.FragmentHandler(state) do st, buffer, _
         header = MessageHeader.Decoder(buffer, 0)
+        schema_id = MessageHeader.schemaId(header)
         template_id = MessageHeader.templateId(header)
-        if template_id == TEMPLATE_DATA_SOURCE_ANNOUNCE
+        if schema_id == MessageHeader.sbe_schema_id(MessageHeader.Decoder) &&
+           template_id == TEMPLATE_DATA_SOURCE_ANNOUNCE
             DataSourceAnnounce.wrap!(st.metadata_announce_decoder, buffer, 0; header = header)
             bridge_publish_metadata_announce!(st, st.metadata_announce_decoder)
-        elseif template_id == TEMPLATE_DATA_SOURCE_META
+        elseif schema_id == MessageHeader.sbe_schema_id(MessageHeader.Decoder) &&
+               template_id == TEMPLATE_DATA_SOURCE_META
             DataSourceMeta.wrap!(st.metadata_meta_decoder, buffer, 0; header = header)
             bridge_publish_metadata_meta!(st, st.metadata_meta_decoder)
+        elseif schema_id == TraceLinkMessageHeader.sbe_schema_id(TraceLinkMessageHeader.Decoder) &&
+               template_id == TraceLinkSet.sbe_template_id(TraceLinkSet.Decoder)
+            trace_header = TraceLinkMessageHeader.Decoder(buffer, 0)
+            TraceLinkSet.wrap!(st.tracelink_decoder, buffer, 0; header = trace_header)
+            st.config.forward_tracelink && bridge_publish_tracelink!(st, st.tracelink_decoder)
         end
         nothing
     end

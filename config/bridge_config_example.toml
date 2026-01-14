@@ -8,11 +8,11 @@ payload_channel = "aeron:udp?endpoint=239.1.1.1:40456"
 payload_stream_id = 3000
 control_channel = "aeron:udp?endpoint=239.1.1.1:40457"
 control_stream_id = 3001
-# metadata_channel carries DataSourceAnnounce/DataSourceMeta between hosts.
+# metadata_channel carries DataSourceAnnounce/DataSourceMeta and optional TraceLinkSet between hosts.
 metadata_channel = "aeron:udp?endpoint=239.1.1.1:40458"
 metadata_stream_id = 3002
 source_metadata_stream_id = 1300
-# control_channel carries forwarded ShmPoolAnnounce and optional QoS/FrameProgress/TraceLinkSet.
+# control_channel carries forwarded ShmPoolAnnounce and optional QoS/FrameProgress.
 mtu_bytes = 1408
 chunk_bytes = 1200
 max_chunk_bytes = 65535

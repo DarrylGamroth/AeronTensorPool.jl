@@ -272,9 +272,16 @@ function bridge_forward_tracelink!(state::BridgeSenderState, msg::TraceLinkSet.D
     TraceLinkSet.streamId(msg) == state.mapping.source_stream_id || return false
     msg_len = TRACELINK_MESSAGE_HEADER_LEN + Int(TraceLinkSet.sbe_decoded_length(msg))
     parents = TraceLinkSet.parents(msg)
-    sent = with_claimed_buffer!(state.pub_control, state.control_claim, msg_len) do buf
+    pub = state.pub_metadata
+    pub === nothing && return false
+    sent = with_claimed_buffer!(pub, state.metadata_claim, msg_len) do buf
         TraceLinkSet.wrap_and_apply_header!(state.tracelink_encoder, buf, 0)
-        TraceLinkSet.streamId!(state.tracelink_encoder, state.mapping.dest_stream_id)
+        stream_id = ifelse(
+            state.mapping.metadata_stream_id == 0,
+            state.mapping.dest_stream_id,
+            state.mapping.metadata_stream_id,
+        )
+        TraceLinkSet.streamId!(state.tracelink_encoder, stream_id)
         TraceLinkSet.epoch!(state.tracelink_encoder, TraceLinkSet.epoch(msg))
         TraceLinkSet.seq!(state.tracelink_encoder, TraceLinkSet.seq(msg))
         TraceLinkSet.traceId!(state.tracelink_encoder, TraceLinkSet.traceId(msg))
@@ -392,9 +399,14 @@ Returns:
 """
 function bridge_publish_tracelink!(state::BridgeReceiverState, msg::TraceLinkSet.Decoder)
     state.config.forward_tracelink || return false
-    TraceLinkSet.streamId(msg) == state.mapping.dest_stream_id || return false
+    expected_stream_id = ifelse(
+        state.mapping.metadata_stream_id == 0,
+        state.mapping.dest_stream_id,
+        state.mapping.metadata_stream_id,
+    )
+    TraceLinkSet.streamId(msg) == expected_stream_id || return false
     msg_len = TRACELINK_MESSAGE_HEADER_LEN + Int(TraceLinkSet.sbe_decoded_length(msg))
-    pub = state.pub_control_local
+    pub = state.pub_metadata_local
     pub === nothing && return false
 
     trace_id = TraceLinkSet.traceId(msg)
@@ -402,9 +414,14 @@ function bridge_publish_tracelink!(state::BridgeReceiverState, msg::TraceLinkSet
         state.trace_id_by_seq[TraceLinkSet.seq(msg)] = trace_id
     end
     parents = TraceLinkSet.parents(msg)
-    sent = with_claimed_buffer!(pub, state.control_claim, msg_len) do buf
+    sent = with_claimed_buffer!(pub, state.metadata_claim, msg_len) do buf
         TraceLinkSet.wrap_and_apply_header!(state.tracelink_encoder, buf, 0)
-        TraceLinkSet.streamId!(state.tracelink_encoder, state.mapping.dest_stream_id)
+        stream_id = ifelse(
+            state.mapping.metadata_stream_id == 0,
+            state.mapping.dest_stream_id,
+            state.mapping.metadata_stream_id,
+        )
+        TraceLinkSet.streamId!(state.tracelink_encoder, stream_id)
         TraceLinkSet.epoch!(state.tracelink_encoder, TraceLinkSet.epoch(msg))
         TraceLinkSet.seq!(state.tracelink_encoder, TraceLinkSet.seq(msg))
         TraceLinkSet.traceId!(state.tracelink_encoder, trace_id)
