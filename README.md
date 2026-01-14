@@ -51,7 +51,7 @@ Client configs are API-only; only the driver uses TOML.
 
 - Wire spec: `docs/SHM_Tensor_Pool_Wire_Spec_v1.1.md`
 - Driver model: `docs/SHM_Driver_Model_Spec_v1.0.md`
-- Bridge spec: `docs/SHM_Aeron_UDP_Bridge_Spec_v1.0.md`
+- Bridge spec: `docs/SHM_Aeron_UDP_Bridge_Spec_v1.1.md`
 - Discovery spec: `docs/SHM_Discovery_Service_Spec_v_1.0.md`
 - Rate limiter spec: `docs/SHM_RateLimiter_Spec_v1.0.md`
 - Implementation guides: `docs/IMPLEMENTATION.md`, `docs/IMPLEMENTATION_GUIDE.md`

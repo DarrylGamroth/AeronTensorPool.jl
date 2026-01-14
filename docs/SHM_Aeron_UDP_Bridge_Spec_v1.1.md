@@ -1,5 +1,5 @@
 # SHM Tensor Pool Aeron-UDP Bridge
-## Specification (v1.0)
+## Specification (v1.1)
 
 **Abstract**  
 This document defines a bridge protocol for transporting SHM Tensor Pool frames over `aeron:udp` between hosts. The bridge reads frames from a local SHM pool and re-materializes them into a remote host's SHM pool, then publishes standard `FrameDescriptor` messages locally. This enables remote consumers to use the same wire specification without attaching to a remote driver.
@@ -10,6 +10,12 @@ The key words “MUST”, “MUST NOT”, “REQUIRED”, “SHOULD”, “SHOUL
 **Normative References**
 - SHM Tensor Pool Wire Specification v1.2 (`docs/SHM_Tensor_Pool_Wire_Spec_v1.2.md`)
 - SHM Driver Model Specification v1.0 (`docs/SHM_Driver_Model_Spec_v1.0.md`)
+
+**Version History**
+- v1.0 (2025-xx-xx): Initial specification.
+- v1.1 (2026-01-xx): Add `BridgeFrameChunk.traceId` for 1→1 TraceLink
+  propagation; add explicit payload cap and schemaId guard rules (breaking
+  change; older decoders are unsupported).
 
 ---
 
@@ -73,7 +79,7 @@ Bridge payload streams SHOULD use a reserved stream ID range (e.g., 50000-59999)
 
 ## 5. Bridge Frame Chunk Message (Normative)
 
-The bridge transports frames as a sequence of chunks. Each chunk carries a small header plus a byte slice of the frame payload. The first chunk includes the serialized `SlotHeader` + embedded TensorHeader so the receiver can reconstruct metadata without access to remote SHM.
+The bridge transports frames as a sequence of chunks. Each chunk carries a small header plus a byte slice of the frame payload. The first chunk includes the serialized `SlotHeader` + embedded TensorHeader so the receiver can reconstruct metadata without access to remote SHM. `traceId` is carried in the chunk header to preserve TraceLink identity across the bridge.
 
 ### 5.1 Message Fields
 
@@ -82,6 +88,7 @@ The bridge transports frames as a sequence of chunks. Each chunk carries a small
 - `streamId : u32`
 - `epoch : u64` (source epoch)
 - `seq : u64` (frame identity; equals `seq_commit >> 1` in the header)
+- `traceId : u64` (optional; 0 means absent)
 - `chunkIndex : u32` (0-based)
 - `chunkCount : u32`
 - `chunkOffset : u32` (offset into payload)
@@ -102,6 +109,7 @@ The bridge transports frames as a sequence of chunks. Each chunk carries a small
 - `chunkOffset` and `chunkLength` MUST describe a non-overlapping slice of the payload.
 - The sum of all `chunkLength` values MUST equal `payloadLength`.
 - `payloadLength` MUST NOT exceed the largest supported local `stride_bytes`; receivers MUST drop frames that violate this limit.
+- `payloadLength` MUST NOT exceed `bridge.max_payload_bytes`; receivers MUST drop frames that violate this limit.
 - Receivers MUST drop all frame chunks until a `ShmPoolAnnounce` has been received for the mapping.
 - Chunks SHOULD be sized to fit within the configured MTU for the UDP channel to avoid fragmentation.
 - Implementations SHOULD size chunks to allow Aeron `try_claim` usage (single buffer write) and avoid extra copies.
@@ -109,6 +117,11 @@ The bridge transports frames as a sequence of chunks. Each chunk carries a small
 - When `headerIncluded=TRUE`, `headerBytes` length MUST be 256. When `headerIncluded=FALSE`, `headerBytes` length MUST be 0.
 - Receivers MUST drop chunks where `headerIncluded=TRUE` but `headerBytes.length != 256`, or `headerIncluded=FALSE` and `headerBytes.length > 0`.
 - `payloadBytes` length MUST equal `chunkLength`.
+- `traceId` MUST be identical across all chunks for a given frame.
+- If the source `FrameDescriptor.trace_id` is non-zero, bridge senders MUST set
+  `traceId` to that value; otherwise they MUST set `traceId=0`.
+- Receivers MUST drop the frame if `traceId` differs across chunks for the same
+  `(streamId, epoch, seq)`.
 - Chunks MAY arrive out-of-order; receivers MUST assemble by `chunkOffset` and `chunkLength`.
 - Senders SHOULD publish chunks in order but MUST NOT require in-order delivery.
 - Duplicate chunks MAY be ignored if identical; overlapping or conflicting chunks for the same offset MUST cause the frame to be dropped.
@@ -157,6 +170,10 @@ The receiver MUST treat `seq` as the canonical frame identity and MUST ensure it
 
 The bridge receiver publishes a standard `FrameDescriptor` for the re-materialized frame. The derived header index and payload slot refer to the receiver's local SHM pools. The receiver MUST publish `FrameDescriptor` on its standard local IPC descriptor channel and stream for `dest_stream_id` (per the wire specification), unless explicitly overridden by deployment configuration.
 
+If `BridgeFrameChunk.traceId` is non-zero, the receiver MUST set
+`FrameDescriptor.trace_id` to the same value when publishing the rematerialized
+descriptor. If `traceId=0`, the receiver MUST set `trace_id` to 0.
+
 Bridge senders MUST NOT publish local `FrameDescriptor` messages over UDP; only `BridgeFrameChunk` messages are carried over the bridge transport.
 
 ---
@@ -177,6 +194,10 @@ fast if `bridge.forward_tracelink=true`).
 ## 7.2 Source Pool Announce Forwarding (Normative)
 
 Bridge instances MUST forward `ShmPoolAnnounce` for each mapped source stream to the receiver host on the bridge control channel. The receiver MUST use the most recent forwarded announce to validate pool IDs and epochs and MUST NOT republish the source `ShmPoolAnnounce` to local consumers. Metadata forwarding does not use the bridge control channel. When enabled, QoS and FrameProgress MUST be carried on the bridge control channel.
+
+Decoders on the bridge control channel MUST validate `MessageHeader.schemaId`
+before attempting to decode any payload message to avoid mixed-schema decode
+errors.
 
 ---
 
@@ -265,7 +286,7 @@ The bridge control channel carries `ShmPoolAnnounce`, `QosProducer`, `QosConsume
                    package="shm.tensorpool.bridge"
                    id="902"
                    version="1"
-                   semanticVersion="1.0"
+                   semanticVersion="1.1"
                    byteOrder="littleEndian">
 
   <types>
@@ -296,6 +317,7 @@ The bridge control channel carries `ShmPoolAnnounce`, `QosProducer`, `QosConsume
     <field name="streamId"       id="1" type="uint32"/>
     <field name="epoch"          id="2" type="uint64"/>
     <field name="seq"            id="3" type="uint64"/>
+    <field name="traceId"        id="12" type="uint64" presence="optional" nullValue="0"/>
     <field name="chunkIndex"     id="4" type="uint32" maxValue="65535"/>
     <field name="chunkCount"     id="5" type="uint32" maxValue="65535"/>
     <field name="chunkOffset"    id="6" type="uint32"/>

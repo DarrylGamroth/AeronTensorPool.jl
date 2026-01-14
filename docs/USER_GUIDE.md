@@ -6,7 +6,7 @@ This guide is an end-to-end, practical walkthrough for using the SHM Tensor Pool
 - Wire spec: `docs/SHM_Tensor_Pool_Wire_Spec_v1.2.md`
 - Driver model: `docs/SHM_Driver_Model_Spec_v1.0.md`
 - Discovery: `docs/SHM_Discovery_Service_Spec_v_1.0.md`
-- Bridge: `docs/SHM_Aeron_UDP_Bridge_Spec_v1.0.md`
+- Bridge: `docs/SHM_Aeron_UDP_Bridge_Spec_v1.1.md`
 - Join barrier: `docs/SHM_Join_Barrier_Spec_v1.0.md`
 - Stream IDs: `docs/STREAM_ID_CONVENTIONS.md`
 
@@ -419,4 +419,4 @@ Consumers attach locally to the receiver’s SHM, not to the remote producer.
 - Driver configuration: `docs/IMPLEMENTATION.md`
 - Wire details: `docs/SHM_Tensor_Pool_Wire_Spec_v1.2.md`
 - Discovery: `docs/SHM_Discovery_Service_Spec_v_1.0.md`
-- Bridge: `docs/SHM_Aeron_UDP_Bridge_Spec_v1.0.md`
+- Bridge: `docs/SHM_Aeron_UDP_Bridge_Spec_v1.1.md`

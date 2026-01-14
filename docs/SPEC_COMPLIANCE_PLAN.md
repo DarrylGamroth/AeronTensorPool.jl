@@ -85,7 +85,7 @@ Severity legend:
 ## Low
 
 10) Integrity checks for bridge (Bridge §5.4)
-- Matrix: `SHM_Aeron_UDP_Bridge_Spec_v1.0.md` → 5.4 (Needs Review)
+- Matrix: `SHM_Aeron_UDP_Bridge_Spec_v1.1.md` → 5.4 (Needs Review)
 - Issue: no checksum validation.
 - Required: decide whether to add checksums or keep best-effort integrity as-is.
 

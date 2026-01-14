@@ -119,7 +119,7 @@ Correctness legend:
 
 ---
 
-## SHM_Aeron_UDP_Bridge_Spec_v1.0.md
+## SHM_Aeron_UDP_Bridge_Spec_v1.1.md
 
 | Section | Status | Correctness | Notes / Evidence |
 | --- | --- | --- | --- |

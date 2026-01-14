@@ -4,7 +4,7 @@ This document lists the configuration surfaces used by AeronTensorPool. The **dr
 
 Normative references:
 - Driver config: `docs/SHM_Driver_Model_Spec_v1.0.md` (§16)
-- Bridge config: `docs/SHM_Aeron_UDP_Bridge_Spec_v1.0.md` (§10)
+- Bridge config: `docs/SHM_Aeron_UDP_Bridge_Spec_v1.1.md` (§10)
  - Stream ID guidance: `docs/STREAM_ID_CONVENTIONS.md`
 
 Examples:

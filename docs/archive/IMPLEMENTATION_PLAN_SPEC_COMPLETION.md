@@ -9,7 +9,7 @@ Specs:
 - `docs/SHM_Tensor_Pool_Wire_Spec_v1.1.md`
 - `docs/SHM_Driver_Model_Spec_v1.0.md`
 - `docs/SHM_Discovery_Service_Spec_v_1.0.md`
-- `docs/SHM_Aeron_UDP_Bridge_Spec_v1.0.md`
+- `docs/SHM_Aeron_UDP_Bridge_Spec_v1.1.md`
 
 Out of scope:
 - RateLimiter implementation (spec exists; implementation deferred).

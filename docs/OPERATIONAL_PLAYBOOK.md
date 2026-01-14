@@ -55,7 +55,7 @@ Suggested thresholds (tune per deployment)
 ## Configuration References
 - Driver and bridge configuration: `docs/CONFIG_REFERENCE.md`
 - Authoritative driver spec: `docs/SHM_Driver_Model_Spec_v1.0.md`
-- Authoritative bridge spec: `docs/SHM_Aeron_UDP_Bridge_Spec_v1.0.md`
+- Authoritative bridge spec: `docs/SHM_Aeron_UDP_Bridge_Spec_v1.1.md`
 - Stream ID conventions: `docs/STREAM_ID_CONVENTIONS.md`
 
 ## GC Monitoring (Julia)

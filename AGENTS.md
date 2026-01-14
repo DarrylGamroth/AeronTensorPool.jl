@@ -7,7 +7,7 @@ match the current code layout in `src/` and the wire/driver specs in `docs/`.
 ## Specs and docs - AUTHORATIVE
 - Wire spec: `docs/SHM_Tensor_Pool_Wire_Spec_v1.2.md`
 - Driver model spec: `docs/SHM_Driver_Model_Spec_v1.0.md`
-- Bridge spec: `docs/SHM_Aeron_UDP_Bridge_Spec_v1.0.md`
+- Bridge spec: `docs/SHM_Aeron_UDP_Bridge_Spec_v1.1.md`
 - Discovery spec: `docs/SHM_Discovery_Service_Spec_v_1.0.md`
 - Rate limiter spec: `docs/SHM_RateLimiter_Spec_v1.0.md`
 - Join barrier spec: `docs/SHM_Join_Barrier_Spec_v1.0.md`
