@@ -14,7 +14,7 @@ Correctness legend:
 - Noncompliant
 - N/A
 
-Last updated: 2026-01-14
+Last updated: 2026-01-18
 
 ---
 
@@ -34,11 +34,11 @@ Last updated: 2026-01-14
 | 10.5 Supervisor | Implemented | Needs Review | Supervisor agent exists; coverage of "unified management" scenarios not fully exercised in tests. |
 | 11 Consumer Modes | Implemented | Compliant | RATE_LIMITED enforced in consumer (`should_process`). |
 | 12 Bridge Service | Implemented | Compliant | Bridging agents + tests; see Bridge spec v1.1 matrix. |
-| 15 Normative Requirements | Implemented | Compliant | Joins, progress hints, and seqlock rules covered by tests. |
+| 15 Normative Requirements | Implemented | Compliant | Announce epoch preference, activity freshness, and seq regression handling enforced in consumer mapping/frames. |
 | 15.21–15.22 FS layout + validation | Implemented | Compliant | Canonical layout + containment checks in `src/shm/paths.jl` and `src/agents/consumer/mapping.jl`. |
 
 Known gaps / open questions:
-- Join/Rate-limiter/TraceLink sections are covered in their own specs; wire-spec references are satisfied by those modules.
+- None currently tracked for the wire spec sections above.
 
 ---
 
