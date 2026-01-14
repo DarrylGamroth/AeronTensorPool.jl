@@ -123,6 +123,11 @@ Status: pending.
   - Paths, file handles, mmapped buffers.
   - Layout parameters and sequence range.
 - Preallocate fixed-size files (`header.ring`, `<pool_id>.pool`).
+- Use buffered `pwrite` I/O by default (no `mmap` in write path).
+- Optional Linux `O_DIRECT` backend:
+  - Enable only when header/pool stride sizes are block-aligned.
+  - Use aligned buffers for header/payload writes.
+  - Fall back to buffered I/O if alignment requirements are not met.
 - Initialize superblocks using `src/shm/superblock.jl`.
 - Implement `segment_write!`:
   - Compute header/payload indices from `seq`.
@@ -141,7 +146,8 @@ Detailing:
 - Preallocation strategy:
   - Prefer `posix_fallocate`/`ftruncate` to full size; no sparse files.
   - Write superblock immediately after allocation.
-  - Optionally `mmap` files with `Mmap.mmap` for direct writes.
+  - Apply `posix_fadvise` hints (`SEQUENTIAL`, `WILLNEED`) and consider
+    `DONTNEED` after seal to reduce cache pressure.
 - Header layout:
   - `header_slot_bytes` must match wire spec for `SlotHeader.headerBytes`.
   - `header.ring` size = `header_nslots * header_slot_bytes`.
