@@ -14,11 +14,15 @@ Assembly state for a single in-flight frame.
 mutable struct BridgeAssembly
     seq::UInt64
     epoch::UInt64
+    trace_id::UInt64
     chunk_count::UInt32
     payload_length::UInt32
     received_chunks::UInt32
+    payload_bytes_received::UInt32
     header_bytes::FixedSizeVectorDefault{UInt8}
     received::FixedSizeVectorDefault{Bool}
+    chunk_offsets::FixedSizeVectorDefault{UInt32}
+    chunk_lengths::FixedSizeVectorDefault{UInt32}
     assembly_timer::PolledTimer
     header_present::Bool
     slot_claim::SlotClaim
@@ -53,6 +57,7 @@ mutable struct BridgeChunkFill
     dest_stream_id::UInt32
     epoch::UInt64
     seq::UInt64
+    trace_id::UInt64
     chunk_index::UInt32
     chunk_count::UInt32
     chunk_offset::UInt32
@@ -74,6 +79,7 @@ function (fill::BridgeChunkFill)(buf::AbstractArray{UInt8})
     BridgeFrameChunk.streamId!(fill.encoder, fill.dest_stream_id)
     BridgeFrameChunk.epoch!(fill.encoder, fill.epoch)
     BridgeFrameChunk.seq!(fill.encoder, fill.seq)
+    BridgeFrameChunk.traceId!(fill.encoder, fill.trace_id)
     BridgeFrameChunk.chunkIndex!(fill.encoder, fill.chunk_index)
     BridgeFrameChunk.chunkCount!(fill.encoder, fill.chunk_count)
     BridgeFrameChunk.chunkOffset!(fill.encoder, fill.chunk_offset)
@@ -175,7 +181,6 @@ mutable struct BridgeReceiverState{ClockT}
     producer_state::Union{Nothing, ProducerState}
     source_info::BridgeSourceInfo
     assembly::BridgeAssembly
-    trace_id_by_seq::Dict{UInt64, UInt64}
     sub_payload::Aeron.Subscription
     payload_assembler::Aeron.FragmentAssembler
     sub_control::Aeron.Subscription

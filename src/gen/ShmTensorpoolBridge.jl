@@ -764,11 +764,11 @@ end
 @inline function wrap!(m::Encoder{T}, buffer::T, offset::Integer) where T
         m.buffer = buffer
         m.offset = Int64(offset)
-        m.position_ptr[] = m.offset + UInt16(41)
+        m.position_ptr[] = m.offset + UInt16(49)
         return m
     end
 @inline function wrap_and_apply_header!(m::Encoder, buffer::AbstractArray, offset::Integer = 0; header = MessageHeader.Encoder(buffer, offset))
-        MessageHeader.blockLength!(header, UInt16(41))
+        MessageHeader.blockLength!(header, UInt16(49))
         MessageHeader.templateId!(header, UInt16(1))
         MessageHeader.schemaId!(header, UInt16(902))
         MessageHeader.version!(header, UInt16(1))
@@ -790,10 +790,10 @@ sbe_position!(m::AbstractBridgeFrameChunk, position) = begin
         m.position_ptr[] = position
     end
 sbe_block_length(::AbstractBridgeFrameChunk) = begin
-        UInt16(41)
+        UInt16(49)
     end
 sbe_block_length(::Type{<:AbstractBridgeFrameChunk}) = begin
-        UInt16(41)
+        UInt16(49)
     end
 sbe_template_id(::AbstractBridgeFrameChunk) = begin
         UInt16(1)
@@ -820,7 +820,7 @@ sbe_acting_block_length(m::Decoder) = begin
         m.acting_block_length
     end
 sbe_acting_block_length(::Encoder) = begin
-        UInt16(41)
+        UInt16(49)
     end
 sbe_acting_version(m::Decoder) = begin
         m.acting_version
@@ -1042,6 +1042,74 @@ begin
     export seq, seq!
 end
 begin
+    traceId_id(::AbstractBridgeFrameChunk) = begin
+            UInt16(12)
+        end
+    traceId_id(::Type{<:AbstractBridgeFrameChunk}) = begin
+            UInt16(12)
+        end
+    traceId_since_version(::AbstractBridgeFrameChunk) = begin
+            UInt16(0)
+        end
+    traceId_since_version(::Type{<:AbstractBridgeFrameChunk}) = begin
+            UInt16(0)
+        end
+    traceId_in_acting_version(m::AbstractBridgeFrameChunk) = begin
+            sbe_acting_version(m) >= UInt16(0)
+        end
+    traceId_encoding_offset(::AbstractBridgeFrameChunk) = begin
+            Int(20)
+        end
+    traceId_encoding_offset(::Type{<:AbstractBridgeFrameChunk}) = begin
+            Int(20)
+        end
+    traceId_encoding_length(::AbstractBridgeFrameChunk) = begin
+            Int(8)
+        end
+    traceId_encoding_length(::Type{<:AbstractBridgeFrameChunk}) = begin
+            Int(8)
+        end
+    traceId_null_value(::AbstractBridgeFrameChunk) = begin
+            UInt64(18446744073709551615)
+        end
+    traceId_null_value(::Type{<:AbstractBridgeFrameChunk}) = begin
+            UInt64(18446744073709551615)
+        end
+    traceId_min_value(::AbstractBridgeFrameChunk) = begin
+            UInt64(0)
+        end
+    traceId_min_value(::Type{<:AbstractBridgeFrameChunk}) = begin
+            UInt64(0)
+        end
+    traceId_max_value(::AbstractBridgeFrameChunk) = begin
+            UInt64(18446744073709551614)
+        end
+    traceId_max_value(::Type{<:AbstractBridgeFrameChunk}) = begin
+            UInt64(18446744073709551614)
+        end
+end
+begin
+    function traceId_meta_attribute(::AbstractBridgeFrameChunk, meta_attribute)
+        meta_attribute === :presence && return Symbol("optional")
+        meta_attribute === :semanticType && return Symbol("")
+        return Symbol("")
+    end
+    function traceId_meta_attribute(::Type{<:AbstractBridgeFrameChunk}, meta_attribute)
+        meta_attribute === :presence && return Symbol("optional")
+        meta_attribute === :semanticType && return Symbol("")
+        return Symbol("")
+    end
+end
+begin
+    @inline function traceId(m::Decoder)
+            return decode_value(UInt64, m.buffer, m.offset + 20)
+        end
+    @inline traceId!(m::Encoder, val) = begin
+                encode_value(UInt64, m.buffer, m.offset + 20, val)
+            end
+    export traceId, traceId!
+end
+begin
     chunkIndex_id(::AbstractBridgeFrameChunk) = begin
             UInt16(4)
         end
@@ -1058,10 +1126,10 @@ begin
             sbe_acting_version(m) >= UInt16(0)
         end
     chunkIndex_encoding_offset(::AbstractBridgeFrameChunk) = begin
-            Int(20)
+            Int(28)
         end
     chunkIndex_encoding_offset(::Type{<:AbstractBridgeFrameChunk}) = begin
-            Int(20)
+            Int(28)
         end
     chunkIndex_encoding_length(::AbstractBridgeFrameChunk) = begin
             Int(4)
@@ -1102,10 +1170,10 @@ begin
 end
 begin
     @inline function chunkIndex(m::Decoder)
-            return decode_value(UInt32, m.buffer, m.offset + 20)
+            return decode_value(UInt32, m.buffer, m.offset + 28)
         end
     @inline chunkIndex!(m::Encoder, val) = begin
-                encode_value(UInt32, m.buffer, m.offset + 20, val)
+                encode_value(UInt32, m.buffer, m.offset + 28, val)
             end
     export chunkIndex, chunkIndex!
 end
@@ -1126,10 +1194,10 @@ begin
             sbe_acting_version(m) >= UInt16(0)
         end
     chunkCount_encoding_offset(::AbstractBridgeFrameChunk) = begin
-            Int(24)
+            Int(32)
         end
     chunkCount_encoding_offset(::Type{<:AbstractBridgeFrameChunk}) = begin
-            Int(24)
+            Int(32)
         end
     chunkCount_encoding_length(::AbstractBridgeFrameChunk) = begin
             Int(4)
@@ -1170,10 +1238,10 @@ begin
 end
 begin
     @inline function chunkCount(m::Decoder)
-            return decode_value(UInt32, m.buffer, m.offset + 24)
+            return decode_value(UInt32, m.buffer, m.offset + 32)
         end
     @inline chunkCount!(m::Encoder, val) = begin
-                encode_value(UInt32, m.buffer, m.offset + 24, val)
+                encode_value(UInt32, m.buffer, m.offset + 32, val)
             end
     export chunkCount, chunkCount!
 end
@@ -1194,10 +1262,10 @@ begin
             sbe_acting_version(m) >= UInt16(0)
         end
     chunkOffset_encoding_offset(::AbstractBridgeFrameChunk) = begin
-            Int(28)
+            Int(36)
         end
     chunkOffset_encoding_offset(::Type{<:AbstractBridgeFrameChunk}) = begin
-            Int(28)
+            Int(36)
         end
     chunkOffset_encoding_length(::AbstractBridgeFrameChunk) = begin
             Int(4)
@@ -1238,10 +1306,10 @@ begin
 end
 begin
     @inline function chunkOffset(m::Decoder)
-            return decode_value(UInt32, m.buffer, m.offset + 28)
+            return decode_value(UInt32, m.buffer, m.offset + 36)
         end
     @inline chunkOffset!(m::Encoder, val) = begin
-                encode_value(UInt32, m.buffer, m.offset + 28, val)
+                encode_value(UInt32, m.buffer, m.offset + 36, val)
             end
     export chunkOffset, chunkOffset!
 end
@@ -1262,10 +1330,10 @@ begin
             sbe_acting_version(m) >= UInt16(0)
         end
     chunkLength_encoding_offset(::AbstractBridgeFrameChunk) = begin
-            Int(32)
+            Int(40)
         end
     chunkLength_encoding_offset(::Type{<:AbstractBridgeFrameChunk}) = begin
-            Int(32)
+            Int(40)
         end
     chunkLength_encoding_length(::AbstractBridgeFrameChunk) = begin
             Int(4)
@@ -1306,10 +1374,10 @@ begin
 end
 begin
     @inline function chunkLength(m::Decoder)
-            return decode_value(UInt32, m.buffer, m.offset + 32)
+            return decode_value(UInt32, m.buffer, m.offset + 40)
         end
     @inline chunkLength!(m::Encoder, val) = begin
-                encode_value(UInt32, m.buffer, m.offset + 32, val)
+                encode_value(UInt32, m.buffer, m.offset + 40, val)
             end
     export chunkLength, chunkLength!
 end
@@ -1330,10 +1398,10 @@ begin
             sbe_acting_version(m) >= UInt16(0)
         end
     payloadLength_encoding_offset(::AbstractBridgeFrameChunk) = begin
-            Int(36)
+            Int(44)
         end
     payloadLength_encoding_offset(::Type{<:AbstractBridgeFrameChunk}) = begin
-            Int(36)
+            Int(44)
         end
     payloadLength_encoding_length(::AbstractBridgeFrameChunk) = begin
             Int(4)
@@ -1374,10 +1442,10 @@ begin
 end
 begin
     @inline function payloadLength(m::Decoder)
-            return decode_value(UInt32, m.buffer, m.offset + 36)
+            return decode_value(UInt32, m.buffer, m.offset + 44)
         end
     @inline payloadLength!(m::Encoder, val) = begin
-                encode_value(UInt32, m.buffer, m.offset + 36, val)
+                encode_value(UInt32, m.buffer, m.offset + 44, val)
             end
     export payloadLength, payloadLength!
 end
@@ -1398,10 +1466,10 @@ begin
             sbe_acting_version(m) >= UInt16(0)
         end
     headerIncluded_encoding_offset(::AbstractBridgeFrameChunk) = begin
-            Int(40)
+            Int(48)
         end
     headerIncluded_encoding_offset(::Type{<:AbstractBridgeFrameChunk}) = begin
-            Int(40)
+            Int(48)
         end
     headerIncluded_encoding_length(::AbstractBridgeFrameChunk) = begin
             Int(1)
@@ -1442,14 +1510,14 @@ begin
 end
 begin
     @inline function headerIncluded(m::Decoder, ::Type{Integer})
-            return decode_value(UInt8, m.buffer, m.offset + 40)
+            return decode_value(UInt8, m.buffer, m.offset + 48)
         end
     @inline function headerIncluded(m::Decoder)
-            raw = decode_value(UInt8, m.buffer, m.offset + 40)
+            raw = decode_value(UInt8, m.buffer, m.offset + 48)
             return Bool_.SbeEnum(raw)
         end
     @inline function headerIncluded!(m::Encoder, value::Bool_.SbeEnum)
-            encode_value(UInt8, m.buffer, m.offset + 40, UInt8(value))
+            encode_value(UInt8, m.buffer, m.offset + 48, UInt8(value))
         end
     export headerIncluded, headerIncluded!
 end

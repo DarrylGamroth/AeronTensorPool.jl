@@ -63,14 +63,18 @@ function reset_bridge_assembly!(
 )
     assembly.seq = seq
     assembly.epoch = epoch
+    assembly.trace_id = UInt64(0)
     assembly.chunk_count = chunk_count
     assembly.payload_length = payload_length
     assembly.received_chunks = 0
+    assembly.payload_bytes_received = UInt32(0)
     assembly.header_present = false
     assembly.claim_ready = false
     assembly.slot_claim = SlotClaim(0, Ptr{UInt8}(0), 0, 0, 0, 0)
     reset!(assembly.assembly_timer, now_ns)
     fill!(assembly.received, false)
+    fill!(assembly.chunk_offsets, UInt32(0))
+    fill!(assembly.chunk_lengths, UInt32(0))
     return nothing
 end
 
@@ -87,13 +91,17 @@ Returns:
 function clear_bridge_assembly!(assembly::BridgeAssembly, now_ns::UInt64)
     assembly.seq = 0
     assembly.epoch = 0
+    assembly.trace_id = UInt64(0)
     assembly.chunk_count = 0
     assembly.payload_length = 0
     assembly.received_chunks = 0
+    assembly.payload_bytes_received = UInt32(0)
     assembly.header_present = false
     assembly.claim_ready = false
     assembly.slot_claim = SlotClaim(0, Ptr{UInt8}(0), 0, 0, 0, 0)
     reset!(assembly.assembly_timer, now_ns)
     fill!(assembly.received, false)
+    fill!(assembly.chunk_offsets, UInt32(0))
+    fill!(assembly.chunk_lengths, UInt32(0))
     return nothing
 end

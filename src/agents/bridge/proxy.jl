@@ -410,9 +410,6 @@ function bridge_publish_tracelink!(state::BridgeReceiverState, msg::TraceLinkSet
     pub === nothing && return false
 
     trace_id = TraceLinkSet.traceId(msg)
-    if trace_id != 0
-        state.trace_id_by_seq[TraceLinkSet.seq(msg)] = trace_id
-    end
     parents = TraceLinkSet.parents(msg)
     sent = with_claimed_buffer!(pub, state.metadata_claim, msg_len) do buf
         TraceLinkSet.wrap_and_apply_header!(state.tracelink_encoder, buf, 0)

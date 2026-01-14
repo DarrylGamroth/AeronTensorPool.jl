@@ -46,6 +46,7 @@ function init_bridge_sender(
         0,
         0,
         0,
+        0,
         false,
         Vector{UInt8}(undef, 0),
         0,
@@ -164,6 +165,7 @@ function bridge_send_frame!(state::BridgeSenderState, desc::FrameDescriptor.Deco
     fill.dest_stream_id = state.mapping.dest_stream_id
     fill.epoch = FrameDescriptor.epoch(desc)
     fill.seq = FrameDescriptor.seq(desc)
+    fill.trace_id = FrameDescriptor.traceId(desc)
     fill.payload_length = UInt32(total_payload_bytes)
     fill.header_mmap_vec = header_mmap_vec
     fill.header_offset = header_offset

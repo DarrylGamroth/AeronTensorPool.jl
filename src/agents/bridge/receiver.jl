@@ -33,20 +33,27 @@ function init_bridge_receiver(
 
     received = FixedSizeVectorDefault{Bool}(undef, max_chunks)
     fill!(received, false)
+    chunk_offsets = FixedSizeVectorDefault{UInt32}(undef, max_chunks)
+    chunk_lengths = FixedSizeVectorDefault{UInt32}(undef, max_chunks)
+    fill!(chunk_offsets, UInt32(0))
+    fill!(chunk_lengths, UInt32(0))
     assembly = BridgeAssembly(
         UInt64(0),
         UInt64(0),
+        UInt64(0),
+        UInt32(0),
         UInt32(0),
         UInt32(0),
         UInt32(0),
         FixedSizeVectorDefault{UInt8}(undef, HEADER_SLOT_BYTES),
         received,
+        chunk_offsets,
+        chunk_lengths,
         PolledTimer(config.assembly_timeout_ns),
         false,
         SlotClaim(0, Ptr{UInt8}(0), 0, 0, 0, 0),
         false,
     )
-    trace_id_by_seq = Dict{UInt64, UInt64}()
 
     source_info = BridgeSourceInfo(UInt32(0), UInt64(0), UInt32(0), Dict{UInt16, UInt32}())
 
@@ -76,7 +83,6 @@ function init_bridge_receiver(
         producer_state,
         source_info,
         assembly,
-        trace_id_by_seq,
         sub_payload,
         Aeron.FragmentAssembler(Aeron.FragmentHandler((_, _, _) -> nothing)),
         sub_control,
@@ -119,6 +125,30 @@ end
 function bridge_drop_chunk!(state::BridgeReceiverState)
     state.metrics.chunks_dropped += 1
     return false
+end
+
+function bridge_payload_matches!(
+    ptr::Ptr{UInt8},
+    payload_bytes::AbstractVector{UInt8},
+)
+    payload_len = length(payload_bytes)
+    GC.@preserve payload_bytes begin
+        for i in 1:payload_len
+            unsafe_load(ptr, i) == payload_bytes[i] || return false
+        end
+    end
+    return true
+end
+
+function bridge_header_matches!(
+    header_bytes::AbstractVector{UInt8},
+    assembly_bytes::AbstractVector{UInt8},
+)
+    length(header_bytes) == HEADER_SLOT_BYTES || return false
+    for i in 1:HEADER_SLOT_BYTES
+        header_bytes[i] == assembly_bytes[i] || return false
+    end
+    return true
 end
 
 """
@@ -192,7 +222,7 @@ function bridge_rematerialize!(
     seqlock_commit_write!(commit_ptr, seq)
 
     now_ns = UInt64(Clocks.time_nanos(state.clock))
-    trace_id = bridge_trace_id_for_seq!(state, seq)
+    trace_id = state.assembly.trace_id
     shared_sent = let st = producer_state,
         seq = seq,
         meta_version = header.meta_version,
@@ -271,7 +301,7 @@ function bridge_commit_claim!(
     seqlock_commit_write!(commit_ptr, claim.seq)
 
     now_ns = UInt64(Clocks.time_nanos(state.clock))
-    trace_id = bridge_trace_id_for_seq!(state, claim.seq)
+    trace_id = state.assembly.trace_id
     shared_sent = let st = producer_state,
         seq = claim.seq,
         meta_version = header.meta_version,
@@ -290,12 +320,6 @@ function bridge_commit_claim!(
     end
     state.metrics.frames_rematerialized += 1
     return true
-end
-
-function bridge_trace_id_for_seq!(state::BridgeReceiverState, seq::UInt64)
-    trace_id = get(state.trace_id_by_seq, seq, UInt64(0))
-    haskey(state.trace_id_by_seq, seq) && delete!(state.trace_id_by_seq, seq)
-    return trace_id
 end
 
 """
@@ -347,12 +371,15 @@ function bridge_receive_chunk!(
     chunk_index = Int(BridgeFrameChunk.chunkIndex(decoder))
     chunk_count = Int(BridgeFrameChunk.chunkCount(decoder))
     chunk_count == 0 && return bridge_drop_chunk!(state)
+    chunk_count > typemax(UInt16) && return bridge_drop_chunk!(state)
     chunk_index < chunk_count || return bridge_drop_chunk!(state)
+    chunk_count > length(state.assembly.received) && return bridge_drop_chunk!(state)
 
     header_included = BridgeFrameChunk.headerIncluded(decoder) == BridgeBool.TRUE
     chunk_offset = UInt32(BridgeFrameChunk.chunkOffset(decoder))
     chunk_length = UInt32(BridgeFrameChunk.chunkLength(decoder))
     payload_length = UInt32(BridgeFrameChunk.payloadLength(decoder))
+    trace_id = BridgeFrameChunk.traceId(decoder)
     payload_length == 0 && return bridge_drop_chunk!(state)
     payload_length > state.config.max_payload_bytes && return bridge_drop_chunk!(state)
     chunk_length == 0 && return bridge_drop_chunk!(state)
@@ -361,11 +388,8 @@ function bridge_receive_chunk!(
     chunk_offset + chunk_length > payload_length && return bridge_drop_chunk!(state)
     chunk_limit = UInt32(bridge_effective_chunk_bytes(state.config))
     chunk_limit == 0 && return bridge_drop_chunk!(state)
-    expected_offset = UInt32(chunk_index) * chunk_limit
-    expected_offset > payload_length && return bridge_drop_chunk!(state)
-    expected_len = min(chunk_limit, payload_length - expected_offset)
-    chunk_offset == expected_offset || return bridge_drop_chunk!(state)
-    chunk_length == expected_len || return bridge_drop_chunk!(state)
+    chunk_length > chunk_limit && return bridge_drop_chunk!(state)
+    chunk_index == 0 && chunk_offset != 0 && return bridge_drop_chunk!(state)
 
     header_bytes = BridgeFrameChunk.headerBytes(decoder)
     header_len = length(header_bytes)
@@ -378,28 +402,37 @@ function bridge_receive_chunk!(
 
     (chunk_index == 0) == header_included || return bridge_drop_chunk!(state)
 
-    if state.assembly.seq != BridgeFrameChunk.seq(decoder) ||
-       state.assembly.epoch != BridgeFrameChunk.epoch(decoder)
+    seq = BridgeFrameChunk.seq(decoder)
+    epoch = BridgeFrameChunk.epoch(decoder)
+    if state.assembly.seq != seq || state.assembly.epoch != epoch
         state.metrics.assemblies_reset += 1
         reset_bridge_assembly!(
             state.assembly,
-            BridgeFrameChunk.seq(decoder),
-            BridgeFrameChunk.epoch(decoder),
+            seq,
+            epoch,
             UInt32(chunk_count),
             payload_length,
             now_ns,
         )
+        state.assembly.trace_id = trace_id
     elseif state.assembly.chunk_count != UInt32(chunk_count) ||
            state.assembly.payload_length != payload_length
         state.metrics.assemblies_reset += 1
         reset_bridge_assembly!(
             state.assembly,
-            BridgeFrameChunk.seq(decoder),
-            BridgeFrameChunk.epoch(decoder),
+            seq,
+            epoch,
             UInt32(chunk_count),
             payload_length,
             now_ns,
         )
+        state.assembly.trace_id = trace_id
+    end
+
+    if trace_id != state.assembly.trace_id
+        state.metrics.assemblies_reset += 1
+        clear_bridge_assembly!(state.assembly, now_ns)
+        return bridge_drop_chunk!(state)
     end
 
     if chunk_index >= length(state.assembly.received)
@@ -407,7 +440,43 @@ function bridge_receive_chunk!(
     end
 
     if state.assembly.received[chunk_index + 1]
+        existing_offset = state.assembly.chunk_offsets[chunk_index + 1]
+        existing_len = state.assembly.chunk_lengths[chunk_index + 1]
+        if existing_offset != chunk_offset || existing_len != chunk_length
+            state.metrics.assemblies_reset += 1
+            clear_bridge_assembly!(state.assembly, now_ns)
+            return bridge_drop_chunk!(state)
+        end
+        claim = state.assembly.slot_claim
+        if !state.assembly.claim_ready ||
+           !bridge_payload_matches!(claim.ptr + Int(chunk_offset), payload_bytes)
+            state.metrics.assemblies_reset += 1
+            clear_bridge_assembly!(state.assembly, now_ns)
+            return bridge_drop_chunk!(state)
+        end
+        if header_included &&
+           !bridge_header_matches!(header_bytes, state.assembly.header_bytes)
+            state.metrics.assemblies_reset += 1
+            clear_bridge_assembly!(state.assembly, now_ns)
+            return bridge_drop_chunk!(state)
+        end
         return bridge_drop_chunk!(state)
+    end
+
+    if state.assembly.chunk_count != 0
+        for i in 1:state.assembly.chunk_count
+            state.assembly.received[i] || continue
+            existing_offset = state.assembly.chunk_offsets[i]
+            existing_len = state.assembly.chunk_lengths[i]
+            existing_len == 0 && continue
+            overlap = (UInt64(chunk_offset) < UInt64(existing_offset) + UInt64(existing_len)) &&
+                      (UInt64(existing_offset) < UInt64(chunk_offset) + UInt64(chunk_length))
+            overlap && begin
+                state.metrics.assemblies_reset += 1
+                clear_bridge_assembly!(state.assembly, now_ns)
+                return bridge_drop_chunk!(state)
+            end
+        end
     end
 
     if header_included
@@ -459,11 +528,26 @@ function bridge_receive_chunk!(
     unsafe_copyto!(dest_ptr, pointer(payload_bytes), payload_len)
     state.assembly.received[chunk_index + 1] = true
     state.assembly.received_chunks += 1
+    state.assembly.chunk_offsets[chunk_index + 1] = chunk_offset
+    state.assembly.chunk_lengths[chunk_index + 1] = chunk_length
+    new_total = UInt64(state.assembly.payload_bytes_received) + UInt64(chunk_length)
+    state.assembly.payload_bytes_received = UInt32(new_total)
+    if new_total > payload_length
+        state.metrics.assemblies_reset += 1
+        clear_bridge_assembly!(state.assembly, now_ns)
+        return bridge_drop_chunk!(state)
+    end
     reset!(state.assembly.assembly_timer, now_ns)
 
     if state.assembly.received_chunks != state.assembly.chunk_count ||
        !state.assembly.header_present
         return false
+    end
+
+    if state.assembly.payload_bytes_received != payload_length
+        state.metrics.assemblies_reset += 1
+        clear_bridge_assembly!(state.assembly, now_ns)
+        return bridge_drop_chunk!(state)
     end
 
     wrap_slot_header!(state.slot_decoder, state.assembly.header_bytes, 0)
