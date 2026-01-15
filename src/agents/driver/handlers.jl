@@ -9,9 +9,19 @@ Returns:
 - `true` if handled, `false` otherwise.
 """
 function handle_driver_control!(state::DriverState, buffer::AbstractVector{UInt8})
+    buf_len = length(buffer)
+    if buf_len < DRIVER_MESSAGE_HEADER_LEN
+        @tp_warn "driver control message too short" len = buf_len
+        return false
+    end
     driver_header = DriverMessageHeader.Decoder(buffer, 0)
     schema_id = DriverMessageHeader.schemaId(driver_header)
     template_id = DriverMessageHeader.templateId(driver_header)
+    block_len = DriverMessageHeader.blockLength(driver_header)
+    if buf_len < DRIVER_MESSAGE_HEADER_LEN + block_len
+        @tp_warn "driver control message truncated" len = buf_len block_len
+        return false
+    end
     @tp_info "driver control message" schema_id template_id
 
     if schema_id == ShmAttachRequest.sbe_schema_id(ShmAttachRequest.Decoder)
@@ -30,6 +40,10 @@ function handle_driver_control!(state::DriverState, buffer::AbstractVector{UInt8
             return false
         end
         if template_id == TEMPLATE_SHM_ATTACH_REQUEST
+            if block_len < ShmAttachRequest.sbe_block_length(ShmAttachRequest.Decoder)
+                @tp_warn "driver control message block length too small" block_len template_id
+                return false
+            end
             ShmAttachRequest.wrap!(state.runtime.attach_decoder, buffer, 0; header = driver_header)
             @tp_info "attach request" correlation_id =
                 ShmAttachRequest.correlationId(state.runtime.attach_decoder) stream_id =
@@ -38,14 +52,31 @@ function handle_driver_control!(state::DriverState, buffer::AbstractVector{UInt8
                 ShmAttachRequest.role(state.runtime.attach_decoder)
             driver_lifecycle_dispatch!(state, :AttachRequest)
         elseif template_id == TEMPLATE_SHM_DETACH_REQUEST
+            if block_len < ShmDetachRequest.sbe_block_length(ShmDetachRequest.Decoder)
+                @tp_warn "driver control message block length too small" block_len template_id
+                return false
+            end
             ShmDetachRequest.wrap!(state.runtime.detach_decoder, buffer, 0; header = driver_header)
             handle_detach_request!(state, state.runtime.detach_decoder)
         elseif template_id == TEMPLATE_SHM_LEASE_KEEPALIVE
+            if block_len < ShmLeaseKeepalive.sbe_block_length(ShmLeaseKeepalive.Decoder)
+                @tp_warn "driver control message block length too small" block_len template_id
+                return false
+            end
             ShmLeaseKeepalive.wrap!(state.runtime.keepalive_decoder, buffer, 0; header = driver_header)
             handle_keepalive!(state, state.runtime.keepalive_decoder)
         elseif template_id == TEMPLATE_SHM_DRIVER_SHUTDOWN_REQUEST
+            if block_len < ShmDriverShutdownRequest.sbe_block_length(ShmDriverShutdownRequest.Decoder)
+                @tp_warn "driver control message block length too small" block_len template_id
+                return false
+            end
             ShmDriverShutdownRequest.wrap!(state.runtime.shutdown_request_decoder, buffer, 0; header = driver_header)
             handle_shutdown_request!(state, state.runtime.shutdown_request_decoder)
+        elseif template_id == TEMPLATE_SHM_ATTACH_RESPONSE ||
+               template_id == TEMPLATE_SHM_DETACH_RESPONSE ||
+               template_id == TEMPLATE_SHM_LEASE_REVOKED ||
+               template_id == TEMPLATE_SHM_DRIVER_SHUTDOWN
+            return false
         else
             return false
         end
@@ -53,11 +84,28 @@ function handle_driver_control!(state::DriverState, buffer::AbstractVector{UInt8
     end
 
     if schema_id == ConsumerHello.sbe_schema_id(ConsumerHello.Decoder)
+        if buf_len < MESSAGE_HEADER_LEN
+            @tp_warn "control message too short" len = buf_len
+            return false
+        end
         header = MessageHeader.Decoder(buffer, 0)
+        if MessageHeader.schemaId(header) != MessageHeader.sbe_schema_id(MessageHeader.Decoder)
+            return false
+        end
         if MessageHeader.version(header) > ConsumerHello.sbe_schema_version(ConsumerHello.Decoder)
             return false
         end
-        if MessageHeader.templateId(header) == TEMPLATE_CONSUMER_HELLO
+        block_len = MessageHeader.blockLength(header)
+        if buf_len < MESSAGE_HEADER_LEN + block_len
+            @tp_warn "control message truncated" len = buf_len block_len
+            return false
+        end
+        hello_template_id = MessageHeader.templateId(header)
+        if hello_template_id == TEMPLATE_CONSUMER_HELLO
+            if block_len < ConsumerHello.sbe_block_length(ConsumerHello.Decoder)
+                @tp_warn "control message block length too small" block_len template_id = hello_template_id
+                return false
+            end
             ConsumerHello.wrap!(state.runtime.hello_decoder, buffer, 0; header = header)
             handle_consumer_hello!(state, state.runtime.hello_decoder)
             return true
@@ -138,8 +186,12 @@ end
 function handle_consumer_hello!(state::DriverState, msg::ConsumerHello.Decoder)
     stream_id = ConsumerHello.streamId(msg)
     consumer_id = ConsumerHello.consumerId(msg)
-    descriptor_channel = String(ConsumerHello.descriptorChannel(msg))
-    control_channel = String(ConsumerHello.controlChannel(msg))
+    if !consumer_hello_var_data_ok(msg)
+        @tp_warn "consumer hello var data truncated" consumer_id stream_id
+        return false
+    end
+    descriptor_channel = String(ConsumerHello.descriptorChannel(msg, String))
+    control_channel = String(ConsumerHello.controlChannel(msg, String))
     descriptor_stream_id = ConsumerHello.descriptorStreamId(msg)
     control_stream_id = ConsumerHello.controlStreamId(msg)
     descriptor_null = ConsumerHello.descriptorStreamId_null_value(ConsumerHello.Decoder)

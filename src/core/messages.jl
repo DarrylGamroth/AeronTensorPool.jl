@@ -97,6 +97,54 @@ const TEMPLATE_BRIDGE_FRAME_CHUNK = BridgeFrameChunk.sbe_template_id(BridgeFrame
 const TEMPLATE_DISCOVERY_REQUEST = DiscoveryRequest.sbe_template_id(DiscoveryRequest.Decoder)
 const TEMPLATE_DISCOVERY_RESPONSE = DiscoveryResponse.sbe_template_id(DiscoveryResponse.Decoder)
 
+@inline function consumer_hello_var_data_ok(msg::ConsumerHello.Decoder)
+    buf = ConsumerHello.sbe_buffer(msg)
+    buf_len = length(buf)
+    pos = Int(ConsumerHello.sbe_position(msg))
+    header_len = Int(ConsumerHello.descriptorChannel_header_length)
+    if pos + header_len > buf_len
+        return false
+    end
+    desc_len = Int(ConsumerHello.descriptorChannel_length(msg))
+    if pos + header_len + desc_len > buf_len
+        return false
+    end
+    pos = Int(ConsumerHello.sbe_position(msg))
+    header_len = Int(ConsumerHello.controlChannel_header_length)
+    if pos + header_len > buf_len
+        return false
+    end
+    control_len = Int(ConsumerHello.controlChannel_length(msg))
+    if pos + header_len + control_len > buf_len
+        return false
+    end
+    return true
+end
+
+@inline function driver_shutdown_request_var_data_ok(msg::ShmDriverShutdownRequest.Decoder)
+    buf = ShmDriverShutdownRequest.sbe_buffer(msg)
+    buf_len = length(buf)
+    pos = Int(ShmDriverShutdownRequest.sbe_position(msg))
+    header_len = Int(ShmDriverShutdownRequest.token_header_length)
+    if pos + header_len > buf_len
+        return false
+    end
+    token_len = Int(ShmDriverShutdownRequest.token_length(msg))
+    if pos + header_len + token_len > buf_len
+        return false
+    end
+    pos = Int(ShmDriverShutdownRequest.sbe_position(msg))
+    header_len = Int(ShmDriverShutdownRequest.errorMessage_header_length)
+    if pos + header_len > buf_len
+        return false
+    end
+    err_len = Int(ShmDriverShutdownRequest.errorMessage_length(msg))
+    if pos + header_len + err_len > buf_len
+        return false
+    end
+    return true
+end
+
 """
 Return full SBE message length (header + body) for an encoder/decoder.
 

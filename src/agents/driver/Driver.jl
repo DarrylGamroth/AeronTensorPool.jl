@@ -1,6 +1,7 @@
 module Driver
 
 using ..Core
+using ..Core: consumer_hello_var_data_ok, driver_shutdown_request_var_data_ok
 using ..Core.TPLog
 using ..Aeron
 using ..Agent
