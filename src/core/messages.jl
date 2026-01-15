@@ -148,12 +148,12 @@ function encode_consumer_config!(
     ConsumerConfigMsg.controlStreamId!(enc, control_stream_id)
     ConsumerConfigMsg.payloadFallbackUri!(enc, payload_fallback_uri)
     if isempty(descriptor_channel)
-        ConsumerConfigMsg.descriptorChannel_length!(enc, 0)
+        ConsumerConfigMsg.descriptorChannel!(enc, nothing)
     else
         ConsumerConfigMsg.descriptorChannel!(enc, descriptor_channel)
     end
     if isempty(control_channel)
-        ConsumerConfigMsg.controlChannel_length!(enc, 0)
+        ConsumerConfigMsg.controlChannel!(enc, nothing)
     else
         ConsumerConfigMsg.controlChannel!(enc, control_channel)
     end
