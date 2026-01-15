@@ -61,3 +61,19 @@ function validate_uri(uri::AbstractString)
     end
     return true
 end
+
+"""
+Return true if a payload fallback URI uses a supported scheme.
+
+Arguments:
+- `uri`: fallback URI string.
+
+Returns:
+- `true` for empty URIs or supported schemes, `false` otherwise.
+"""
+function supports_payload_fallback_uri(uri::AbstractString)
+    isempty(uri) && return true
+    startswith(uri, "aeron:") && return true
+    startswith(uri, "bridge://") && return true
+    return false
+end

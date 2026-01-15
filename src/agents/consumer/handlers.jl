@@ -213,9 +213,15 @@ function apply_consumer_config!(state::ConsumerState, msg::ConsumerConfigMsg.Dec
     ConsumerConfigMsg.streamId(msg) == state.config.stream_id || return false
     ConsumerConfigMsg.consumerId(msg) == state.config.consumer_id || return false
 
-    state.config.use_shm = (ConsumerConfigMsg.useShm(msg) == ShmTensorpoolControl.Bool_.TRUE)
+    use_shm = (ConsumerConfigMsg.useShm(msg) == ShmTensorpoolControl.Bool_.TRUE)
     state.config.mode = ConsumerConfigMsg.mode(msg)
-    state.config.payload_fallback_uri = String(ConsumerConfigMsg.payloadFallbackUri(msg))
+    fallback_uri = String(ConsumerConfigMsg.payloadFallbackUri(msg))
+    if !Shm.supports_payload_fallback_uri(fallback_uri)
+        @tp_warn "unsupported payload fallback uri scheme; ignoring" uri = fallback_uri
+        fallback_uri = ""
+    end
+    state.config.use_shm = use_shm
+    state.config.payload_fallback_uri = fallback_uri
 
     descriptor_channel = String(ConsumerConfigMsg.descriptorChannel(msg))
     descriptor_stream_id = ConsumerConfigMsg.descriptorStreamId(msg)
