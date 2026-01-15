@@ -27,7 +27,7 @@ function SupervisorCounters(client::Aeron.Client, agent_id, agent_name)
 end
 
 function Base.close(counters::SupervisorCounters)
-    close(counters.config_published)
-    close(counters.liveness_checks)
+    AeronUtils.close_counter!(counters.config_published)
+    AeronUtils.close_counter!(counters.liveness_checks)
     close(counters.base)
 end

@@ -150,7 +150,8 @@ function run_producer(driver_cfg_path::String, count::Int, payload_bytes::Int)
 
     env = Dict(ENV)
     env["TP_STREAM_ID"] = string(stream_id)
-    producer_cfg = default_producer_config(; stream_id = stream_id)
+    producer_id = parse(UInt32, get(ENV, "TP_PRODUCER_ID", "1"))
+    producer_cfg = default_producer_config(; stream_id = stream_id, producer_id = producer_id)
     producer_cfg = override_producer_config_for_driver(producer_cfg, driver_cfg)
 
     effective_payload_bytes = payload_bytes == 0 ? default_payload_bytes(driver_cfg) : payload_bytes

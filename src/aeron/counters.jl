@@ -63,7 +63,13 @@ function Counters(client::Aeron.Client, agent_id, agent_name)
     )
 end
 
+@inline function close_counter!(counter::Aeron.Counter)
+    Aeron.isopen(counter) || return nothing
+    close(counter)
+    return nothing
+end
+
 function Base.close(counters::Counters)
-    close(counters.total_duty_cycles)
-    close(counters.total_work_done)
+    close_counter!(counters.total_duty_cycles)
+    close_counter!(counters.total_work_done)
 end

@@ -6,6 +6,7 @@ struct ConsumerAgent
     descriptor_assembler::Aeron.FragmentAssembler
     control_assembler::Aeron.FragmentAssembler
     counters::ConsumerCounters
+    closed::Base.RefValue{Bool}
 end
 
 """
@@ -28,10 +29,17 @@ function ConsumerAgent(
     descriptor_assembler = make_descriptor_assembler(state; callbacks = callbacks)
     control_assembler = make_control_assembler(state)
     counters = ConsumerCounters(state.runtime.control.client, Int(config.consumer_id), "Consumer")
-    return ConsumerAgent(state, descriptor_assembler, control_assembler, counters)
+    return ConsumerAgent(state, descriptor_assembler, control_assembler, counters, Ref(false))
 end
 
 Agent.name(agent::ConsumerAgent) = "consumer"
+
+ConsumerAgent(
+    state::ConsumerState,
+    descriptor_assembler::Aeron.FragmentAssembler,
+    control_assembler::Aeron.FragmentAssembler,
+    counters::ConsumerCounters,
+) = ConsumerAgent(state, descriptor_assembler, control_assembler, counters, Ref(false))
 
 function Agent.do_work(agent::ConsumerAgent)
     Aeron.increment!(agent.counters.base.total_duty_cycles)
@@ -53,6 +61,8 @@ function Agent.do_work(agent::ConsumerAgent)
 end
 
 function Agent.on_close(agent::ConsumerAgent)
+    agent.closed[] && return nothing
+    agent.closed[] = true
     try
         close(agent.counters)
         close(agent.state.runtime.control.pub_control)

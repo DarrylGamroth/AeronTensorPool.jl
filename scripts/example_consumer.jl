@@ -197,6 +197,10 @@ function run_consumer(driver_cfg_path::String, count::Int)
     consumer_cfg.aeron_uri = driver_cfg.endpoints.control_channel
     consumer_cfg.control_stream_id = driver_cfg.endpoints.control_stream_id
     consumer_cfg.qos_stream_id = driver_cfg.endpoints.qos_stream_id
+    consumer_cfg.consumer_id = parse(
+        UInt32,
+        get(ENV, "TP_CONSUMER_ID", string(consumer_cfg.consumer_id)),
+    )
 
     discovery_channel = get(ENV, "TP_DISCOVERY_CHANNEL", "")
     discovery_stream_id = parse(Int32, get(ENV, "TP_DISCOVERY_STREAM_ID", "0"))

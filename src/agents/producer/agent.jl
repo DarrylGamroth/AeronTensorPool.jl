@@ -9,6 +9,7 @@ struct ProducerAgent
     callbacks::ProducerCallbacks
     qos_monitor::Union{AbstractQosMonitor, Nothing}
     qos_timer::PolledTimer
+    closed::Base.RefValue{Bool}
 end
 
 """
@@ -41,10 +42,30 @@ function ProducerAgent(
         callbacks,
         qos_monitor,
         PolledTimer(qos_interval_ns),
+        Ref(false),
     )
 end
 
 Agent.name(agent::ProducerAgent) = "producer"
+
+ProducerAgent(
+    state::ProducerState,
+    control_assembler::Aeron.FragmentAssembler,
+    qos_assembler::Aeron.FragmentAssembler,
+    counters::ProducerCounters,
+    callbacks::ProducerCallbacks,
+    qos_monitor::Union{AbstractQosMonitor, Nothing},
+    qos_timer::PolledTimer,
+) = ProducerAgent(
+    state,
+    control_assembler,
+    qos_assembler,
+    counters,
+    callbacks,
+    qos_monitor,
+    qos_timer,
+    Ref(false),
+)
 
 function Agent.do_work(agent::ProducerAgent)
     Aeron.increment!(agent.counters.base.total_duty_cycles)
@@ -70,6 +91,8 @@ function Agent.do_work(agent::ProducerAgent)
 end
 
 function Agent.on_close(agent::ProducerAgent)
+    agent.closed[] && return nothing
+    agent.closed[] = true
     try
         close(agent.counters)
         close(agent.state.runtime.pub_descriptor)
