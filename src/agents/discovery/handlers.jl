@@ -260,6 +260,13 @@ function response_pub_for!(
     return pub
 end
 
+function bound_error_message(error_message::AbstractString)
+    nbytes = ncodeunits(error_message)
+    nbytes <= DRIVER_ERROR_MAX_BYTES && return error_message
+    bytes = codeunits(error_message)
+    return String(Vector{UInt8}(bytes[1:DRIVER_ERROR_MAX_BYTES]))
+end
+
 function discovery_response_length(
     entries::Vector{DiscoveryEntry},
     count::Int,
@@ -310,6 +317,7 @@ function emit_discovery_response!(
 )
     response_stream_id > typemax(Int32) && return false
     pub = response_pub_for!(state, response_channel, Int32(response_stream_id))
+    error_message = bound_error_message(error_message)
     msg_len = discovery_response_length(entries, entry_count, error_message)
     return let st = state,
         request_id = request_id,
