@@ -174,3 +174,34 @@ end
         end
     end
 end
+
+@testset "Discovery client handles error responses on max_results" begin
+    with_driver_and_client() do driver, client
+        sub = Aeron.add_subscription(client, "aeron:ipc", Int32(6300))
+        poller = AeronTensorPool.DiscoveryClient.DiscoveryResponsePoller(sub)
+
+        out_entries = AeronTensorPool.DiscoveryClient.DiscoveryEntry[]
+        slot = AeronTensorPool.DiscoveryClient.DiscoveryResponseSlot(out_entries)
+        slot.request_id = UInt64(9)
+        poller.slots[slot.request_id] = slot
+
+        buf = Vector{UInt8}(undef, 512)
+        unsafe_buf = UnsafeArrays.UnsafeArray{UInt8, 1}(pointer(buf), (length(buf),))
+        enc = DiscoveryResponse.Encoder(UnsafeArrays.UnsafeArray{UInt8, 1})
+        DiscoveryResponse.wrap_and_apply_header!(enc, unsafe_buf, 0)
+        DiscoveryResponse.requestId!(enc, slot.request_id)
+        DiscoveryResponse.status!(enc, DiscoveryStatus.ERROR)
+        DiscoveryResponse.results!(enc, 0)
+        DiscoveryResponse.errorMessage!(enc, "max_results exceeded")
+
+        GC.@preserve buf begin
+            AeronTensorPool.DiscoveryClient.handle_discovery_response!(poller, unsafe_buf)
+        end
+
+        @test slot.ready == true
+        @test slot.status == DiscoveryStatus.ERROR
+        @test slot.count == 0
+        @test isempty(slot.out_entries)
+        @test String(view(slot.error_message)) == "max_results exceeded"
+    end
+end
