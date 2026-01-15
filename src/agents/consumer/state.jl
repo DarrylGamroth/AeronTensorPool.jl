@@ -94,4 +94,7 @@ mutable struct ConsumerState{ClockT}
     assigned_control_stream_id::UInt32
     progress_assembler::Aeron.FragmentAssembler
     driver_active::Bool
+    awaiting_announce_epoch::UInt64
+    announce_wait_timer::PolledTimer
+    announce_wait_active::Bool
 end

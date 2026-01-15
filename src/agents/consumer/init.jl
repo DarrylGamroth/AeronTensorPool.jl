@@ -148,6 +148,9 @@ function init_consumer(config::ConsumerConfig; client::Aeron.Client)
         UInt32(0),
         dummy_assembler,
         true,
+        UInt64(0),
+        PolledTimer(UInt64(0)),
+        false,
     )
     set_mapping_phase!(state, phase)
     state.progress_assembler = make_progress_assembler(state)

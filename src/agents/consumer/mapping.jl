@@ -146,6 +146,13 @@ function map_from_announce!(state::ConsumerState, msg::ShmPoolAnnounce.Decoder, 
     state.mappings.progress_last_frame = fill(UInt64(0), Int(header_nslots))
     state.mappings.progress_last_bytes = fill(UInt64(0), Int(header_nslots))
     epoch = ShmPoolAnnounce.epoch(msg)
+    if state.awaiting_announce_epoch != 0
+        if epoch <= state.awaiting_announce_epoch
+            @tp_info "announce epoch not bumped; waiting" epoch waiting_epoch = state.awaiting_announce_epoch
+            return false
+        end
+        stop_announce_wait!(state)
+    end
     state.mappings.mapped_epoch = epoch
     if epoch > state.mappings.highest_epoch
         state.mappings.highest_epoch = epoch
