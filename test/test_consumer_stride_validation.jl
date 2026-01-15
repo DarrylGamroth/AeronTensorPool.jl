@@ -48,21 +48,32 @@
                 dims,
                 ok_strides,
             )
-            header_bad = TensorHeader(
-                Dtype.FLOAT32,
-                MajorOrder.ROW,
-                UInt8(2),
-                UInt8(0),
-                AeronTensorPool.ProgressUnit.NONE,
-                UInt32(0),
-                dims,
-                bad_strides,
-            )
+        header_bad = TensorHeader(
+            Dtype.FLOAT32,
+            MajorOrder.ROW,
+            UInt8(2),
+            UInt8(0),
+            AeronTensorPool.ProgressUnit.NONE,
+            UInt32(0),
+            dims,
+            bad_strides,
+        )
+        header_progress = TensorHeader(
+            Dtype.FLOAT32,
+            MajorOrder.ROW,
+            UInt8(2),
+            UInt8(0),
+            AeronTensorPool.ProgressUnit.ROWS,
+            UInt32(0),
+            dims,
+            ok_strides,
+        )
 
-            @test Consumer.validate_strides!(state, header_ok, Int64(4))
-            @test !Consumer.validate_strides!(state, header_bad, Int64(4))
-        finally
-            close_consumer_state!(state)
-        end
+        @test Consumer.validate_strides!(state, header_ok, Int64(4))
+        @test !Consumer.validate_strides!(state, header_bad, Int64(4))
+        @test !Consumer.validate_strides!(state, header_progress, Int64(4))
+    finally
+        close_consumer_state!(state)
     end
+end
 end
