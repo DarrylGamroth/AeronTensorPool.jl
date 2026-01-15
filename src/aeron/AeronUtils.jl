@@ -15,7 +15,6 @@ export with_claimed_buffer!,
     AeronInitError,
     make_counter_type_id,
     add_counter,
-    close_counter!,
     Counters
 
 end

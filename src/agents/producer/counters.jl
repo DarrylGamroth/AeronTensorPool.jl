@@ -29,8 +29,8 @@ function ProducerCounters(client::Aeron.Client, agent_id, agent_name)
 end
 
 function Base.close(counters::ProducerCounters)
-    AeronUtils.close_counter!(counters.frames_published)
-    AeronUtils.close_counter!(counters.announces)
-    AeronUtils.close_counter!(counters.qos_published)
+    close(counters.frames_published)
+    close(counters.announces)
+    close(counters.qos_published)
     close(counters.base)
 end

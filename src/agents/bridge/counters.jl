@@ -35,11 +35,11 @@ function BridgeCounters(client::Aeron.Client, agent_id, agent_name)
 end
 
 function Base.close(counters::BridgeCounters)
-    AeronUtils.close_counter!(counters.frames_forwarded)
-    AeronUtils.close_counter!(counters.chunks_sent)
-    AeronUtils.close_counter!(counters.chunks_dropped)
-    AeronUtils.close_counter!(counters.assemblies_reset)
-    AeronUtils.close_counter!(counters.control_forwarded)
-    AeronUtils.close_counter!(counters.frames_rematerialized)
+    close(counters.frames_forwarded)
+    close(counters.chunks_sent)
+    close(counters.chunks_dropped)
+    close(counters.assemblies_reset)
+    close(counters.control_forwarded)
+    close(counters.frames_rematerialized)
     close(counters.base)
 end
