@@ -58,4 +58,25 @@
         UInt64(1),
         UInt64[UInt64(5), UInt64(5)],
     ) == false
+
+    single_parents = UInt64[UInt64(55)]
+    msg_len = AeronTensorPool.TRACELINK_MESSAGE_HEADER_LEN +
+        Int(TraceLinkSet.sbe_block_length(TraceLinkSet.Decoder)) +
+        Int(TraceLinkSet.Parents.sbe_header_size(TraceLinkSet.Parents.Decoder)) +
+        length(single_parents) * Int(TraceLinkSet.Parents.sbe_block_length(TraceLinkSet.Parents.Decoder))
+    single_buf = Vector{UInt8}(undef, msg_len)
+    TraceLinkSet.wrap_and_apply_header!(enc, single_buf, 0)
+    @test AeronTensorPool.Client.encode_tracelink_set!(
+        enc,
+        UInt32(1),
+        UInt64(1),
+        UInt64(1),
+        UInt64(99),
+        single_parents,
+    ) == true
+    single_dec = TraceLinkSet.Decoder(Vector{UInt8})
+    @test decode_tracelink_set!(single_dec, single_buf) == true
+    single_group = TraceLinkSet.parents(single_dec)
+    @test length(single_group) == 1
+    @test TraceLinkSet.Parents.traceId(first(single_group)) == UInt64(55)
 end
