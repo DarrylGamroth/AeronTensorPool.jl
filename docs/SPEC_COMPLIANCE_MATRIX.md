@@ -27,7 +27,7 @@ Traceability: `docs/SPEC_TRACEABILITY_MATRIX.md` provides per-requirement code/t
 | 1–3 (Goals/Non-Goals/Architecture) | Informative | N/A | Guidance only. |
 | 4 SHM Backends + URI Scheme | Implemented | Compliant | `src/shm/uri.jl`, `src/shm/backend.jl`. |
 | 5 Streams (control/descriptor/QoS/metadata) | Implemented | Compliant | Agents + client APIs publish/subscribe to all channels. |
-| 6–9 SHM Structure + Slot/Header | Implemented | Compliant | `src/shm/superblock.jl`, `src/shm/slots.jl`, tests in `test/test_shm_*`. |
+| 6–9 SHM Structure + Slot/Header | Implemented | Compliant | `src/shm/superblock.jl`, `src/shm/slots.jl`, `test/test_shm_superblock.jl`, `test/test_shm_uri.jl`, `test/test_tensor_slot_header.jl`, `test/test_slot_header_zero_fill.jl`. |
 | 10 Wire Messages | Implemented | Compliant | Generated codecs in `src/gen/`, schemaId gating in handlers. |
 | 10.1 Discovery / Coordination | Implemented | Compliant | Discovery agent + driver attach flow. |
 | 10.2 Data Availability | Implemented | Compliant | Seqlock read algorithm in `src/agents/consumer/frames.jl`. |
