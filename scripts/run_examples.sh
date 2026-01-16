@@ -8,8 +8,9 @@ timeout_s="${TP_EXAMPLE_TIMEOUT:-30}"
 
 export TP_LOG=1
 export TP_LOG_LEVEL="${TP_LOG_LEVEL:-20}"
+export LAUNCH_MEDIA_DRIVER="${LAUNCH_MEDIA_DRIVER:-true}"
 
-julia --project scripts/example_driver.jl "${config_path}" &
+julia --project scripts/run_driver.jl "${config_path}" &
 driver_pid=$!
 
 cleanup() {

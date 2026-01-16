@@ -247,7 +247,7 @@ close(client)
 Driver:
 
 ```bash
-julia --project scripts/example_driver.jl config/driver_integration_example.toml
+LAUNCH_MEDIA_DRIVER=true julia --project scripts/run_driver.jl config/driver_integration_example.toml
 ```
 
 Producer:
@@ -312,12 +312,12 @@ TPLog.set_backend!(logger)
 
 ## CLI Tools
 
-The `tp_tool.jl` script provides basic inspection and control operations. Common ones:
+The `tp_tool` app provides basic inspection and control operations. Common ones:
 - `announce-listen` to watch control-plane traffic
 - `metadata-listen` to watch metadata updates
 - `qos-listen` to watch QoS snapshots
 
-Run `julia --project scripts/tp_tool.jl` for the full list.
+Run `./bin/tp_tool` for the full list, or use `julia --project scripts/tp_tool.jl` in dev.
 
 ---
 

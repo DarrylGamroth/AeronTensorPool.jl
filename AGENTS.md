@@ -142,8 +142,7 @@ flag any spec requirement lacking coverage.
 ## Common commands
 - Run all Julia tests: `julia --project -e 'using Pkg; Pkg.test()'`
 - Run benchmarks: `julia --project scripts/run_benchmarks.jl`
-- Launch media driver (IPC): `julia --project scripts/run_media_driver.jl`
-- Launch driver from config: `julia --project scripts/run_driver.jl config/driver_integration_example.toml`
+- Launch driver from config: `LAUNCH_MEDIA_DRIVER=true julia --project scripts/run_driver.jl config/driver_integration_example.toml`
 
 ## Codegen
 - Regenerate SBE codecs with `julia --project -e 'using Pkg; Pkg.build("AeronTensorPool")'`.

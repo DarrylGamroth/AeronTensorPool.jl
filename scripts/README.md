@@ -5,16 +5,12 @@ first argument; defaults are shown below.
 
 ## Driver
 
-- `example_driver.jl`  
-  Starts the driver.  
-  Usage: `julia --project scripts/example_driver.jl config/driver_integration_example.toml`
-
 - `run_driver.jl`  
-  Starts the driver from a config.  
+  Starts the driver from a config (set `LAUNCH_MEDIA_DRIVER=true` to launch an embedded MediaDriver).  
   Usage: `julia --project scripts/run_driver.jl config/driver_integration_example.toml`
 
 - `run_examples.sh`  
-  Runs the example driver/producer/consumer triplet with logging enabled.  
+  Runs the driver/producer/consumer example triplet with logging enabled (defaults to embedded MediaDriver).  
   Usage: `scripts/run_examples.sh [config/driver_integration_example.toml] [count] [payload_bytes]`
 
 ## Bridge
@@ -97,10 +93,6 @@ first argument; defaults are shown below.
   Prints resolved endpoints from driver config + env.  
   Usage: `scripts/interop_print_endpoints.sh config/driver_integration_example.toml`
 
-- `run_media_driver.jl`  
-  Starts a standalone Aeron MediaDriver.  
-  Usage: `julia --project scripts/run_media_driver.jl`
-
 - `run_benchmarks.jl`  
   Runs benchmark suite.  
   Usage: `julia --project scripts/run_benchmarks.jl`
@@ -110,5 +102,5 @@ first argument; defaults are shown below.
   Usage: `julia --project scripts/run_tests.jl`
 
 - `tp_tool.jl`  
-  CLI for control-plane inspection (announce/QoS/metadata).  
+  CLI for control-plane inspection (announce/QoS/metadata). Prefer the `tp_tool` app when available.  
   Usage: `julia --project scripts/tp_tool.jl`

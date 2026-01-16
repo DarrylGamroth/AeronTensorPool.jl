@@ -67,7 +67,7 @@ profile = "camera"
 
             julia_exec = Base.julia_cmd().exec
             project = Base.active_project()
-            driver_script = joinpath(repo_root, "scripts", "example_driver.jl")
+            driver_script = joinpath(repo_root, "scripts", "run_driver.jl")
             producer_script = joinpath(repo_root, "scripts", "example_producer.jl")
             consumer_script = joinpath(repo_root, "scripts", "example_consumer.jl")
 

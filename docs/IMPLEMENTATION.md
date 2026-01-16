@@ -248,9 +248,9 @@ end
 - Generate codecs: `julia --project -e 'using Pkg; Pkg.build("AeronTensorPool")'`.
 - Generated codecs live in `src/gen` and are ignored by git; run build after schema updates.
 - Tooling: `scripts/run_tests.sh` wraps the full test run for CI/local workflows.
-- Control CLI: `scripts/tp_tool.jl send-consumer-config` can push ConsumerConfig on the control stream.
+- Control CLI: `scripts/tp_tool.jl send-consumer-config` can push ConsumerConfig on the control stream (prefer the `tp_tool` app for interactive use).
 - Driver CLI: `scripts/tp_tool.jl driver-attach|driver-keepalive|driver-detach` exercise the driver control plane.
-- Notes: use `scripts/example_driver.jl`, `scripts/example_producer.jl`, and `scripts/example_consumer.jl` for simple end-to-end runs.
+- Notes: use `scripts/run_driver.jl` (set `LAUNCH_MEDIA_DRIVER=true` if needed), `scripts/example_producer.jl`, and `scripts/example_consumer.jl` for simple end-to-end runs.
 - System smoke test: `scripts/run_system_smoke.jl [config] [timeout_s]` runs a full in-process system using an embedded media driver.
 - Driver smoke test: `scripts/run_driver_smoke.jl` runs an embedded media driver plus the SHM driver and exercises attach/keepalive/detach via the CLI.
 - Optional CI/system test: `TP_RUN_SYSTEM_SMOKE=true julia --project -e 'using Pkg; Pkg.test()'` runs the end-to-end smoke test.

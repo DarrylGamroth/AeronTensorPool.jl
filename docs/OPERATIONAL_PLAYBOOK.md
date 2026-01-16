@@ -80,21 +80,21 @@ Suggested thresholds (tune per deployment)
 
 ## CLI Examples (Driver Control Plane)
 Attach (producer role):
-- `julia --project scripts/tp_tool.jl driver-attach /dev/shm/aeron aeron:ipc 1000 7 producer 42`
+- `./bin/tp_tool driver-attach /dev/shm/aeron aeron:ipc 1000 7 producer 42`
 
 Keepalive:
-- `julia --project scripts/tp_tool.jl driver-keepalive /dev/shm/aeron aeron:ipc 1000 7 producer 42 123`
+- `./bin/tp_tool driver-keepalive /dev/shm/aeron aeron:ipc 1000 7 producer 42 123`
 
 Detach:
-- `julia --project scripts/tp_tool.jl driver-detach /dev/shm/aeron aeron:ipc 1000 7 producer 42 123`
+- `./bin/tp_tool driver-detach /dev/shm/aeron aeron:ipc 1000 7 producer 42 123`
 
 Listen for control-plane traffic:
-- `julia --project scripts/tp_tool.jl announce-listen /dev/shm/aeron aeron:ipc 1000`
-- `julia --project scripts/tp_tool.jl control-listen /dev/shm/aeron aeron:ipc 1000`
-- `julia --project scripts/tp_tool.jl metadata-listen /dev/shm/aeron aeron:ipc 1300`
-- `julia --project scripts/tp_tool.jl metadata-dump /dev/shm/aeron aeron:ipc 1300`
-- `julia --project scripts/tp_tool.jl qos-listen /dev/shm/aeron aeron:ipc 1200`
-- `julia --project scripts/tp_tool.jl discovery-list /dev/shm/aeron aeron:ipc 7000 aeron:ipc 7004`
+- `./bin/tp_tool announce-listen /dev/shm/aeron aeron:ipc 1000`
+- `./bin/tp_tool control-listen /dev/shm/aeron aeron:ipc 1000`
+- `./bin/tp_tool metadata-listen /dev/shm/aeron aeron:ipc 1300`
+- `./bin/tp_tool metadata-dump /dev/shm/aeron aeron:ipc 1300`
+- `./bin/tp_tool qos-listen /dev/shm/aeron aeron:ipc 1200`
+- `./bin/tp_tool discovery-list /dev/shm/aeron aeron:ipc 7000 aeron:ipc 7004`
 
 ## Julia Apps (1.12+)
 - Build app executables:
@@ -103,3 +103,5 @@ Listen for control-plane traffic:
   - `./bin/tp_tool <command> ...`
 - Run driver app:
   - `./bin/tp_driver [driver_config]`
+- Script fallback:
+  - `julia --project scripts/tp_tool.jl <command> ...`
