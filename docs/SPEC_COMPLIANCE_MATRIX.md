@@ -30,7 +30,7 @@ Traceability: `docs/SPEC_TRACEABILITY_MATRIX.md` provides per-requirement code/t
 | 6–9 SHM Structure + Slot/Header | Implemented | Compliant | `src/shm/superblock.jl`, `src/shm/slots.jl`, `test/test_shm_superblock.jl`, `test/test_shm_uri.jl`, `test/test_tensor_slot_header.jl`, `test/test_slot_header_zero_fill.jl`. |
 | 10 Wire Messages | Implemented | Compliant | Generated codecs in `src/gen/`, schemaId gating in handlers. |
 | 10.1 Discovery / Coordination | Implemented | Compliant | Discovery agent + driver attach flow. |
-| 10.2 Data Availability | Implemented | Compliant | Seqlock read algorithm in `src/agents/consumer/frames.jl`. |
+| 10.2 Data Availability | Implemented | Compliant | Seqlock read algorithm in `src/agents/consumer/frames.jl`; FrameProgress emission exercised in `test/test_producer_progress_emit.jl`. |
 | 10.3 Metadata | Implemented | Compliant | `src/client/metadata.jl`, producer metadata publishing, tests. |
 | 10.4 QoS | Implemented | Compliant | QoS monitor + callbacks (`src/client/qos_monitor.jl`). |
 | 10.5 Supervisor | Implemented | Needs Review | Supervisor agent exists; coverage of "unified management" scenarios not fully exercised in tests. |
@@ -49,7 +49,7 @@ Known gaps / open questions:
 | Section | Status | Correctness | Notes / Evidence |
 | --- | --- | --- | --- |
 | 1–3 Scope/Roles/Authority | Implemented | Compliant | Driver owns SHM + control-plane. |
-| 4 Attach/Detach/Keepalive | Implemented | Compliant | Driver HSM + tests; control schema gating covered in `test/test_driver_control_schema_gating.jl`. |
+| 4 Attach/Detach/Keepalive | Implemented | Compliant | Driver HSM + tests; expectedLayoutVersion + desiredNodeId covered in `test/test_driver_expected_layout_version.jl` and `test/test_driver_desired_node_id.jl`. |
 | 5 Exclusive Producer Rule | Implemented | Compliant | Enforced by driver. |
 | 6 Epoch Management | Implemented | Compliant | Epoch bump/remap logic. |
 | 7 Failure/Recovery | Implemented | Compliant | Shutdown/epoch bump + tests. |
@@ -65,7 +65,7 @@ Known gaps / open questions:
 | Section | Status | Correctness | Notes / Evidence |
 | --- | --- | --- | --- |
 | 1–4 Scope/Roles/Transport/IDs | Implemented | Compliant | Sender/receiver agents + config validation. |
-| 5 BridgeFrameChunk + Chunking | Implemented | Compliant | `src/agents/bridge/sender.jl`, `receiver.jl`, tests. |
+| 5 BridgeFrameChunk + Chunking | Implemented | Compliant | `src/agents/bridge/sender.jl`, `receiver.jl`, tests including `test/test_bridge_max_payload_bytes.jl`. |
 | 5.3a Assembly Timeout | Implemented | Compliant | `bridge.assembly_timeout_ms` enforced. |
 | 5.4 Integrity | Implemented | Compliant | Optional CRC32C policy enabled via `bridge.integrity_crc32c`. |
 | 6 Re-materialization | Implemented | Compliant | Receiver writes local SHM + descriptor publish. |
