@@ -13,6 +13,10 @@ first argument; defaults are shown below.
   Starts the driver from a config.  
   Usage: `julia --project scripts/run_driver.jl config/driver_integration_example.toml`
 
+- `run_examples.sh`  
+  Runs the example driver/producer/consumer triplet with logging enabled.  
+  Usage: `scripts/run_examples.sh [config/driver_integration_example.toml] [count] [payload_bytes]`
+
 ## Bridge
 
 - `run_bridge.jl`  
