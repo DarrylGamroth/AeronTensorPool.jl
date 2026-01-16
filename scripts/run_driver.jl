@@ -10,7 +10,7 @@ function usage()
     println("Usage: julia --project scripts/run_driver.jl [driver_config]")
 end
 
-function load_driver_config_with_env(config_path::String)
+function load_driver_config_with_env(config_path)
     env = Dict(ENV)
     if haskey(ENV, "AERON_DIR")
         env["DRIVER_AERON_DIR"] = ENV["AERON_DIR"]
@@ -24,7 +24,7 @@ function load_driver_config_with_env(config_path::String)
     return load_driver_config(config_path; env = env)
 end
 
-function run_agent(config_path::String)
+function run_agent(config_path)
     config = load_driver_config_with_env(config_path)
     core_id = haskey(ENV, "AGENT_TASK_CORE") ? parse(Int, ENV["AGENT_TASK_CORE"]) : nothing
 
@@ -56,7 +56,7 @@ function run_agent(config_path::String)
     return nothing
 end
 
-function run_driver_main(args::Vector{String})
+function run_driver_main(args)
     config_path = length(args) >= 1 ? args[1] : "config/driver_integration_example.toml"
     launch_driver = parse(Bool, get(ENV, "LAUNCH_MEDIA_DRIVER", "false"))
 

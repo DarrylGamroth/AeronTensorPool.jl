@@ -3,31 +3,37 @@ using AeronTensorPool
 using UnsafeArrays
 
 function usage()
+    cmd = "tp_tool"
     println("Usage:")
-    println("  julia --project scripts/tp_tool.jl validate-uri <uri>")
-    println("  julia --project scripts/tp_tool.jl read-superblock <uri>")
-    println("  julia --project scripts/tp_tool.jl read-header <uri> <index>")
-    println("  julia --project scripts/tp_tool.jl send-consumer-config <aeron_dir> <aeron_uri> <control_stream_id> <stream_id> <consumer_id> <use_shm> <mode> [payload_fallback_uri]")
-    println("  julia --project scripts/tp_tool.jl driver-attach <aeron_dir> <control_channel> <control_stream_id> <client_id> <role> <stream_id> [publish_mode] [expected_layout_version] [require_hugepages_policy] [timeout_ms]")
-    println("  julia --project scripts/tp_tool.jl driver-detach <aeron_dir> <control_channel> <control_stream_id> <client_id> <role> <stream_id> <lease_id> [timeout_ms]")
-    println("  julia --project scripts/tp_tool.jl driver-keepalive <aeron_dir> <control_channel> <control_stream_id> <client_id> <role> <stream_id> <lease_id>")
-    println("  julia --project scripts/tp_tool.jl driver-status <driver_instance_id>")
-    println("  julia --project scripts/tp_tool.jl driver-list-leases <driver_instance_id>")
-    println("  julia --project scripts/tp_tool.jl driver-list-streams <driver_instance_id>")
-    println("  julia --project scripts/tp_tool.jl driver-counters <aeron_dir> [filter]")
-    println("  julia --project scripts/tp_tool.jl driver-config-validate <config_path>")
-    println("  julia --project scripts/tp_tool.jl driver-config-dump <config_path>")
-    println("  julia --project scripts/tp_tool.jl shm-validate <uri> <layout_version> <epoch> <stream_id> <nslots> <slot_bytes> <region_type> <pool_id>")
-    println("  julia --project scripts/tp_tool.jl shm-summary <uri>")
-    println("  julia --project scripts/tp_tool.jl announce-listen <aeron_dir> <channel> <stream_id> [duration_s]")
-    println("  julia --project scripts/tp_tool.jl control-listen <aeron_dir> <channel> <stream_id> [duration_s]")
-    println("  julia --project scripts/tp_tool.jl metadata-listen <aeron_dir> <channel> <stream_id> [duration_s]")
-    println("  julia --project scripts/tp_tool.jl metadata-dump <aeron_dir> <channel> <stream_id> [timeout_ms]")
-    println("  julia --project scripts/tp_tool.jl qos-listen <aeron_dir> <channel> <stream_id> [duration_s]")
-    println("  julia --project scripts/tp_tool.jl discovery-list <aeron_dir> <request_channel> <request_stream_id> <response_channel> <response_stream_id> [timeout_ms]")
-    println("  julia --project scripts/tp_tool.jl discovery-query <aeron_dir> <request_channel> <request_stream_id> <response_channel> <response_stream_id> [stream_id] [producer_id] [data_source_id] [data_source_name] [tags_csv] [timeout_ms]")
-    println("  julia --project scripts/tp_tool.jl bridge-status <aeron_dir> [filter]")
-    println("  julia --project scripts/tp_tool.jl discover <aeron_dir> <request_channel> <request_stream_id> <response_channel> <response_stream_id> [stream_id] [producer_id] [data_source_id] [data_source_name] [tags_csv] [timeout_ms]")
+    println("  tp_tool <command> ...")
+    println("  ./bin/tp_tool <command> ...")
+    println("  julia --project scripts/tp_tool.jl <command> ...")
+    println()
+    println("Commands:")
+    println("  $(cmd) validate-uri <uri>")
+    println("  $(cmd) read-superblock <uri>")
+    println("  $(cmd) read-header <uri> <index>")
+    println("  $(cmd) send-consumer-config <aeron_dir> <aeron_uri> <control_stream_id> <stream_id> <consumer_id> <use_shm> <mode> [payload_fallback_uri]")
+    println("  $(cmd) driver-attach <aeron_dir> <control_channel> <control_stream_id> <client_id> <role> <stream_id> [publish_mode] [expected_layout_version] [require_hugepages_policy] [timeout_ms]")
+    println("  $(cmd) driver-detach <aeron_dir> <control_channel> <control_stream_id> <client_id> <role> <stream_id> <lease_id> [timeout_ms]")
+    println("  $(cmd) driver-keepalive <aeron_dir> <control_channel> <control_stream_id> <client_id> <role> <stream_id> <lease_id>")
+    println("  $(cmd) driver-status <driver_instance_id>")
+    println("  $(cmd) driver-list-leases <driver_instance_id>")
+    println("  $(cmd) driver-list-streams <driver_instance_id>")
+    println("  $(cmd) driver-counters <aeron_dir> [filter]")
+    println("  $(cmd) driver-config-validate <config_path>")
+    println("  $(cmd) driver-config-dump <config_path>")
+    println("  $(cmd) shm-validate <uri> <layout_version> <epoch> <stream_id> <nslots> <slot_bytes> <region_type> <pool_id>")
+    println("  $(cmd) shm-summary <uri>")
+    println("  $(cmd) announce-listen <aeron_dir> <channel> <stream_id> [duration_s]")
+    println("  $(cmd) control-listen <aeron_dir> <channel> <stream_id> [duration_s]")
+    println("  $(cmd) metadata-listen <aeron_dir> <channel> <stream_id> [duration_s]")
+    println("  $(cmd) metadata-dump <aeron_dir> <channel> <stream_id> [timeout_ms]")
+    println("  $(cmd) qos-listen <aeron_dir> <channel> <stream_id> [duration_s]")
+    println("  $(cmd) discovery-list <aeron_dir> <request_channel> <request_stream_id> <response_channel> <response_stream_id> [timeout_ms]")
+    println("  $(cmd) discovery-query <aeron_dir> <request_channel> <request_stream_id> <response_channel> <response_stream_id> [stream_id] [producer_id] [data_source_id] [data_source_name] [tags_csv] [timeout_ms]")
+    println("  $(cmd) bridge-status <aeron_dir> [filter]")
+    println("  $(cmd) discover <aeron_dir> <request_channel> <request_stream_id> <response_channel> <response_stream_id> [stream_id] [producer_id] [data_source_id] [data_source_name] [tags_csv] [timeout_ms]")
     println()
     println("Env overrides (when args omitted):")
     println("  TP_AERON_DIR, TP_AERON_URI, TP_CHANNEL, TP_STREAM_ID")
@@ -114,34 +120,28 @@ function with_driver_client(
     client_id::UInt32,
     role::DriverRole.SbeEnum,
 )
-    ctx = Aeron.Context()
-    Aeron.aeron_dir!(ctx, aeron_dir)
-    client = Aeron.Client(ctx)
-    state = init_driver_client(client, control_channel, control_stream, client_id, role)
-    try
-        return f(state)
-    finally
-        try
-            close(state.pub)
-            close(state.sub)
-            close(client)
-            close(ctx)
-        catch
+    Aeron.Context() do ctx
+        Aeron.aeron_dir!(ctx, aeron_dir)
+        Aeron.Client(ctx) do client
+            state = init_driver_client(client, control_channel, control_stream, client_id, role)
+            try
+                return f(state)
+            finally
+                try
+                    close(state.pub)
+                    close(state.sub)
+                catch
+                end
+            end
         end
     end
 end
 
 function with_aeron_client(f::Function, aeron_dir::String)
-    ctx = Aeron.Context()
-    Aeron.aeron_dir!(ctx, aeron_dir)
-    client = Aeron.Client(ctx)
-    try
-        return f(client)
-    finally
-        try
-            close(client)
-            close(ctx)
-        catch
+    Aeron.Context() do ctx
+        Aeron.aeron_dir!(ctx, aeron_dir)
+        Aeron.Client(ctx) do client
+            return f(client)
         end
     end
 end
@@ -168,26 +168,26 @@ function with_discovery_client(
     response_stream_id::UInt32,
     client_id::UInt32,
 )
-    ctx = Aeron.Context()
-    Aeron.aeron_dir!(ctx, aeron_dir)
-    client = Aeron.Client(ctx)
-    state = init_discovery_client(
-        client,
-        request_channel,
-        request_stream_id,
-        response_channel,
-        response_stream_id,
-        client_id,
-    )
-    try
-        return f(state)
-    finally
-        try
-            close(state.pub)
-            close(state.sub)
-            close(client)
-            close(ctx)
-        catch
+    Aeron.Context() do ctx
+        Aeron.aeron_dir!(ctx, aeron_dir)
+        Aeron.Client(ctx) do client
+            state = init_discovery_client(
+                client,
+                request_channel,
+                request_stream_id,
+                response_channel,
+                response_stream_id,
+                client_id,
+            )
+            try
+                return f(state)
+            finally
+                try
+                    close(state.pub)
+                    close(state.sub)
+                catch
+                end
+            end
         end
     end
 end
@@ -418,30 +418,30 @@ function tp_tool_main(args::Vector{String})
         mode = arg_or_env(args, 8, "TP_MODE", parse_mode)
         payload_fallback_uri = length(args) >= 9 ? args[9] : get(ENV, "TP_PAYLOAD_FALLBACK_URI", "")
 
-        ctx = Aeron.Context()
-        Aeron.aeron_dir!(ctx, aeron_dir)
-        client = Aeron.Client(ctx)
-        pub = Aeron.add_publication(client, aeron_uri, control_stream)
-
-        claim = Aeron.BufferClaim()
-        buf = Vector{UInt8}(undef, 512)
-        enc = ConsumerConfigMsg.Encoder(Vector{UInt8})
-        ConsumerConfigMsg.wrap_and_apply_header!(enc, buf, 0)
-        ConsumerConfigMsg.streamId!(enc, stream_id)
-        ConsumerConfigMsg.consumerId!(enc, consumer_id)
-        ConsumerConfigMsg.useShm!(
-            enc,
-            use_shm ? ShmTensorpoolControl.Bool_.TRUE : ShmTensorpoolControl.Bool_.FALSE,
-        )
-        ConsumerConfigMsg.mode!(enc, mode)
-        ConsumerConfigMsg.payloadFallbackUri!(enc, payload_fallback_uri)
-        msg_len = sbe_message_length(enc)
-        sent = with_claimed_buffer!(pub, claim, msg_len) do dst
-            copyto!(dst, 1, buf, 1, msg_len)
+        with_aeron_client(aeron_dir) do client
+            pub = Aeron.add_publication(client, aeron_uri, control_stream)
+            try
+                claim = Aeron.BufferClaim()
+                buf = Vector{UInt8}(undef, 512)
+                enc = ConsumerConfigMsg.Encoder(Vector{UInt8})
+                ConsumerConfigMsg.wrap_and_apply_header!(enc, buf, 0)
+                ConsumerConfigMsg.streamId!(enc, stream_id)
+                ConsumerConfigMsg.consumerId!(enc, consumer_id)
+                ConsumerConfigMsg.useShm!(
+                    enc,
+                    use_shm ? ShmTensorpoolControl.Bool_.TRUE : ShmTensorpoolControl.Bool_.FALSE,
+                )
+                ConsumerConfigMsg.mode!(enc, mode)
+                ConsumerConfigMsg.payloadFallbackUri!(enc, payload_fallback_uri)
+                msg_len = sbe_message_length(enc)
+                sent = with_claimed_buffer!(pub, claim, msg_len) do dst
+                    copyto!(dst, 1, buf, 1, msg_len)
+                end
+                sent || error("consumer config claim failed")
+            finally
+                close(pub)
+            end
         end
-        sent || error("consumer config claim failed")
-        close(pub)
-        close(client)
     elseif cmd == "driver-attach"
         aeron_dir = arg_or_env(args, 2, "TP_AERON_DIR", identity)
         control_channel = arg_or_env(args, 3, "TP_CONTROL_CHANNEL", identity)
@@ -596,11 +596,9 @@ function tp_tool_main(args::Vector{String})
         channel = arg_or_env(args, 3, "TP_CHANNEL", identity)
         stream_id = arg_or_env(args, 4, "TP_STREAM_ID", val -> parse(Int32, val))
         duration_s = length(args) >= 5 ? parse(Float64, args[5]) : 5.0
-        ctx = Aeron.Context()
-        Aeron.aeron_dir!(ctx, aeron_dir)
-        client = Aeron.Client(ctx)
-        sub = Aeron.add_subscription(client, channel, stream_id)
-        handler = Aeron.FragmentHandler((_, buffer, _) -> begin
+        with_aeron_client(aeron_dir) do client
+            sub = Aeron.add_subscription(client, channel, stream_id)
+            handler = Aeron.FragmentHandler((_, buffer, _) -> begin
             header = DriverMessageHeader.Decoder(buffer, 0)
             template_id = DriverMessageHeader.templateId(header)
             if template_id == ShmPoolAnnounce.sbe_template_id(ShmPoolAnnounce.Decoder)
@@ -621,26 +619,26 @@ function tp_tool_main(args::Vector{String})
                 println("FrameProgress stream_id=$(FrameProgress.streamId(dec)) seq=$(FrameProgress.seq(dec)) state=$(FrameProgress.state(dec)) bytes=$(FrameProgress.payloadBytesFilled(dec))")
             end
             nothing
-        end)
-        assembler = Aeron.FragmentAssembler(handler)
-        deadline = time_ns() + Int64(round(duration_s * 1e9))
-        while time_ns() < deadline
-            Aeron.poll(sub, assembler, AeronTensorPool.DEFAULT_FRAGMENT_LIMIT)
-            yield()
+            end)
+            assembler = Aeron.FragmentAssembler(handler)
+            deadline = time_ns() + Int64(round(duration_s * 1e9))
+            try
+                while time_ns() < deadline
+                    Aeron.poll(sub, assembler, AeronTensorPool.DEFAULT_FRAGMENT_LIMIT)
+                    yield()
+                end
+            finally
+                close(sub)
+            end
         end
-        close(sub)
-        close(client)
-        close(ctx)
     elseif cmd == "control-listen"
         aeron_dir = arg_or_env(args, 2, "TP_AERON_DIR", identity)
         channel = arg_or_env(args, 3, "TP_CONTROL_CHANNEL", identity)
         stream_id = arg_or_env(args, 4, "TP_CONTROL_STREAM_ID", val -> parse(Int32, val))
         duration_s = length(args) >= 5 ? parse(Float64, args[5]) : 5.0
-        ctx = Aeron.Context()
-        Aeron.aeron_dir!(ctx, aeron_dir)
-        client = Aeron.Client(ctx)
-        sub = Aeron.add_subscription(client, channel, stream_id)
-        handler = Aeron.FragmentHandler((_, buffer, _) -> begin
+        with_aeron_client(aeron_dir) do client
+            sub = Aeron.add_subscription(client, channel, stream_id)
+            handler = Aeron.FragmentHandler((_, buffer, _) -> begin
             header = DriverMessageHeader.Decoder(buffer, 0)
             template_id = DriverMessageHeader.templateId(header)
             if template_id == ShmAttachRequest.sbe_template_id(ShmAttachRequest.Decoder)
@@ -691,86 +689,88 @@ function tp_tool_main(args::Vector{String})
                 println("ShmDriverShutdownRequest")
             end
             nothing
-        end)
-        assembler = Aeron.FragmentAssembler(handler)
-        deadline = time_ns() + Int64(round(duration_s * 1e9))
-        while time_ns() < deadline
-            Aeron.poll(sub, assembler, AeronTensorPool.DEFAULT_FRAGMENT_LIMIT)
-            yield()
+            end)
+            assembler = Aeron.FragmentAssembler(handler)
+            deadline = time_ns() + Int64(round(duration_s * 1e9))
+            try
+                while time_ns() < deadline
+                    Aeron.poll(sub, assembler, AeronTensorPool.DEFAULT_FRAGMENT_LIMIT)
+                    yield()
+                end
+            finally
+                close(sub)
+            end
         end
-        close(sub)
-        close(client)
-        close(ctx)
     elseif cmd == "metadata-listen"
         aeron_dir = arg_or_env(args, 2, "TP_AERON_DIR", identity)
         channel = arg_or_env(args, 3, "TP_METADATA_CHANNEL", identity)
         stream_id = arg_or_env(args, 4, "TP_METADATA_STREAM_ID", val -> parse(Int32, val))
         duration_s = length(args) >= 5 ? parse(Float64, args[5]) : 5.0
-        ctx = Aeron.Context()
-        Aeron.aeron_dir!(ctx, aeron_dir)
-        client = Aeron.Client(ctx)
-        cache = MetadataCache(channel, stream_id; client = client)
-        deadline = time_ns() + Int64(round(duration_s * 1e9))
-        seen = Dict{UInt32, UInt32}()
-        while time_ns() < deadline
-            poll_metadata!(cache)
-            for (sid, entry) in cache.entries
-                last = get(seen, sid, UInt32(0))
-                if entry.meta_version != last
-                    println("stream_id=$(sid) meta_version=$(entry.meta_version) name=$(entry.name)")
-                    seen[sid] = entry.meta_version
+        with_aeron_client(aeron_dir) do client
+            cache = MetadataCache(channel, stream_id; client = client)
+            deadline = time_ns() + Int64(round(duration_s * 1e9))
+            seen = Dict{UInt32, UInt32}()
+            try
+                while time_ns() < deadline
+                    poll_metadata!(cache)
+                    for (sid, entry) in cache.entries
+                        last = get(seen, sid, UInt32(0))
+                        if entry.meta_version != last
+                            println("stream_id=$(sid) meta_version=$(entry.meta_version) name=$(entry.name)")
+                            seen[sid] = entry.meta_version
+                        end
+                    end
+                    yield()
                 end
+            finally
+                close(cache)
             end
-            yield()
         end
-        close(cache)
-        close(client)
-        close(ctx)
     elseif cmd == "metadata-dump"
         aeron_dir = arg_or_env(args, 2, "TP_AERON_DIR", identity)
         channel = arg_or_env(args, 3, "TP_METADATA_CHANNEL", identity)
         stream_id = arg_or_env(args, 4, "TP_METADATA_STREAM_ID", val -> parse(UInt32, val))
         timeout_ms = length(args) >= 5 ? parse(Int, args[5]) : 5000
-        ctx = Aeron.Context()
-        Aeron.aeron_dir!(ctx, aeron_dir)
-        client = Aeron.Client(ctx)
-        cache = MetadataCache(channel, Int32(stream_id); client = client)
-        entry = wait_for_metadata_entry(cache, stream_id; timeout_ms = timeout_ms)
-        if entry === nothing
-            println("timeout")
-        else
-            println("stream_id=$(entry.stream_id) meta_version=$(entry.meta_version) name=$(entry.name)")
-            println("summary=$(entry.summary)")
-            for attr in entry.attributes
-                println("attr=$(attr.key) mime=$(attr.mime) value=$(String(attr.value))")
+        with_aeron_client(aeron_dir) do client
+            cache = MetadataCache(channel, Int32(stream_id); client = client)
+            try
+                entry = wait_for_metadata_entry(cache, stream_id; timeout_ms = timeout_ms)
+                if entry === nothing
+                    println("timeout")
+                else
+                    println("stream_id=$(entry.stream_id) meta_version=$(entry.meta_version) name=$(entry.name)")
+                    println("summary=$(entry.summary)")
+                    for attr in entry.attributes
+                        println("attr=$(attr.key) mime=$(attr.mime) value=$(String(attr.value))")
+                    end
+                end
+            finally
+                close(cache)
             end
         end
-        close(cache)
-        close(client)
-        close(ctx)
     elseif cmd == "qos-listen"
         aeron_dir = arg_or_env(args, 2, "TP_AERON_DIR", identity)
         channel = arg_or_env(args, 3, "TP_QOS_CHANNEL", identity)
         stream_id = arg_or_env(args, 4, "TP_QOS_STREAM_ID", val -> parse(Int32, val))
         duration_s = length(args) >= 5 ? parse(Float64, args[5]) : 5.0
-        ctx = Aeron.Context()
-        Aeron.aeron_dir!(ctx, aeron_dir)
-        client = Aeron.Client(ctx)
-        monitor = QosMonitor(channel, stream_id; client = client)
-        deadline = time_ns() + Int64(round(duration_s * 1e9))
-        while time_ns() < deadline
-            poll_qos!(monitor)
-            for snap in values(monitor.producers)
-                println("producer=$(snap.producer_id) stream=$(snap.stream_id) seq=$(snap.current_seq)")
+        with_aeron_client(aeron_dir) do client
+            monitor = QosMonitor(channel, stream_id; client = client)
+            deadline = time_ns() + Int64(round(duration_s * 1e9))
+            try
+                while time_ns() < deadline
+                    poll_qos!(monitor)
+                    for snap in values(monitor.producers)
+                        println("producer=$(snap.producer_id) stream=$(snap.stream_id) seq=$(snap.current_seq)")
+                    end
+                    for snap in values(monitor.consumers)
+                        println("consumer=$(snap.consumer_id) stream=$(snap.stream_id) last_seq=$(snap.last_seq_seen)")
+                    end
+                    yield()
+                end
+            finally
+                close(monitor)
             end
-            for snap in values(monitor.consumers)
-                println("consumer=$(snap.consumer_id) stream=$(snap.stream_id) last_seq=$(snap.last_seq_seen)")
-            end
-            yield()
         end
-        close(monitor)
-        close(client)
-        close(ctx)
     elseif cmd == "discovery-list"
         aeron_dir = arg_or_env(args, 2, "TP_AERON_DIR", identity)
         request_channel = arg_or_env(args, 3, "TP_DISCOVERY_REQUEST_CHANNEL", identity)
