@@ -163,6 +163,8 @@ function print_counters(aeron_dir::String; filter::String = "")
 end
 
 const STATS_COUNTER_LABELS = (
+    "TotalDutyCycles",
+    "TotalWorkDone",
     "FramesPublished",
     "AnnouncesPublished",
     "QosPublished",
@@ -181,6 +183,21 @@ const STATS_COUNTER_LABELS = (
     "DropsPayloadInvalid",
     "Remaps",
     "HelloPublished",
+    "AttachResponses",
+    "AttachResponseDrops",
+    "DetachResponses",
+    "Keepalives",
+    "LeaseRevoked",
+    "Announces",
+    "LeaseHsmUnhandled",
+    "ConfigPublished",
+    "LivenessChecks",
+    "FramesForwarded",
+    "ChunksSent",
+    "ChunksDropped",
+    "AssembliesReset",
+    "ControlForwarded",
+    "FramesRematerialized",
 )
 
 function normalize_stats_filter(filter::String)
