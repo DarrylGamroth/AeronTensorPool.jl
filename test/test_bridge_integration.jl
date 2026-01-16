@@ -210,104 +210,102 @@
                 nothing
             end)
 
-            meta_ctx = Aeron.Context()
-            Aeron.aeron_dir!(meta_ctx, aeron_dir)
-            meta_client = Aeron.Client(meta_ctx)
-            meta_sub = Aeron.add_subscription(meta_client, "aeron:ipc", Int32(2300))
-            meta_announce_decoder = DataSourceAnnounce.Decoder(UnsafeArrays.UnsafeArray{UInt8, 1})
-            meta_meta_decoder = DataSourceMeta.Decoder(UnsafeArrays.UnsafeArray{UInt8, 1})
-            meta_asm = Aeron.FragmentAssembler(Aeron.FragmentHandler(consumer_dst) do _, buffer, _
-                header = MessageHeader.Decoder(buffer, 0)
-                template_id = MessageHeader.templateId(header)
-                if template_id == DataSourceAnnounce.sbe_template_id(DataSourceAnnounce.Decoder)
-                    DataSourceAnnounce.wrap!(meta_announce_decoder, buffer, 0; header = header)
-                    got_meta_announce[] = DataSourceAnnounce.streamId(meta_announce_decoder) == UInt32(2300)
-                elseif template_id == DataSourceMeta.sbe_template_id(DataSourceMeta.Decoder)
-                    DataSourceMeta.wrap!(meta_meta_decoder, buffer, 0; header = header)
-                    got_meta[] = DataSourceMeta.streamId(meta_meta_decoder) == UInt32(2300)
+            Aeron.Context() do meta_ctx
+                Aeron.aeron_dir!(meta_ctx, aeron_dir)
+                Aeron.Client(meta_ctx) do meta_client
+                    meta_sub = Aeron.add_subscription(meta_client, "aeron:ipc", Int32(2300))
+                    meta_announce_decoder = DataSourceAnnounce.Decoder(UnsafeArrays.UnsafeArray{UInt8, 1})
+                    meta_meta_decoder = DataSourceMeta.Decoder(UnsafeArrays.UnsafeArray{UInt8, 1})
+                    meta_asm = Aeron.FragmentAssembler(Aeron.FragmentHandler(consumer_dst) do _, buffer, _
+                        header = MessageHeader.Decoder(buffer, 0)
+                        template_id = MessageHeader.templateId(header)
+                        if template_id == DataSourceAnnounce.sbe_template_id(DataSourceAnnounce.Decoder)
+                            DataSourceAnnounce.wrap!(meta_announce_decoder, buffer, 0; header = header)
+                            got_meta_announce[] = DataSourceAnnounce.streamId(meta_announce_decoder) == UInt32(2300)
+                        elseif template_id == DataSourceMeta.sbe_template_id(DataSourceMeta.Decoder)
+                            DataSourceMeta.wrap!(meta_meta_decoder, buffer, 0; header = header)
+                            got_meta[] = DataSourceMeta.streamId(meta_meta_decoder) == UInt32(2300)
+                        end
+                        nothing
+                    end)
+                    try
+                        announce_ready = wait_for() do
+                            Producer.emit_announce!(producer_src)
+                            Producer.emit_announce!(producer_dst)
+
+                            Aeron.poll(consumer_src.runtime.control.sub_control, src_control, fragment_limit)
+                            Aeron.poll(consumer_dst.runtime.control.sub_control, dst_control, fragment_limit)
+                            Bridge.bridge_sender_do_work!(bridge_sender)
+                            Bridge.bridge_receiver_do_work!(bridge_receiver)
+
+                            consumer_src.mappings.header_mmap !== nothing &&
+                                consumer_dst.mappings.header_mmap !== nothing &&
+                                bridge_receiver.have_announce
+                        end
+                        @test announce_ready
+
+                        claim = Aeron.BufferClaim()
+                        name = "camera-1"
+                        summary = "bridge-test"
+                        announce_len = message_header_len +
+                            Int(DataSourceAnnounce.sbe_block_length(DataSourceAnnounce.Decoder)) +
+                            4 + sizeof(name) +
+                            4 + sizeof(summary)
+                        meta_len = message_header_len +
+                            Int(DataSourceMeta.sbe_block_length(DataSourceMeta.Decoder)) +
+                            4
+
+                        sent_meta = wait_for() do
+                            sent_announce = with_claimed_buffer!(producer_src.runtime.pub_metadata, claim, announce_len) do buf
+                                enc = DataSourceAnnounce.Encoder(UnsafeArrays.UnsafeArray{UInt8, 1})
+                                DataSourceAnnounce.wrap_and_apply_header!(enc, buf, 0)
+                                DataSourceAnnounce.streamId!(enc, UInt32(1))
+                                DataSourceAnnounce.producerId!(enc, UInt32(10))
+                                DataSourceAnnounce.epoch!(enc, UInt64(1))
+                                DataSourceAnnounce.metaVersion!(enc, UInt32(7))
+                                DataSourceAnnounce.name!(enc, name)
+                                DataSourceAnnounce.summary!(enc, summary)
+                            end
+
+                            sent_meta = with_claimed_buffer!(producer_src.runtime.pub_metadata, claim, meta_len) do buf
+                                enc = DataSourceMeta.Encoder(UnsafeArrays.UnsafeArray{UInt8, 1})
+                                DataSourceMeta.wrap_and_apply_header!(enc, buf, 0)
+                                DataSourceMeta.streamId!(enc, UInt32(1))
+                                DataSourceMeta.metaVersion!(enc, UInt32(7))
+                                DataSourceMeta.timestampNs!(enc, UInt64(12345))
+                                DataSourceMeta.attributes!(enc, 0)
+                            end
+                            sent_announce && sent_meta
+                        end
+                        @test sent_meta
+
+                        meta_ready = wait_for() do
+                            Bridge.bridge_sender_do_work!(bridge_sender)
+                            Bridge.bridge_receiver_do_work!(bridge_receiver)
+                            Aeron.poll(meta_sub, meta_asm, fragment_limit)
+                            got_meta_announce[] && got_meta[]
+                        end
+                        @test meta_ready
+
+                        payload = UInt8[1, 2, 3, 4, 5]
+                        shape = Int32[5]
+                        strides = Int32[1]
+                        published = Producer.offer_frame!(producer_src, payload, shape, strides, Dtype.UINT8, UInt32(7))
+                        @test published
+
+                        bridged = wait_for() do
+                            Aeron.poll(consumer_src.runtime.sub_descriptor, bridge_desc, fragment_limit)
+                            Bridge.bridge_receiver_do_work!(bridge_receiver)
+                            Aeron.poll(consumer_dst.runtime.sub_descriptor, dst_desc, fragment_limit)
+                            !isempty(got_payload[])
+                        end
+                        @test bridged
+                        @test got_payload[] == payload
+                    finally
+                        close(meta_sub)
+                    end
                 end
-                nothing
-            end)
-
-            announce_ready = wait_for() do
-                Producer.emit_announce!(producer_src)
-                Producer.emit_announce!(producer_dst)
-
-                Aeron.poll(consumer_src.runtime.control.sub_control, src_control, fragment_limit)
-                Aeron.poll(consumer_dst.runtime.control.sub_control, dst_control, fragment_limit)
-                Bridge.bridge_sender_do_work!(bridge_sender)
-                Bridge.bridge_receiver_do_work!(bridge_receiver)
-
-                consumer_src.mappings.header_mmap !== nothing &&
-                    consumer_dst.mappings.header_mmap !== nothing &&
-                    bridge_receiver.have_announce
             end
-            @test announce_ready
-
-            claim = Aeron.BufferClaim()
-            name = "camera-1"
-            summary = "bridge-test"
-            announce_len = message_header_len +
-                Int(DataSourceAnnounce.sbe_block_length(DataSourceAnnounce.Decoder)) +
-                4 + sizeof(name) +
-                4 + sizeof(summary)
-            meta_len = message_header_len +
-                Int(DataSourceMeta.sbe_block_length(DataSourceMeta.Decoder)) +
-                4
-
-            sent_meta = wait_for() do
-                sent_announce = with_claimed_buffer!(producer_src.runtime.pub_metadata, claim, announce_len) do buf
-                    enc = DataSourceAnnounce.Encoder(UnsafeArrays.UnsafeArray{UInt8, 1})
-                    DataSourceAnnounce.wrap_and_apply_header!(enc, buf, 0)
-                    DataSourceAnnounce.streamId!(enc, UInt32(1))
-                    DataSourceAnnounce.producerId!(enc, UInt32(10))
-                    DataSourceAnnounce.epoch!(enc, UInt64(1))
-                    DataSourceAnnounce.metaVersion!(enc, UInt32(7))
-                    DataSourceAnnounce.name!(enc, name)
-                    DataSourceAnnounce.summary!(enc, summary)
-                end
-
-                sent_meta = with_claimed_buffer!(producer_src.runtime.pub_metadata, claim, meta_len) do buf
-                    enc = DataSourceMeta.Encoder(UnsafeArrays.UnsafeArray{UInt8, 1})
-                    DataSourceMeta.wrap_and_apply_header!(enc, buf, 0)
-                    DataSourceMeta.streamId!(enc, UInt32(1))
-                    DataSourceMeta.metaVersion!(enc, UInt32(7))
-                    DataSourceMeta.timestampNs!(enc, UInt64(12345))
-                    DataSourceMeta.attributes!(enc, 0)
-                end
-                sent_announce && sent_meta
-            end
-            @test sent_meta
-
-            meta_ready = wait_for() do
-                Bridge.bridge_sender_do_work!(bridge_sender)
-                Bridge.bridge_receiver_do_work!(bridge_receiver)
-                Aeron.poll(meta_sub, meta_asm, fragment_limit)
-                got_meta_announce[] && got_meta[]
-            end
-            @test meta_ready
-
-            payload = UInt8[1, 2, 3, 4, 5]
-            shape = Int32[5]
-            strides = Int32[1]
-            published = Producer.offer_frame!(producer_src, payload, shape, strides, Dtype.UINT8, UInt32(7))
-            @test published
-
-            bridged = wait_for() do
-                Aeron.poll(consumer_src.runtime.sub_descriptor, bridge_desc, fragment_limit)
-                Bridge.bridge_receiver_do_work!(bridge_receiver)
-                Aeron.poll(consumer_dst.runtime.sub_descriptor, dst_desc, fragment_limit)
-                !isempty(got_payload[])
-            end
-            @test bridged
-            @test got_payload[] == payload
-
-                try
-                    close(meta_sub)
-                    close(meta_client)
-                    close(meta_ctx)
-                catch
-                end
                 close_consumer_state!(consumer_src)
                 close_consumer_state!(consumer_dst)
                 close_producer_state!(producer_src)
