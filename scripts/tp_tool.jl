@@ -44,6 +44,8 @@ function usage()
     println("  TP_DISCOVERY_RESPONSE_CHANNEL, TP_DISCOVERY_RESPONSE_STREAM_ID")
     println("  TP_CLIENT_ID, TP_ROLE, TP_STREAM_ID, TP_LEASE_ID")
     println("  TP_SHM_URI")
+    println()
+    println("Example shm-uri: shm:file?path=/dev/shm/tensorpool-<user>/default/10000/1/1.pool")
     exit(1)
 end
 
