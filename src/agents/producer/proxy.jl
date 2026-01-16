@@ -67,7 +67,7 @@ function emit_progress_complete!(
             FrameProgress.epoch!(st.runtime.progress_encoder, st.epoch)
             FrameProgress.seq!(st.runtime.progress_encoder, seq)
             FrameProgress.payloadBytesFilled!(st.runtime.progress_encoder, bytes_filled)
-            FrameProgress.state!(st.runtime.progress_encoder, FrameProgressState.COMPLETE)
+            FrameProgress.state!(st.runtime.progress_encoder, ShmTensorpoolControl.FrameProgressState.COMPLETE)
         end
     end
     sent || return false
@@ -268,7 +268,7 @@ function publish_progress_to_consumers!(
                 FrameProgress.epoch!(st.runtime.progress_encoder, st.epoch)
                 FrameProgress.seq!(st.runtime.progress_encoder, seq)
                 FrameProgress.payloadBytesFilled!(st.runtime.progress_encoder, bytes_filled)
-                FrameProgress.state!(st.runtime.progress_encoder, FrameProgressState.COMPLETE)
+                FrameProgress.state!(st.runtime.progress_encoder, ShmTensorpoolControl.FrameProgressState.COMPLETE)
             end
         end
     end
