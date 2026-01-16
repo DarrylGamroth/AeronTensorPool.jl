@@ -81,15 +81,6 @@ function Agent.do_work(agent::AppConsumerAgent)
     poll_qos!(agent.qos_monitor)
     poll_metadata!(agent.metadata_cache)
     now_ns = UInt64(time_ns())
-    if !consumer_connected(agent.handle)
-        if agent.verbose && now_ns - agent.last_log_ns > 1_000_000_000
-            conn = AeronTensorPool.consumer_connections(agent.handle)
-            @info "Waiting for consumer subscriptions to connect" descriptor_connected = conn.descriptor_connected control_connected =
-                conn.control_connected qos_connected = conn.qos_connected
-            agent.last_log_ns = now_ns
-        end
-        return 0
-    end
     metrics = AeronTensorPool.handle_state(agent.handle).metrics
     if agent.verbose && metrics.frames_ok != agent.last_frames_ok
         header = AeronTensorPool.handle_state(agent.handle).runtime.frame_view.header
@@ -99,7 +90,7 @@ function Agent.do_work(agent::AppConsumerAgent)
     if agent.verbose && now_ns - agent.last_log_ns > 1_000_000_000
         @info "Consumer frame state" last_frame = agent.last_frame seen = agent.seen
         conn = AeronTensorPool.consumer_connections(agent.handle)
-        @info "Consumer subscriptions connected" descriptor_connected = conn.descriptor_connected control_connected =
+        @info "Consumer connections" descriptor_connected = conn.descriptor_connected control_connected =
             conn.control_connected qos_connected = conn.qos_connected
         if metrics.drops_late != agent.last_drops_late ||
            metrics.drops_header_invalid != agent.last_drops_header_invalid
@@ -188,19 +179,11 @@ function run_consumer(driver_cfg_path::String, count::Int)
     driver_cfg = load_driver_config(driver_cfg_path; env = env_driver)
     stream_id = first_stream_id(driver_cfg)
 
-    env = Dict(ENV)
-    if !haskey(env, "TP_CONSUMER_ID")
-        env["TP_CONSUMER_ID"] = "2"
-    end
-    env["TP_STREAM_ID"] = string(stream_id)
     consumer_cfg = default_consumer_config(; stream_id = stream_id)
     consumer_cfg.aeron_uri = driver_cfg.endpoints.control_channel
     consumer_cfg.control_stream_id = driver_cfg.endpoints.control_stream_id
     consumer_cfg.qos_stream_id = driver_cfg.endpoints.qos_stream_id
-    consumer_cfg.consumer_id = parse(
-        UInt32,
-        get(ENV, "TP_CONSUMER_ID", string(consumer_cfg.consumer_id)),
-    )
+    consumer_cfg.consumer_id = parse(UInt32, get(ENV, "TP_CONSUMER_ID", "2"))
 
     discovery_channel = get(ENV, "TP_DISCOVERY_CHANNEL", "")
     discovery_stream_id = parse(Int32, get(ENV, "TP_DISCOVERY_STREAM_ID", "0"))
