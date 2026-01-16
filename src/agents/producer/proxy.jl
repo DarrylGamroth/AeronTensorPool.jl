@@ -229,22 +229,24 @@ function publish_descriptor_to_consumers!(
         if entry.max_rate_hz != 0 && !expired(entry.descriptor_timer, now_ns)
             continue
         end
-        sent = let st = state,
+        sent, position = let st = state,
             seq = seq,
             meta_version = meta_version,
             now_ns = now_ns,
             trace_id = trace_id,
             pub = pub
-            with_claimed_buffer!(pub, st.runtime.descriptor_claim, FRAME_DESCRIPTOR_LEN) do buf
+            AeronUtils.with_claimed_buffer_with_result!(pub, st.runtime.descriptor_claim, FRAME_DESCRIPTOR_LEN) do buf
                 FrameDescriptor.wrap_and_apply_header!(st.runtime.descriptor_encoder, buf, 0)
                 encode_frame_descriptor!(st.runtime.descriptor_encoder, st, seq, meta_version, now_ns, trace_id)
             end
         end
         if sent
             any_sent = true
-        end
-        if sent && entry.max_rate_hz != 0
-            reset!(entry.descriptor_timer, now_ns)
+            if entry.max_rate_hz != 0
+                reset!(entry.descriptor_timer, now_ns)
+            end
+        else
+            record_descriptor_publish_failure!(state, position, pub, now_ns)
         end
     end
     return any_sent

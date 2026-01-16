@@ -15,6 +15,41 @@ function encode_frame_descriptor!(
     return nothing
 end
 
+const DESCRIPTOR_BACKPRESSURE_LOG_INTERVAL_NS = UInt64(1_000_000_000)
+
+function record_descriptor_publish_failure!(
+    state::ProducerState,
+    position::Int64,
+    pub::Aeron.Publication,
+    now_ns::UInt64,
+)
+    metrics = state.metrics
+    if position == Aeron.PUBLICATION_BACK_PRESSURED
+        metrics.descriptor_backpressured += 1
+    elseif position == Aeron.PUBLICATION_NOT_CONNECTED
+        metrics.descriptor_not_connected += 1
+    elseif position == Aeron.PUBLICATION_ADMIN_ACTION
+        metrics.descriptor_admin_action += 1
+    elseif position == Aeron.PUBLICATION_CLOSED
+        metrics.descriptor_closed += 1
+    elseif position == Aeron.PUBLICATION_MAX_POSITION_EXCEEDED
+        metrics.descriptor_max_position_exceeded += 1
+    else
+        metrics.descriptor_error += 1
+    end
+
+    if position == Aeron.PUBLICATION_BACK_PRESSURED &&
+       now_ns - metrics.descriptor_last_log_ns > DESCRIPTOR_BACKPRESSURE_LOG_INTERVAL_NS
+        @tp_info "Producer descriptor backpressure" stream_id = state.config.stream_id pub_stream_id =
+            Aeron.stream_id(pub) channel = Aeron.channel(pub) backpressured =
+            metrics.descriptor_backpressured not_connected = metrics.descriptor_not_connected admin_action =
+            metrics.descriptor_admin_action closed = metrics.descriptor_closed max_position_exceeded =
+            metrics.descriptor_max_position_exceeded errors = metrics.descriptor_error
+        metrics.descriptor_last_log_ns = now_ns
+    end
+    return nothing
+end
+
 """
 Offer a frame by copying payload bytes into SHM and publishing a descriptor.
 
@@ -130,7 +165,8 @@ function offer_frame!(
         now_ns = now_ns,
         trace_id = trace_id
         if Aeron.is_connected(st.runtime.pub_descriptor)
-            with_claimed_buffer!(st.runtime.pub_descriptor, st.runtime.descriptor_claim, FRAME_DESCRIPTOR_LEN) do buf
+            sent, position =
+                AeronUtils.with_claimed_buffer_with_result!(st.runtime.pub_descriptor, st.runtime.descriptor_claim, FRAME_DESCRIPTOR_LEN) do buf
                 header = MessageHeader.Encoder(buf, 0)
                 MessageHeader.blockLength!(header, FrameDescriptor.sbe_block_length(FrameDescriptor.Decoder))
                 MessageHeader.templateId!(header, FrameDescriptor.sbe_template_id(FrameDescriptor.Decoder))
@@ -139,6 +175,8 @@ function offer_frame!(
                 FrameDescriptor.wrap!(st.runtime.descriptor_encoder, buf, MESSAGE_HEADER_LEN)
                 encode_frame_descriptor!(st.runtime.descriptor_encoder, st, seq, meta_version, now_ns, trace_id)
             end
+            sent || record_descriptor_publish_failure!(st, position, st.runtime.pub_descriptor, now_ns)
+            sent
         else
             true
         end
@@ -493,10 +531,13 @@ function commit_slot!(
         now_ns = now_ns,
         trace_id = trace_id
         if Aeron.is_connected(st.runtime.pub_descriptor)
-            with_claimed_buffer!(st.runtime.pub_descriptor, st.runtime.descriptor_claim, FRAME_DESCRIPTOR_LEN) do buf
+            sent, position =
+                AeronUtils.with_claimed_buffer_with_result!(st.runtime.pub_descriptor, st.runtime.descriptor_claim, FRAME_DESCRIPTOR_LEN) do buf
                 FrameDescriptor.wrap_and_apply_header!(st.runtime.descriptor_encoder, buf, 0)
                 encode_frame_descriptor!(st.runtime.descriptor_encoder, st, seq, meta_version, now_ns, trace_id)
             end
+            sent || record_descriptor_publish_failure!(st, position, st.runtime.pub_descriptor, now_ns)
+            sent
         else
             true
         end

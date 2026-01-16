@@ -121,6 +121,32 @@ Producer loop (typical path):
 1. Use `offer_frame!` for the copy path, or `try_claim_slot!` + `commit_slot!` when external devices fill SHM buffers directly.
 2. `offer_frame!` handles the seqlock (`seq_commit`) and publishes `FrameDescriptor` on success.
 
+### Descriptor streams and backpressure
+
+By default, all `FrameDescriptor` messages share a single Aeron stream (default `1100`), and consumers filter by `stream_id` in the payload. This is simple and efficient when you have a small number of consumers.
+
+If you have many consumers or uneven/slow pipelines, the shared stream can introduce backpressure that affects all consumers. In that case, enable per-consumer descriptor streams and only opt in the consumers that need isolation.
+
+Hybrid approach:
+- Keep the shared descriptor stream for fast local consumers.
+- Request per-consumer descriptor streams for slow/remote or latency-sensitive consumers.
+
+Driver config (enable allocation range):
+
+```toml
+[driver]
+descriptor_stream_id_range = "31000-31999"
+```
+
+Consumer config (request a per-consumer stream):
+
+```julia
+consumer_cfg.requested_descriptor_channel = driver_cfg.endpoints.control_channel
+consumer_cfg.requested_descriptor_stream_id = UInt32(1) # non-zero request token
+```
+
+Note: the driver assigns an available stream ID from the configured range; the requested ID is treated as a non-zero request flag.
+
 ### Pool selection and allocation
 
 Pools are defined by the driver profile as fixed-size stride classes. The producer selects the smallest pool whose `stride_bytes` can hold the payload.

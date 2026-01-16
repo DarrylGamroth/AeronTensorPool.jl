@@ -76,6 +76,13 @@ function Agent.do_work(agent::ProducerAgent)
     agent.counters.frames_published[] = Int64(agent.state.seq)
     agent.counters.announces[] = Int64(agent.state.metrics.announce_count)
     agent.counters.qos_published[] = Int64(agent.state.metrics.qos_count)
+    agent.counters.descriptor_backpressured[] = Int64(agent.state.metrics.descriptor_backpressured)
+    agent.counters.descriptor_not_connected[] = Int64(agent.state.metrics.descriptor_not_connected)
+    agent.counters.descriptor_admin_action[] = Int64(agent.state.metrics.descriptor_admin_action)
+    agent.counters.descriptor_closed[] = Int64(agent.state.metrics.descriptor_closed)
+    agent.counters.descriptor_max_position_exceeded[] =
+        Int64(agent.state.metrics.descriptor_max_position_exceeded)
+    agent.counters.descriptor_errors[] = Int64(agent.state.metrics.descriptor_error)
     if agent.qos_monitor !== nothing
         now_ns = UInt64(Clocks.time_nanos(agent.state.clock))
         if expired(agent.qos_timer, now_ns)

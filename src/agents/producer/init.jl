@@ -61,7 +61,18 @@ function init_producer(config::ProducerConfig; client::Aeron.Client)
         QosConsumer.Decoder(UnsafeArrays.UnsafeArray{UInt8, 1}),
         ConsumerConfigMsg.Decoder(UnsafeArrays.UnsafeArray{UInt8, 1}),
     )
-    metrics = ProducerMetrics(UInt64(0), UInt64(0), UInt64(0))
+    metrics = ProducerMetrics(
+        UInt64(0),
+        UInt64(0),
+        UInt64(0),
+        UInt64(0),
+        UInt64(0),
+        UInt64(0),
+        UInt64(0),
+        UInt64(0),
+        UInt64(0),
+        UInt64(0),
+    )
     driver_lifecycle = ProducerDriverLifecycle()
     state = ProducerState(
         config,
@@ -237,7 +248,18 @@ function init_producer_from_attach(
         QosConsumer.Decoder(UnsafeArrays.UnsafeArray{UInt8, 1}),
         ConsumerConfigMsg.Decoder(UnsafeArrays.UnsafeArray{UInt8, 1}),
     )
-    metrics = ProducerMetrics(UInt64(0), UInt64(0), UInt64(0))
+    metrics = ProducerMetrics(
+        UInt64(0),
+        UInt64(0),
+        UInt64(0),
+        UInt64(0),
+        UInt64(0),
+        UInt64(0),
+        UInt64(0),
+        UInt64(0),
+        UInt64(0),
+        UInt64(0),
+    )
     driver_lifecycle = ProducerDriverLifecycle()
     state = ProducerState(
         driver_config,

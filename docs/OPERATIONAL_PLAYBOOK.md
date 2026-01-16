@@ -35,6 +35,8 @@ This playbook complements the spec and implementation guide with deployment and 
 
 ## Observability
 - Aeron counters expose: frames_published, drops_gap, drops_late, announces, qos_published.
+- Producer counters also expose descriptor publication health: descriptor_backpressured, descriptor_not_connected, descriptor_admin_action, descriptor_closed, descriptor_max_position_exceeded, descriptor_errors.
+- Producer logs "Producer descriptor backpressure" at most once per second while backpressured.
 - Use counters for alerting thresholds before QoS messages are processed.
 
 Suggested thresholds (tune per deployment)

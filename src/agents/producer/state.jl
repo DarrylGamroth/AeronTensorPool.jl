@@ -49,6 +49,13 @@ mutable struct ProducerMetrics
     last_progress_bytes::UInt64
     announce_count::UInt64
     qos_count::UInt64
+    descriptor_backpressured::UInt64
+    descriptor_not_connected::UInt64
+    descriptor_admin_action::UInt64
+    descriptor_closed::UInt64
+    descriptor_max_position_exceeded::UInt64
+    descriptor_error::UInt64
+    descriptor_last_log_ns::UInt64
 end
 
 """

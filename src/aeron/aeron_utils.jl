@@ -20,7 +20,7 @@ Returns:
     return :unknown
 end
 
-function with_claimed_buffer!(
+function with_claimed_buffer_with_result!(
     fill_fn,
     pub::Aeron.Publication,
     claim::Aeron.BufferClaim,
@@ -31,14 +31,24 @@ function with_claimed_buffer!(
         buf = Aeron.buffer(claim)
         fill_fn(buf)
         Aeron.commit(claim)
-        return true
+        return true, position
     end
     @tp_debug "with_claimed_buffer failed" position = position result = publication_result_name(position) length =
         length max_payload_length =
         Aeron.max_payload_length(pub) max_message_length = Aeron.max_message_length(pub) connected =
         Aeron.is_connected(pub) channel_status = Aeron.channel_status(pub) channel_status_indicator_id =
         Aeron.channel_status_indicator_id(pub) channel = Aeron.channel(pub) stream_id = Aeron.stream_id(pub)
-    return false
+    return false, position
+end
+
+function with_claimed_buffer!(
+    fill_fn,
+    pub::Aeron.Publication,
+    claim::Aeron.BufferClaim,
+    length::Int,
+)
+    ok, _ = with_claimed_buffer_with_result!(fill_fn, pub, claim, length)
+    return ok
 end
 
 """

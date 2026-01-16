@@ -16,6 +16,12 @@
                 @test prod.frames_published isa Aeron.Counter
                 @test prod.announces isa Aeron.Counter
                 @test prod.qos_published isa Aeron.Counter
+                @test prod.descriptor_backpressured isa Aeron.Counter
+                @test prod.descriptor_not_connected isa Aeron.Counter
+                @test prod.descriptor_admin_action isa Aeron.Counter
+                @test prod.descriptor_closed isa Aeron.Counter
+                @test prod.descriptor_max_position_exceeded isa Aeron.Counter
+                @test prod.descriptor_errors isa Aeron.Counter
 
                 cons = ConsumerCounters(client, 3, "Consumer")
                 @test cons.drops_gap isa Aeron.Counter
