@@ -50,8 +50,9 @@ tp_tool = { submodule = "TpToolApp", julia_flags = ["--threads=auto", "--optimiz
 [extras]
 Aqua = "4c88cf16-eb10-579e-8560-4a9242c79595"
 BenchmarkTools = "6e4b80f9-93f8-5d43-9091-946f9d80d615"
+Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 
 [targets]
 bench = ["BenchmarkTools"]
-test = ["Test", "Aqua"]
+test = ["Test", "Aqua", "Random"]
