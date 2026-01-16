@@ -14,7 +14,7 @@ Status legend:
 | --- | --- | --- | --- | --- | --- |
 | Driver attach | publishMode | REQUIRE_EXISTING | `test/test_driver_attach.jl` | Covered |  |
 | Driver attach | publishMode | EXISTING_OR_CREATE (create path) | `test/test_driver_reuse_existing_shm.jl`, `test/test_driver_shm_permissions.jl` | Covered | Internal create path covered. |
-| Driver attach | publishMode | EXISTING_OR_CREATE (attach protocol) |  | Gap | Add control-plane attach test to exercise dynamic create. |
+| Driver attach | publishMode | EXISTING_OR_CREATE (attach protocol) | `test/test_driver_attach_existing_or_create.jl` | Covered |  |
 | Driver attach | desiredNodeId | 0 / explicit | `test/test_driver_desired_node_id.jl` | Covered |  |
 | Driver attach | expectedLayoutVersion | match / mismatch | `test/test_driver_expected_layout_version.jl` | Covered |  |
 | Driver attach | require_hugepages | allow / require | `test/test_driver_attach.jl` | Covered | Reject path covered when hugepages unavailable. |
@@ -31,7 +31,7 @@ Status legend:
 | Bridge | integrity_crc32c | off / on | `test/test_bridge_integrity.jl` | Covered |  |
 | Bridge | max_payload_bytes | within / exceed | `test/test_bridge_max_payload_bytes.jl` | Covered |  |
 | Discovery | provider/registry | provider / registry | `test/test_discovery_integration.jl`, `test/test_discovery_multihost.jl`, `test/test_discovery_end_to_end.jl` | Covered |  |
-| RateLimiter | forward_progress | off / on | `test/test_rate_limiter_end_to_end.jl`, `test/test_rate_limiter_config_validation.jl` | Gap | Forwarding enabled path not integrated; validation covered. |
-| RateLimiter | forward_qos | off / on | `test/test_rate_limiter_end_to_end.jl`, `test/test_rate_limiter_config_validation.jl` | Gap | Forwarding enabled path not integrated; validation covered. |
+| RateLimiter | forward_progress | off / on | `test/test_rate_limiter_end_to_end.jl`, `test/test_rate_limiter_forwarding.jl` | Covered |  |
+| RateLimiter | forward_qos | off / on | `test/test_rate_limiter_end_to_end.jl`, `test/test_rate_limiter_forwarding.jl` | Covered |  |
 | JoinBarrier | mode | sequence / timestamp / latest | `test/test_join_barrier_sequence.jl`, `test/test_join_barrier_timestamp.jl`, `test/test_join_barrier_latest.jl` | Covered |  |
 | TraceLink | tracing | off / on | `test/test_tracelink.jl`, `test/test_bridge_tracelink_chunks.jl` | Covered |  |
