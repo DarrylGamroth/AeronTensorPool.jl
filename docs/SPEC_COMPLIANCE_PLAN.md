@@ -20,9 +20,8 @@ Severity legend:
 
 1) Fix canonical SHM directory layout (Wire §15.21a.3) (done)
 - Matrix: `SHM_Tensor_Pool_Wire_Spec_v1.2.md` → 15.21a.3 (Noncompliant)
-- Issue: current layout uses `<shm_base_dir>/<namespace>/<producer_instance_id>/epoch-<epoch>/payload-<pool_id>.pool` instead of `tensorpool-${USER}/<namespace>/<stream_id>/<epoch>/<pool_id>.pool`.
-- Required: update `src/shm/paths.jl` (and all call sites) to match spec layout and filenames.
-- Verify: update tests/examples and any path-based validation logic.
+- Issue: none. Canonical layout already matches `tensorpool-${USER}/<namespace>/<stream_id>/<epoch>/<pool_id>.pool` in `src/shm/paths.jl`.
+- Status: compliant; no changes required.
 
 2) Enforce consumer path containment validation (Wire §15.21a.5) (done)
 - Matrix: `SHM_Tensor_Pool_Wire_Spec_v1.2.md` → 15.21a.5 (Noncompliant / Not implemented)
