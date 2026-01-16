@@ -14,7 +14,7 @@ Correctness legend:
 - Noncompliant
 - N/A
 
-Last updated: 2026-01-14
+Last updated: 2026-01-15
 
 Traceability: `docs/SPEC_TRACEABILITY_MATRIX.md` provides per-requirement code/test mapping. Spec versions are locked in `docs/SPEC_LOCK.toml`.
 
@@ -40,7 +40,7 @@ Traceability: `docs/SPEC_TRACEABILITY_MATRIX.md` provides per-requirement code/t
 | 15.21–15.22 FS layout + validation | Implemented | Compliant | Canonical layout + containment checks in `src/shm/paths.jl` and `src/agents/consumer/mapping.jl`. |
 
 Known gaps / open questions:
-- None currently tracked for the wire spec sections above.
+- Fresh sweep 2026-01-15: no new gaps identified.
 
 ---
 
