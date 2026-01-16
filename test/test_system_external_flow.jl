@@ -83,30 +83,20 @@ profile = "camera"
             env_consumer["TP_FAIL_ON_MISMATCH"] = "1"
             env_consumer["TP_READY_FILE"] = ready_file
 
+            julia_flags = ["--project=$(project)", "--startup-file=no", "--history-file=no"]
             driver_cmd = setenv(
-                Cmd(vcat(julia_exec, ["--project=$(project)", driver_script, driver_cfg])),
+                Cmd(vcat(julia_exec, julia_flags, [driver_script, driver_cfg])),
                 env_driver,
             )
             producer_cmd = setenv(
                 Cmd(
-                    vcat(julia_exec, [
-                        "--project=$(project)",
-                        producer_script,
-                        driver_cfg,
-                        "5",
-                        "256",
-                    ]),
+                    vcat(julia_exec, julia_flags, [producer_script, driver_cfg, "5", "256"]),
                 ),
                 env_producer,
             )
             consumer_cmd = setenv(
                 Cmd(
-                    vcat(julia_exec, [
-                        "--project=$(project)",
-                        consumer_script,
-                        driver_cfg,
-                        "5",
-                    ]),
+                    vcat(julia_exec, julia_flags, [consumer_script, driver_cfg, "5"]),
                 ),
                 env_consumer,
             )
