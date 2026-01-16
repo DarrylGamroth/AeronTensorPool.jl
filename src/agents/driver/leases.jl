@@ -349,7 +349,7 @@ function handle_shutdown_request!(state::DriverState, msg::ShmDriverShutdownRequ
         @tp_warn "shutdown request var data truncated" correlation_id = ShmDriverShutdownRequest.correlationId(msg)
         return false
     end
-    token = String(ShmDriverShutdownRequest.token(msg, String))
+    token = ShmDriverShutdownRequest.token(msg, StringView)
     if isempty(state.config.policies.shutdown_token)
         return false
     end

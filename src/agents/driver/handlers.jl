@@ -190,8 +190,8 @@ function handle_consumer_hello!(state::DriverState, msg::ConsumerHello.Decoder)
         @tp_warn "consumer hello var data truncated" consumer_id stream_id
         return false
     end
-    descriptor_channel = String(ConsumerHello.descriptorChannel(msg, String))
-    control_channel = String(ConsumerHello.controlChannel(msg, String))
+    descriptor_channel = ConsumerHello.descriptorChannel(msg, StringView)
+    control_channel = ConsumerHello.controlChannel(msg, StringView)
     descriptor_stream_id = ConsumerHello.descriptorStreamId(msg)
     control_stream_id = ConsumerHello.controlStreamId(msg)
     descriptor_null = ConsumerHello.descriptorStreamId_null_value(ConsumerHello.Decoder)

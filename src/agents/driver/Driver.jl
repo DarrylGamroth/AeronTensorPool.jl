@@ -13,6 +13,7 @@ using ..Clocks
 using ..UnsafeArrays
 using ..SBE
 using ..FixedSizeArrays
+using ..StringViews
 using ..Hsm
 using ..ShmTensorpoolControl
 
