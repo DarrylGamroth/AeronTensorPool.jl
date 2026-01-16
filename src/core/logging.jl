@@ -5,29 +5,63 @@ export @tp_debug, @tp_info, @tp_warn, @tp_error, set_backend!, set_json_backend!
 using LoggingExtras
 using LoggingFormats
 
+const TODO_RUNTIME_LOGGING = "TODO: reduce runtime logging overhead and revisit default JSON backend"
+
 const LEVEL_DEBUG = 10
 const LEVEL_INFO = 20
 const LEVEL_WARN = 30
 const LEVEL_ERROR = 40
 
-# Enable logging by setting TP_LOG=1 in the environment.
-const LOG_ENABLED = get(ENV, "TP_LOG", "0") == "1"
-const LOG_LEVEL = begin
-    level = get(ENV, "TP_LOG_LEVEL", "")
-    level == "" && LEVEL_INFO
-    parsed = tryparse(Int, level)
-    parsed === nothing ? LEVEL_INFO : parsed
-end
-const LOG_MODULES = begin
-    mods = get(ENV, "TP_LOG_MODULES", "")
-    isempty(mods) ? nothing : Set(Symbol.(split(mods, ',')))
-end
+# Logging configuration is loaded in __init__ to honor runtime env vars.
+const LOG_ENABLED = Ref(false)
+const LOG_LEVEL = Ref(LEVEL_INFO)
+const LOG_MODULES = Ref{Union{Nothing, Set{Symbol}}}(nothing)
 
-const DEFAULT_BACKEND = FormatLogger(LoggingFormats.JSON(), stdout)
+const DEFAULT_BACKEND = ConsoleLogger(stderr)
 const BACKEND = Ref{AbstractLogger}(DEFAULT_BACKEND)
-const BACKEND_IO = Ref{Union{IO, Nothing}}(stdout)
+const BACKEND_IO = Ref{Union{IO, Nothing}}(stderr)
+const LOG_FILE = Ref{Union{IO, Nothing}}(nothing)
 
 @inline backend() = BACKEND[]
+@inline log_enabled() = LOG_ENABLED[]
+@inline log_level() = LOG_LEVEL[]
+
+function update_log_settings!()
+    LOG_ENABLED[] = get(ENV, "TP_LOG", "0") == "1"
+    level = get(ENV, "TP_LOG_LEVEL", "")
+    parsed = level == "" ? nothing : tryparse(Int, level)
+    LOG_LEVEL[] = parsed === nothing ? LEVEL_INFO : parsed
+    mods = get(ENV, "TP_LOG_MODULES", "")
+    LOG_MODULES[] = isempty(mods) ? nothing : Set(Symbol.(split(mods, ',')))
+    log_file = get(ENV, "TP_LOG_FILE", "")
+    if !isempty(log_file)
+        if LOG_FILE[] !== nothing
+            try
+                close(LOG_FILE[])
+            catch
+            end
+        end
+        io = open(log_file, "a")
+        LOG_FILE[] = io
+        BACKEND_IO[] = io
+        BACKEND[] = ConsoleLogger(io)
+    end
+    return nothing
+end
+
+function __init__()
+    update_log_settings!()
+    return nothing
+end
+@inline function can_log()
+    io = BACKEND_IO[]
+    io === nothing && return true
+    try
+        return isopen(io)
+    catch
+        return true
+    end
+end
 
 """
 Set the logging backend for TPLog.
@@ -50,79 +84,97 @@ function set_json_backend!(io::IO=stdout; recursive::Bool=false, nest_kwargs::Bo
 end
 
 @inline function module_enabled(mod::Module)
-    LOG_MODULES === nothing && return true
-    return nameof(mod) in LOG_MODULES
+    mods = LOG_MODULES[]
+    mods === nothing && return true
+    return nameof(mod) in mods
 end
 
 @inline function flush_backend()
     io = BACKEND_IO[]
     io === nothing && return nothing
+    isopen(io) || return nothing
     flush(io)
     return nothing
 end
 
 macro tp_debug(args...)
-    if LOG_ENABLED && LOG_LEVEL <= LEVEL_DEBUG
-        mod = __module__
-        return quote
-            if TPLog.module_enabled($mod)
-                LoggingExtras.with_logger(TPLog.backend()) do
-                    Base.@debug $(map(esc, args)...)
+    mod = __module__
+    tpmod = @__MODULE__
+    return esc(quote
+        local _tp = $tpmod
+        if _tp.log_enabled() && _tp.log_level() <= _tp.LEVEL_DEBUG
+            if _tp.module_enabled($(QuoteNode(mod)))
+                try
+                    Base.CoreLogging.with_logger(_tp.backend()) do
+                        Base.@debug $(args...)
+                    end
+                    _tp.flush_backend()
+                catch
                 end
-                TPLog.flush_backend()
             end
-            nothing
         end
-    end
-    return :(nothing)
+        nothing
+    end)
 end
 
 macro tp_info(args...)
-    if LOG_ENABLED && LOG_LEVEL <= LEVEL_INFO
-        mod = __module__
-        return quote
-            if TPLog.module_enabled($mod)
-                LoggingExtras.with_logger(TPLog.backend()) do
-                    Base.@info $(map(esc, args)...)
+    mod = __module__
+    tpmod = @__MODULE__
+    return esc(quote
+        local _tp = $tpmod
+        if _tp.log_enabled() && _tp.log_level() <= _tp.LEVEL_INFO
+            if _tp.module_enabled($(QuoteNode(mod)))
+                try
+                    Base.CoreLogging.with_logger(_tp.backend()) do
+                        Base.@info $(args...)
+                    end
+                    _tp.flush_backend()
+                catch
                 end
-                TPLog.flush_backend()
             end
-            nothing
         end
-    end
-    return :(nothing)
+        nothing
+    end)
 end
 
 macro tp_warn(args...)
-    if LOG_ENABLED && LOG_LEVEL <= LEVEL_WARN
-        mod = __module__
-        return quote
-            if TPLog.module_enabled($mod)
-                LoggingExtras.with_logger(TPLog.backend()) do
-                    Base.@warn $(map(esc, args)...)
+    mod = __module__
+    tpmod = @__MODULE__
+    return esc(quote
+        local _tp = $tpmod
+        if _tp.log_enabled() && _tp.log_level() <= _tp.LEVEL_WARN
+            if _tp.module_enabled($(QuoteNode(mod)))
+                try
+                    Base.CoreLogging.with_logger(_tp.backend()) do
+                        Base.@warn $(args...)
+                    end
+                    _tp.flush_backend()
+                catch
                 end
-                TPLog.flush_backend()
             end
-            nothing
         end
-    end
-    return :(nothing)
+        nothing
+    end)
 end
 
 macro tp_error(args...)
-    if LOG_ENABLED && LOG_LEVEL <= LEVEL_ERROR
-        mod = __module__
-        return quote
-            if TPLog.module_enabled($mod)
-                LoggingExtras.with_logger(TPLog.backend()) do
-                    Base.@error $(map(esc, args)...)
+    mod = __module__
+    tpmod = @__MODULE__
+    return esc(quote
+        local _tp = $tpmod
+        if _tp.log_enabled() && _tp.log_level() <= _tp.LEVEL_ERROR
+            if _tp.module_enabled($(QuoteNode(mod)))
+                try
+                    Base.CoreLogging.with_logger(_tp.backend()) do
+                        Base.@error $(args...)
+                    end
+                    _tp.flush_backend()
+                catch
                 end
-                TPLog.flush_backend()
             end
-            nothing
         end
-    end
-    return :(nothing)
+        nothing
+    end)
 end
 
 end
