@@ -401,6 +401,7 @@ profile = "raw_profile"
 - Epoch remap: producer bumps epoch; consumers drop in-flight, unmap, remap.
 - Fallback path: invalid SHM triggers fallback_uri usage.
 - Progress off/on: verify gating and throttling; COMPLETE does not bypass seq_commit.
+- Config-matrix integration suite: tracked in `docs/CONFIG_MATRIX_TESTS.md` (flag gaps explicitly).
 
 ## 22. Bridge/rate limiter specifics
 - Bridge sender forwards `ShmPoolAnnounce` on the bridge control channel and rewrites `stream_id` to `dest_stream_id`.
