@@ -1888,11 +1888,14 @@ begin
     @inline function headerRegionUri(m::Decoder, ::Type{AbstractArray{T}}) where T <: Real
             return reinterpret(T, headerRegionUri(m))
         end
-    @inline function headerRegionUri(m::Decoder, ::Type{NTuple{N, T}}) where {N, T <: Real}
-            x = reinterpret(T, headerRegionUri(m))
+    @inline function headerRegionUri(m::Decoder, ::Type{T}) where T <: NTuple
+            Base.isconcretetype(T) || throw(ArgumentError("NTuple type must be concrete"))
+            elem_type = Base.tuple_type_head(T)
+            elem_type <: Real || throw(ArgumentError("NTuple element type must be Real"))
+            x = reinterpret(elem_type, headerRegionUri(m))
             return ntuple((i->begin
                             x[i]
-                        end), Val(N))
+                        end), Val(fieldcount(T)))
         end
     @inline function headerRegionUri(m::Decoder, ::Type{T}) where T <: Nothing
             skip_headerRegionUri!(m)
@@ -2020,11 +2023,14 @@ begin
     @inline function dataSourceName(m::Decoder, ::Type{AbstractArray{T}}) where T <: Real
             return reinterpret(T, dataSourceName(m))
         end
-    @inline function dataSourceName(m::Decoder, ::Type{NTuple{N, T}}) where {N, T <: Real}
-            x = reinterpret(T, dataSourceName(m))
+    @inline function dataSourceName(m::Decoder, ::Type{T}) where T <: NTuple
+            Base.isconcretetype(T) || throw(ArgumentError("NTuple type must be concrete"))
+            elem_type = Base.tuple_type_head(T)
+            elem_type <: Real || throw(ArgumentError("NTuple element type must be Real"))
+            x = reinterpret(elem_type, dataSourceName(m))
             return ntuple((i->begin
                             x[i]
-                        end), Val(N))
+                        end), Val(fieldcount(T)))
         end
     @inline function dataSourceName(m::Decoder, ::Type{T}) where T <: Nothing
             skip_dataSourceName!(m)
@@ -2152,11 +2158,14 @@ begin
     @inline function driverInstanceId(m::Decoder, ::Type{AbstractArray{T}}) where T <: Real
             return reinterpret(T, driverInstanceId(m))
         end
-    @inline function driverInstanceId(m::Decoder, ::Type{NTuple{N, T}}) where {N, T <: Real}
-            x = reinterpret(T, driverInstanceId(m))
+    @inline function driverInstanceId(m::Decoder, ::Type{T}) where T <: NTuple
+            Base.isconcretetype(T) || throw(ArgumentError("NTuple type must be concrete"))
+            elem_type = Base.tuple_type_head(T)
+            elem_type <: Real || throw(ArgumentError("NTuple element type must be Real"))
+            x = reinterpret(elem_type, driverInstanceId(m))
             return ntuple((i->begin
                             x[i]
-                        end), Val(N))
+                        end), Val(fieldcount(T)))
         end
     @inline function driverInstanceId(m::Decoder, ::Type{T}) where T <: Nothing
             skip_driverInstanceId!(m)
@@ -2284,11 +2293,14 @@ begin
     @inline function driverControlChannel(m::Decoder, ::Type{AbstractArray{T}}) where T <: Real
             return reinterpret(T, driverControlChannel(m))
         end
-    @inline function driverControlChannel(m::Decoder, ::Type{NTuple{N, T}}) where {N, T <: Real}
-            x = reinterpret(T, driverControlChannel(m))
+    @inline function driverControlChannel(m::Decoder, ::Type{T}) where T <: NTuple
+            Base.isconcretetype(T) || throw(ArgumentError("NTuple type must be concrete"))
+            elem_type = Base.tuple_type_head(T)
+            elem_type <: Real || throw(ArgumentError("NTuple element type must be Real"))
+            x = reinterpret(elem_type, driverControlChannel(m))
             return ntuple((i->begin
                             x[i]
-                        end), Val(N))
+                        end), Val(fieldcount(T)))
         end
     @inline function driverControlChannel(m::Decoder, ::Type{T}) where T <: Nothing
             skip_driverControlChannel!(m)
@@ -2797,11 +2809,14 @@ begin
     @inline function regionUri(m::Decoder, ::Type{AbstractArray{T}}) where T <: Real
             return reinterpret(T, regionUri(m))
         end
-    @inline function regionUri(m::Decoder, ::Type{NTuple{N, T}}) where {N, T <: Real}
-            x = reinterpret(T, regionUri(m))
+    @inline function regionUri(m::Decoder, ::Type{T}) where T <: NTuple
+            Base.isconcretetype(T) || throw(ArgumentError("NTuple type must be concrete"))
+            elem_type = Base.tuple_type_head(T)
+            elem_type <: Real || throw(ArgumentError("NTuple element type must be Real"))
+            x = reinterpret(elem_type, regionUri(m))
             return ntuple((i->begin
                             x[i]
-                        end), Val(N))
+                        end), Val(fieldcount(T)))
         end
     @inline function regionUri(m::Decoder, ::Type{T}) where T <: Nothing
             skip_regionUri!(m)
@@ -3264,11 +3279,14 @@ begin
     @inline function errorMessage(m::Decoder, ::Type{AbstractArray{T}}) where T <: Real
             return reinterpret(T, errorMessage(m))
         end
-    @inline function errorMessage(m::Decoder, ::Type{NTuple{N, T}}) where {N, T <: Real}
-            x = reinterpret(T, errorMessage(m))
+    @inline function errorMessage(m::Decoder, ::Type{T}) where T <: NTuple
+            Base.isconcretetype(T) || throw(ArgumentError("NTuple type must be concrete"))
+            elem_type = Base.tuple_type_head(T)
+            elem_type <: Real || throw(ArgumentError("NTuple element type must be Real"))
+            x = reinterpret(elem_type, errorMessage(m))
             return ntuple((i->begin
                             x[i]
-                        end), Val(N))
+                        end), Val(fieldcount(T)))
         end
     @inline function errorMessage(m::Decoder, ::Type{T}) where T <: Nothing
             skip_errorMessage!(m)
@@ -4230,11 +4248,14 @@ begin
     @inline function responseChannel(m::Decoder, ::Type{AbstractArray{T}}) where T <: Real
             return reinterpret(T, responseChannel(m))
         end
-    @inline function responseChannel(m::Decoder, ::Type{NTuple{N, T}}) where {N, T <: Real}
-            x = reinterpret(T, responseChannel(m))
+    @inline function responseChannel(m::Decoder, ::Type{T}) where T <: NTuple
+            Base.isconcretetype(T) || throw(ArgumentError("NTuple type must be concrete"))
+            elem_type = Base.tuple_type_head(T)
+            elem_type <: Real || throw(ArgumentError("NTuple element type must be Real"))
+            x = reinterpret(elem_type, responseChannel(m))
             return ntuple((i->begin
                             x[i]
-                        end), Val(N))
+                        end), Val(fieldcount(T)))
         end
     @inline function responseChannel(m::Decoder, ::Type{T}) where T <: Nothing
             skip_responseChannel!(m)
@@ -4362,11 +4383,14 @@ begin
     @inline function dataSourceName(m::Decoder, ::Type{AbstractArray{T}}) where T <: Real
             return reinterpret(T, dataSourceName(m))
         end
-    @inline function dataSourceName(m::Decoder, ::Type{NTuple{N, T}}) where {N, T <: Real}
-            x = reinterpret(T, dataSourceName(m))
+    @inline function dataSourceName(m::Decoder, ::Type{T}) where T <: NTuple
+            Base.isconcretetype(T) || throw(ArgumentError("NTuple type must be concrete"))
+            elem_type = Base.tuple_type_head(T)
+            elem_type <: Real || throw(ArgumentError("NTuple element type must be Real"))
+            x = reinterpret(elem_type, dataSourceName(m))
             return ntuple((i->begin
                             x[i]
-                        end), Val(N))
+                        end), Val(fieldcount(T)))
         end
     @inline function dataSourceName(m::Decoder, ::Type{T}) where T <: Nothing
             skip_dataSourceName!(m)
