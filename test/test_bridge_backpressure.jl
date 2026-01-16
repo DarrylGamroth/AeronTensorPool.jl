@@ -119,10 +119,10 @@
                 trace_id = UInt64(0),
             )
 
+            @test !Aeron.is_connected(bridge_sender.pub_payload)
             sent = Bridge.bridge_send_frame!(bridge_sender, desc_dec)
-            if !sent
-                @test bridge_sender.metrics.chunks_dropped == UInt64(1)
-            end
+            @test sent == false
+            @test bridge_sender.metrics.chunks_dropped == UInt64(1)
         end
     end
 end

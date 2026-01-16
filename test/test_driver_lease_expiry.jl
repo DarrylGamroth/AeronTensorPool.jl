@@ -51,8 +51,9 @@ using Test
             )
             @test sent == true
 
+            now_ns = UInt64(0)
             ok = wait_for() do
-                driver_do_work!(driver_state)
+                driver_tick!(driver_state, now_ns)
                 poll_driver_responses!(poller)
                 attach = poller.last_attach
                 attach !== nothing && attach.correlation_id == correlation_id
@@ -63,9 +64,11 @@ using Test
             @test attach.code == DriverResponseCode.OK
             lease_id = attach.lease_id
 
-            sleep(0.05)
+            grace_ns = UInt64(policies.lease_keepalive_interval_ms) * 1_000_000 *
+                UInt64(policies.lease_expiry_grace_intervals)
+            now_ns += grace_ns + 1
             ok = wait_for() do
-                driver_do_work!(driver_state)
+                driver_tick!(driver_state, now_ns)
                 poll_driver_responses!(poller)
                 revoke = poller.last_revoke
                 revoke !== nothing && revoke.lease_id == lease_id

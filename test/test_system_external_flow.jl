@@ -1,13 +1,23 @@
 using Test
 
 @testset "External process flow" begin
-    run_external = get(ENV, "ATP_RUN_EXTERNAL_TESTS", "") == "1"
+    run_external = get(ENV, "ATP_RUN_EXTERNAL_TESTS", "1") == "1"
     run_external || return @test true
 
-    mktempdir() do dir
+    function wait_process(proc::Base.Process, timeout_s::Float64)
+        ok = wait_for(() -> !Base.process_running(proc); timeout = timeout_s, sleep_s = 0.05)
+        if !ok
+            kill(proc)
+            wait(proc)
+            return false
+        end
+        wait(proc)
+        return true
+    end
+
+    mktempdir("/dev/shm") do dir
+        repo_root = abspath(joinpath(@__DIR__, ".."))
         driver_cfg = joinpath(dir, "driver.toml")
-        producer_cfg = joinpath(dir, "producer.toml")
-        consumer_cfg = joinpath(dir, "consumer.toml")
 
         open(driver_cfg, "w") do io
             write(
@@ -49,72 +59,7 @@ profile = "camera"
             )
         end
 
-        open(producer_cfg, "w") do io
-            write(
-                io,
-                """
-[producer]
-aeron_dir = ""
-aeron_uri = "aeron:ipc"
-descriptor_stream_id = 1100
-control_stream_id = 1000
-qos_stream_id = 1200
-metadata_stream_id = 1300
-stream_id = 10000
-producer_id = 1
-layout_version = 1
-nslots = 64
-shm_base_dir = "$(dir)"
-shm_namespace = "tensorpool"
-producer_instance_id = "external-producer"
-header_uri = ""
-announce_interval_ns = 1000000000
-qos_interval_ns = 1000000000
-progress_interval_ns = 250000
-progress_bytes_delta = 65536
-
-[[producer.payload_pools]]
-pool_id = 1
-uri = ""
-stride_bytes = 4096
-nslots = 64
-""",
-            )
-        end
-
-        open(consumer_cfg, "w") do io
-            write(
-                io,
-                """
-[consumer]
-aeron_dir = ""
-aeron_uri = "aeron:ipc"
-descriptor_stream_id = 1100
-control_stream_id = 1000
-qos_stream_id = 1200
-stream_id = 10000
-consumer_id = 1
-expected_layout_version = 1
-mode = "STREAM"
-max_outstanding_seq_gap = 0
-use_shm = true
-supports_shm = true
-supports_progress = false
-max_rate_hz = 0
-payload_fallback_uri = ""
-shm_base_dir = "$(dir)"
-allowed_base_dirs = ["$(dir)"]
-require_hugepages = false
-progress_interval_us = 250
-progress_bytes_delta = 65536
-progress_major_delta_units = 0
-hello_interval_ns = 1000000000
-qos_interval_ns = 1000000000
-""",
-            )
-        end
-
-        Aeron.MediaDriver.launch(Aeron.MediaDriver.Context()) do driver
+        Aeron.MediaDriver.launch_embedded() do driver
             aeron_dir = Aeron.MediaDriver.aeron_dir(driver)
             env = Dict(ENV)
             env["AERON_DIR"] = aeron_dir
@@ -122,33 +67,90 @@ qos_interval_ns = 1000000000
 
             julia_exec = Base.julia_cmd().exec
             project = Base.active_project()
+            driver_script = joinpath(repo_root, "scripts", "example_driver.jl")
+            producer_script = joinpath(repo_root, "scripts", "example_producer.jl")
+            consumer_script = joinpath(repo_root, "scripts", "example_consumer.jl")
 
-            driver_cmd = Cmd(
-                vcat(julia_exec, ["--project=$(project)", "scripts/example_driver.jl", driver_cfg]);
-                env = env,
+            driver_log = joinpath(dir, "driver.log")
+            producer_log = joinpath(dir, "producer.log")
+            consumer_log = joinpath(dir, "consumer.log")
+            env_driver = Dict(env)
+            env_producer = Dict(env)
+            env_consumer = Dict(env)
+            ready_file = joinpath(dir, "consumer.ready")
+            env_producer["TP_EXAMPLE_LOG_EVERY"] = "1"
+            env_consumer["TP_EXAMPLE_LOG_EVERY"] = "1"
+            env_consumer["TP_FAIL_ON_MISMATCH"] = "1"
+            env_consumer["TP_READY_FILE"] = ready_file
+
+            driver_cmd = setenv(
+                Cmd(vcat(julia_exec, ["--project=$(project)", driver_script, driver_cfg])),
+                env_driver,
             )
-            producer_cmd = Cmd(
-                vcat(julia_exec, ["--project=$(project)", "scripts/example_producer.jl", driver_cfg, producer_cfg, "5", "256"]);
-                env = env,
+            producer_cmd = setenv(
+                Cmd(
+                    vcat(julia_exec, [
+                        "--project=$(project)",
+                        producer_script,
+                        driver_cfg,
+                        "5",
+                        "256",
+                    ]),
+                ),
+                env_producer,
             )
-            consumer_cmd = Cmd(
-                vcat(julia_exec, ["--project=$(project)", "scripts/example_consumer.jl", driver_cfg, consumer_cfg, "5"]);
-                env = env,
+            consumer_cmd = setenv(
+                Cmd(
+                    vcat(julia_exec, [
+                        "--project=$(project)",
+                        consumer_script,
+                        driver_cfg,
+                        "5",
+                    ]),
+                ),
+                env_consumer,
             )
 
-            driver_proc = run(driver_cmd; wait = false)
-            sleep(0.5)
-            consumer_proc = run(consumer_cmd; wait = false)
-            producer_proc = run(producer_cmd; wait = false)
+            driver_io = open(driver_log, "w")
+            producer_io = open(producer_log, "w")
+            consumer_io = open(consumer_log, "w")
+            driver_proc = run(pipeline(driver_cmd; stdout = driver_io, stderr = driver_io); wait = false)
+            sleep(1.0)
+            consumer_proc = run(pipeline(consumer_cmd; stdout = consumer_io, stderr = consumer_io); wait = false)
+            timeout_s = parse(Float64, get(ENV, "TP_EXAMPLE_TIMEOUT", "30"))
+            ready_ok = wait_for(() -> isfile(ready_file); timeout = timeout_s, sleep_s = 0.05)
+            if !ready_ok
+                kill(consumer_proc)
+                wait(consumer_proc)
+                kill(driver_proc)
+                wait(driver_proc)
+                close(consumer_io)
+                close(producer_io)
+                close(driver_io)
+                return @test ready_ok
+            end
+            producer_proc = run(pipeline(producer_cmd; stdout = producer_io, stderr = producer_io); wait = false)
 
-            wait(consumer_proc)
-            wait(producer_proc)
+            consumer_ok = wait_process(consumer_proc, timeout_s)
+            producer_ok = wait_process(producer_proc, timeout_s)
+            close(consumer_io)
+            close(producer_io)
 
+            @test consumer_ok
+            @test producer_ok
             @test success(consumer_proc)
             @test success(producer_proc)
 
+            producer_output = read(producer_log, String)
+            consumer_output = read(consumer_log, String)
+            @test occursin("Producer done", producer_output)
+            @test occursin("Producer published frame", producer_output)
+            @test occursin("frame=", consumer_output)
+            @test occursin("Consumer done", consumer_output)
+
             kill(driver_proc)
             wait(driver_proc)
+            close(driver_io)
         end
     end
 end

@@ -36,15 +36,16 @@ using Test
             keepalive_interval_ns = UInt64(50_000_000),
         )
 
+        now_ns = Ref(UInt64(0))
         cid = send_attach_request!(producer_client; stream_id = UInt32(58))
         @test cid != 0
         ok = wait_for() do
-            driver_do_work!(driver_state)
-            driver_client_do_work!(producer_client, UInt64(time_ns()))
+            driver_tick!(driver_state, now_ns[])
+            driver_client_do_work!(producer_client, now_ns[])
             haskey(producer_client.poller.attach_by_correlation, cid)
         end
         @test ok
-        prod_attach = AeronTensorPool.Control.poll_attach!(producer_client, cid, UInt64(time_ns()))
+        prod_attach = AeronTensorPool.Control.poll_attach!(producer_client, cid, now_ns[])
         @test prod_attach !== nothing
 
         producer_cfg = ProducerConfig(
@@ -80,14 +81,16 @@ using Test
         prod_qos = Producer.make_qos_assembler(producer_state)
 
         old_lease = producer_client.lease_id
-        expiry_deadline = time_ns() + 150_000_000
-        while time_ns() < expiry_deadline
-            driver_do_work!(driver_state)
-            sleep(0.005)
+        expiry_deadline = now_ns[] + 150_000_000
+        step_ns = UInt64(5_000_000)
+        while now_ns[] < expiry_deadline
+            now_ns[] += step_ns
+            driver_tick!(driver_state, now_ns[])
         end
 
         ok = wait_for(; timeout = 5.0) do
-            driver_do_work!(driver_state)
+            now_ns[] += step_ns
+            driver_tick!(driver_state, now_ns[])
             Producer.producer_do_work!(producer_state, prod_ctrl; qos_assembler = prod_qos)
             Producer.producer_driver_active(producer_state) && producer_client.lease_id != 0 &&
                 producer_client.lease_id != old_lease

@@ -1,4 +1,5 @@
 using Aeron
+using Clocks
 using UnsafeArrays
 
 const TEST_TIMEOUT_SEC = get(ENV, "AERON_TEST_TIMEOUT_SEC", "5.0") |> x -> parse(Float64, x)
@@ -21,6 +22,13 @@ function wait_for(predicate::Function; timeout::Float64=TEST_TIMEOUT_SEC, sleep_
             yield()
         end
     end
+end
+
+function driver_tick!(state::AeronTensorPool.DriverState, now_ns::UInt64)
+    Clocks.update!(state.clock, Int64(now_ns))
+    AeronTensorPool.Driver.poll_driver_control!(state)
+    AeronTensorPool.Driver.poll_timers!(state, now_ns)
+    return nothing
 end
 
 function canonical_shm_paths(
