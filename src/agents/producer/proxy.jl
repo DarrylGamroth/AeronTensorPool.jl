@@ -225,6 +225,7 @@ function publish_descriptor_to_consumers!(
     for entry in values(state.consumer_streams)
         pub = entry.descriptor_pub
         pub === nothing && continue
+        Aeron.is_connected(pub) || continue
         if entry.max_rate_hz != 0 && !expired(entry.descriptor_timer, now_ns)
             continue
         end

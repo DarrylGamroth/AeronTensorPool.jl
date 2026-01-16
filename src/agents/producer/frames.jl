@@ -28,7 +28,8 @@ Arguments:
 - `trace_id`: optional trace ID (0 means unset).
 
 Returns:
-- `true` if the descriptor was published (shared or per-consumer), `false` otherwise.
+- `true` if the descriptor was published (shared or per-consumer), or skipped because
+  the descriptor publication has no subscribers.
 """
 function offer_frame!(
     state::ProducerState,
@@ -66,7 +67,8 @@ Arguments:
 - `trace_id`: optional trace ID (0 means unset).
 
 Returns:
-- `true` if the descriptor was published (shared or per-consumer), `false` otherwise.
+- `true` if the descriptor was published (shared or per-consumer), or skipped because
+  the descriptor publication has no subscribers.
 """
 function offer_frame!(
     state::ProducerState,
@@ -127,14 +129,18 @@ function offer_frame!(
         meta_version = meta_version,
         now_ns = now_ns,
         trace_id = trace_id
-        with_claimed_buffer!(st.runtime.pub_descriptor, st.runtime.descriptor_claim, FRAME_DESCRIPTOR_LEN) do buf
-            header = MessageHeader.Encoder(buf, 0)
-            MessageHeader.blockLength!(header, FrameDescriptor.sbe_block_length(FrameDescriptor.Decoder))
-            MessageHeader.templateId!(header, FrameDescriptor.sbe_template_id(FrameDescriptor.Decoder))
-            MessageHeader.schemaId!(header, FrameDescriptor.sbe_schema_id(FrameDescriptor.Decoder))
-            MessageHeader.version!(header, FrameDescriptor.sbe_schema_version(FrameDescriptor.Decoder))
-            FrameDescriptor.wrap!(st.runtime.descriptor_encoder, buf, MESSAGE_HEADER_LEN)
-            encode_frame_descriptor!(st.runtime.descriptor_encoder, st, seq, meta_version, now_ns, trace_id)
+        if Aeron.is_connected(st.runtime.pub_descriptor)
+            with_claimed_buffer!(st.runtime.pub_descriptor, st.runtime.descriptor_claim, FRAME_DESCRIPTOR_LEN) do buf
+                header = MessageHeader.Encoder(buf, 0)
+                MessageHeader.blockLength!(header, FrameDescriptor.sbe_block_length(FrameDescriptor.Decoder))
+                MessageHeader.templateId!(header, FrameDescriptor.sbe_template_id(FrameDescriptor.Decoder))
+                MessageHeader.schemaId!(header, FrameDescriptor.sbe_schema_id(FrameDescriptor.Decoder))
+                MessageHeader.version!(header, FrameDescriptor.sbe_schema_version(FrameDescriptor.Decoder))
+                FrameDescriptor.wrap!(st.runtime.descriptor_encoder, buf, MESSAGE_HEADER_LEN)
+                encode_frame_descriptor!(st.runtime.descriptor_encoder, st, seq, meta_version, now_ns, trace_id)
+            end
+        else
+            true
         end
     end
     per_consumer_sent = publish_descriptor_to_consumers!(state, seq, meta_version, now_ns, trace_id)
@@ -432,7 +438,8 @@ Arguments:
 - `trace_id`: optional trace ID (0 means unset).
 
 Returns:
-- `true` if the descriptor was published (shared or per-consumer), `false` otherwise.
+- `true` if the descriptor was published (shared or per-consumer), or skipped because
+  the descriptor publication has no subscribers.
 """
 function commit_slot!(
     state::ProducerState,
@@ -485,9 +492,13 @@ function commit_slot!(
         meta_version = meta_version,
         now_ns = now_ns,
         trace_id = trace_id
-        with_claimed_buffer!(st.runtime.pub_descriptor, st.runtime.descriptor_claim, FRAME_DESCRIPTOR_LEN) do buf
-            FrameDescriptor.wrap_and_apply_header!(st.runtime.descriptor_encoder, buf, 0)
-            encode_frame_descriptor!(st.runtime.descriptor_encoder, st, seq, meta_version, now_ns, trace_id)
+        if Aeron.is_connected(st.runtime.pub_descriptor)
+            with_claimed_buffer!(st.runtime.pub_descriptor, st.runtime.descriptor_claim, FRAME_DESCRIPTOR_LEN) do buf
+                FrameDescriptor.wrap_and_apply_header!(st.runtime.descriptor_encoder, buf, 0)
+                encode_frame_descriptor!(st.runtime.descriptor_encoder, st, seq, meta_version, now_ns, trace_id)
+            end
+        else
+            true
         end
     end
     per_consumer_sent =
