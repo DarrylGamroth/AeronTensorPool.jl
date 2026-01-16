@@ -135,6 +135,7 @@ include("test_join_barrier_sequence.jl")
 include("test_join_barrier_timestamp.jl")
 include("test_join_barrier_latest.jl")
 include("test_join_barrier_codec.jl")
+include("test_join_barrier_validation_fuzz.jl")
 include("test_join_barrier_examples.jl")
 if get(ENV, "TP_RUN_SYSTEM_SMOKE", "false") == "true"
     include("test_system_smoke.jl")
