@@ -21,7 +21,7 @@ function usage()
     println("  $(cmd) driver-list-leases <driver_instance_id>")
     println("  $(cmd) driver-list-streams <driver_instance_id>")
     println("  $(cmd) driver-counters <aeron_dir> [filter]")
-    println("  $(cmd) stats <aeron_dir> [filter]")
+    println("  $(cmd) stats <aeron_dir> [filter|producer|consumer|driver|bridge|supervisor]")
     println("  $(cmd) driver-config-validate <config_path>")
     println("  $(cmd) driver-config-dump <config_path>")
     println("  $(cmd) shm-validate <uri> <layout_version> <epoch> <stream_id> <nslots> <slot_bytes> <region_type> <pool_id>")
@@ -182,6 +182,17 @@ const STATS_COUNTER_LABELS = (
     "Remaps",
     "HelloPublished",
 )
+
+function normalize_stats_filter(filter::String)
+    isempty(filter) && return ""
+    value = lowercase(filter)
+    value == "producer" && return "Name=Producer"
+    value == "consumer" && return "Name=Consumer"
+    value == "driver" && return "Name=Driver"
+    value == "bridge" && return "Name=Bridge"
+    value == "supervisor" && return "Name=Supervisor"
+    return filter
+end
 
 function print_stats(aeron_dir::String; filter::String = "")
     with_aeron_client(aeron_dir) do client
@@ -593,7 +604,7 @@ function tp_tool_main(args::Vector{String})
         print_counters(aeron_dir; filter = filter)
     elseif cmd == "stats"
         aeron_dir = arg_or_env(args, 2, "TP_AERON_DIR", identity)
-        filter = length(args) >= 3 ? args[3] : ""
+        filter = length(args) >= 3 ? normalize_stats_filter(args[3]) : ""
         print_stats(aeron_dir; filter = filter)
     elseif cmd == "driver-config-validate"
         length(args) >= 2 || usage()
