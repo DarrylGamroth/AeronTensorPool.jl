@@ -118,6 +118,11 @@ Each agent follows the same organization for readability:
 - Use work_count rather than boolean flags for pollers.
 - Prefer `try_claim` over `offer` for small control messages.
 
+## Test coverage discipline
+At all times, you MUST maintain a requirements-to-tests checklist that links each MUST/SHOULD to a test or explicit verification step. You
+SHOULD maintain a config-matrix integration test suite that exercises all distinct configuration permutations implied by the spec. You MUST
+flag any spec requirement lacking coverage.
+
 ## Integration pitfalls (recent findings)
 - Mixed schema traffic: control/QoS/metadata can share a channel; always guard on `MessageHeader.schemaId` (or `DriverMessageHeader.schemaId`) before decoding to avoid SBE template/schema mismatch errors.
 - Embedded TensorHeader decode: `SlotHeader.headerBytes` includes a `MessageHeader`; use the default `TensorHeaderMsg.wrap!` when decoding (and `wrap_and_apply_header!` only on the write path).

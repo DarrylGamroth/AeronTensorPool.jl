@@ -1,12 +1,12 @@
 module TpToolApp
 
-using ...Core
-using ...Shm
-using ...Control
-using ...Driver
-using ...Client
-using ...DiscoveryClient
-using ...AeronUtils
+using ..Core
+using ..Shm
+using ..Control
+using ..Driver
+using ..Client
+using ..DiscoveryClient
+using ..AeronUtils
 
 include(joinpath(@__DIR__, "..", "..", "scripts", "tp_tool.jl"))
 

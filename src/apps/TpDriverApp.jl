@@ -1,9 +1,9 @@
 module TpDriverApp
 
-using ...Core
-using ...Driver
-using ...Agents
-using ...AeronUtils
+using ..Core
+using ..Driver
+using ..Agents
+using ..AeronUtils
 
 include(joinpath(@__DIR__, "..", "..", "scripts", "run_driver.jl"))
 
