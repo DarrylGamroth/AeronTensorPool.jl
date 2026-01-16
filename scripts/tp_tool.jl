@@ -21,6 +21,7 @@ function usage()
     println("  $(cmd) driver-list-leases <driver_instance_id>")
     println("  $(cmd) driver-list-streams <driver_instance_id>")
     println("  $(cmd) driver-counters <aeron_dir> [filter]")
+    println("  $(cmd) stats <aeron_dir> [filter]")
     println("  $(cmd) driver-config-validate <config_path>")
     println("  $(cmd) driver-config-dump <config_path>")
     println("  $(cmd) shm-validate <uri> <layout_version> <epoch> <stream_id> <nslots> <slot_bytes> <region_type> <pool_id>")
@@ -155,6 +156,46 @@ function print_counters(aeron_dir::String; filter::String = "")
             label_str = String(label)
             if isempty(filter) || occursin(filter, label_str)
                 println("id=$(counter_id) type=$(type_id) value=$(value) label=$(label_str)")
+            end
+            nothing
+        end
+    end
+end
+
+const STATS_COUNTER_LABELS = (
+    "FramesPublished",
+    "AnnouncesPublished",
+    "QosPublished",
+    "DescriptorBackpressured",
+    "DescriptorNotConnected",
+    "DescriptorAdminAction",
+    "DescriptorClosed",
+    "DescriptorMaxPositionExceeded",
+    "DescriptorErrors",
+    "DropsGap",
+    "DropsLate",
+    "DropsOdd",
+    "DropsChanged",
+    "DropsFrameIdMismatch",
+    "DropsHeaderInvalid",
+    "DropsPayloadInvalid",
+    "Remaps",
+    "HelloPublished",
+)
+
+function print_stats(aeron_dir::String; filter::String = "")
+    with_aeron_client(aeron_dir) do client
+        reader = Aeron.CountersReader(client)
+        Aeron.counter_foreach(reader) do value, counter_id, type_id, _, label, _
+            label_str = String(label)
+            if !isempty(filter) && !occursin(filter, label_str)
+                return nothing
+            end
+            for needle in STATS_COUNTER_LABELS
+                if occursin(needle, label_str)
+                    println("id=$(counter_id) type=$(type_id) value=$(value) label=$(label_str)")
+                    break
+                end
             end
             nothing
         end
@@ -550,6 +591,10 @@ function tp_tool_main(args::Vector{String})
         aeron_dir = arg_or_env(args, 2, "TP_AERON_DIR", identity)
         filter = length(args) >= 3 ? args[3] : "Name=Driver"
         print_counters(aeron_dir; filter = filter)
+    elseif cmd == "stats"
+        aeron_dir = arg_or_env(args, 2, "TP_AERON_DIR", identity)
+        filter = length(args) >= 3 ? args[3] : ""
+        print_stats(aeron_dir; filter = filter)
     elseif cmd == "driver-config-validate"
         length(args) >= 2 || usage()
         config_path = args[2]

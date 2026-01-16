@@ -70,6 +70,22 @@ Stream fields:
 Environment overrides:
 - Drivers SHOULD accept `ENV` overrides using Aeron’s convention: uppercase the key and replace `.` with `_` (e.g., `driver.control_stream_id` -> `DRIVER_CONTROL_STREAM_ID`).
 
+Per-consumer descriptor streams (hybrid deployments):
+
+```toml
+[driver]
+descriptor_stream_id_range = "31000-31999"
+```
+
+Consumers can request per-consumer descriptor streams via API:
+
+```julia
+consumer_cfg.requested_descriptor_channel = driver_cfg.endpoints.control_channel
+consumer_cfg.requested_descriptor_stream_id = UInt32(1) # non-zero request token
+```
+
+The driver assigns the actual descriptor stream ID from the configured range.
+
 Example profile with four pool sizes:
 
 ```toml
