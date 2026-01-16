@@ -33,7 +33,9 @@ function ProducerAgent(
     state = init_producer(config; client = client)
     control_assembler = make_control_assembler(state; callbacks = callbacks)
     qos_assembler = make_qos_assembler(state; callbacks = callbacks)
-    counters = ProducerCounters(state.runtime.control.client, Int(config.producer_id), "Producer")
+    instance_id = isempty(config.producer_instance_id) ? "unknown" : config.producer_instance_id
+    counter_name = "Producer stream=$(config.stream_id) instance=$(instance_id)"
+    counters = ProducerCounters(state.runtime.control.client, Int(config.producer_id), counter_name)
     return ProducerAgent(
         state,
         control_assembler,
