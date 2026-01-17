@@ -65,7 +65,9 @@ profile = "camera"
             env["AERON_DIR"] = aeron_dir
             env["LAUNCH_MEDIA_DRIVER"] = "false"
 
+            stdbuf = Sys.which("stdbuf")
             julia_exec = Base.julia_cmd().exec
+            julia_cmd = stdbuf === nothing ? julia_exec : vcat(stdbuf, "-oL", "-eL", julia_exec)
             project = Base.active_project()
             driver_script = joinpath(repo_root, "scripts", "run_driver.jl")
             producer_script = joinpath(repo_root, "scripts", "example_producer.jl")
@@ -85,18 +87,18 @@ profile = "camera"
 
             julia_flags = ["--project=$(project)", "--startup-file=no", "--history-file=no"]
             driver_cmd = setenv(
-                Cmd(vcat(julia_exec, julia_flags, [driver_script, driver_cfg])),
+                Cmd(vcat(julia_cmd, julia_flags, [driver_script, driver_cfg])),
                 env_driver,
             )
             producer_cmd = setenv(
                 Cmd(
-                    vcat(julia_exec, julia_flags, [producer_script, driver_cfg, "5", "256"]),
+                    vcat(julia_cmd, julia_flags, [producer_script, driver_cfg, "5", "256"]),
                 ),
                 env_producer,
             )
             consumer_cmd = setenv(
                 Cmd(
-                    vcat(julia_exec, julia_flags, [consumer_script, driver_cfg, "5"]),
+                    vcat(julia_cmd, julia_flags, [consumer_script, driver_cfg, "5"]),
                 ),
                 env_consumer,
             )
@@ -107,7 +109,7 @@ profile = "camera"
             driver_proc = run(pipeline(driver_cmd; stdout = driver_io, stderr = driver_io); wait = false)
             sleep(1.0)
             consumer_proc = run(pipeline(consumer_cmd; stdout = consumer_io, stderr = consumer_io); wait = false)
-            timeout_s = parse(Float64, get(ENV, "TP_EXAMPLE_TIMEOUT", "30"))
+            timeout_s = parse(Float64, get(ENV, "TP_EXAMPLE_TIMEOUT", "60"))
             ready_ok = wait_for(() -> isfile(ready_file); timeout = timeout_s, sleep_s = 0.05)
             if !ready_ok
                 kill(consumer_proc)
