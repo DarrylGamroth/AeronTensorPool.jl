@@ -6,7 +6,6 @@ function usage()
     cmd = "tp_tool"
     println("Usage:")
     println("  tp_tool <command> ...")
-    println("  ./bin/tp_tool <command> ...")
     println("  julia --project scripts/tp_tool.jl <command> ...")
     println()
     println("Commands:")
@@ -626,12 +625,12 @@ function tp_tool_main(args::Vector{String})
     elseif cmd == "driver-config-validate"
         length(args) >= 2 || usage()
         config_path = args[2]
-        _ = load_driver_config(config_path; env = ENV)
+        _ = from_toml(DriverConfig, config_path; env = true)
         println("ok")
     elseif cmd == "driver-config-dump"
         length(args) >= 2 || usage()
         config_path = args[2]
-        cfg = load_driver_config(config_path; env = ENV)
+        cfg = from_toml(DriverConfig, config_path; env = true)
         println("instance_id=$(cfg.endpoints.instance_id)")
         println("aeron_dir=$(cfg.endpoints.aeron_dir)")
         println("control_channel=$(cfg.endpoints.control_channel)")
