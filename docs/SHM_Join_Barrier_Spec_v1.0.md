@@ -220,8 +220,12 @@ applied only in the readiness inequality above.
 - The timestamp source MUST be declared per rule and MUST be either
   `FrameDescriptor.timestamp_ns` or `SlotHeader.timestamp_ns`.
 - Informative guidance: use `SlotHeader.timestamp_ns` for source/capture-time
-  alignment (sensor time), and `FrameDescriptor.timestamp_ns` for
-  availability/ingest-time alignment (pipeline time).
+  alignment, and `FrameDescriptor.timestamp_ns` for
+  publish-time alignment (producer-local descriptor publish time).
+- When `TimestampSource=FRAME_DESCRIPTOR`, the timestamp represents publish
+  time and includes any producer-side scheduling/transport latency.
+- When `TimestampSource=SLOT_HEADER`, the timestamp represents capture/source
+  time.
 - When `TimestampSource=FRAME_DESCRIPTOR`, the FrameDescriptor timestamp MUST
   be present (non-null) and monotonic for the stream.
 - When `TimestampSource=SLOT_HEADER`, the slot header timestamp MUST be present

@@ -391,6 +391,13 @@ Optional fields (may reduce SHM reads for filtering):
 - `meta_version : u32`
 - `trace_id : u64` (optional; 0 means absent; see TraceLink spec)
 
+**Timestamp semantics (normative)**
+- `SlotHeader.timestamp_ns` is source/capture time for the payload.
+- `FrameDescriptor.timestamp_ns` is publish time: the producer-local timestamp taken when the descriptor is emitted (after `seq_commit` is committed).
+- Producers SHOULD populate `SlotHeader.timestamp_ns` by default.
+- Producers SHOULD leave `FrameDescriptor.timestamp_ns` null unless publish-time alignment/latency is required.
+- If both are present, they MAY differ; consumers MUST NOT assume equality.
+
 **Rules**
 - Producers MUST publish `FrameDescriptor` only after the slot’s `seq_commit` is set to COMMITTED and payload visibility is ensured.
 - Consumers MUST ignore descriptors whose `epoch` does not match mapped SHM regions.
@@ -599,6 +606,7 @@ End of specification.
 ### 15.7 Timebase
 - `timestamp_ns` SHOULD be monotonic (CLOCK_MONOTONIC) for latency calculations. If cross-host alignment is required and PTP is available, `CLOCK_REALTIME` is acceptable—document the source clock and drift budget. When possible, include both a monotonic timestamp (for latency) and a realtime/epoch timestamp (for cross-host alignment).
 - Latency = `now_monotonic - timestamp_ns_monotonic`. Cross-host correlation requires externally synchronized clocks.
+- When both `SlotHeader.timestamp_ns` and `FrameDescriptor.timestamp_ns` are present, each MUST be monotonic in the declared clock domain; `FrameDescriptor.timestamp_ns` is the publish-time timestamp defined in 10.2.1.
 
 ### 15.7a NUMA Policy (deployment-driven)
 - Follow Aeron practice: pin critical agents (producer, supervisor) to cores on the NUMA node that owns the NIC/storage for SHM paths; allocate SHM (tmpfs/hugetlb) bound to that node using OS tooling (e.g., `numactl`).

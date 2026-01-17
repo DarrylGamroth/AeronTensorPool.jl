@@ -191,7 +191,7 @@ Never block on incomplete frames; drop and continue.
 
 ## 8. Join barrier (optional)
 
-JoinBarrier gates multi-input synchronization without blocking on SHM commit. It is programmatic (no TOML). You apply a MergeMap (sequence or timestamp) and then update observed cursors as descriptors arrive.
+JoinBarrier gates multi-input synchronization without blocking on SHM commit. It is programmatic (no TOML). You apply a MergeMap (sequence or timestamp) and then update observed cursors as descriptors arrive. For timestamp rules, use `SlotHeader.timestamp_ns` for source/capture time, or `FrameDescriptor.timestamp_ns` for publish time (descriptor emit after commit); default to `SlotHeader.timestamp_ns` unless publish-time alignment is required.
 
 Sequence example:
 
