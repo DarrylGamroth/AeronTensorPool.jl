@@ -365,10 +365,11 @@ function handle_discovery_response!(
     buffer::AbstractVector{UInt8},
 )
     header = DiscoveryMessageHeader.Decoder(buffer, 0)
-    DiscoveryMessageHeader.schemaId(header) == DISCOVERY_SCHEMA_ID || return nothing
-    DiscoveryMessageHeader.version(header) ==
-        DiscoveryResponse.sbe_schema_version(DiscoveryResponse.Decoder) || return nothing
-    if DiscoveryMessageHeader.templateId(header) != TEMPLATE_DISCOVERY_RESPONSE
+    if !matches_discovery_header(
+        header,
+        TEMPLATE_DISCOVERY_RESPONSE,
+        DiscoveryResponse.sbe_schema_version(DiscoveryResponse.Decoder),
+    )
         return nothing
     end
 

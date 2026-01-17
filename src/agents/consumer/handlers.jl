@@ -11,7 +11,7 @@ Returns:
 function make_descriptor_assembler(state::ConsumerState; callbacks::ConsumerCallbacks = NOOP_CONSUMER_CALLBACKS)
     handler = Aeron.FragmentHandler(state) do st, buffer, _
         header = MessageHeader.Decoder(buffer, 0)
-        if MessageHeader.schemaId(header) != MessageHeader.sbe_schema_id(MessageHeader.Decoder)
+        if !matches_message_schema(header)
             return nothing
         end
         if MessageHeader.templateId(header) == TEMPLATE_FRAME_DESCRIPTOR
@@ -40,7 +40,7 @@ Returns:
 function make_control_assembler(state::ConsumerState)
     handler = Aeron.FragmentHandler(state) do st, buffer, _
         header = MessageHeader.Decoder(buffer, 0)
-        if MessageHeader.schemaId(header) != MessageHeader.sbe_schema_id(MessageHeader.Decoder)
+        if !matches_message_schema(header)
             return nothing
         end
         template_id = MessageHeader.templateId(header)
@@ -71,7 +71,7 @@ Returns:
 function make_progress_assembler(state::ConsumerState)
     handler = Aeron.FragmentHandler(state) do st, buffer, _
         header = MessageHeader.Decoder(buffer, 0)
-        if MessageHeader.schemaId(header) != MessageHeader.sbe_schema_id(MessageHeader.Decoder)
+        if !matches_message_schema(header)
             return nothing
         end
         if MessageHeader.templateId(header) == TEMPLATE_FRAME_PROGRESS

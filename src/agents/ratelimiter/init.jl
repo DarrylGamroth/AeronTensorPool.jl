@@ -287,7 +287,7 @@ function init_rate_limiter(
         meta_decoder = DataSourceMeta.Decoder(UnsafeArrays.UnsafeArray{UInt8, 1})
         handler = Aeron.FragmentHandler(state) do st, buffer, _
             header = MessageHeader.Decoder(buffer, 0)
-            if MessageHeader.schemaId(header) != MessageHeader.sbe_schema_id(MessageHeader.Decoder)
+            if !matches_message_schema(header)
                 return nothing
             end
             template_id = MessageHeader.templateId(header)
@@ -311,7 +311,7 @@ function init_rate_limiter(
         progress_decoder = FrameProgress.Decoder(UnsafeArrays.UnsafeArray{UInt8, 1})
         handler = Aeron.FragmentHandler(state) do st, buffer, _
             header = MessageHeader.Decoder(buffer, 0)
-            if MessageHeader.schemaId(header) != MessageHeader.sbe_schema_id(MessageHeader.Decoder)
+            if !matches_message_schema(header)
                 return nothing
             end
             if MessageHeader.templateId(header) == TEMPLATE_FRAME_PROGRESS
@@ -330,7 +330,7 @@ function init_rate_limiter(
         qos_cons_decoder = QosConsumer.Decoder(UnsafeArrays.UnsafeArray{UInt8, 1})
         handler = Aeron.FragmentHandler(state) do st, buffer, _
             header = MessageHeader.Decoder(buffer, 0)
-            if MessageHeader.schemaId(header) != MessageHeader.sbe_schema_id(MessageHeader.Decoder)
+            if !matches_message_schema(header)
                 return nothing
             end
             template_id = MessageHeader.templateId(header)

@@ -58,7 +58,7 @@ consumer_qos(monitor::QosMonitor, consumer_id::UInt32) =
 function make_qos_monitor_assembler(monitor::QosMonitor)
     handler = Aeron.FragmentHandler(monitor) do st, buffer, _
         header = MessageHeader.Decoder(buffer, 0)
-        if MessageHeader.schemaId(header) != MessageHeader.sbe_schema_id(MessageHeader.Decoder)
+        if !matches_message_schema(header)
             return nothing
         end
         template_id = MessageHeader.templateId(header)

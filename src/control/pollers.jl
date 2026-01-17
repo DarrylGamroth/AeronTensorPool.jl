@@ -132,10 +132,11 @@ end
 
 function handle_driver_response!(poller::DriverResponsePoller, buffer::AbstractVector{UInt8})
     header = DriverMessageHeader.Decoder(buffer, 0)
-    if DriverMessageHeader.schemaId(header) != DriverMessageHeader.sbe_schema_id(DriverMessageHeader.Decoder)
-        return false
-    end
-    if DriverMessageHeader.version(header) > ShmAttachResponse.sbe_schema_version(ShmAttachResponse.Decoder)
+    if !matches_driver_schema(
+        header,
+        DriverMessageHeader.sbe_schema_id(DriverMessageHeader.Decoder),
+        ShmAttachResponse.sbe_schema_version(ShmAttachResponse.Decoder),
+    )
         return false
     end
     template_id = DriverMessageHeader.templateId(header)

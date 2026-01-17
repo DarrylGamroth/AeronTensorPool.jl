@@ -180,13 +180,11 @@ end
 
 function handle_frame_descriptor!(poller::FrameDescriptorPoller, buffer::AbstractVector{UInt8})
     header = MessageHeader.Decoder(buffer, 0)
-    if MessageHeader.schemaId(header) != MessageHeader.sbe_schema_id(MessageHeader.Decoder)
-        return false
-    end
-    if MessageHeader.version(header) > FrameDescriptor.sbe_schema_version(FrameDescriptor.Decoder)
-        return false
-    end
-    if MessageHeader.templateId(header) != TEMPLATE_FRAME_DESCRIPTOR
+    if !matches_message_header(
+        header,
+        TEMPLATE_FRAME_DESCRIPTOR,
+        FrameDescriptor.sbe_schema_version(FrameDescriptor.Decoder),
+    )
         return false
     end
     FrameDescriptor.wrap!(poller.decoder, buffer, 0; header = header)
@@ -196,13 +194,11 @@ end
 
 function handle_consumer_config!(poller::ConsumerConfigPoller, buffer::AbstractVector{UInt8})
     header = MessageHeader.Decoder(buffer, 0)
-    if MessageHeader.schemaId(header) != MessageHeader.sbe_schema_id(MessageHeader.Decoder)
-        return false
-    end
-    if MessageHeader.version(header) > ConsumerConfigMsg.sbe_schema_version(ConsumerConfigMsg.Decoder)
-        return false
-    end
-    if MessageHeader.templateId(header) != TEMPLATE_CONSUMER_CONFIG
+    if !matches_message_header(
+        header,
+        TEMPLATE_CONSUMER_CONFIG,
+        ConsumerConfigMsg.sbe_schema_version(ConsumerConfigMsg.Decoder),
+    )
         return false
     end
     ConsumerConfigMsg.wrap!(poller.decoder, buffer, 0; header = header)
@@ -212,13 +208,11 @@ end
 
 function handle_frame_progress!(poller::FrameProgressPoller, buffer::AbstractVector{UInt8})
     header = MessageHeader.Decoder(buffer, 0)
-    if MessageHeader.schemaId(header) != MessageHeader.sbe_schema_id(MessageHeader.Decoder)
-        return false
-    end
-    if MessageHeader.version(header) > FrameProgress.sbe_schema_version(FrameProgress.Decoder)
-        return false
-    end
-    if MessageHeader.templateId(header) != TEMPLATE_FRAME_PROGRESS
+    if !matches_message_header(
+        header,
+        TEMPLATE_FRAME_PROGRESS,
+        FrameProgress.sbe_schema_version(FrameProgress.Decoder),
+    )
         return false
     end
     FrameProgress.wrap!(poller.decoder, buffer, 0; header = header)

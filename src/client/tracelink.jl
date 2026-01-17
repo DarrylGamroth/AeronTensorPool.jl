@@ -230,10 +230,11 @@ function decode_tracelink_set!(
     offset::Int = 0,
 )
     header = TraceLinkMessageHeader.Decoder(buffer, offset)
-    TraceLinkMessageHeader.schemaId(header) ==
-        TraceLinkMessageHeader.sbe_schema_id(TraceLinkMessageHeader.Decoder) || return false
-    TraceLinkMessageHeader.templateId(header) ==
-        TraceLinkSet.sbe_template_id(TraceLinkSet.Decoder) || return false
+    matches_tracelink_header(
+        header,
+        TraceLinkSet.sbe_template_id(TraceLinkSet.Decoder),
+        TraceLinkSet.sbe_schema_version(TraceLinkSet.Decoder),
+    ) || return false
     TraceLinkSet.wrap!(decoder, buffer, offset; header = header)
     return true
 end

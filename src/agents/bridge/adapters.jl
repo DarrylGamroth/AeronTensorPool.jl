@@ -38,19 +38,19 @@ function make_bridge_control_assembler(state::BridgeReceiverState)
         header = MessageHeader.Decoder(buffer, 0)
         schema_id = MessageHeader.schemaId(header)
         template_id = MessageHeader.templateId(header)
-        if schema_id == MessageHeader.sbe_schema_id(MessageHeader.Decoder) &&
+        if matches_message_schema(header) &&
            template_id == TEMPLATE_SHM_POOL_ANNOUNCE
             ShmPoolAnnounce.wrap!(st.announce_decoder, buffer, 0; header = header)
             bridge_apply_source_announce!(st, st.announce_decoder)
-        elseif schema_id == MessageHeader.sbe_schema_id(MessageHeader.Decoder) &&
+        elseif matches_message_schema(header) &&
                template_id == TEMPLATE_QOS_PRODUCER
             QosProducer.wrap!(st.qos_producer_decoder, buffer, 0; header = header)
             st.config.forward_qos && bridge_publish_qos_producer!(st, st.qos_producer_decoder)
-        elseif schema_id == MessageHeader.sbe_schema_id(MessageHeader.Decoder) &&
+        elseif matches_message_schema(header) &&
                template_id == TEMPLATE_QOS_CONSUMER
             QosConsumer.wrap!(st.qos_consumer_decoder, buffer, 0; header = header)
             st.config.forward_qos && bridge_publish_qos_consumer!(st, st.qos_consumer_decoder)
-        elseif schema_id == MessageHeader.sbe_schema_id(MessageHeader.Decoder) &&
+        elseif matches_message_schema(header) &&
                template_id == TEMPLATE_FRAME_PROGRESS
             FrameProgress.wrap!(st.progress_decoder, buffer, 0; header = header)
             st.config.forward_progress && bridge_publish_progress!(st, st.progress_decoder)
@@ -74,19 +74,19 @@ function make_bridge_control_sender_assembler(state::BridgeSenderState)
         header = MessageHeader.Decoder(buffer, 0)
         schema_id = MessageHeader.schemaId(header)
         template_id = MessageHeader.templateId(header)
-        if schema_id == MessageHeader.sbe_schema_id(MessageHeader.Decoder) &&
+        if matches_message_schema(header) &&
            template_id == TEMPLATE_SHM_POOL_ANNOUNCE
             ShmPoolAnnounce.wrap!(st.announce_decoder, buffer, 0; header = header)
             bridge_forward_announce!(st, st.announce_decoder)
-        elseif schema_id == MessageHeader.sbe_schema_id(MessageHeader.Decoder) &&
+        elseif matches_message_schema(header) &&
                template_id == TEMPLATE_QOS_PRODUCER
             QosProducer.wrap!(st.qos_producer_decoder, buffer, 0; header = header)
             st.config.forward_qos && bridge_forward_qos_producer!(st, st.qos_producer_decoder)
-        elseif schema_id == MessageHeader.sbe_schema_id(MessageHeader.Decoder) &&
+        elseif matches_message_schema(header) &&
                template_id == TEMPLATE_QOS_CONSUMER
             QosConsumer.wrap!(st.qos_consumer_decoder, buffer, 0; header = header)
             st.config.forward_qos && bridge_forward_qos_consumer!(st, st.qos_consumer_decoder)
-        elseif schema_id == MessageHeader.sbe_schema_id(MessageHeader.Decoder) &&
+        elseif matches_message_schema(header) &&
                template_id == TEMPLATE_FRAME_PROGRESS
             FrameProgress.wrap!(st.progress_decoder, buffer, 0; header = header)
             st.config.forward_progress && bridge_forward_progress!(st, st.progress_decoder)
@@ -110,11 +110,11 @@ function make_bridge_metadata_sender_assembler(state::BridgeSenderState)
         header = MessageHeader.Decoder(buffer, 0)
         schema_id = MessageHeader.schemaId(header)
         template_id = MessageHeader.templateId(header)
-        if schema_id == MessageHeader.sbe_schema_id(MessageHeader.Decoder) &&
+        if matches_message_schema(header) &&
            template_id == TEMPLATE_DATA_SOURCE_ANNOUNCE
             DataSourceAnnounce.wrap!(st.metadata_announce_decoder, buffer, 0; header = header)
             bridge_forward_metadata_announce!(st, st.metadata_announce_decoder)
-        elseif schema_id == MessageHeader.sbe_schema_id(MessageHeader.Decoder) &&
+        elseif matches_message_schema(header) &&
                template_id == TEMPLATE_DATA_SOURCE_META
             DataSourceMeta.wrap!(st.metadata_meta_decoder, buffer, 0; header = header)
             bridge_forward_metadata_meta!(st, st.metadata_meta_decoder)
@@ -143,11 +143,11 @@ function make_bridge_metadata_receiver_assembler(state::BridgeReceiverState)
         header = MessageHeader.Decoder(buffer, 0)
         schema_id = MessageHeader.schemaId(header)
         template_id = MessageHeader.templateId(header)
-        if schema_id == MessageHeader.sbe_schema_id(MessageHeader.Decoder) &&
+        if matches_message_schema(header) &&
            template_id == TEMPLATE_DATA_SOURCE_ANNOUNCE
             DataSourceAnnounce.wrap!(st.metadata_announce_decoder, buffer, 0; header = header)
             bridge_publish_metadata_announce!(st, st.metadata_announce_decoder)
-        elseif schema_id == MessageHeader.sbe_schema_id(MessageHeader.Decoder) &&
+        elseif matches_message_schema(header) &&
                template_id == TEMPLATE_DATA_SOURCE_META
             DataSourceMeta.wrap!(st.metadata_meta_decoder, buffer, 0; header = header)
             bridge_publish_metadata_meta!(st, st.metadata_meta_decoder)

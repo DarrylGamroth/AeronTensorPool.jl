@@ -11,7 +11,7 @@ Returns:
 function make_control_assembler(state::ProducerState; callbacks::ProducerCallbacks = NOOP_PRODUCER_CALLBACKS)
     handler = Aeron.FragmentHandler(state) do st, buffer, _
         header = MessageHeader.Decoder(buffer, 0)
-        if MessageHeader.schemaId(header) != MessageHeader.sbe_schema_id(MessageHeader.Decoder)
+        if !matches_message_schema(header)
             return nothing
         end
         if MessageHeader.templateId(header) == TEMPLATE_CONSUMER_HELLO
@@ -40,7 +40,7 @@ Returns:
 function make_qos_assembler(state::ProducerState; callbacks::ProducerCallbacks = NOOP_PRODUCER_CALLBACKS)
     handler = Aeron.FragmentHandler(state) do st, buffer, _
         header = MessageHeader.Decoder(buffer, 0)
-        if MessageHeader.schemaId(header) != MessageHeader.sbe_schema_id(MessageHeader.Decoder)
+        if !matches_message_schema(header)
             return nothing
         end
         if MessageHeader.templateId(header) == TEMPLATE_QOS_CONSUMER

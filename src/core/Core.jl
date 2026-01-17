@@ -109,6 +109,12 @@ export TensorPoolError,
     TEMPLATE_BRIDGE_FRAME_CHUNK,
     TEMPLATE_DISCOVERY_REQUEST,
     TEMPLATE_DISCOVERY_RESPONSE,
+    matches_message_schema,
+    matches_message_header,
+    matches_driver_schema,
+    matches_driver_header,
+    matches_discovery_header,
+    matches_tracelink_header,
     sbe_message_length
 
 end

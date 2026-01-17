@@ -25,7 +25,11 @@ function handle_driver_control!(state::DriverState, buffer::AbstractVector{UInt8
     @tp_info "driver control message" schema_id template_id
 
     if schema_id == ShmAttachRequest.sbe_schema_id(ShmAttachRequest.Decoder)
-        if DriverMessageHeader.version(driver_header) > ShmAttachRequest.sbe_schema_version(ShmAttachRequest.Decoder)
+        if !matches_driver_schema(
+            driver_header,
+            ShmAttachRequest.sbe_schema_id(ShmAttachRequest.Decoder),
+            ShmAttachRequest.sbe_schema_version(ShmAttachRequest.Decoder),
+        )
             if template_id == TEMPLATE_SHM_ATTACH_REQUEST
                 ShmAttachRequest.wrap!(state.runtime.attach_decoder, buffer, 0; header = driver_header)
                 emit_attach_response!(
@@ -89,10 +93,7 @@ function handle_driver_control!(state::DriverState, buffer::AbstractVector{UInt8
             return false
         end
         header = MessageHeader.Decoder(buffer, 0)
-        if MessageHeader.schemaId(header) != MessageHeader.sbe_schema_id(MessageHeader.Decoder)
-            return false
-        end
-        if MessageHeader.version(header) > ConsumerHello.sbe_schema_version(ConsumerHello.Decoder)
+        if !matches_message_schema(header, ConsumerHello.sbe_schema_version(ConsumerHello.Decoder))
             return false
         end
         block_len = MessageHeader.blockLength(header)

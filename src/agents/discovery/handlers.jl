@@ -477,10 +477,11 @@ Returns:
 function make_request_assembler(state::AbstractDiscoveryState)
     handler = Aeron.FragmentHandler(state) do st, buffer, _
         header = DiscoveryMessageHeader.Decoder(buffer, 0)
-        DiscoveryMessageHeader.schemaId(header) == DISCOVERY_SCHEMA_ID || return nothing
-        DiscoveryMessageHeader.version(header) ==
-            DiscoveryRequest.sbe_schema_version(DiscoveryRequest.Decoder) || return nothing
-        if DiscoveryMessageHeader.templateId(header) == TEMPLATE_DISCOVERY_REQUEST
+        if matches_discovery_header(
+            header,
+            TEMPLATE_DISCOVERY_REQUEST,
+            DiscoveryRequest.sbe_schema_version(DiscoveryRequest.Decoder),
+        )
             DiscoveryRequest.wrap!(st.runtime.request_decoder, buffer, 0; header = header)
             handle_discovery_request!(st, st.runtime.request_decoder)
         end

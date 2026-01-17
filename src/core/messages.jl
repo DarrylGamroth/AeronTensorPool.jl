@@ -97,6 +97,72 @@ const TEMPLATE_BRIDGE_FRAME_CHUNK = BridgeFrameChunk.sbe_template_id(BridgeFrame
 const TEMPLATE_DISCOVERY_REQUEST = DiscoveryRequest.sbe_template_id(DiscoveryRequest.Decoder)
 const TEMPLATE_DISCOVERY_RESPONSE = DiscoveryResponse.sbe_template_id(DiscoveryResponse.Decoder)
 
+@inline function matches_message_schema(header::MessageHeader.Decoder)
+    return MessageHeader.schemaId(header) == MessageHeader.sbe_schema_id(MessageHeader.Decoder)
+end
+
+@inline function matches_message_schema(header::MessageHeader.Decoder, max_version::UInt16)
+    matches_message_schema(header) || return false
+    MessageHeader.version(header) <= max_version || return false
+    return true
+end
+
+@inline function matches_message_header(
+    header::MessageHeader.Decoder,
+    template_id::UInt16,
+    max_version::UInt16,
+)
+    matches_message_schema(header, max_version) || return false
+    MessageHeader.templateId(header) == template_id || return false
+    return true
+end
+
+@inline function matches_driver_schema(
+    header::DriverMessageHeader.Decoder,
+    schema_id::UInt16,
+    max_version::UInt16,
+)
+    DriverMessageHeader.schemaId(header) == schema_id || return false
+    DriverMessageHeader.version(header) <= max_version || return false
+    return true
+end
+
+@inline function matches_driver_header(
+    header::DriverMessageHeader.Decoder,
+    template_id::UInt16,
+    schema_id::UInt16,
+    max_version::UInt16,
+)
+    matches_driver_schema(header, schema_id, max_version) || return false
+    DriverMessageHeader.templateId(header) == template_id || return false
+    return true
+end
+
+@inline function matches_discovery_header(
+    header::DiscoveryMessageHeader.Decoder,
+    template_id::UInt16,
+    schema_version::UInt16,
+)
+    DiscoveryMessageHeader.schemaId(header) ==
+    DiscoveryMessageHeader.sbe_schema_id(DiscoveryMessageHeader.Decoder) || return false
+    DiscoveryMessageHeader.version(header) == schema_version || return false
+    DiscoveryMessageHeader.templateId(header) == template_id || return false
+    return true
+end
+
+@inline function matches_tracelink_header(
+    header::TraceLinkMessageHeader.Decoder,
+    template_id::UInt16,
+    schema_version::UInt16,
+)
+    TraceLinkMessageHeader.schemaId(header) ==
+    TraceLinkMessageHeader.sbe_schema_id(TraceLinkMessageHeader.Decoder) || return false
+    TraceLinkMessageHeader.version(header) == schema_version || return false
+    TraceLinkMessageHeader.templateId(header) == template_id || return false
+    return true
+end
+
+
 @inline function consumer_hello_var_data_ok(msg::ConsumerHello.Decoder)
     buf = ConsumerHello.sbe_buffer(msg)
     buf_len = length(buf)
