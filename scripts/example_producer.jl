@@ -12,11 +12,11 @@ mutable struct AppProducerAgent
     shape::Vector{Int32}
     strides::Vector{Int32}
     pattern::Symbol
-    sent::Int
+    Base.@atomic sent::Int
     last_send_ns::UInt64
     send_interval_ns::UInt64
     last_connect_log_ns::UInt64
-    ready::Bool
+    Base.@atomic ready::Bool
     log_every::Int
 end
 
@@ -28,7 +28,7 @@ struct AppProducerOnQos end
     @info "Producer QoS snapshot" current_seq = snapshot.current_seq
 
 function Agent.on_start(agent::AppProducerAgent)
-    agent.ready = true
+    Base.@atomic agent.ready = true
     @info "AppProducerAgent started"
     return nothing
 end
@@ -48,14 +48,15 @@ function Agent.do_work(agent::AppProducerAgent)
     if now_ns - agent.last_send_ns < agent.send_interval_ns
         return 0
     end
-    if agent.max_count == 0 || agent.sent < agent.max_count
+    sent_count = Base.@atomic agent.sent
+    if agent.max_count == 0 || sent_count < agent.max_count
         seq = AeronTensorPool.handle_state(agent.handle).seq
         if agent.pattern === :interop
             fill_interop_pattern!(agent.payload, seq)
         else
             fill!(agent.payload, UInt8(seq % UInt64(256)))
         end
-        sent = AeronTensorPool.offer_frame!(
+        sent_ok = AeronTensorPool.offer_frame!(
             agent.handle,
             agent.payload,
             agent.shape,
@@ -63,10 +64,11 @@ function Agent.do_work(agent::AppProducerAgent)
             Dtype.UINT8,
             agent.meta_version,
         )
-        if sent
-            agent.sent += 1
+        if sent_ok
+            Base.@atomic agent.sent += 1
+            new_sent = Base.@atomic agent.sent
             agent.last_send_ns = now_ns
-            if agent.log_every > 0 && (agent.sent % agent.log_every == 0)
+            if agent.log_every > 0 && (new_sent % agent.log_every == 0)
                 @info "Producer published frame" seq = state.seq - 1
             end
         elseif agent.log_every > 0
@@ -221,11 +223,11 @@ function run_producer(driver_cfg_path::String, count::Int, payload_bytes::Int)
             Agent.start_on_thread(runner, core_id)
         end
         try
-            while !app_agent.ready
+            while !Base.@atomic app_agent.ready
                 yield()
             end
             if count > 0
-                while app_agent.sent < count
+                while Base.@atomic app_agent.sent < count
                     yield()
                 end
                 close(runner)
@@ -241,7 +243,7 @@ function run_producer(driver_cfg_path::String, count::Int, payload_bytes::Int)
         finally
             close(runner)
         end
-        @info "Producer done" app_agent.sent
+        @info "Producer done" Base.@atomic app_agent.sent
         close(handle)
     finally
         close(tp_client)

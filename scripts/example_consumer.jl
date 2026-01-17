@@ -14,7 +14,9 @@ mutable struct AppConsumerAgent
     producer_id::UInt32
     max_count::Int
     last_frame::UInt64
-    seen::Int
+    Base.@atomic seen::Int
+    done::Base.Event
+    done_sent::Bool
     last_frames_ok::UInt64
     last_drops_late::UInt64
     last_drops_header_invalid::UInt64
@@ -26,7 +28,7 @@ mutable struct AppConsumerAgent
     pattern::Symbol
     fail_on_mismatch::Bool
     ready_file::String
-    ready::Bool
+    Base.@atomic ready::Bool
     log_every::Int
     verbose::Bool
 end
@@ -58,16 +60,17 @@ function (hook::AppConsumerOnFrame)(state::ConsumerState, frame::ConsumerFrameVi
             end
         end
     end
-    app.seen += 1
     app.last_frame = seq
-    if app.log_every > 0 && (app.seen % app.log_every == 0)
+    Base.@atomic app.seen += 1
+    new_seen = Base.@atomic app.seen
+    if app.log_every > 0 && (new_seen % app.log_every == 0)
         println("frame=$(seq) ok")
     end
     return nothing
 end
 
 function Agent.on_start(agent::AppConsumerAgent)
-    agent.ready = true
+    Base.@atomic agent.ready = true
     if !isempty(agent.ready_file)
         open(agent.ready_file, "w") do io
             write(io, "ready\n")
@@ -96,8 +99,12 @@ function Agent.do_work(agent::AppConsumerAgent)
         @info "Consumer frames_ok updated" frames_ok = metrics.frames_ok header_seq_commit = header.seq_commit
         agent.last_frames_ok = metrics.frames_ok
     end
+    if agent.max_count > 0 && !agent.done_sent && metrics.frames_ok >= UInt64(agent.max_count)
+        agent.done_sent = true
+        notify(agent.done)
+    end
     if agent.verbose && now_ns - agent.last_log_ns > 1_000_000_000
-        @info "Consumer frame state" last_frame = agent.last_frame seen = agent.seen
+        @info "Consumer frame state" last_frame = agent.last_frame seen = Base.@atomic agent.seen
         conn = AeronTensorPool.consumer_connections(agent.handle)
         @info "Consumer subscriptions connected" descriptor_connected = conn.descriptor_connected control_connected =
             conn.control_connected qos_connected = conn.qos_connected
@@ -239,6 +246,8 @@ function run_consumer(driver_cfg_path::String, count::Int)
             count,
             UInt64(0),
             0,
+            Base.Event(),
+            false,
             UInt64(0),
             UInt64(0),
             UInt64(0),
@@ -263,13 +272,11 @@ function run_consumer(driver_cfg_path::String, count::Int)
             Agent.start_on_thread(runner, core_id)
         end
         try
-            while !app_agent.ready
+            while !Base.@atomic app_agent.ready
                 yield()
             end
             if count > 0
-                while app_agent.seen < count
-                    yield()
-                end
+                wait(app_agent.done)
                 close(runner)
             else
                 wait(runner)
@@ -283,7 +290,7 @@ function run_consumer(driver_cfg_path::String, count::Int)
         finally
             close(runner)
         end
-        @info "Consumer done" app_agent.seen
+        @info "Consumer done" Base.@atomic app_agent.seen
         close(metadata_cache)
         close(qos_monitor)
         close(handle)
