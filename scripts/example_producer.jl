@@ -223,11 +223,15 @@ function run_producer(driver_cfg_path::String, count::Int, payload_bytes::Int)
             Agent.start_on_thread(runner, core_id)
         end
         try
-            while !Base.@atomic app_agent.ready
+            while true
+                ready = Base.@atomic app_agent.ready
+                ready && break
                 yield()
             end
             if count > 0
-                while Base.@atomic app_agent.sent < count
+                while true
+                    sent = Base.@atomic app_agent.sent
+                    sent < count || break
                     yield()
                 end
                 close(runner)
@@ -243,7 +247,8 @@ function run_producer(driver_cfg_path::String, count::Int, payload_bytes::Int)
         finally
             close(runner)
         end
-        @info "Producer done" Base.@atomic app_agent.sent
+        final_sent = Base.@atomic app_agent.sent
+        @info "Producer done" final_sent
         close(handle)
     finally
         close(tp_client)

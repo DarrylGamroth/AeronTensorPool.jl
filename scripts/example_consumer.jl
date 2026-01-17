@@ -66,6 +66,10 @@ function (hook::AppConsumerOnFrame)(state::ConsumerState, frame::ConsumerFrameVi
     if app.log_every > 0 && (new_seen % app.log_every == 0)
         println("frame=$(seq) ok")
     end
+    if app.max_count > 0 && !app.done_sent && new_seen >= app.max_count
+        app.done_sent = true
+        notify(app.done)
+    end
     return nothing
 end
 
@@ -272,7 +276,9 @@ function run_consumer(driver_cfg_path::String, count::Int)
             Agent.start_on_thread(runner, core_id)
         end
         try
-            while !Base.@atomic app_agent.ready
+            while true
+                ready = Base.@atomic app_agent.ready
+                ready && break
                 yield()
             end
             if count > 0
@@ -290,7 +296,8 @@ function run_consumer(driver_cfg_path::String, count::Int)
         finally
             close(runner)
         end
-        @info "Consumer done" Base.@atomic app_agent.seen
+        final_seen = Base.@atomic app_agent.seen
+        @info "Consumer done" final_seen
         close(metadata_cache)
         close(qos_monitor)
         close(handle)
