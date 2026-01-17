@@ -11,42 +11,42 @@ Entries are ordered by a suggested implementation sequence.
 ### Agent client convenience wrappers
 - Goal: add non-invasive overloads that accept `TensorPoolClient` for agent init.
 - Rationale: cleaner public API without forcing internal refactor to `TensorPoolClient`.
-- Status: deferred.
+- Status: completed (refactor/targets-1-5).
 - Effort rank: 1
 - Dependencies: none.
-- Notes: pass through `client.aeron_client` to existing init functions.
+- Notes: wrappers live in `src/client/agent_wrappers.jl` and forward `client.aeron_client`.
 
 ### SHM URI/path normalization
 - Goal: centralize conversion between `ShmUri` and filesystem paths.
 - Rationale: avoid accidental `joinpath(::ShmUri)` errors and duplicated parsing.
-- Status: deferred.
+- Status: completed (refactor/targets-1-5).
 - Effort rank: 3
 - Dependencies: none.
-- Notes: keep conversions explicit; avoid implicit coercions.
+- Notes: added `shm_path` helper and replaced direct `.path` uses.
 
 ### Message header gating helper
 - Goal: centralize schema/template/version checks used in fragment handlers.
 - Rationale: reduce duplicated guard logic across consumer/producer/bridge/pollers.
-- Status: deferred.
+- Status: completed (refactor/targets-1-5).
 - Effort rank: 4
 - Dependencies: none.
-- Notes: keep `@inline` and allocation-free; consider `Core.decode_if_template!` helpers.
+- Notes: added `matches_*` helpers in `src/core/messages.jl` and switched handlers/pollers.
 
 ### Config builder overlay
 - Goal: provide a single entry point like `DriverConfig.from_toml(path; env=true, overrides=...)`.
 - Rationale: centralize defaults and validation and reduce duplicated parsing.
-- Status: deferred.
+- Status: completed (refactor/targets-1-5).
 - Effort rank: 5
 - Dependencies: none.
-- Notes: ensure deterministic precedence order for overrides.
+- Notes: added `from_toml(DriverConfig, ...)` with env mapping and overrides support.
 
 ### Script consolidation and CLI cleanup
 - Goal: consolidate redundant scripts (driver launcher, tp_tool wrapper) and simplify usage output.
 - Rationale: reduce maintenance and make CLI ergonomics consistent.
-- Status: deferred.
+- Status: completed (refactor/targets-1-5).
 - Effort rank: 2
 - Dependencies: config builder overlay (optional).
-- Notes: keep `tp_tool` app as primary entry point; minimize script-only features.
+- Notes: run_driver uses `from_toml`; tp_tool usage trimmed and config commands use `from_toml`.
 
 ### Telemetry callback interface
 - Goal: add an optional `TelemetrySink`/`EventCallback` interface for counters and debug events.
