@@ -14,6 +14,7 @@ include("constants.jl")
 include("runtime.jl")
 include("proxies.jl")
 include("pollers.jl")
+include("descriptor_pollers.jl")
 include("driver_client.jl")
 
 export ControlPlaneRuntime,
@@ -34,6 +35,10 @@ export ControlPlaneRuntime,
     DRIVER_URI_MAX_BYTES,
     DRIVER_ERROR_MAX_BYTES,
     DriverResponsePoller,
+    AbstractControlPoller,
+    FrameDescriptorPoller,
+    ConsumerConfigPoller,
+    FrameProgressPoller,
     DriverClientState,
     send_attach!,
     send_detach!,
@@ -46,6 +51,8 @@ export ControlPlaneRuntime,
     apply_attach!,
     poll_driver_responses!,
     poll_driver_control!,
+    poll!,
+    rebind!,
     handle_driver_response!,
     snapshot_attach_response!,
     snapshot_detach_response!,
