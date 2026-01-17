@@ -20,6 +20,7 @@ import ..Agents.Producer: offer_frame!, try_claim_slot!, try_claim_slot_by_size!
 include("context.jl")
 include("callbacks.jl")
 include("handles.jl")
+include("agent_wrappers.jl")
 include("pollers.jl")
 include("discovery.jl")
 include("attach.jl")
