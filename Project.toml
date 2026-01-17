@@ -43,9 +43,13 @@ TOML = "1.0.3"
 UnsafeArrays = "1.0.8"
 julia = "1.10"
 
-[apps]
-tp_driver = { submodule = "TpDriverApp", julia_flags = ["--threads=auto", "--optimize=2"] }
-tp_tool = { submodule = "TpToolApp", julia_flags = ["--threads=auto", "--optimize=2"] }
+[apps.tp_driver]
+julia_flags = ["--threads=auto", "--optimize=2"]
+submodule = "TpDriverApp"
+
+[apps.tp_tool]
+julia_flags = ["--threads=auto", "--optimize=2"]
+submodule = "TpToolApp"
 
 [extras]
 Aqua = "4c88cf16-eb10-579e-8560-4a9242c79595"
