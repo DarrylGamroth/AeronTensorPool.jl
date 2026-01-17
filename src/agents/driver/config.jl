@@ -173,6 +173,49 @@ function env_override(env::AbstractDict, key::AbstractString, fallback::Bool)
     return lowercase(get(env, env_key(key), string(fallback))) == "true"
 end
 
+function driver_env_overrides(env::AbstractDict)
+    env_out = Dict{String, String}()
+    for (key, value) in env
+        env_out[String(key)] = string(value)
+    end
+    if haskey(env_out, "AERON_DIR") && !haskey(env_out, "DRIVER_AERON_DIR")
+        env_out["DRIVER_AERON_DIR"] = env_out["AERON_DIR"]
+    end
+    if haskey(env_out, "TP_CONTROL_CHANNEL") && !haskey(env_out, "DRIVER_CONTROL_CHANNEL")
+        env_out["DRIVER_CONTROL_CHANNEL"] = env_out["TP_CONTROL_CHANNEL"]
+    end
+    if haskey(env_out, "TP_CONTROL_STREAM_ID") && !haskey(env_out, "DRIVER_CONTROL_STREAM_ID")
+        env_out["DRIVER_CONTROL_STREAM_ID"] = env_out["TP_CONTROL_STREAM_ID"]
+    end
+    return env_out
+end
+
+function apply_driver_overrides!(env::AbstractDict, overrides)
+    overrides === nothing && return env
+    for (key, value) in pairs(overrides)
+        env[env_key(String(key))] = string(value)
+    end
+    return env
+end
+
+"""
+Load a DriverConfig from a TOML file with optional env and overrides.
+
+Arguments:
+- `path`: TOML file path.
+- `env`: `true` to use ENV, `false` to ignore env, or a custom env dict.
+- `overrides`: config-key overrides (e.g., `"driver.control_stream_id" => 1000`).
+
+Returns:
+- `DriverConfig`.
+"""
+function from_toml(::Type{DriverConfig}, path::AbstractString; env::Union{Bool, AbstractDict} = true, overrides = nothing)
+    env_dict = env === true ? ENV : env === false ? Dict{String, String}() : env
+    env_dict = driver_env_overrides(env_dict)
+    apply_driver_overrides!(env_dict, overrides)
+    return load_driver_config(path; env = env_dict)
+end
+
 """
 Load DriverConfig from a TOML file with optional environment overrides.
 

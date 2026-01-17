@@ -10,22 +10,8 @@ function usage()
     println("Usage: julia --project scripts/run_driver.jl [driver_config]")
 end
 
-function load_driver_config_with_env(config_path)
-    env = Dict(ENV)
-    if haskey(ENV, "AERON_DIR")
-        env["DRIVER_AERON_DIR"] = ENV["AERON_DIR"]
-    end
-    if haskey(ENV, "TP_CONTROL_CHANNEL")
-        env["DRIVER_CONTROL_CHANNEL"] = ENV["TP_CONTROL_CHANNEL"]
-    end
-    if haskey(ENV, "TP_CONTROL_STREAM_ID")
-        env["DRIVER_CONTROL_STREAM_ID"] = ENV["TP_CONTROL_STREAM_ID"]
-    end
-    return load_driver_config(config_path; env = env)
-end
-
 function run_agent(config_path)
-    config = load_driver_config_with_env(config_path)
+    config = from_toml(DriverConfig, config_path; env = true)
     core_id = haskey(ENV, "AGENT_TASK_CORE") ? parse(Int, ENV["AGENT_TASK_CORE"]) : nothing
 
     Aeron.Context() do context
@@ -62,7 +48,7 @@ function run_driver_main(args)
 
     if launch_driver
         @info "Launching Aeron MediaDriver"
-        config = load_driver_config_with_env(config_path)
+        config = from_toml(DriverConfig, config_path; env = true)
         md_ctx = Aeron.MediaDriver.Context()
         isempty(config.endpoints.aeron_dir) || Aeron.MediaDriver.aeron_dir!(md_ctx, config.endpoints.aeron_dir)
         Aeron.MediaDriver.launch(md_ctx) do _
