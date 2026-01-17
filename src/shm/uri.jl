@@ -45,6 +45,21 @@ function parse_shm_uri(uri::AbstractString)
 end
 
 """
+Return the filesystem path for a shm URI or parsed ShmUri.
+
+Arguments:
+- `uri`: `shm:file` URI string or parsed `ShmUri`.
+
+Returns:
+- Absolute filesystem path.
+"""
+@inline shm_path(uri::ShmUri) = uri.path
+
+@inline function shm_path(uri::AbstractString)
+    return parse_shm_uri(uri).path
+end
+
+"""
 Return true if a `shm:file` URI is valid and supported.
 
 Arguments:

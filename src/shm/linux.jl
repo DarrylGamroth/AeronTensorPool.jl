@@ -65,12 +65,12 @@ Memory-map a shm:file URI with optional write access (Linux backend).
 function mmap_shm_linux(uri::AbstractString, size::Integer; write::Bool = false)
     parsed = parse_shm_uri(uri)
     if parsed.require_hugepages
-        is_hugetlbfs_path_linux(parsed.path) ||
-            throw(ShmValidationError("hugetlbfs mount required for path: $(parsed.path)"))
+        is_hugetlbfs_path_linux(shm_path(parsed)) ||
+            throw(ShmValidationError("hugetlbfs mount required for path: $(shm_path(parsed))"))
         hugepage_size_bytes_linux() > 0 || throw(ShmValidationError("hugetlbfs mount has unknown hugepage size"))
     end
     flags = write ? (SHM_O_RDWR | SHM_O_CREAT) : SHM_O_RDONLY
-    return open_shm_nofollow(parsed.path, flags) do io
+    return open_shm_nofollow(shm_path(parsed), flags) do io
         if write
             truncate(io, size)
         else
@@ -86,12 +86,12 @@ Map an existing SHM region without truncating the backing file (Linux backend).
 function mmap_shm_existing_linux(uri::AbstractString, size::Integer; write::Bool = false)
     parsed = parse_shm_uri(uri)
     if parsed.require_hugepages
-        is_hugetlbfs_path_linux(parsed.path) ||
-            throw(ShmValidationError("hugetlbfs mount required for path: $(parsed.path)"))
+        is_hugetlbfs_path_linux(shm_path(parsed)) ||
+            throw(ShmValidationError("hugetlbfs mount required for path: $(shm_path(parsed))"))
         hugepage_size_bytes_linux() > 0 || throw(ShmValidationError("hugetlbfs mount has unknown hugepage size"))
     end
     flags = write ? SHM_O_RDWR : SHM_O_RDONLY
-    return open_shm_nofollow(parsed.path, flags) do io
+    return open_shm_nofollow(shm_path(parsed), flags) do io
         filesize(io) >= size || throw(ShmValidationError("shm file smaller than requested size"))
         return Mmap.mmap(io, Vector{UInt8}, size; grow = false, shared = true)
     end

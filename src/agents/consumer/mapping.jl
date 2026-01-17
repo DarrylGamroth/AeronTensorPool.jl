@@ -55,12 +55,12 @@ function map_from_announce!(state::ConsumerState, msg::ShmPoolAnnounce.Decoder, 
     header_uri = String(ShmPoolAnnounce.headerRegionUri(msg))
     validate_uri(header_uri) || return false
     header_parsed = parse_shm_uri(header_uri)
-    if !path_allowed(header_parsed.path, state.config.allowed_base_dirs)
-        @tp_warn "announce header path not allowed" path = header_parsed.path
+    if !path_allowed(shm_path(header_parsed), state.config.allowed_base_dirs)
+        @tp_warn "announce header path not allowed" path = shm_path(header_parsed)
         return false
     end
     require_hugepages = header_parsed.require_hugepages || state.config.require_hugepages
-    if require_hugepages && !is_hugetlbfs_path(header_parsed.path)
+    if require_hugepages && !is_hugetlbfs_path(shm_path(header_parsed))
         return false
     end
     hugepage_size = require_hugepages ? hugepage_size_bytes() : 0
@@ -97,12 +97,12 @@ function map_from_announce!(state::ConsumerState, msg::ShmPoolAnnounce.Decoder, 
         pool.nslots == header_nslots || return false
         validate_uri(pool.uri) || return false
         pool_parsed = parse_shm_uri(pool.uri)
-        if !path_allowed(pool_parsed.path, state.config.allowed_base_dirs)
-            @tp_warn "announce pool path not allowed" pool_id = pool.pool_id path = pool_parsed.path
+        if !path_allowed(shm_path(pool_parsed), state.config.allowed_base_dirs)
+            @tp_warn "announce pool path not allowed" pool_id = pool.pool_id path = shm_path(pool_parsed)
             return false
         end
         pool_require_hugepages = pool_parsed.require_hugepages || require_hugepages
-        if pool_require_hugepages && !is_hugetlbfs_path(pool_parsed.path)
+        if pool_require_hugepages && !is_hugetlbfs_path(shm_path(pool_parsed))
             return false
         end
         validate_stride(pool.stride_bytes) || return false
@@ -198,13 +198,13 @@ function map_from_attach_response!(state::ConsumerState, attach::AttachResponse)
     header_uri = view(attach.header_region_uri)
     validate_uri(header_uri) || return false
     header_parsed = parse_shm_uri(header_uri)
-    if !path_allowed(header_parsed.path, state.config.allowed_base_dirs)
-        @tp_warn "attach header path not allowed" path = header_parsed.path
+    if !path_allowed(shm_path(header_parsed), state.config.allowed_base_dirs)
+        @tp_warn "attach header path not allowed" path = shm_path(header_parsed)
         return false
     end
     require_hugepages = state.config.require_hugepages
-    if require_hugepages && !is_hugetlbfs_path(header_parsed.path)
-        @tp_warn "attach header hugepage path invalid" path = header_parsed.path
+    if require_hugepages && !is_hugetlbfs_path(shm_path(header_parsed))
+        @tp_warn "attach header hugepage path invalid" path = shm_path(header_parsed)
         return false
     end
     hugepage_size = require_hugepages ? hugepage_size_bytes() : 0
@@ -246,13 +246,13 @@ function map_from_attach_response!(state::ConsumerState, attach::AttachResponse)
         pool_uri = view(pool.region_uri)
         validate_uri(pool_uri) || return false
         pool_parsed = parse_shm_uri(pool_uri)
-        if !path_allowed(pool_parsed.path, state.config.allowed_base_dirs)
-            @tp_warn "attach pool path not allowed" pool_id = pool.pool_id path = pool_parsed.path
+        if !path_allowed(shm_path(pool_parsed), state.config.allowed_base_dirs)
+            @tp_warn "attach pool path not allowed" pool_id = pool.pool_id path = shm_path(pool_parsed)
             return false
         end
         pool_require_hugepages = pool_parsed.require_hugepages || require_hugepages
-        if pool_require_hugepages && !is_hugetlbfs_path(pool_parsed.path)
-            @tp_warn "attach pool hugepage path invalid" pool_id = pool.pool_id path = pool_parsed.path
+        if pool_require_hugepages && !is_hugetlbfs_path(shm_path(pool_parsed))
+            @tp_warn "attach pool hugepage path invalid" pool_id = pool.pool_id path = shm_path(pool_parsed)
             return false
         end
         validate_stride(pool.stride_bytes) || return false

@@ -269,7 +269,7 @@ function provision_stream_epoch!(state::DriverState, stream_state::DriverStreamS
     stream_state.header_uri = header_uri
     stream_state.pool_uris = pool_uris
 
-    header_path = parse_shm_uri(header_uri).path
+    header_path = shm_path(header_uri)
     header_size = SUPERBLOCK_SIZE + Int(stream_state.profile.header_nslots) * HEADER_SLOT_BYTES
     ensure_shm_capacity!(state, stream_state, header_path, header_size)
     created = ensure_shm_file!(
@@ -309,7 +309,7 @@ function provision_stream_epoch!(state::DriverState, stream_state::DriverStreamS
 
     for pool in stream_state.profile.payload_pools
         pool_uri = stream_state.pool_uris[pool.pool_id]
-        pool_path = parse_shm_uri(pool_uri).path
+        pool_path = shm_path(pool_uri)
         pool_size = SUPERBLOCK_SIZE + Int(stream_state.profile.header_nslots) * Int(pool.stride_bytes)
         ensure_shm_capacity!(state, stream_state, pool_path, pool_size; pool_id = pool.pool_id)
         created = ensure_shm_file!(
@@ -426,13 +426,13 @@ function cleanup_shm_on_exit!(state::DriverState)
     state.config.policies.cleanup_shm_on_exit || return nothing
     for stream_state in values(state.streams)
         if !isempty(stream_state.header_uri)
-            header_path = parse_shm_uri(stream_state.header_uri).path
+            header_path = shm_path(stream_state.header_uri)
             if path_allowed(header_path, state.config.shm.allowed_base_dirs)
                 rm(header_path; force = true)
             end
         end
         for uri in values(stream_state.pool_uris)
-            pool_path = parse_shm_uri(uri).path
+            pool_path = shm_path(uri)
             if path_allowed(pool_path, state.config.shm.allowed_base_dirs)
                 rm(pool_path; force = true)
             end

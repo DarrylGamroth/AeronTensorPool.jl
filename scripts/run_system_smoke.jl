@@ -134,9 +134,9 @@ Aeron.MediaDriver.launch_embedded() do driver
             UInt64(1_000_000_000),
         )
 
-        mkpath(dirname(parse_shm_uri(producer_cfg.header_uri).path))
+        mkpath(dirname(shm_path(producer_cfg.header_uri)))
         for pool in producer_cfg.payload_pools
-            mkpath(dirname(parse_shm_uri(pool.uri).path))
+            mkpath(dirname(shm_path(pool.uri)))
         end
 
         Aeron.Context() do context

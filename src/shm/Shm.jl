@@ -16,6 +16,7 @@ include("superblock.jl")
 
 export ShmUri,
     parse_shm_uri,
+    shm_path,
     validate_uri,
     canonical_epoch_dir,
     canonical_epoch_root_dir,

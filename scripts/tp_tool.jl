@@ -475,9 +475,9 @@ function tp_tool_main(args::Vector{String})
         println("pid=$(fields.pid)")
         println("start_timestamp_ns=$(fields.start_timestamp_ns)")
         println("activity_timestamp_ns=$(fields.activity_timestamp_ns)")
-        path = parse_shm_uri(uri)
-        if isfile(path.path)
-            println("file_size=$(stat(path.path).size)")
+        path = shm_path(uri)
+        if isfile(path)
+            println("file_size=$(stat(path).size)")
         end
     elseif cmd == "send-consumer-config"
         aeron_dir = arg_or_env(args, 2, "TP_AERON_DIR", identity)

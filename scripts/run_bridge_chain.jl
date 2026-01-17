@@ -25,9 +25,9 @@ function usage()
 end
 
 function ensure_shm_dirs(config::ProducerConfig)
-    mkpath(dirname(parse_shm_uri(config.header_uri).path))
+    mkpath(dirname(shm_path(config.header_uri)))
     for pool in config.payload_pools
-        mkpath(dirname(parse_shm_uri(pool.uri).path))
+        mkpath(dirname(shm_path(pool.uri)))
     end
     return nothing
 end

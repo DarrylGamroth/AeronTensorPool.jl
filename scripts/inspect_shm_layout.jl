@@ -28,8 +28,8 @@ pool_id = UInt16(1)
 header_uri = canonical_header_uri(base_dir, namespace, instance_id, epoch)
 pool_uri = canonical_pool_uri(base_dir, namespace, instance_id, epoch, pool_id)
 
-mkpath(dirname(parse_shm_uri(header_uri).path))
-mkpath(dirname(parse_shm_uri(pool_uri).path))
+mkpath(dirname(shm_path(header_uri)))
+mkpath(dirname(shm_path(pool_uri)))
 
 Aeron.MediaDriver.launch_embedded() do driver
     producer_cfg = ProducerConfig(
@@ -73,8 +73,8 @@ Aeron.MediaDriver.launch_embedded() do driver
     println("  base_dir = $(base_dir)")
     println("  header_uri = $(header_uri)")
     println("  pool_uri = $(pool_uri)")
-    println("  header_path = $(parse_shm_uri(header_uri).path)")
-    println("  pool_path = $(parse_shm_uri(pool_uri).path)")
+    println("  header_path = $(shm_path(header_uri))")
+    println("  pool_path = $(shm_path(pool_uri))")
 
     if keep
         println("Leaving SHM files on disk (--keep). Press Ctrl+C to exit.")
