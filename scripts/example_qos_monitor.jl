@@ -6,11 +6,7 @@ function usage()
 end
 
 function run_qos_monitor(driver_cfg_path::String)
-    env_driver = Dict(ENV)
-    if haskey(ENV, "AERON_DIR")
-        env_driver["DRIVER_AERON_DIR"] = ENV["AERON_DIR"]
-    end
-    driver_cfg = load_driver_config(driver_cfg_path; env = env_driver)
+    driver_cfg = from_toml(DriverConfig, driver_cfg_path; env = true)
 
     ctx = TensorPoolContext(driver_cfg.endpoints)
     client = connect(ctx)

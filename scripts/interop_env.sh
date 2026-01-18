@@ -31,18 +31,7 @@ end
 
 config_path = ARGS[1]
 
-env = Dict(ENV)
-if haskey(ENV, "AERON_DIR")
-    env["DRIVER_AERON_DIR"] = ENV["AERON_DIR"]
-end
-if haskey(ENV, "TP_CONTROL_CHANNEL")
-    env["DRIVER_CONTROL_CHANNEL"] = ENV["TP_CONTROL_CHANNEL"]
-end
-if haskey(ENV, "TP_CONTROL_STREAM_ID")
-    env["DRIVER_CONTROL_STREAM_ID"] = ENV["TP_CONTROL_STREAM_ID"]
-end
-
-cfg = load_driver_config(config_path; env = env)
+cfg = from_toml(DriverConfig, config_path; env = true)
 
 aeron_dir = String(cfg.endpoints.aeron_dir)
 control_channel = String(cfg.endpoints.control_channel)

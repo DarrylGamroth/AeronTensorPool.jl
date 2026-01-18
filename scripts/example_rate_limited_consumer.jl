@@ -3,6 +3,7 @@ using Agent
 using Aeron
 using AeronTensorPool
 using Logging
+include(joinpath(@__DIR__, "script_errors.jl"))
 
 mutable struct AppRateLimitedConsumerAgent
     handle::ConsumerHandle
@@ -114,11 +115,7 @@ function run_consumer(
     count::Int,
     max_rate_hz::UInt16,
 )
-    env_driver = Dict(ENV)
-    if haskey(ENV, "AERON_DIR")
-        env_driver["DRIVER_AERON_DIR"] = ENV["AERON_DIR"]
-    end
-    driver_cfg = load_driver_config(driver_cfg_path; env = env_driver)
+    driver_cfg = from_toml(DriverConfig, driver_cfg_path; env = true)
     stream_id = first_stream_id(driver_cfg)
 
     consumer_id = UInt32(parse(Int, get(ENV, "TP_CONSUMER_ID", "2")))
@@ -145,7 +142,12 @@ function run_consumer(
     try
         app_ref = Ref{AppRateLimitedConsumerAgent}()
         callbacks = ConsumerCallbacks(; on_frame! = AppConsumerOnFrame(app_ref))
-        handle = attach(tp_client, consumer_cfg; discover = false, callbacks = callbacks)
+        handle = try
+            attach(tp_client, consumer_cfg; discover = false, callbacks = callbacks)
+        catch err
+            report_script_error(err)
+            rethrow()
+        end
         app_agent = AppRateLimitedConsumerAgent(
             handle,
             count,

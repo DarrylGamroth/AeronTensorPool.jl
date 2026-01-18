@@ -3,6 +3,7 @@ using Agent
 using Aeron
 using AeronTensorPool
 using Logging
+include(joinpath(@__DIR__, "script_errors.jl"))
 
 mutable struct AppConsumerAgent
     handle::ConsumerHandle
@@ -192,11 +193,7 @@ function check_interop_pattern(payload::AbstractVector{UInt8}, seq::UInt64)
 end
 
 function run_consumer(driver_cfg_path::String, count::Int)
-    env_driver = Dict(ENV)
-    if haskey(ENV, "AERON_DIR")
-        env_driver["DRIVER_AERON_DIR"] = ENV["AERON_DIR"]
-    end
-    driver_cfg = load_driver_config(driver_cfg_path; env = env_driver)
+    driver_cfg = from_toml(DriverConfig, driver_cfg_path; env = true)
     stream_id = first_stream_id(driver_cfg)
 
     consumer_cfg = default_consumer_config(; stream_id = stream_id)
@@ -229,7 +226,12 @@ function run_consumer(driver_cfg_path::String, count::Int)
     try
         app_ref = Ref{AppConsumerAgent}()
         callbacks = ConsumerCallbacks(; on_frame! = AppConsumerOnFrame(app_ref))
-        handle = attach(tp_client, consumer_cfg; discover = !isempty(discovery_channel), callbacks = callbacks)
+        handle = try
+            attach(tp_client, consumer_cfg; discover = !isempty(discovery_channel), callbacks = callbacks)
+        catch err
+            report_script_error(err)
+            rethrow()
+        end
         state = AeronTensorPool.handle_state(handle)
         @info "Consumer driver lease" lease_id = handle.driver_client.lease_id stream_id =
             handle.driver_client.stream_id

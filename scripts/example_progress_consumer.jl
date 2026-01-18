@@ -1,6 +1,7 @@
 #!/usr/bin/env julia
 using Agent
 using AeronTensorPool
+include(joinpath(@__DIR__, "script_errors.jl"))
 
 mutable struct AppProgressConsumer
     handle::ConsumerHandle
@@ -39,11 +40,7 @@ function first_stream_id(cfg::DriverConfig)
 end
 
 function run_progress_consumer(driver_cfg_path::String)
-    env_driver = Dict(ENV)
-    if haskey(ENV, "AERON_DIR")
-        env_driver["DRIVER_AERON_DIR"] = ENV["AERON_DIR"]
-    end
-    driver_cfg = load_driver_config(driver_cfg_path; env = env_driver)
+    driver_cfg = from_toml(DriverConfig, driver_cfg_path; env = true)
     stream_id = first_stream_id(driver_cfg)
 
     consumer_cfg = default_consumer_config(;
@@ -57,7 +54,12 @@ function run_progress_consumer(driver_cfg_path::String)
     ctx = TensorPoolContext(driver_cfg.endpoints)
     client = connect(ctx)
     try
-        handle = attach(client, consumer_cfg; discover = false)
+        handle = try
+            attach(client, consumer_cfg; discover = false)
+        catch err
+            report_script_error(err)
+            rethrow()
+        end
         app = AppProgressConsumer(handle, UInt64(0), UInt64(0), false)
         composite = CompositeAgent(AeronTensorPool.handle_agent(handle), app)
         runner = AgentRunner(BackoffIdleStrategy(), composite)

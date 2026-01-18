@@ -1,5 +1,6 @@
 #!/usr/bin/env julia
 using AeronTensorPool
+include(joinpath(@__DIR__, "script_errors.jl"))
 
 function usage()
     println("Usage: julia --project scripts/example_discovery.jl [driver_config]")
@@ -7,11 +8,7 @@ function usage()
 end
 
 function run_discovery(driver_cfg_path::String)
-    env_driver = Dict(ENV)
-    if haskey(ENV, "AERON_DIR")
-        env_driver["DRIVER_AERON_DIR"] = ENV["AERON_DIR"]
-    end
-    driver_cfg = load_driver_config(driver_cfg_path; env = env_driver)
+    driver_cfg = from_toml(DriverConfig, driver_cfg_path; env = true)
 
     discovery_channel = get(ENV, "TP_DISCOVERY_CHANNEL", "aeron:ipc?term-length=4m")
     discovery_stream_id = parse(Int32, get(ENV, "TP_DISCOVERY_STREAM_ID", "7000"))
@@ -27,7 +24,12 @@ function run_discovery(driver_cfg_path::String)
     )
     client = connect(ctx)
     try
-        entry = discover_stream!(client)
+        entry = try
+            discover_stream!(client)
+        catch err
+            report_script_error(err)
+            rethrow()
+        end
         println("discovery: stream_id=$(entry.stream_id) producer_id=$(entry.producer_id) epoch=$(entry.epoch)")
         println("header_uri=$(entry.header_region_uri)")
         println("pools=$(length(entry.pools))")

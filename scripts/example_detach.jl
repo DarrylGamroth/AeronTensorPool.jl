@@ -1,5 +1,6 @@
 #!/usr/bin/env julia
 using AeronTensorPool
+include(joinpath(@__DIR__, "script_errors.jl"))
 
 function usage()
     println("Usage: julia --project scripts/example_detach.jl [driver_config]")
@@ -24,11 +25,7 @@ function first_stream_id(cfg::DriverConfig)
 end
 
 function run_detach(driver_cfg_path::String)
-    env_driver = Dict(ENV)
-    if haskey(ENV, "AERON_DIR")
-        env_driver["DRIVER_AERON_DIR"] = ENV["AERON_DIR"]
-    end
-    driver_cfg = load_driver_config(driver_cfg_path; env = env_driver)
+    driver_cfg = from_toml(DriverConfig, driver_cfg_path; env = true)
     stream_id = first_stream_id(driver_cfg)
 
     producer_cfg = default_producer_config(;
@@ -41,7 +38,12 @@ function run_detach(driver_cfg_path::String)
     ctx = TensorPoolContext(driver_cfg.endpoints)
     client = connect(ctx)
     try
-        handle = attach(client, producer_cfg; discover = false)
+        handle = try
+            attach(client, producer_cfg; discover = false)
+        catch err
+            report_script_error(err)
+            rethrow()
+        end
         driver_client = handle.driver_client
         lease_id = driver_client.lease_id
         correlation_id = next_correlation_id!(driver_client)

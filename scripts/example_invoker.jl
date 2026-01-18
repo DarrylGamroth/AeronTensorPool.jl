@@ -1,5 +1,6 @@
 #!/usr/bin/env julia
 using AeronTensorPool
+include(joinpath(@__DIR__, "script_errors.jl"))
 
 function usage()
     println("Usage: julia --project scripts/example_invoker.jl [driver_config]")
@@ -11,11 +12,7 @@ function first_stream_id(cfg::DriverConfig)
 end
 
 function run_invoker(driver_cfg_path::String)
-    env_driver = Dict(ENV)
-    if haskey(ENV, "AERON_DIR")
-        env_driver["DRIVER_AERON_DIR"] = ENV["AERON_DIR"]
-    end
-    driver_cfg = load_driver_config(driver_cfg_path; env = env_driver)
+    driver_cfg = from_toml(DriverConfig, driver_cfg_path; env = true)
     stream_id = first_stream_id(driver_cfg)
 
     consumer_cfg = default_consumer_config(;
@@ -28,7 +25,12 @@ function run_invoker(driver_cfg_path::String)
     ctx = TensorPoolContext(driver_cfg.endpoints; use_invoker = true)
     client = connect(ctx)
     try
-        handle = attach(client, consumer_cfg; discover = false)
+        handle = try
+            attach(client, consumer_cfg; discover = false)
+        catch err
+            report_script_error(err)
+            rethrow()
+        end
         deadline = time_ns() + 2_000_000_000
         while time_ns() < deadline
             AeronTensorPool.do_work(client)

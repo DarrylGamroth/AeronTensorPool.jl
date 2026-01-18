@@ -3,6 +3,7 @@ using Agent
 using Aeron
 using AeronTensorPool
 using Logging
+include(joinpath(@__DIR__, "script_errors.jl"))
 
 mutable struct AppProducerAgent
     handle::ProducerHandle
@@ -143,11 +144,7 @@ function override_producer_config_for_driver(config::ProducerConfig, driver_cfg:
 end
 
 function run_producer(driver_cfg_path::String, count::Int, payload_bytes::Int)
-    env_driver = Dict(ENV)
-    if haskey(ENV, "AERON_DIR")
-        env_driver["DRIVER_AERON_DIR"] = ENV["AERON_DIR"]
-    end
-    driver_cfg = load_driver_config(driver_cfg_path; env = env_driver)
+    driver_cfg = from_toml(DriverConfig, driver_cfg_path; env = true)
     stream_id = first_stream_id(driver_cfg)
 
     env = Dict(ENV)
@@ -175,13 +172,18 @@ function run_producer(driver_cfg_path::String, count::Int, payload_bytes::Int)
         noop_qos!(_, _) = nothing
         noop_frame!(_, _, _) = nothing
         callbacks = ProducerCallbacks(; on_qos_producer! = AppProducerOnQos())
-        handle = attach(
-            tp_client,
-            producer_cfg;
-            discover = false,
-            callbacks = callbacks,
-            qos_monitor = qos_monitor,
-        )
+        handle = try
+            attach(
+                tp_client,
+                producer_cfg;
+                discover = false,
+                callbacks = callbacks,
+                qos_monitor = qos_monitor,
+            )
+        catch err
+            report_script_error(err)
+            rethrow()
+        end
         state = AeronTensorPool.handle_state(handle)
         @info "Producer driver lease" lease_id = handle.driver_client.lease_id stream_id =
             handle.driver_client.stream_id
