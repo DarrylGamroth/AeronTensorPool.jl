@@ -55,13 +55,13 @@ end
         desc_poller = FrameDescriptorPoller(tp_client, "aeron:ipc", Int32(15501), desc_handler)
         buf, _ = build_frame_descriptor(seq = UInt64(1))
         unsafe_buf = UnsafeArrays.UnsafeArray{UInt8, 1}(pointer(buf), (length(buf),))
-        @test AeronTensorPool.Control.handle_frame_descriptor!(desc_poller, unsafe_buf)
+        @test AeronTensorPool.Control.handle_control_message!(desc_poller, unsafe_buf)
         @test called[]
 
         called[] = false
         header = MessageHeader.Encoder(buf)
         MessageHeader.schemaId!(header, UInt16(999))
-        @test !AeronTensorPool.Control.handle_frame_descriptor!(desc_poller, unsafe_buf)
+        @test !AeronTensorPool.Control.handle_control_message!(desc_poller, unsafe_buf)
         @test !called[]
 
         MessageHeader.schemaId!(header, MessageHeader.sbe_schema_id(MessageHeader.Encoder))
@@ -69,7 +69,7 @@ end
             header,
             UInt16(FrameDescriptor.sbe_schema_version(FrameDescriptor.Decoder) + 1),
         )
-        @test !AeronTensorPool.Control.handle_frame_descriptor!(desc_poller, unsafe_buf)
+        @test !AeronTensorPool.Control.handle_control_message!(desc_poller, unsafe_buf)
         @test !called[]
         close(desc_poller)
 
@@ -78,13 +78,13 @@ end
         config_poller = ConsumerConfigPoller(tp_client, "aeron:ipc", Int32(15502), config_handler)
         config_buf = build_consumer_config_buf()
         config_unsafe = UnsafeArrays.UnsafeArray{UInt8, 1}(pointer(config_buf), (length(config_buf),))
-        @test AeronTensorPool.Control.handle_consumer_config!(config_poller, config_unsafe)
+        @test AeronTensorPool.Control.handle_control_message!(config_poller, config_unsafe)
         @test config_called[]
 
         config_called[] = false
         config_header = MessageHeader.Encoder(config_buf)
         MessageHeader.templateId!(config_header, UInt16(0))
-        @test !AeronTensorPool.Control.handle_consumer_config!(config_poller, config_unsafe)
+        @test !AeronTensorPool.Control.handle_control_message!(config_poller, config_unsafe)
         @test !config_called[]
         close(config_poller)
 
@@ -93,13 +93,13 @@ end
         progress_poller = FrameProgressPoller(tp_client, "aeron:ipc", Int32(15503), progress_handler)
         progress_buf = build_frame_progress_buf()
         progress_unsafe = UnsafeArrays.UnsafeArray{UInt8, 1}(pointer(progress_buf), (length(progress_buf),))
-        @test AeronTensorPool.Control.handle_frame_progress!(progress_poller, progress_unsafe)
+        @test AeronTensorPool.Control.handle_control_message!(progress_poller, progress_unsafe)
         @test progress_called[]
 
         progress_called[] = false
         progress_header = MessageHeader.Encoder(progress_buf)
         MessageHeader.schemaId!(progress_header, UInt16(999))
-        @test !AeronTensorPool.Control.handle_frame_progress!(progress_poller, progress_unsafe)
+        @test !AeronTensorPool.Control.handle_control_message!(progress_poller, progress_unsafe)
         @test !progress_called[]
 
         rebind!(progress_poller, "aeron:ipc", Int32(15504))

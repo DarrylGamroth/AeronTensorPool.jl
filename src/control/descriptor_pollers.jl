@@ -73,7 +73,7 @@ function FrameDescriptorPoller(
         handler,
     )
     poller.assembler = Aeron.FragmentAssembler(Aeron.FragmentHandler(poller) do plr, buffer, _
-        handle_frame_descriptor!(plr, buffer)
+        handle_control_message!(plr, buffer)
         nothing
     end)
     return poller
@@ -105,7 +105,7 @@ function ConsumerConfigPoller(
         handler,
     )
     poller.assembler = Aeron.FragmentAssembler(Aeron.FragmentHandler(poller) do plr, buffer, _
-        handle_consumer_config!(plr, buffer)
+        handle_control_message!(plr, buffer)
         nothing
     end)
     return poller
@@ -137,7 +137,7 @@ function FrameProgressPoller(
         handler,
     )
     poller.assembler = Aeron.FragmentAssembler(Aeron.FragmentHandler(poller) do plr, buffer, _
-        handle_frame_progress!(plr, buffer)
+        handle_control_message!(plr, buffer)
         nothing
     end)
     return poller
@@ -188,21 +188,6 @@ end
     return nothing
 end
 
-@inline function control_message_dispatch!(::DescriptorMessageKind, poller::FrameDescriptorPoller)
-    poller.handler(poller, poller.decoder)
-    return nothing
-end
-
-@inline function control_message_dispatch!(::ConsumerConfigMessageKind, poller::ConsumerConfigPoller)
-    poller.handler(poller, poller.decoder)
-    return nothing
-end
-
-@inline function control_message_dispatch!(::FrameProgressMessageKind, poller::FrameProgressPoller)
-    poller.handler(poller, poller.decoder)
-    return nothing
-end
-
 @inline function handle_control_message!(poller::AbstractControlPoller, buffer::AbstractVector{UInt8})
     kind = control_message_kind(poller)
     header = MessageHeader.Decoder(buffer, 0)
@@ -214,7 +199,7 @@ end
         return false
     end
     control_message_wrap!(kind, poller, buffer, header)
-    control_message_dispatch!(kind, poller)
+    poller.handler(poller, poller.decoder)
     return true
 end
 
@@ -239,16 +224,4 @@ Close the poller's subscription.
 function Base.close(poller::AbstractControlPoller)
     close(poller.subscription)
     return nothing
-end
-
-function handle_frame_descriptor!(poller::FrameDescriptorPoller, buffer::AbstractVector{UInt8})
-    return handle_control_message!(poller, buffer)
-end
-
-function handle_consumer_config!(poller::ConsumerConfigPoller, buffer::AbstractVector{UInt8})
-    return handle_control_message!(poller, buffer)
-end
-
-function handle_frame_progress!(poller::FrameProgressPoller, buffer::AbstractVector{UInt8})
-    return handle_control_message!(poller, buffer)
 end
