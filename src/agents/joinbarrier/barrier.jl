@@ -228,39 +228,83 @@ end
     )
 end
 
-function sequence_ready!(state::JoinBarrierState, out_seq::UInt64, now_ns::UInt64)
+abstract type JoinBarrierRuleStyle end
+struct SequenceRuleStyle <: JoinBarrierRuleStyle end
+struct TimestampRuleStyle <: JoinBarrierRuleStyle end
+
+@inline function barrier_accept_output!(::SequenceRuleStyle, state::JoinBarrierState, out_value::UInt64)
+    if state.seen_out_seq && out_value < state.last_out_seq
+        state.output_rejected = true
+        return false
+    end
+    state.last_out_seq = out_value
+    state.seen_out_seq = true
+    return true
+end
+
+@inline function barrier_accept_output!(::TimestampRuleStyle, state::JoinBarrierState, out_value::UInt64)
+    if state.seen_out_time && out_value < state.last_out_time
+        state.output_rejected = true
+        return false
+    end
+    state.last_out_time = out_value
+    state.seen_out_time = true
+    return true
+end
+
+@inline barrier_map(::SequenceRuleStyle, state::JoinBarrierState) = state.sequence_map
+@inline barrier_map(::TimestampRuleStyle, state::JoinBarrierState) = state.timestamp_map
+
+@inline barrier_required(::SequenceRuleStyle, rule, out_value::UInt64, _lateness_ns::UInt64) =
+    sequence_required_seq(rule, out_value)
+@inline barrier_required(::TimestampRuleStyle, rule, out_value::UInt64, lateness_ns::UInt64) =
+    timestamp_required_time(rule, out_value, lateness_ns)
+
+@inline barrier_observed(::SequenceRuleStyle, state::JoinBarrierState, idx::Int) = state.observed_seq[idx]
+@inline barrier_observed(::TimestampRuleStyle, state::JoinBarrierState, idx::Int) = state.observed_time[idx]
+
+@inline barrier_processed(::SequenceRuleStyle, state::JoinBarrierState, idx::Int) = state.processed_seq[idx]
+@inline barrier_processed(::TimestampRuleStyle, state::JoinBarrierState, idx::Int) = state.processed_time[idx]
+
+@inline barrier_lateness(::SequenceRuleStyle, state::JoinBarrierState) = UInt64(0)
+@inline barrier_lateness(::TimestampRuleStyle, state::JoinBarrierState) = state.lateness_ns
+
+function barrier_ready!(
+    style::JoinBarrierRuleStyle,
+    state::JoinBarrierState,
+    out_value::UInt64,
+    now_ns::UInt64,
+)
     reset_result!(state.result)
     if state.output_rejected
         state.result.output_rejected = true
         return state.result
     end
-    if state.seen_out_seq && out_seq < state.last_out_seq
-        state.output_rejected = true
+    if !barrier_accept_output!(style, state, out_value)
         state.result.output_rejected = true
         return state.result
     end
-    state.last_out_seq = out_seq
-    state.seen_out_seq = true
 
-    map = state.sequence_map
+    map = barrier_map(style, state)
     map === nothing && return state.result
 
     stale_timeout = state.stale_timeout_ns
     use_processed = state.config.use_processed_cursor
+    lateness_ns = barrier_lateness(style, state)
     for (i, rule) in enumerate(map.rules)
         if state.rejected_inputs[i]
             state.result.rejected_count += 1
             state.result.rejected_inputs[state.result.rejected_count] = rule.input_stream_id
             continue
         end
-        required = sequence_required_seq(rule, out_seq)
+        required = barrier_required(style, rule, out_value, lateness_ns)
         if required === nothing
             state.result.missing_count += 1
             state.result.missing_inputs[state.result.missing_count] = rule.input_stream_id
             continue
         end
-        observed = state.observed_seq[i]
-        processed = state.processed_seq[i]
+        observed = barrier_observed(style, state, i)
+        processed = barrier_processed(style, state, i)
         if observed < required || (use_processed && processed < required)
             if stale_timeout !== nothing && state.last_observed_ns[i] != 0 &&
                now_ns - state.last_observed_ns[i] > stale_timeout
@@ -277,54 +321,12 @@ function sequence_ready!(state::JoinBarrierState, out_seq::UInt64, now_ns::UInt6
     return state.result
 end
 
+function sequence_ready!(state::JoinBarrierState, out_seq::UInt64, now_ns::UInt64)
+    return barrier_ready!(SequenceRuleStyle(), state, out_seq, now_ns)
+end
+
 function timestamp_ready!(state::JoinBarrierState, out_time::UInt64, now_ns::UInt64)
-    reset_result!(state.result)
-    if state.output_rejected
-        state.result.output_rejected = true
-        return state.result
-    end
-    if state.seen_out_time && out_time < state.last_out_time
-        state.output_rejected = true
-        state.result.output_rejected = true
-        return state.result
-    end
-    state.last_out_time = out_time
-    state.seen_out_time = true
-
-    map = state.timestamp_map
-    map === nothing && return state.result
-
-    stale_timeout = state.stale_timeout_ns
-    use_processed = state.config.use_processed_cursor
-    lateness_ns = state.lateness_ns
-    for (i, rule) in enumerate(map.rules)
-        if state.rejected_inputs[i]
-            state.result.rejected_count += 1
-            state.result.rejected_inputs[state.result.rejected_count] = rule.input_stream_id
-            continue
-        end
-        required = timestamp_required_time(rule, out_time, lateness_ns)
-        if required === nothing
-            state.result.missing_count += 1
-            state.result.missing_inputs[state.result.missing_count] = rule.input_stream_id
-            continue
-        end
-        observed = state.observed_time[i]
-        processed = state.processed_time[i]
-        if observed < required || (use_processed && processed < required)
-            if stale_timeout !== nothing && state.last_observed_ns[i] != 0 &&
-               now_ns - state.last_observed_ns[i] > stale_timeout
-                state.result.stale_count += 1
-                state.result.stale_inputs[state.result.stale_count] = rule.input_stream_id
-            else
-                state.result.missing_count += 1
-                state.result.missing_inputs[state.result.missing_count] = rule.input_stream_id
-            end
-        end
-    end
-
-    state.result.ready = state.result.missing_count == 0 && state.result.rejected_count == 0
-    return state.result
+    return barrier_ready!(TimestampRuleStyle(), state, out_time, now_ns)
 end
 
 function latest_value_ready!(state::JoinBarrierState, now_ns::UInt64)

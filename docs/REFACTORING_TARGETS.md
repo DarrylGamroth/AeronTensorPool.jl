@@ -108,7 +108,7 @@ progress and refer to remaining items.
 ### 13) Trait-based JoinBarrier rule handling
 - Goal: use traits to unify sequence/timestamp rule handling where appropriate.
 - Rationale: reduce branching while keeping type-stable paths.
-- Status: deferred.
+- Status: completed (refactor/targets-10-14).
 - Effort rank: 11
 - Dependencies: none.
 - Notes: avoid traits for runtime config flags; restrict to concrete rule types.
