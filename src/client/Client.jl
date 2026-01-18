@@ -2,6 +2,7 @@ module Client
 
 using Agent
 using ..Core
+import ..Core: control_runtime
 using ..Core.TPLog: @tp_debug, @tp_info, @tp_warn, @tp_error
 using ..Aeron
 using ..Control

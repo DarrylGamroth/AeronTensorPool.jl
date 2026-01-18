@@ -587,3 +587,18 @@ Default tests: test/test_tracelink.jl, test/test_bridge_tracelink_chunks.jl
 | docs/SHM_TraceLink_Spec_v1.0.md:264 | - Persistence implementations SHOULD batch writes (e.g., 10–100 ms | src/agents/tracelink, src/agents/bridge/proxy.jl | test/test_tracelink.jl, test/test_bridge_tracelink_chunks.jl | Mapped |  |
 | docs/SHM_TraceLink_Spec_v1.0.md:267 | Tracing loss MUST NOT affect correctness. | src/agents/tracelink, src/agents/bridge/proxy.jl | test/test_tracelink.jl, test/test_bridge_tracelink_chunks.jl | Mapped |  |
 | docs/SHM_TraceLink_Spec_v1.0.md:322 | Encoders MUST set `parents` group length (`numInGroup`) to at least 1 and MUST | src/agents/tracelink, src/agents/bridge/proxy.jl | test/test_tracelink.jl, test/test_bridge_tracelink_chunks.jl | Mapped |  |
+
+## docs/CLIENT_RUNTIME_INTERFACE.md
+
+Default code refs: src/core/client_interface.jl, src/client/context.jl, src/client/runtime.jl
+Default tests: test/test_client_interface_contract.jl, test/test_client_api.jl
+
+| Requirement ID | Requirement | Code refs | Test refs | Status | Notes |
+| --- | --- | --- | --- | --- | --- |
+| docs/CLIENT_RUNTIME_INTERFACE.md:9 | Implementations MUST provide `client_context(client)` that returns a stable `TensorPoolContext` instance for the lifetime of the client. | src/core/client_interface.jl, src/client/context.jl, src/client/runtime.jl | test/test_client_interface_contract.jl | Mapped |  |
+| docs/CLIENT_RUNTIME_INTERFACE.md:10 | Implementations MUST provide `aeron_client(client)` that returns the `Aeron.Client` handle used for Aeron publications/subscriptions. | src/core/client_interface.jl, src/client/context.jl, src/client/runtime.jl | test/test_client_interface_contract.jl | Mapped |  |
+| docs/CLIENT_RUNTIME_INTERFACE.md:11 | Implementations MUST implement `Base.close` to release only resources they own and MUST NOT close externally owned handles. | src/client/context.jl, src/client/runtime.jl | test/test_client_api.jl, test/test_client_interface_contract.jl | Mapped |  |
+| docs/CLIENT_RUNTIME_INTERFACE.md:12 | Implementations SHOULD provide `control_runtime(client)` that returns a `ControlPlaneRuntime` when available, or `nothing` when absent. | src/core/client_interface.jl, src/client/runtime.jl | test/test_client_interface_contract.jl | Mapped |  |
+| docs/CLIENT_RUNTIME_INTERFACE.md:19 | `do_work(client)` MUST return `0` when invoker mode is disabled and MUST delegate to `Aeron.do_work` when invoker mode is enabled. | src/client/context.jl | test/test_client_api.jl, test/test_client_interface_contract.jl | Mapped |  |
+| docs/CLIENT_RUNTIME_INTERFACE.md:22 | When constructed with `create_control=true`, `control_runtime` MUST return a non-`nothing` `ControlPlaneRuntime`. | src/client/runtime.jl | test/test_client_interface_contract.jl | Mapped |  |
+| docs/CLIENT_RUNTIME_INTERFACE.md:23 | When constructed with `create_control=false`, `control_runtime` MUST return `nothing`. | src/client/runtime.jl | test/test_client_interface_contract.jl | Mapped |  |

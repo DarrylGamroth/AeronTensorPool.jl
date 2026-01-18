@@ -97,3 +97,5 @@ function Base.close(runtime::TensorPoolRuntime)
     end
     return nothing
 end
+
+control_runtime(runtime::TensorPoolRuntime) = runtime.control

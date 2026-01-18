@@ -14,7 +14,7 @@ Correctness legend:
 - Noncompliant
 - N/A
 
-Last updated: 2026-01-15
+Last updated: 2026-01-17
 
 Traceability: `docs/SPEC_TRACEABILITY_MATRIX.md` provides per-requirement code/test mapping. Spec versions are locked in `docs/SPEC_LOCK.toml`.
 
@@ -118,3 +118,13 @@ Known gaps / open questions:
 | 1–4 Scope/Ids/Encoding | Implemented | Compliant | TraceLink publisher + helpers in `src/client/tracelink.jl`. |
 | 5 TraceLinkSet | Implemented | Compliant | Parent validation + encode/decode tests. |
 | 6 Bridge forwarding | Implemented | Compliant | Forwarding in `src/agents/bridge/proxy.jl`. |
+
+---
+
+## CLIENT_RUNTIME_INTERFACE.md
+
+| Section | Status | Correctness | Notes / Evidence |
+| --- | --- | --- | --- |
+| AbstractTensorPoolClient contract | Implemented | Compliant | `src/core/client_interface.jl`, `test/test_client_interface_contract.jl`. |
+| TensorPoolClient do_work | Implemented | Compliant | `src/client/context.jl`, `test/test_client_api.jl`. |
+| TensorPoolRuntime control_runtime | Implemented | Compliant | `src/client/runtime.jl`, `test/test_client_interface_contract.jl`. |

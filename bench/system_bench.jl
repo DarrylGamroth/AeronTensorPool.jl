@@ -378,6 +378,9 @@ function run_system_bench(
                     env = Dict(ENV)
                     env["AERON_DIR"] = Aeron.MediaDriver.aeron_dir(driver)
                     driver_cfg = load_driver_config(config_path; env = env)
+                    ctx = TensorPoolContext(driver_cfg.endpoints)
+                    tp_client = connect(ctx; aeron_client = client)
+                    try
                     stream, profile = stream_profile_from_driver(driver_cfg)
                     control_stream_id = driver_cfg.endpoints.control_stream_id
                     qos_stream_id = driver_cfg.endpoints.qos_stream_id
@@ -411,9 +414,9 @@ function run_system_bench(
                             consumed = Ref(0)
                             consumer_callbacks = make_counting_callbacks(consumed)
 
-                            producer_agent = ProducerAgent(producer_cfg; client = client)
-                            consumer_agent = ConsumerAgent(consumer_cfg; client = client, callbacks = consumer_callbacks)
-                            supervisor_agent = SupervisorAgent(supervisor_cfg; client = client)
+                            producer_agent = ProducerAgent(producer_cfg; client = tp_client)
+                            consumer_agent = ConsumerAgent(consumer_cfg; client = tp_client, callbacks = consumer_callbacks)
+                            supervisor_agent = SupervisorAgent(supervisor_cfg; client = tp_client)
                             system_agent = CompositeAgent(producer_agent, consumer_agent, supervisor_agent)
                             system_invoker = AgentInvoker(system_agent)
                             Agent.start(system_invoker)
@@ -679,6 +682,9 @@ function run_system_bench(
                             close(system_invoker)
                         end
                     end
+                    finally
+                        close(tp_client)
+                    end
                 end
             end
             return nothing
@@ -715,6 +721,9 @@ function run_bridge_bench_runners(
                     env = Dict(ENV)
                     env["AERON_DIR"] = Aeron.MediaDriver.aeron_dir(driver)
                     driver_cfg = load_driver_config(config_path; env = env)
+                    ctx = TensorPoolContext(driver_cfg.endpoints)
+                    tp_client = connect(ctx; aeron_client = client)
+                    try
                     stream, profile = stream_profile_from_driver(driver_cfg)
                     control_stream_id = driver_cfg.endpoints.control_stream_id
                     qos_stream_id = driver_cfg.endpoints.qos_stream_id
@@ -788,7 +797,7 @@ function run_bridge_bench_runners(
                                     dst_dir;
                                     producer_instance_id = "bench-dst",
                                 )
-                                producer_src_agent = ProducerAgent(producer_src_cfg; client = client)
+                                producer_src_agent = ProducerAgent(producer_src_cfg; client = tp_client)
 
                                 bridge_consumer_cfg = override_consumer_streams(
                                     base_consumer_cfg;
@@ -838,13 +847,13 @@ function run_bridge_bench_runners(
                                 consumed = Atomic{Int}(0)
                                 consumer_callbacks = make_atomic_callbacks(consumed)
                                 consumer_dst_agent =
-                                    ConsumerAgent(consumer_dst_cfg; client = client, callbacks = consumer_callbacks)
+                                    ConsumerAgent(consumer_dst_cfg; client = tp_client, callbacks = consumer_callbacks)
                                 bridge_agent = BridgeAgent(
                                     bridge_cfg,
                                     mapping,
                                     bridge_consumer_cfg,
                                     producer_dst_cfg;
-                                    client = client,
+                                    client = tp_client,
                                 )
                                 fetch!(bridge_agent.receiver.producer_state.clock)
                                 Producer.emit_announce!(bridge_agent.receiver.producer_state)
@@ -1022,6 +1031,9 @@ function run_bridge_bench_runners(
                             end
                         end
                     end
+                    finally
+                        close(tp_client)
+                    end
                 end
             end
             return nothing
@@ -1054,6 +1066,9 @@ function run_bridge_bench(
                     env = Dict(ENV)
                     env["AERON_DIR"] = Aeron.MediaDriver.aeron_dir(driver)
                     driver_cfg = load_driver_config(config_path; env = env)
+                    ctx = TensorPoolContext(driver_cfg.endpoints)
+                    tp_client = connect(ctx; aeron_client = client)
+                    try
                     stream, profile = stream_profile_from_driver(driver_cfg)
                     control_stream_id = driver_cfg.endpoints.control_stream_id
                     qos_stream_id = driver_cfg.endpoints.qos_stream_id
@@ -1127,7 +1142,7 @@ function run_bridge_bench(
                                     dst_dir;
                                     producer_instance_id = "bench-dst",
                                 )
-                                producer_src_agent = ProducerAgent(producer_src_cfg; client = client)
+                                producer_src_agent = ProducerAgent(producer_src_cfg; client = tp_client)
 
                                 bridge_consumer_cfg = override_consumer_streams(
                                     base_consumer_cfg;
@@ -1179,13 +1194,13 @@ function run_bridge_bench(
                                     ConsumerCallbacks(; on_frame! = (_, _) -> (consumed[] += 1))
                                 end
                                 consumer_dst_agent =
-                                    ConsumerAgent(consumer_dst_cfg; client = client, callbacks = consumer_callbacks)
+                                    ConsumerAgent(consumer_dst_cfg; client = tp_client, callbacks = consumer_callbacks)
                                 bridge_agent = BridgeAgent(
                                     bridge_cfg,
                                     mapping,
                                     bridge_consumer_cfg,
                                     producer_dst_cfg;
-                                    client = client,
+                                    client = tp_client,
                                 )
                                 producer_dst_work = let st = bridge_agent.receiver.producer_state
                                     ProducerWork(
@@ -1364,6 +1379,9 @@ function run_bridge_bench(
                                 close(producer_dst_invoker)
                             end
                         end
+                    end
+                    finally
+                        close(tp_client)
                     end
                 end
             end
