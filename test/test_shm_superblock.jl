@@ -96,7 +96,8 @@ end
     end
 
     for _ in 1:200
-        @test validate_superblock_fields(expected; expected_args...)
+        ok_expected = validate_superblock_fields(expected; expected_args...)
+        @test ok_expected
         which = rand(rng, 1:8)
         if which == 1
             fields = make_fields(magic = expected.magic + UInt64(1))
@@ -116,6 +117,7 @@ end
         else
             fields = make_fields(slot_bytes = expected.slot_bytes + UInt32(1))
         end
-        @test !validate_superblock_fields(fields; expected_args...)
+        ok_fields = validate_superblock_fields(fields; expected_args...)
+        @test !ok_fields
     end
 end
