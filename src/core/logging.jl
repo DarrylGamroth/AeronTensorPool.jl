@@ -111,9 +111,20 @@ end
     return nothing
 end
 
+function telemetry_arg_expr(arg)
+    if arg isa Expr && arg.head == :(=)
+        key = arg.args[1]
+        val = arg.args[2]
+        return :(Pair($(QuoteNode(key)), $val))
+    end
+    return arg
+end
+
 macro tp_debug(args...)
     mod = __module__
     tpmod = @__MODULE__
+    telemetry_args = map(telemetry_arg_expr, args)
+    telemetry_tuple = Expr(:tuple, telemetry_args...)
     return esc(quote
         local _tp = $tpmod
         local _telemetry_on = _tp.telemetry_enabled()
@@ -129,7 +140,7 @@ macro tp_debug(args...)
                 end
             end
             if _telemetry_on
-                _tp.emit_log!(_tp.telemetry_sink(), _tp.LEVEL_DEBUG, $(QuoteNode(mod)), ($(args...),))
+                _tp.emit_log!(_tp.telemetry_sink(), _tp.LEVEL_DEBUG, $(QuoteNode(mod)), $telemetry_tuple)
             end
         end
         nothing
@@ -139,6 +150,8 @@ end
 macro tp_info(args...)
     mod = __module__
     tpmod = @__MODULE__
+    telemetry_args = map(telemetry_arg_expr, args)
+    telemetry_tuple = Expr(:tuple, telemetry_args...)
     return esc(quote
         local _tp = $tpmod
         local _telemetry_on = _tp.telemetry_enabled()
@@ -154,7 +167,7 @@ macro tp_info(args...)
                 end
             end
             if _telemetry_on
-                _tp.emit_log!(_tp.telemetry_sink(), _tp.LEVEL_INFO, $(QuoteNode(mod)), ($(args...),))
+                _tp.emit_log!(_tp.telemetry_sink(), _tp.LEVEL_INFO, $(QuoteNode(mod)), $telemetry_tuple)
             end
         end
         nothing
@@ -164,6 +177,8 @@ end
 macro tp_warn(args...)
     mod = __module__
     tpmod = @__MODULE__
+    telemetry_args = map(telemetry_arg_expr, args)
+    telemetry_tuple = Expr(:tuple, telemetry_args...)
     return esc(quote
         local _tp = $tpmod
         local _telemetry_on = _tp.telemetry_enabled()
@@ -179,7 +194,7 @@ macro tp_warn(args...)
                 end
             end
             if _telemetry_on
-                _tp.emit_log!(_tp.telemetry_sink(), _tp.LEVEL_WARN, $(QuoteNode(mod)), ($(args...),))
+                _tp.emit_log!(_tp.telemetry_sink(), _tp.LEVEL_WARN, $(QuoteNode(mod)), $telemetry_tuple)
             end
         end
         nothing
@@ -189,6 +204,8 @@ end
 macro tp_error(args...)
     mod = __module__
     tpmod = @__MODULE__
+    telemetry_args = map(telemetry_arg_expr, args)
+    telemetry_tuple = Expr(:tuple, telemetry_args...)
     return esc(quote
         local _tp = $tpmod
         local _telemetry_on = _tp.telemetry_enabled()
@@ -204,7 +221,7 @@ macro tp_error(args...)
                 end
             end
             if _telemetry_on
-                _tp.emit_log!(_tp.telemetry_sink(), _tp.LEVEL_ERROR, $(QuoteNode(mod)), ($(args...),))
+                _tp.emit_log!(_tp.telemetry_sink(), _tp.LEVEL_ERROR, $(QuoteNode(mod)), $telemetry_tuple)
             end
         end
         nothing
