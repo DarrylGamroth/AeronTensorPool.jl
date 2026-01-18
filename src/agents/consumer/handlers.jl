@@ -232,24 +232,22 @@ function apply_consumer_config!(state::ConsumerState, msg::ConsumerConfigMsg.Dec
     if descriptor_assigned
         if state.assigned_descriptor_stream_id != descriptor_stream_id ||
             state.assigned_descriptor_channel != descriptor_channel
-            new_sub = Aeron.add_subscription(
+            state.runtime.sub_descriptor = rebind_subscription!(
                 state.runtime.control.client,
+                state.runtime.sub_descriptor,
                 descriptor_channel,
                 Int32(descriptor_stream_id),
             )
-            close(state.runtime.sub_descriptor)
-            state.runtime.sub_descriptor = new_sub
             state.assigned_descriptor_channel = descriptor_channel
             state.assigned_descriptor_stream_id = descriptor_stream_id
         end
     elseif state.assigned_descriptor_stream_id != 0
-        new_sub = Aeron.add_subscription(
+        state.runtime.sub_descriptor = rebind_subscription!(
             state.runtime.control.client,
+            state.runtime.sub_descriptor,
             state.config.aeron_uri,
             state.config.descriptor_stream_id,
         )
-        close(state.runtime.sub_descriptor)
-        state.runtime.sub_descriptor = new_sub
         state.assigned_descriptor_channel = ""
         state.assigned_descriptor_stream_id = UInt32(0)
     end
@@ -263,13 +261,12 @@ function apply_consumer_config!(state::ConsumerState, msg::ConsumerConfigMsg.Dec
     if control_assigned
         if state.assigned_control_stream_id != control_stream_id ||
             state.assigned_control_channel != control_channel
-            new_sub = Aeron.add_subscription(
+            state.runtime.sub_progress = rebind_subscription!(
                 state.runtime.control.client,
+                state.runtime.sub_progress,
                 control_channel,
                 Int32(control_stream_id),
             )
-            state.runtime.sub_progress === nothing || close(state.runtime.sub_progress)
-            state.runtime.sub_progress = new_sub
             state.assigned_control_channel = control_channel
             state.assigned_control_stream_id = control_stream_id
         end

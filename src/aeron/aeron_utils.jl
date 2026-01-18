@@ -71,3 +71,32 @@ function log_subscription_ready(label::AbstractString, sub::Aeron.Subscription, 
         Aeron.channel_status_indicator_id(sub)
     return nothing
 end
+
+"""
+Rebind a subscription to a new channel/stream.
+
+Returns the current subscription if unchanged, otherwise a new subscription.
+"""
+function rebind_subscription!(
+    client::Aeron.Client,
+    sub::Aeron.Subscription,
+    channel::AbstractString,
+    stream_id::Int32,
+)
+    if Aeron.channel(sub) == channel && Aeron.stream_id(sub) == stream_id
+        return sub
+    end
+    new_sub = Aeron.add_subscription(client, channel, stream_id)
+    close(sub)
+    return new_sub
+end
+
+function rebind_subscription!(
+    client::Aeron.Client,
+    sub::Union{Nothing, Aeron.Subscription},
+    channel::AbstractString,
+    stream_id::Int32,
+)
+    sub === nothing && return Aeron.add_subscription(client, channel, stream_id)
+    return rebind_subscription!(client, sub, channel, stream_id)
+end

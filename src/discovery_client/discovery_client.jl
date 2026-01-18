@@ -33,7 +33,8 @@ end
 """
 Poller for discovery responses (Aeron-style).
 """
-mutable struct DiscoveryResponsePoller
+mutable struct DiscoveryResponsePoller <: AbstractControlPoller
+    client::Aeron.Client
     subscription::Aeron.Subscription
     assembler::Aeron.FragmentAssembler
     response_decoder::DiscoveryResponse.Decoder{UnsafeArrays.UnsafeArray{UInt8, 1}}
@@ -42,6 +43,7 @@ end
 
 function DiscoveryResponsePoller(sub::Aeron.Subscription)
     poller = DiscoveryResponsePoller(
+        sub.client,
         sub,
         Aeron.FragmentAssembler(Aeron.FragmentHandler(nothing) do _, _, _
             nothing
@@ -55,6 +57,11 @@ function DiscoveryResponsePoller(sub::Aeron.Subscription)
         nothing
     end)
     return poller
+end
+
+function DiscoveryResponsePoller(client::Aeron.Client, channel::AbstractString, stream_id::UInt32)
+    sub = Aeron.add_subscription(client, channel, Int32(stream_id))
+    return DiscoveryResponsePoller(sub)
 end
 
 """
@@ -406,7 +413,7 @@ function poll_discovery_responses!(
     poller::DiscoveryResponsePoller,
     fragment_limit::Int32 = DEFAULT_FRAGMENT_LIMIT,
 )
-    return Aeron.poll(poller.subscription, poller.assembler, fragment_limit)
+    return poll!(poller, fragment_limit)
 end
 
 """

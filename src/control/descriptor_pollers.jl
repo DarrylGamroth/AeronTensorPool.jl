@@ -1,18 +1,6 @@
 import ..Timers: poll!
 
 """
-Abstract interface for control pollers.
-
-Required methods:
-- `poll!(poller, fragment_limit)`
-- `close(poller)`
-
-Optional:
-- `rebind!(poller, channel, stream_id)`
-"""
-abstract type AbstractControlPoller end
-
-"""
 Poller for FrameDescriptor messages.
 
 The poller owns its Aeron subscription and calls `handler(poller, decoder)` for
@@ -161,12 +149,7 @@ end
 Rebind a poller to a new channel/stream.
 """
 function rebind!(poller::AbstractControlPoller, channel::AbstractString, stream_id::Int32)
-    if Aeron.channel(poller.subscription) == channel && Aeron.stream_id(poller.subscription) == stream_id
-        return nothing
-    end
-    new_sub = Aeron.add_subscription(poller.client, channel, stream_id)
-    close(poller.subscription)
-    poller.subscription = new_sub
+    poller.subscription = rebind_subscription!(poller.client, poller.subscription, channel, stream_id)
     return nothing
 end
 

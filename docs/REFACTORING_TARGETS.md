@@ -84,7 +84,7 @@ progress and refer to remaining items.
 ### 10) Control/Discovery poller interface alignment
 - Goal: align `DiscoveryResponsePoller` and `DriverResponsePoller` with `AbstractControlPoller`.
 - Rationale: common `poll!`/`close!` interface for orchestration code.
-- Status: deferred.
+- Status: completed (refactor/targets-10-14).
 - Effort rank: 10
 - Dependencies: none.
 - Notes: avoid abstract storage in hot paths.
@@ -92,7 +92,7 @@ progress and refer to remaining items.
 ### 11) Subscription rebind helper
 - Goal: unify close/recreate logic for descriptor/control/progress subscriptions.
 - Rationale: avoid drift and edge-case leaks; keep per-consumer reassignment consistent.
-- Status: deferred.
+- Status: completed (refactor/targets-10-14).
 - Effort rank: 9
 - Dependencies: align poller interfaces (Control/Discovery) (optional).
 - Notes: should be explicit about channel/stream change detection and close ordering.

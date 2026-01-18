@@ -1,4 +1,16 @@
 """
+Abstract interface for control pollers.
+
+Required methods:
+- `poll!(poller, fragment_limit)`
+- `close(poller)`
+
+Optional:
+- `rebind!(poller, channel, stream_id)`
+"""
+abstract type AbstractControlPoller end
+
+"""
 Payload pool metadata from ShmAttachResponse.
 """
 mutable struct DriverPool
@@ -62,7 +74,8 @@ end
 """
 Poller for driver control-plane responses (Aeron-style).
 """
-mutable struct DriverResponsePoller
+mutable struct DriverResponsePoller <: AbstractControlPoller
+    client::Aeron.Client
     subscription::Aeron.Subscription
     assembler::Aeron.FragmentAssembler
     attach_decoder::ShmAttachResponse.Decoder{UnsafeArrays.UnsafeArray{UInt8, 1}}
@@ -86,6 +99,7 @@ end
 
 function DriverResponsePoller(sub::Aeron.Subscription)
     poller = DriverResponsePoller(
+        sub.client,
         sub,
         Aeron.FragmentAssembler(Aeron.FragmentHandler(nothing) do _, _, _
             nothing
@@ -116,6 +130,11 @@ function DriverResponsePoller(sub::Aeron.Subscription)
     return poller
 end
 
+function DriverResponsePoller(client::Aeron.Client, channel::AbstractString, stream_id::Int32)
+    sub = Aeron.add_subscription(client, channel, stream_id)
+    return DriverResponsePoller(sub)
+end
+
 """
 Poll responses and update the latest snapshot.
 
@@ -127,7 +146,7 @@ Returns:
 - Number of fragments processed.
 """
 function poll_driver_responses!(poller::DriverResponsePoller, fragment_limit::Int32 = DEFAULT_FRAGMENT_LIMIT)
-    return Aeron.poll(poller.subscription, poller.assembler, fragment_limit)
+    return poll!(poller, fragment_limit)
 end
 
 function handle_driver_response!(poller::DriverResponsePoller, buffer::AbstractVector{UInt8})
