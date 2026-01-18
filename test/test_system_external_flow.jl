@@ -87,8 +87,9 @@ profile = "camera"
                 close_external(driver_proc)
                 return @test ready_ok
             end
+            sleep(0.5)
             producer_proc = start_external_julia(
-                [producer_script, driver_cfg, "5", "256"];
+                [producer_script, driver_cfg, "25", "256"];
                 env = env_producer,
                 log_path = producer_log,
             )
