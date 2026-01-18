@@ -33,7 +33,7 @@ Traceability: `docs/SPEC_TRACEABILITY_MATRIX.md` provides per-requirement code/t
 | 10.2 Data Availability | Implemented | Compliant | Seqlock read algorithm in `src/agents/consumer/frames.jl`; FrameProgress emission exercised in `test/test_producer_progress_emit.jl`. |
 | 10.3 Metadata | Implemented | Compliant | `src/client/metadata.jl`, producer metadata publishing, tests. |
 | 10.4 QoS | Implemented | Compliant | QoS monitor + callbacks (`src/client/qos_monitor.jl`). |
-| 10.5 Supervisor | Implemented | Needs Review | Supervisor agent exists; coverage of "unified management" scenarios not fully exercised in tests. |
+| 10.5 Supervisor | Implemented | Compliant | `test/test_supervisor_integration.jl`, `test/test_supervisor_liveness.jl`. |
 | 11 Consumer Modes | Implemented | Compliant | RATE_LIMITED enforced in consumer (`should_process`). |
 | 12 Bridge Service | Implemented | Compliant | Bridging agents + tests; see Bridge spec v1.1 matrix. |
 | 15 Normative Requirements | Implemented | Compliant | Announce epoch preference, activity freshness, and seq regression handling enforced in consumer mapping/frames. |
