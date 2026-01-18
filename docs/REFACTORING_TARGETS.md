@@ -124,7 +124,7 @@ progress and refer to remaining items.
 ### 15) Poller unification (future)
 - Goal: align `DriverResponsePoller` and new descriptor/config/progress pollers under a shared interface and ownership model.
 - Rationale: consistent API surface and lifecycle.
-- Status: deferred; prioritize stable control-plane wiring first.
+- Status: completed (refactor/targets-15-18).
 - Effort rank: 14
 - Dependencies: align poller interfaces (Control/Discovery), subscription rebind helper.
 - Notes: add abstract interface (`poll!`, `close!`, optional `rebind!`) without forcing ownership changes.
@@ -132,7 +132,7 @@ progress and refer to remaining items.
 ### 16) Structured error categories
 - Goal: introduce typed error categories (`ProtocolError`, `ShmError`, `AeronError`) for debugging and interop.
 - Rationale: reduce string matching and make errors actionable across language bindings.
-- Status: deferred.
+- Status: completed (refactor/targets-15-18).
 - Effort rank: 16
 - Dependencies: none.
 - Notes: avoid adding allocations in hot paths.
