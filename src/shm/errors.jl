@@ -1,13 +1,13 @@
 """
 Raised when a shm:file URI is malformed or unsupported.
 """
-struct ShmUriError <: TensorPoolError
+struct ShmUriError <: ShmError
     message::String
 end
 
 """
 Raised when SHM validation fails (layout, hugepages, or sizing).
 """
-struct ShmValidationError <: TensorPoolError
+struct ShmValidationError <: ShmError
     message::String
 end

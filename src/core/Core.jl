@@ -17,6 +17,9 @@ include("messages.jl")
 include("errors.jl")
 
 export TensorPoolError,
+    ProtocolError,
+    ShmError,
+    AeronError,
     TelemetrySink,
     NoopTelemetrySink,
     telemetry_enabled,

@@ -1,6 +1,6 @@
 """
 Raised when bridge configuration is invalid.
 """
-struct BridgeConfigError <: TensorPoolError
+struct BridgeConfigError <: ProtocolError
     message::String
 end
