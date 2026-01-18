@@ -59,6 +59,7 @@ function init_driver(config::DriverConfig; client::Aeron.Client)
         ),
         (DriverAnnounceHandler(), DriverLeaseCheckHandler(), DriverShutdownHandler()),
     )
+    expired_leases = UInt64[]
 
     lifecycle = DriverLifecycle()
     state = DriverState(
@@ -78,6 +79,7 @@ function init_driver(config::DriverConfig; client::Aeron.Client)
         Dict{UInt32, UInt32}(),
         metrics,
         timer_set,
+        expired_leases,
         0,
         DriverShutdownReason.NORMAL,
         "",
@@ -181,7 +183,8 @@ function announce_all_streams!(state::DriverState)
 end
 
 function check_leases!(state::DriverState, now_ns::UInt64)
-    expired = UInt64[]
+    expired = state.expired_leases
+    empty!(expired)
     for (lease_id, lease) in state.leases
         if now_ns > lease.expiry_ns
             push!(expired, lease_id)

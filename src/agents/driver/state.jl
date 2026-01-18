@@ -77,6 +77,7 @@ mutable struct DriverState{ClockT}
         Tuple{PolledTimer, PolledTimer, PolledTimer},
         Tuple{DriverAnnounceHandler, DriverLeaseCheckHandler, DriverShutdownHandler},
     }
+    expired_leases::Vector{UInt64}
     work_count::Int
     shutdown_reason::DriverShutdownReason.SbeEnum
     shutdown_message::String
