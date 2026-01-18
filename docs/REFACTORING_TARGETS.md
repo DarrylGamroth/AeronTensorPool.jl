@@ -173,3 +173,6 @@ progress and refer to remaining items.
   - Migration (breaking change):
     - Remove public `Aeron.Client` constructors for agents; require `TensorPoolClient`/`TensorPoolRuntime`.
     - Update docs/examples and scripts in the same release; bump major/minor to signal the API break.
+  - Phases:
+    - Phase 1: update public API surface, docs/examples/tests to use client/runtime constructors.
+    - Phase 2: remove legacy agent constructors and add release notes for the breaking change.
