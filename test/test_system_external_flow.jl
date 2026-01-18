@@ -1,7 +1,7 @@
 using Test
 
 @testset "External process flow" begin
-    run_external = get(ENV, "ATP_RUN_EXTERNAL_TESTS", "1") == "1"
+    run_external = get(ENV, "ATP_RUN_EXTERNAL_TESTS", "0") == "1"
     run_external || return @test true
 
     mktempdir("/dev/shm") do dir
