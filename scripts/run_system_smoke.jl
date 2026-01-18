@@ -96,13 +96,14 @@ Aeron.MediaDriver.launch_embedded() do driver
     GC.@preserve driver mktempdir() do dir
         env = Dict(ENV)
         env["AERON_DIR"] = Aeron.MediaDriver.aeron_dir(driver)
-        driver_cfg = load_driver_config(config_path; env = env)
+        driver_cfg = from_toml(DriverConfig, config_path; env = env)
         stream, profile = first_stream_profile(driver_cfg)
         pools = [
             PayloadPoolConfig(pool.pool_id, "", pool.stride_bytes, profile.header_nslots) for pool in profile.payload_pools
         ]
         control_stream_id = driver_cfg.endpoints.control_stream_id
         qos_stream_id = driver_cfg.endpoints.qos_stream_id
+        control_channel = driver_cfg.endpoints.control_channel
         producer_cfg = default_producer_config(
             ;
             aeron_dir = env["AERON_DIR"],
@@ -139,52 +140,55 @@ Aeron.MediaDriver.launch_embedded() do driver
             mkpath(dirname(shm_path(pool.uri)))
         end
 
-        Aeron.Context() do context
-            Aeron.aeron_dir!(context, env["AERON_DIR"])
-            Aeron.Client(context) do client
-                producer = Producer.init_producer(producer_cfg; client = client)
-                consumer = Consumer.init_consumer(consumer_cfg; client = client)
-                supervisor = Supervisor.init_supervisor(supervisor_cfg; client = client)
+        ctx = TensorPoolContext(
+            ;
+            aeron_dir = env["AERON_DIR"],
+            control_channel = control_channel,
+            control_stream_id = control_stream_id,
+        )
+        with_runtime(ctx; create_control = false) do runtime
+            producer = Producer.init_producer(producer_cfg; client = runtime.aeron_client)
+            consumer = Consumer.init_consumer(consumer_cfg; client = runtime.aeron_client)
+            supervisor = Supervisor.init_supervisor(supervisor_cfg; client = runtime.aeron_client)
 
-                prod_ctrl = Producer.make_control_assembler(producer)
-                cons_ctrl = Consumer.make_control_assembler(consumer)
-                got_frame = Ref(false)
-                cons_desc = Aeron.FragmentAssembler(Aeron.FragmentHandler(consumer) do st, buffer, _
-                    header = MessageHeader.Decoder(buffer, 0)
-                    if MessageHeader.templateId(header) == AeronTensorPool.TEMPLATE_FRAME_DESCRIPTOR
-                        FrameDescriptor.wrap!(st.runtime.desc_decoder, buffer, 0; header = header)
-                        result = Consumer.try_read_frame!(st, st.runtime.desc_decoder)
-                        result === nothing || (got_frame[] = true)
-                    end
-                    nothing
-                end)
-                sup_ctrl = Supervisor.make_control_assembler(supervisor)
-                sup_qos = Supervisor.make_qos_assembler(supervisor)
-
-                payload = UInt8[1, 2, 3, 4]
-                shape = Int32[4]
-                strides = Int32[1]
-                published = false
-                start = time()
-
-                while time() - start < timeout_s
-                    Producer.producer_do_work!(producer, prod_ctrl)
-                    Consumer.consumer_do_work!(consumer, cons_desc, cons_ctrl)
-                    Supervisor.supervisor_do_work!(supervisor, sup_ctrl, sup_qos)
-
-                    if !published && consumer.mappings.header_mmap !== nothing
-                        Producer.offer_frame!(producer, payload, shape, strides, Dtype.UINT8, UInt32(0))
-                        published = true
-                    end
-
-                    if published && got_frame[]
-                        println("System smoke test completed.")
-                        return
-                    end
-                    yield()
+            prod_ctrl = Producer.make_control_assembler(producer)
+            cons_ctrl = Consumer.make_control_assembler(consumer)
+            got_frame = Ref(false)
+            cons_desc = Aeron.FragmentAssembler(Aeron.FragmentHandler(consumer) do st, buffer, _
+                header = MessageHeader.Decoder(buffer, 0)
+                if MessageHeader.templateId(header) == AeronTensorPool.TEMPLATE_FRAME_DESCRIPTOR
+                    FrameDescriptor.wrap!(st.runtime.desc_decoder, buffer, 0; header = header)
+                    result = Consumer.try_read_frame!(st, st.runtime.desc_decoder)
+                    result === nothing || (got_frame[] = true)
                 end
-                error("System smoke test timed out.")
+                nothing
+            end)
+            sup_ctrl = Supervisor.make_control_assembler(supervisor)
+            sup_qos = Supervisor.make_qos_assembler(supervisor)
+
+            payload = UInt8[1, 2, 3, 4]
+            shape = Int32[4]
+            strides = Int32[1]
+            published = false
+            start = time()
+
+            while time() - start < timeout_s
+                Producer.producer_do_work!(producer, prod_ctrl)
+                Consumer.consumer_do_work!(consumer, cons_desc, cons_ctrl)
+                Supervisor.supervisor_do_work!(supervisor, sup_ctrl, sup_qos)
+
+                if !published && consumer.mappings.header_mmap !== nothing
+                    Producer.offer_frame!(producer, payload, shape, strides, Dtype.UINT8, UInt32(0))
+                    published = true
+                end
+
+                if published && got_frame[]
+                    println("System smoke test completed.")
+                    return
+                end
+                yield()
             end
+            error("System smoke test timed out.")
         end
     end
 end

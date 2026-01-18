@@ -56,17 +56,20 @@ Aeron.MediaDriver.launch_embedded() do driver
         false,
     )
 
-    Aeron.Context() do context
-        Aeron.aeron_dir!(context, Aeron.MediaDriver.aeron_dir(driver))
-        Aeron.Client(context) do client
-            state = Producer.init_producer(producer_cfg; client = client)
-            close(state.runtime.pub_descriptor)
-            close(state.runtime.control.pub_control)
-            close(state.runtime.pub_qos)
-            close(state.runtime.pub_metadata)
-            close(state.runtime.control.sub_control)
-            close(state.runtime.sub_qos)
-        end
+    ctx = TensorPoolContext(
+        ;
+        aeron_dir = Aeron.MediaDriver.aeron_dir(driver),
+        control_channel = producer_cfg.aeron_uri,
+        control_stream_id = producer_cfg.control_stream_id,
+    )
+    with_runtime(ctx; create_control = false) do runtime
+        state = Producer.init_producer(producer_cfg; client = runtime.aeron_client)
+        close(state.runtime.pub_descriptor)
+        close(state.runtime.control.pub_control)
+        close(state.runtime.pub_qos)
+        close(state.runtime.pub_metadata)
+        close(state.runtime.control.sub_control)
+        close(state.runtime.sub_qos)
     end
 
     println("SHM layout created:")

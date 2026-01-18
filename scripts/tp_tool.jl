@@ -114,6 +114,28 @@ function parse_region_type(val::String)
     error("invalid region_type: $val (use header|payload)")
 end
 
+function tool_context(aeron_dir::String; control_channel::AbstractString = "aeron:ipc", control_stream_id::Int32 = Int32(0))
+    return TensorPoolContext(;
+        aeron_dir = aeron_dir,
+        control_channel = control_channel,
+        control_stream_id = control_stream_id,
+    )
+end
+
+function report_tool_error(err)
+    if err isa ProtocolError
+        println(stderr, "Protocol error: $(sprint(showerror, err))")
+        return true
+    elseif err isa ShmError
+        println(stderr, "SHM error: $(sprint(showerror, err))")
+        return true
+    elseif err isa AeronError
+        println(stderr, "Aeron error: $(sprint(showerror, err))")
+        return true
+    end
+    return false
+end
+
 function with_driver_client(
     f::Function,
     aeron_dir::String,
@@ -122,29 +144,25 @@ function with_driver_client(
     client_id::UInt32,
     role::DriverRole.SbeEnum,
 )
-    Aeron.Context() do ctx
-        Aeron.aeron_dir!(ctx, aeron_dir)
-        Aeron.Client(ctx) do client
-            state = init_driver_client(client, control_channel, control_stream, client_id, role)
+    ctx = tool_context(aeron_dir; control_channel = control_channel, control_stream_id = control_stream)
+    with_runtime(ctx; create_control = false) do runtime
+        state = init_driver_client(runtime.aeron_client, control_channel, control_stream, client_id, role)
+        try
+            return f(state)
+        finally
             try
-                return f(state)
-            finally
-                try
-                    close(state.pub)
-                    close(state.sub)
-                catch
-                end
+                close(state.pub)
+                close(state.sub)
+            catch
             end
         end
     end
 end
 
 function with_aeron_client(f::Function, aeron_dir::String)
-    Aeron.Context() do ctx
-        Aeron.aeron_dir!(ctx, aeron_dir)
-        Aeron.Client(ctx) do client
-            return f(client)
-        end
+    ctx = tool_context(aeron_dir)
+    with_runtime(ctx; create_control = false) do runtime
+        return f(runtime.aeron_client)
     end
 end
 
@@ -238,25 +256,23 @@ function with_discovery_client(
     response_stream_id::UInt32,
     client_id::UInt32,
 )
-    Aeron.Context() do ctx
-        Aeron.aeron_dir!(ctx, aeron_dir)
-        Aeron.Client(ctx) do client
-            state = init_discovery_client(
-                client,
-                request_channel,
-                request_stream_id,
-                response_channel,
-                response_stream_id,
-                client_id,
-            )
+    ctx = tool_context(aeron_dir)
+    with_runtime(ctx; create_control = false) do runtime
+        state = init_discovery_client(
+            runtime.aeron_client,
+            request_channel,
+            request_stream_id,
+            response_channel,
+            response_stream_id,
+            client_id,
+        )
+        try
+            return f(state)
+        finally
             try
-                return f(state)
-            finally
-                try
-                    close(state.pub)
-                    close(state.sub)
-                catch
-                end
+                close(state.pub)
+                close(state.sub)
+            catch
             end
         end
     end
@@ -386,78 +402,79 @@ function tp_tool_main(args::Vector{String})
     length(args) >= 1 || usage()
     cmd = args[1]
 
-    if cmd == "validate-uri"
-        uri = arg_or_env(args, 2, "TP_SHM_URI", identity)
-        println(validate_uri(uri))
-    elseif cmd == "read-superblock"
-        uri = arg_or_env(args, 2, "TP_SHM_URI", identity)
-        buf = mmap_shm(uri, SUPERBLOCK_SIZE)
-        decoder = ShmRegionSuperblock.Decoder(Vector{UInt8})
-        wrap_superblock!(decoder, buf)
-        fields = read_superblock(decoder)
-        println("magic=$(fields.magic)")
-        println("layout_version=$(fields.layout_version)")
-        println("epoch=$(fields.epoch)")
-        println("stream_id=$(fields.stream_id)")
-        println("region_type=$(fields.region_type)")
-        println("pool_id=$(fields.pool_id)")
-        println("nslots=$(fields.nslots)")
-        println("slot_bytes=$(fields.slot_bytes)")
-        println("stride_bytes=$(fields.stride_bytes)")
-        println("pid=$(fields.pid)")
-        println("start_timestamp_ns=$(fields.start_timestamp_ns)")
-        println("activity_timestamp_ns=$(fields.activity_timestamp_ns)")
-    elseif cmd == "read-header"
-        length(args) >= 3 || usage()
-        uri = arg_or_env(args, 2, "TP_SHM_URI", identity)
-        index = parse(Int, args[3])
-        index >= 0 || error("index must be >= 0")
-        size = SUPERBLOCK_SIZE + HEADER_SLOT_BYTES * (index + 1)
-        buf = mmap_shm(uri, size)
-        offset = header_slot_offset(index)
-        slot_dec = SlotHeaderMsg.Decoder(Vector{UInt8})
-        tensor_dec = TensorHeaderMsg.Decoder(Vector{UInt8})
-        wrap_slot_header!(slot_dec, buf, offset)
-        header = try_read_slot_header(slot_dec, tensor_dec)
-        header === nothing && error("invalid slot header")
-        println("seq_commit=$(header.seq_commit)")
-        println("seq=$(seqlock_sequence(header.seq_commit))")
-        println("timestamp_ns=$(header.timestamp_ns)")
-        println("meta_version=$(header.meta_version)")
-        println("values_len_bytes=$(header.values_len_bytes)")
-        println("payload_slot=$(header.payload_slot)")
-        println("payload_offset=$(header.payload_offset)")
-        println("pool_id=$(header.pool_id)")
-        println("dtype=$(header.tensor.dtype)")
-        println("major_order=$(header.tensor.major_order)")
-        println("ndims=$(header.tensor.ndims)")
-    elseif cmd == "shm-validate"
-        length(args) >= 9 || usage()
-        uri = arg_or_env(args, 2, "TP_SHM_URI", identity)
-        expected_layout_version = parse(UInt32, args[3])
-        expected_epoch = parse(UInt64, args[4])
-        expected_stream_id = parse(UInt32, args[5])
-        expected_nslots = parse(UInt32, args[6])
-        expected_slot_bytes = parse(UInt32, args[7])
-        expected_region_type = parse_region_type(args[8])
-        expected_pool_id = parse(UInt16, args[9])
-        buf = mmap_shm(uri, SUPERBLOCK_SIZE)
-        decoder = ShmRegionSuperblock.Decoder(Vector{UInt8})
-        wrap_superblock!(decoder, buf)
-        fields = read_superblock(decoder)
-        ok = validate_superblock_fields(
-            fields;
-            expected_layout_version = expected_layout_version,
-            expected_epoch = expected_epoch,
-            expected_stream_id = expected_stream_id,
-            expected_nslots = expected_nslots,
-            expected_slot_bytes = expected_slot_bytes,
-            expected_region_type = expected_region_type,
-            expected_pool_id = expected_pool_id,
-        )
-        println(ok)
-    elseif cmd == "shm-summary"
-        uri = arg_or_env(args, 2, "TP_SHM_URI", identity)
+    try
+        if cmd == "validate-uri"
+            uri = arg_or_env(args, 2, "TP_SHM_URI", identity)
+            println(validate_uri(uri))
+        elseif cmd == "read-superblock"
+            uri = arg_or_env(args, 2, "TP_SHM_URI", identity)
+            buf = mmap_shm(uri, SUPERBLOCK_SIZE)
+            decoder = ShmRegionSuperblock.Decoder(Vector{UInt8})
+            wrap_superblock!(decoder, buf)
+            fields = read_superblock(decoder)
+            println("magic=$(fields.magic)")
+            println("layout_version=$(fields.layout_version)")
+            println("epoch=$(fields.epoch)")
+            println("stream_id=$(fields.stream_id)")
+            println("region_type=$(fields.region_type)")
+            println("pool_id=$(fields.pool_id)")
+            println("nslots=$(fields.nslots)")
+            println("slot_bytes=$(fields.slot_bytes)")
+            println("stride_bytes=$(fields.stride_bytes)")
+            println("pid=$(fields.pid)")
+            println("start_timestamp_ns=$(fields.start_timestamp_ns)")
+            println("activity_timestamp_ns=$(fields.activity_timestamp_ns)")
+        elseif cmd == "read-header"
+            length(args) >= 3 || usage()
+            uri = arg_or_env(args, 2, "TP_SHM_URI", identity)
+            index = parse(Int, args[3])
+            index >= 0 || error("index must be >= 0")
+            size = SUPERBLOCK_SIZE + HEADER_SLOT_BYTES * (index + 1)
+            buf = mmap_shm(uri, size)
+            offset = header_slot_offset(index)
+            slot_dec = SlotHeaderMsg.Decoder(Vector{UInt8})
+            tensor_dec = TensorHeaderMsg.Decoder(Vector{UInt8})
+            wrap_slot_header!(slot_dec, buf, offset)
+            header = try_read_slot_header(slot_dec, tensor_dec)
+            header === nothing && error("invalid slot header")
+            println("seq_commit=$(header.seq_commit)")
+            println("seq=$(seqlock_sequence(header.seq_commit))")
+            println("timestamp_ns=$(header.timestamp_ns)")
+            println("meta_version=$(header.meta_version)")
+            println("values_len_bytes=$(header.values_len_bytes)")
+            println("payload_slot=$(header.payload_slot)")
+            println("payload_offset=$(header.payload_offset)")
+            println("pool_id=$(header.pool_id)")
+            println("dtype=$(header.tensor.dtype)")
+            println("major_order=$(header.tensor.major_order)")
+            println("ndims=$(header.tensor.ndims)")
+        elseif cmd == "shm-validate"
+            length(args) >= 9 || usage()
+            uri = arg_or_env(args, 2, "TP_SHM_URI", identity)
+            expected_layout_version = parse(UInt32, args[3])
+            expected_epoch = parse(UInt64, args[4])
+            expected_stream_id = parse(UInt32, args[5])
+            expected_nslots = parse(UInt32, args[6])
+            expected_slot_bytes = parse(UInt32, args[7])
+            expected_region_type = parse_region_type(args[8])
+            expected_pool_id = parse(UInt16, args[9])
+            buf = mmap_shm(uri, SUPERBLOCK_SIZE)
+            decoder = ShmRegionSuperblock.Decoder(Vector{UInt8})
+            wrap_superblock!(decoder, buf)
+            fields = read_superblock(decoder)
+            ok = validate_superblock_fields(
+                fields;
+                expected_layout_version = expected_layout_version,
+                expected_epoch = expected_epoch,
+                expected_stream_id = expected_stream_id,
+                expected_nslots = expected_nslots,
+                expected_slot_bytes = expected_slot_bytes,
+                expected_region_type = expected_region_type,
+                expected_pool_id = expected_pool_id,
+            )
+            println(ok)
+        elseif cmd == "shm-summary"
+            uri = arg_or_env(args, 2, "TP_SHM_URI", identity)
         buf = mmap_shm(uri, SUPERBLOCK_SIZE)
         decoder = ShmRegionSuperblock.Decoder(Vector{UInt8})
         wrap_superblock!(decoder, buf)
@@ -947,16 +964,23 @@ function tp_tool_main(args::Vector{String})
                 end
             end
         end
-    elseif cmd == "bridge-status"
-        length(args) >= 2 || usage()
-        aeron_dir = args[2]
-        filter = length(args) >= 3 ? args[3] : "Name=Bridge"
-        print_counters(aeron_dir; filter = filter)
-    else
-        usage()
+        elseif cmd == "bridge-status"
+            length(args) >= 2 || usage()
+            aeron_dir = args[2]
+            filter = length(args) >= 3 ? args[3] : "Name=Bridge"
+            print_counters(aeron_dir; filter = filter)
+        else
+            usage()
+        end
+    catch err
+        if report_tool_error(err)
+            return 1
+        end
+        rethrow()
     end
+    return 0
 end
 
 if abspath(PROGRAM_FILE) == @__FILE__
-    tp_tool_main(ARGS)
+    exit(tp_tool_main(ARGS))
 end

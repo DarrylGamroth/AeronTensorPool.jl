@@ -22,30 +22,33 @@ function run_agent(config_path::String)
     config, mappings = load_rate_limiter_config_with_env(config_path)
     core_id = haskey(ENV, "AGENT_TASK_CORE") ? parse(Int, ENV["AGENT_TASK_CORE"]) : nothing
 
-    Aeron.Context() do context
-        AeronTensorPool.set_aeron_dir!(context, config.aeron_dir)
-        Aeron.Client(context) do client
-            @info "RateLimiter agent init" aeron_dir = config.aeron_dir descriptor_channel =
-                config.descriptor_channel descriptor_stream_id = config.descriptor_stream_id mappings = length(mappings)
-            state = init_rate_limiter(config, mappings; client = client)
-            agent = RateLimiterAgent(state)
-            runner = AgentRunner(BackoffIdleStrategy(), agent)
-            if isnothing(core_id)
-                Agent.start_on_thread(runner)
+    ctx = TensorPoolContext(
+        ;
+        aeron_dir = config.aeron_dir,
+        control_channel = config.control_channel,
+        control_stream_id = config.control_stream_id,
+    )
+    with_runtime(ctx; create_control = false) do runtime
+        @info "RateLimiter agent init" aeron_dir = config.aeron_dir descriptor_channel = config.descriptor_channel descriptor_stream_id =
+            config.descriptor_stream_id mappings = length(mappings)
+        state = init_rate_limiter(config, mappings; client = runtime.aeron_client)
+        agent = RateLimiterAgent(state)
+        runner = AgentRunner(BackoffIdleStrategy(), agent)
+        if isnothing(core_id)
+            Agent.start_on_thread(runner)
+        else
+            Agent.start_on_thread(runner, core_id)
+        end
+        try
+            wait(runner)
+        catch e
+            if e isa InterruptException
+                @info "Shutting down..."
             else
-                Agent.start_on_thread(runner, core_id)
+                @error "RateLimiter error" exception = (e, catch_backtrace())
             end
-            try
-                wait(runner)
-            catch e
-                if e isa InterruptException
-                    @info "Shutting down..."
-                else
-                    @error "RateLimiter error" exception = (e, catch_backtrace())
-                end
-            finally
-                close(runner)
-            end
+        finally
+            close(runner)
         end
     end
     return nothing

@@ -18,11 +18,12 @@ function resolve_aeron_dir(bridge_cfg::BridgeConfig)
 end
 
 function load_driver_overrides(path::String)
-    driver_cfg = load_driver_config(path)
+    driver_cfg = from_toml(DriverConfig, path; env = true)
     return (
         control_stream_id = driver_cfg.endpoints.control_stream_id,
         qos_stream_id = driver_cfg.endpoints.qos_stream_id,
         aeron_dir = driver_cfg.endpoints.aeron_dir,
+        control_channel = driver_cfg.endpoints.control_channel,
     )
 end
 
@@ -33,10 +34,12 @@ function run_agent(bridge_path::String, driver_path::Union{String, Nothing})
     aeron_dir = resolve_aeron_dir(bridge_cfg)
     control_stream_id = Int32(1000)
     qos_stream_id = Int32(1200)
+    control_channel = isempty(bridge_cfg.control_channel) ? "aeron:ipc" : bridge_cfg.control_channel
     if driver_path !== nothing
         overrides = load_driver_overrides(driver_path)
         control_stream_id = overrides.control_stream_id
         qos_stream_id = overrides.qos_stream_id
+        control_channel = overrides.control_channel
         if isempty(aeron_dir) && !isempty(overrides.aeron_dir)
             aeron_dir = overrides.aeron_dir
         end
@@ -45,6 +48,7 @@ function run_agent(bridge_path::String, driver_path::Union{String, Nothing})
     consumer_cfg = default_consumer_config(
         ;
         aeron_dir = aeron_dir,
+        aeron_uri = control_channel,
         stream_id = stream_id,
         control_stream_id = control_stream_id,
         qos_stream_id = qos_stream_id,
@@ -52,6 +56,7 @@ function run_agent(bridge_path::String, driver_path::Union{String, Nothing})
     producer_cfg = default_producer_config(
         ;
         aeron_dir = aeron_dir,
+        aeron_uri = control_channel,
         stream_id = stream_id,
         control_stream_id = control_stream_id,
         qos_stream_id = qos_stream_id,
@@ -59,29 +64,27 @@ function run_agent(bridge_path::String, driver_path::Union{String, Nothing})
 
     core_id = haskey(ENV, "AGENT_TASK_CORE") ? parse(Int, ENV["AGENT_TASK_CORE"]) : nothing
 
-    Aeron.Context() do context
-        AeronTensorPool.set_aeron_dir!(context, aeron_dir)
-        Aeron.Client(context) do client
-            @info "Bridge agent init" aeron_dir payload_channel = bridge_cfg.payload_channel payload_stream_id =
-                bridge_cfg.payload_stream_id
-            agent = BridgeSystemAgent(bridge_cfg, mappings, consumer_cfg, producer_cfg; client = client)
-            runner = AgentRunner(BackoffIdleStrategy(), agent)
-            if isnothing(core_id)
-                Agent.start_on_thread(runner)
+    ctx = TensorPoolContext(; aeron_dir = aeron_dir, control_channel = control_channel, control_stream_id = control_stream_id)
+    with_runtime(ctx; create_control = false) do runtime
+        @info "Bridge agent init" aeron_dir payload_channel = bridge_cfg.payload_channel payload_stream_id =
+            bridge_cfg.payload_stream_id
+        agent = BridgeSystemAgent(bridge_cfg, mappings, consumer_cfg, producer_cfg; client = runtime.aeron_client)
+        runner = AgentRunner(BackoffIdleStrategy(), agent)
+        if isnothing(core_id)
+            Agent.start_on_thread(runner)
+        else
+            Agent.start_on_thread(runner, core_id)
+        end
+        try
+            wait(runner)
+        catch e
+            if e isa InterruptException
+                @info "Shutting down..."
             else
-                Agent.start_on_thread(runner, core_id)
+                @error "Bridge error" exception = (e, catch_backtrace())
             end
-            try
-                wait(runner)
-            catch e
-                if e isa InterruptException
-                    @info "Shutting down..."
-                else
-                    @error "Bridge error" exception = (e, catch_backtrace())
-                end
-            finally
-                close(runner)
-            end
+        finally
+            close(runner)
         end
     end
     return nothing

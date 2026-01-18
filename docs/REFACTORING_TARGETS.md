@@ -39,7 +39,7 @@ progress and refer to remaining items.
 - Status: completed (refactor/targets-1-5).
 - Effort rank: 5
 - Dependencies: none.
-- Notes: added `from_toml(DriverConfig, ...)` with env mapping and overrides support.
+- Notes: added `from_toml(DriverConfig, ...)` with env mapping and overrides support; scripts now use `from_toml` (examples, smoke tests, interop helpers).
 
 ### 5) Script consolidation and CLI cleanup
 - Goal: consolidate redundant scripts (driver launcher, tp_tool wrapper) and simplify usage output.
@@ -135,7 +135,7 @@ progress and refer to remaining items.
 - Status: completed (refactor/targets-15-18).
 - Effort rank: 16
 - Dependencies: none.
-- Notes: avoid adding allocations in hot paths.
+- Notes: avoid adding allocations in hot paths; example scripts report protocol/SHM/Aeron errors at attach/discovery.
 
 ### 17) Agent lifecycle interface
 - Goal: define a small abstract interface for agent lifecycle (`init!`, `do_work!`, `close!`) and optional `rebind!`.
@@ -151,7 +151,7 @@ progress and refer to remaining items.
 - Status: completed (refactor/targets-15-18).
 - Effort rank: 17
 - Dependencies: agent lifecycle interface, do-block resource wrappers, config builder overlay (optional).
-- Notes: keep it optional to avoid forcing a single construction path.
+- Notes: keep it optional to avoid forcing a single construction path; scripts now use `with_runtime` for Aeron lifecycle.
 
 ### 19) Client vs agent API split
 - Goal: define a clearer split between `TensorPoolClient` and agent APIs (`ProducerAgent`/`ConsumerAgent`).

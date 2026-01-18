@@ -83,7 +83,7 @@ Aeron.MediaDriver.launch_embedded() do media_driver
         aeron_dir = Aeron.MediaDriver.aeron_dir(media_driver)
         write_driver_config(config_path, aeron_dir, shm_dir)
 
-        driver_state = Driver.init_driver(load_driver_config(config_path))
+        driver_state = Driver.init_driver(from_toml(DriverConfig, config_path; env = true))
         running = Ref(true)
         driver_task = @async begin
             while running[]

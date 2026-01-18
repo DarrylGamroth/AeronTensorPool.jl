@@ -190,104 +190,107 @@ function run_chain(bridge_a_path::String, bridge_b_path::String, duration_s::Flo
                 shm_base_dir = bridge_b_dir,
             )
 
-            Aeron.Context() do context
-                Aeron.aeron_dir!(context, aeron_dir)
-                Aeron.Client(context) do client
-                    producer_agent = ProducerAgent(producer_cfg; client = client)
-                    bridge_a_agent = BridgeAgent(
-                        bridge_a_cfg,
-                        mapping_a,
-                        bridge_a_consumer_cfg,
-                        bridge_a_producer_cfg;
-                        client = client,
-                    )
-                    bridge_b_agent = BridgeAgent(
-                        bridge_b_cfg,
-                        mapping_b,
-                        bridge_b_consumer_cfg,
-                        bridge_b_producer_cfg;
-                        client = client,
-                    )
+            ctx = TensorPoolContext(
+                ;
+                aeron_dir = aeron_dir,
+                control_channel = producer_cfg.aeron_uri,
+                control_stream_id = producer_cfg.control_stream_id,
+            )
+            with_runtime(ctx; create_control = false) do runtime
+                producer_agent = ProducerAgent(producer_cfg; client = runtime.aeron_client)
+                bridge_a_agent = BridgeAgent(
+                    bridge_a_cfg,
+                    mapping_a,
+                    bridge_a_consumer_cfg,
+                    bridge_a_producer_cfg;
+                    client = runtime.aeron_client,
+                )
+                bridge_b_agent = BridgeAgent(
+                    bridge_b_cfg,
+                    mapping_b,
+                    bridge_b_consumer_cfg,
+                    bridge_b_producer_cfg;
+                    client = runtime.aeron_client,
+                )
 
-                    received = Ref(0)
-                    callbacks = let received = received
-                        ConsumerCallbacks(; on_frame! = (_, _) -> (received[] += 1))
-                    end
-                    consumer_agent = ConsumerAgent(consumer_cfg; client = client, callbacks = callbacks)
-
-                    producer_invoker = AgentInvoker(producer_agent)
-                    bridge_a_invoker = AgentInvoker(bridge_a_agent)
-                    bridge_b_invoker = AgentInvoker(bridge_b_agent)
-                    consumer_invoker = AgentInvoker(consumer_agent)
-                    bridge_a_prod_invoker = AgentInvoker(
-                        ProducerWork(
-                            bridge_a_agent.receiver.producer_state,
-                            Producer.make_control_assembler(bridge_a_agent.receiver.producer_state),
-                            Producer.make_qos_assembler(bridge_a_agent.receiver.producer_state),
-                        ),
-                    )
-                    bridge_b_prod_invoker = AgentInvoker(
-                        ProducerWork(
-                            bridge_b_agent.receiver.producer_state,
-                            Producer.make_control_assembler(bridge_b_agent.receiver.producer_state),
-                            Producer.make_qos_assembler(bridge_b_agent.receiver.producer_state),
-                        ),
-                    )
-
-                    Agent.start(producer_invoker)
-                    Agent.start(bridge_a_invoker)
-                    Agent.start(bridge_b_invoker)
-                    Agent.start(consumer_invoker)
-                    Agent.start(bridge_a_prod_invoker)
-                    Agent.start(bridge_b_prod_invoker)
-
-                    payload = fill(UInt8(1), 1024)
-                    shape = Int32[1024]
-                    strides = Int32[1]
-
-                    wait_start = time_ns()
-                    wait_limit = wait_start + Int64(5e9)
-                    while (bridge_a_agent.sender.consumer_state.mappings.header_mmap === nothing ||
-                           bridge_b_agent.sender.consumer_state.mappings.header_mmap === nothing ||
-                           consumer_agent.state.mappings.header_mmap === nothing) &&
-                          time_ns() < wait_limit
-                        Agent.invoke(producer_invoker)
-                        Agent.invoke(bridge_a_invoker)
-                        Agent.invoke(bridge_b_invoker)
-                        Agent.invoke(consumer_invoker)
-                        Agent.invoke(bridge_a_prod_invoker)
-                        Agent.invoke(bridge_b_prod_invoker)
-                        yield()
-                    end
-
-                    start = time_ns()
-                    end_limit = start + Int64(round(duration_s * 1e9))
-                    while time_ns() < end_limit
-                        Agent.invoke(producer_invoker)
-                        Agent.invoke(bridge_a_invoker)
-                        Agent.invoke(bridge_b_invoker)
-                        Agent.invoke(consumer_invoker)
-                        Agent.invoke(bridge_a_prod_invoker)
-                        Agent.invoke(bridge_b_prod_invoker)
-                        if bridge_a_agent.sender.consumer_state.mappings.header_mmap !== nothing
-                            Producer.offer_frame!(producer_agent.state, payload, shape, strides, Dtype.UINT8, UInt32(0))
-                        end
-                        received[] > 0 && break
-                        yield()
-                    end
-
-                    if received[] == 0
-                        error("Bridge chain test did not receive frames")
-                    end
-                    @info "Bridge chain test received frames" count = received[]
-
-                    close(consumer_invoker)
-                    close(bridge_b_invoker)
-                    close(bridge_a_invoker)
-                    close(producer_invoker)
-                    close(bridge_b_prod_invoker)
-                    close(bridge_a_prod_invoker)
+                received = Ref(0)
+                callbacks = let received = received
+                    ConsumerCallbacks(; on_frame! = (_, _) -> (received[] += 1))
                 end
+                consumer_agent = ConsumerAgent(consumer_cfg; client = runtime.aeron_client, callbacks = callbacks)
+
+                producer_invoker = AgentInvoker(producer_agent)
+                bridge_a_invoker = AgentInvoker(bridge_a_agent)
+                bridge_b_invoker = AgentInvoker(bridge_b_agent)
+                consumer_invoker = AgentInvoker(consumer_agent)
+                bridge_a_prod_invoker = AgentInvoker(
+                    ProducerWork(
+                        bridge_a_agent.receiver.producer_state,
+                        Producer.make_control_assembler(bridge_a_agent.receiver.producer_state),
+                        Producer.make_qos_assembler(bridge_a_agent.receiver.producer_state),
+                    ),
+                )
+                bridge_b_prod_invoker = AgentInvoker(
+                    ProducerWork(
+                        bridge_b_agent.receiver.producer_state,
+                        Producer.make_control_assembler(bridge_b_agent.receiver.producer_state),
+                        Producer.make_qos_assembler(bridge_b_agent.receiver.producer_state),
+                    ),
+                )
+
+                Agent.start(producer_invoker)
+                Agent.start(bridge_a_invoker)
+                Agent.start(bridge_b_invoker)
+                Agent.start(consumer_invoker)
+                Agent.start(bridge_a_prod_invoker)
+                Agent.start(bridge_b_prod_invoker)
+
+                payload = fill(UInt8(1), 1024)
+                shape = Int32[1024]
+                strides = Int32[1]
+
+                wait_start = time_ns()
+                wait_limit = wait_start + Int64(5e9)
+                while (bridge_a_agent.sender.consumer_state.mappings.header_mmap === nothing ||
+                       bridge_b_agent.sender.consumer_state.mappings.header_mmap === nothing ||
+                       consumer_agent.state.mappings.header_mmap === nothing) &&
+                      time_ns() < wait_limit
+                    Agent.invoke(producer_invoker)
+                    Agent.invoke(bridge_a_invoker)
+                    Agent.invoke(bridge_b_invoker)
+                    Agent.invoke(consumer_invoker)
+                    Agent.invoke(bridge_a_prod_invoker)
+                    Agent.invoke(bridge_b_prod_invoker)
+                    yield()
+                end
+
+                start = time_ns()
+                end_limit = start + Int64(round(duration_s * 1e9))
+                while time_ns() < end_limit
+                    Agent.invoke(producer_invoker)
+                    Agent.invoke(bridge_a_invoker)
+                    Agent.invoke(bridge_b_invoker)
+                    Agent.invoke(consumer_invoker)
+                    Agent.invoke(bridge_a_prod_invoker)
+                    Agent.invoke(bridge_b_prod_invoker)
+                    if bridge_a_agent.sender.consumer_state.mappings.header_mmap !== nothing
+                        Producer.offer_frame!(producer_agent.state, payload, shape, strides, Dtype.UINT8, UInt32(0))
+                    end
+                    received[] > 0 && break
+                    yield()
+                end
+
+                if received[] == 0
+                    error("Bridge chain test did not receive frames")
+                end
+                @info "Bridge chain test received frames" count = received[]
+
+                close(consumer_invoker)
+                close(bridge_b_invoker)
+                close(bridge_a_invoker)
+                close(producer_invoker)
+                close(bridge_b_prod_invoker)
+                close(bridge_a_prod_invoker)
             end
         end
     end

@@ -14,29 +14,31 @@ function run_agent(config_path)
     config = from_toml(DriverConfig, config_path; env = true)
     core_id = haskey(ENV, "AGENT_TASK_CORE") ? parse(Int, ENV["AGENT_TASK_CORE"]) : nothing
 
-    Aeron.Context() do context
-        AeronTensorPool.set_aeron_dir!(context, config.endpoints.aeron_dir)
-        Aeron.Client(context) do client
-            @info "Driver agent init" aeron_dir = config.endpoints.aeron_dir control_channel =
-                config.endpoints.control_channel control_stream_id = config.endpoints.control_stream_id
-            agent = DriverAgent(config; client = client)
-            runner = AgentRunner(BackoffIdleStrategy(), agent)
-            if isnothing(core_id)
-                Agent.start_on_thread(runner)
+    ctx = TensorPoolContext(;
+        aeron_dir = config.endpoints.aeron_dir,
+        control_channel = config.endpoints.control_channel,
+        control_stream_id = config.endpoints.control_stream_id,
+    )
+    with_runtime(ctx; create_control = false) do runtime
+        @info "Driver agent init" aeron_dir = config.endpoints.aeron_dir control_channel =
+            config.endpoints.control_channel control_stream_id = config.endpoints.control_stream_id
+        agent = DriverAgent(config; client = runtime.aeron_client)
+        runner = AgentRunner(BackoffIdleStrategy(), agent)
+        if isnothing(core_id)
+            Agent.start_on_thread(runner)
+        else
+            Agent.start_on_thread(runner, core_id)
+        end
+        try
+            wait(runner)
+        catch e
+            if e isa InterruptException
+                @info "Shutting down..."
             else
-                Agent.start_on_thread(runner, core_id)
+                @error "Driver error" exception = (e, catch_backtrace())
             end
-            try
-                wait(runner)
-            catch e
-                if e isa InterruptException
-                    @info "Shutting down..."
-                else
-                    @error "Driver error" exception = (e, catch_backtrace())
-                end
-            finally
-                close(runner)
-            end
+        finally
+            close(runner)
         end
     end
     return nothing

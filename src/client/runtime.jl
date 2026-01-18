@@ -21,6 +21,7 @@ function TensorPoolRuntime(
     aeron_client::Union{Aeron.Client, Nothing} = nothing,
     aeron_context::Union{Aeron.Context, Nothing} = nothing,
     control_runtime::Union{ControlPlaneRuntime, Nothing} = nothing,
+    create_control::Bool = true,
     clock::Union{Clocks.CachedEpochClock{Clocks.MonotonicClock}, Nothing} = nothing,
 )
     local ctx = aeron_context
@@ -40,7 +41,7 @@ function TensorPoolRuntime(
 
     control = control_runtime
     owns_control = false
-    if control === nothing
+    if control === nothing && create_control
         pub_control = Aeron.add_publication(client, context.control_channel, context.control_stream_id)
         sub_control = Aeron.add_subscription(client, context.control_channel, context.control_stream_id)
         control = ControlPlaneRuntime(client, pub_control, sub_control)
@@ -62,6 +63,7 @@ function with_runtime(
     aeron_client::Union{Aeron.Client, Nothing} = nothing,
     aeron_context::Union{Aeron.Context, Nothing} = nothing,
     control_runtime::Union{ControlPlaneRuntime, Nothing} = nothing,
+    create_control::Bool = true,
     clock::Union{Clocks.CachedEpochClock{Clocks.MonotonicClock}, Nothing} = nothing,
 )
     runtime = TensorPoolRuntime(
@@ -69,6 +71,7 @@ function with_runtime(
         aeron_client = aeron_client,
         aeron_context = aeron_context,
         control_runtime = control_runtime,
+        create_control = create_control,
         clock = clock,
     )
     try
