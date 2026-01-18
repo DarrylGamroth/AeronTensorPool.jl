@@ -160,3 +160,16 @@ progress and refer to remaining items.
 - Effort rank: 18
 - Dependencies: agent client convenience wrappers (optional).
 - Notes: keep constructors thin; avoid coupling to `Aeron.Client`.
+- Proposal:
+  - Public split:
+    - Client layer (control plane + discovery + QoS/metadata): `connect`, `attach`, `request_attach`, `poll_attach!`,
+      `discover_streams!`, `poll_discovery!`, `QosMonitor`, `MetadataCache`, `TraceLink` helpers.
+    - Agent layer (data-plane loops): `ProducerAgent`, `ConsumerAgent`, `SupervisorAgent`, `BridgeAgent`, `RateLimiterAgent`,
+      and `*_do_work!` functions only.
+  - Ownership:
+    - `TensorPoolClient`/`TensorPoolRuntime` are the public owners of Aeron resources.
+    - Agent constructors accept `TensorPoolClient` (or `TensorPoolRuntime`) in the public API; raw `Aeron.Client`
+      constructors remain internal or deprecated later.
+  - Migration (breaking change):
+    - Remove public `Aeron.Client` constructors for agents; require `TensorPoolClient`/`TensorPoolRuntime`.
+    - Update docs/examples and scripts in the same release; bump major/minor to signal the API break.
