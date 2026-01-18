@@ -18,6 +18,7 @@ using UnsafeArrays
 import ..Agents.Producer: offer_frame!, try_claim_slot!, try_claim_slot_by_size!, commit_slot!, with_claimed_slot!, announce_data_source!, metadata_version, set_metadata_attribute!, set_metadata_attributes!, delete_metadata_attribute!, set_metadata!
 
 include("context.jl")
+include("runtime.jl")
 include("callbacks.jl")
 include("handles.jl")
 include("agent_wrappers.jl")
@@ -31,6 +32,7 @@ include("tracelink.jl")
 export DriverClientState,
     TensorPoolContext,
     TensorPoolClient,
+    TensorPoolRuntime,
     ConsumerHandle,
     ProducerHandle,
     ConsumerConnections,
@@ -39,6 +41,7 @@ export DriverClientState,
     ClientCallbacks,
     connect,
     with_client,
+    with_runtime,
     do_work,
     consumer_callbacks,
     consumer_connected,

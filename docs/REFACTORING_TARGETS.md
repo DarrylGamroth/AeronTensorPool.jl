@@ -140,15 +140,15 @@ progress and refer to remaining items.
 ### 17) Agent lifecycle interface
 - Goal: define a small abstract interface for agent lifecycle (`init!`, `do_work!`, `close!`) and optional `rebind!`.
 - Rationale: unify runner/supervisor patterns and simplify tests around agent ownership.
-- Status: deferred.
+- Status: completed (refactor/targets-15-18).
 - Effort rank: 15
 - Dependencies: none.
-- Notes: avoid abstract storage in hot paths; keep concrete state structs.
+- Notes: rely on Agent.jl lifecycle (`on_start`, `do_work`, `on_close`); rebind remains agent-specific.
 
 ### 18) TensorPoolRuntime ownership object
 - Goal: add a runtime object that owns `Aeron.Context`, `Aeron.Client`, clocks, and `ControlPlaneRuntime`.
 - Rationale: clear lifecycle management with `with_runtime do ... end`.
-- Status: deferred.
+- Status: completed (refactor/targets-15-18).
 - Effort rank: 17
 - Dependencies: agent lifecycle interface, do-block resource wrappers, config builder overlay (optional).
 - Notes: keep it optional to avoid forcing a single construction path.
