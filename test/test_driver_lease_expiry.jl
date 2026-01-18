@@ -32,10 +32,10 @@ using Test
                 streams,
             )
 
-            driver_state = init_driver(cfg; client = client)
+            driver_state = init_driver(cfg; client = client.aeron_client)
 
-            pub = Aeron.add_publication(client, "aeron:ipc", 13200)
-            sub = Aeron.add_subscription(client, "aeron:ipc", 13200)
+            pub = Aeron.add_publication(client.aeron_client, "aeron:ipc", 13200)
+            sub = Aeron.add_subscription(client.aeron_client, "aeron:ipc", 13200)
 
             attach_proxy = AttachRequestProxy(pub)
             poller = DriverResponsePoller(sub)

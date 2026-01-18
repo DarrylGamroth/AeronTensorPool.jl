@@ -1,7 +1,7 @@
 """
 Owning runtime for Aeron and control-plane resources.
 """
-mutable struct TensorPoolRuntime
+mutable struct TensorPoolRuntime <: AbstractTensorPoolClient
     context::TensorPoolContext
     aeron_context::Union{Aeron.Context, Nothing}
     aeron_client::Aeron.Client

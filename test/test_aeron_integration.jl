@@ -43,8 +43,8 @@ using UnsafeArrays
         ctrl_asm = Consumer.make_control_assembler(consumer_state)
         desc_asm = Consumer.make_descriptor_assembler(consumer_state)
 
-        pub_control = Aeron.add_publication(client, uri, control_stream)
-        pub_descriptor = Aeron.add_publication(client, uri, descriptor_stream)
+        pub_control = Aeron.add_publication(client.aeron_client, uri, control_stream)
+        pub_descriptor = Aeron.add_publication(client.aeron_client, uri, descriptor_stream)
         try
 
         claim = Aeron.BufferClaim()

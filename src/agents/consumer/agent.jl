@@ -14,7 +14,7 @@ Construct a ConsumerAgent from a ConsumerConfig.
 
 Arguments:
 - `config`: consumer settings.
-- `client`: Aeron client to use for publications/subscriptions.
+- `client`: TensorPool client (owns Aeron resources).
 - `callbacks`: optional consumer callbacks.
 
 Returns:
@@ -22,7 +22,7 @@ Returns:
 """
 function ConsumerAgent(
     config::ConsumerConfig;
-    client::Aeron.Client,
+    client::AbstractTensorPoolClient,
     callbacks::ConsumerCallbacks = NOOP_CONSUMER_CALLBACKS,
 )
     state = init_consumer(config; client = client)

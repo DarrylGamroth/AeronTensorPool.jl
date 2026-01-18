@@ -69,7 +69,7 @@ end
                 streams,
             )
 
-            driver_state = init_driver(cfg; client = client)
+            driver_state = init_driver(cfg; client = client.aeron_client)
 
             discovery_cfg = DiscoveryConfig(
                 uri,
@@ -100,7 +100,7 @@ end
             ann_asm = AeronTensorPool.Agents.Discovery.make_announce_assembler(discovery_state)
 
             discovery_client = init_discovery_client(
-                client,
+                client.aeron_client,
                 uri,
                 discovery_stream,
                 uri,
@@ -109,8 +109,7 @@ end
             )
             entries = Vector{DiscoveryEntry}()
 
-            producer_client = init_driver_client(
-                client,
+            producer_client = init_driver_client(client.aeron_client,
                 uri,
                 control_stream,
                 UInt32(10),
@@ -176,8 +175,7 @@ end
             @test entry.stream_id == stream_id
             @test entry.driver_control_stream_id == UInt32(control_stream)
 
-            consumer_client = init_driver_client(
-                client,
+            consumer_client = init_driver_client(client.aeron_client,
                 uri,
                 control_stream,
                 UInt32(20),

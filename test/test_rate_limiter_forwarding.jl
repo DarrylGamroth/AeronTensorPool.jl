@@ -48,7 +48,7 @@ using UnsafeArrays
             streams,
         )
 
-        driver_state = AeronTensorPool.init_driver(cfg; client = client)
+        driver_state = AeronTensorPool.init_driver(cfg; client = client.aeron_client)
 
         rl_cfg = AeronTensorPool.RateLimiterConfig(
             "rate-limiter-forward",
@@ -85,10 +85,10 @@ using UnsafeArrays
             driver_work_fn = () -> AeronTensorPool.driver_do_work!(driver_state),
         )
 
-        progress_pub = Aeron.add_publication(client, "aeron:ipc", rl_cfg.source_control_stream_id)
-        progress_sub = Aeron.add_subscription(client, "aeron:ipc", rl_cfg.dest_control_stream_id)
-        qos_pub = Aeron.add_publication(client, "aeron:ipc", rl_cfg.source_qos_stream_id)
-        qos_sub = Aeron.add_subscription(client, "aeron:ipc", rl_cfg.dest_qos_stream_id)
+        progress_pub = Aeron.add_publication(client.aeron_client, "aeron:ipc", rl_cfg.source_control_stream_id)
+        progress_sub = Aeron.add_subscription(client.aeron_client, "aeron:ipc", rl_cfg.dest_control_stream_id)
+        qos_pub = Aeron.add_publication(client.aeron_client, "aeron:ipc", rl_cfg.source_qos_stream_id)
+        qos_sub = Aeron.add_subscription(client.aeron_client, "aeron:ipc", rl_cfg.dest_qos_stream_id)
 
         connected = wait_for() do
             Aeron.is_connected(progress_pub) && Aeron.is_connected(progress_sub) &&

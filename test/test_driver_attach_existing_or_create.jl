@@ -44,10 +44,10 @@ using Test
             stream_id_range = AeronTensorPool.DriverStreamIdRange(UInt32(9000), UInt32(9001)),
         )
 
-        driver_state = AeronTensorPool.init_driver(cfg; client = client)
+        driver_state = AeronTensorPool.init_driver(cfg; client = client.aeron_client)
 
-        pub = Aeron.add_publication(client, endpoints.control_channel, endpoints.control_stream_id)
-        sub = Aeron.add_subscription(client, endpoints.control_channel, endpoints.control_stream_id)
+        pub = Aeron.add_publication(client.aeron_client, endpoints.control_channel, endpoints.control_stream_id)
+        sub = Aeron.add_subscription(client.aeron_client, endpoints.control_channel, endpoints.control_stream_id)
         attach_proxy = AeronTensorPool.AttachRequestProxy(pub)
         poller = AeronTensorPool.DriverResponsePoller(sub)
 

@@ -19,7 +19,7 @@
 
             producer = Producer.init_producer(producer_cfg; client = client)
             consumer = Consumer.init_consumer(consumer_cfg; client = client)
-            monitor = QosMonitor(consumer_cfg; client = client)
+            monitor = QosMonitor(consumer_cfg; client = client.aeron_client)
 
             try
                 Producer.emit_qos!(producer)

@@ -13,10 +13,10 @@ using Test
             1200,
         )
         ctx = TensorPoolContext(endpoints)
-        tp_client = connect(ctx; aeron_client = client)
-        @test isopen(client)
+        tp_client = connect(ctx; aeron_client = client.aeron_client)
+        @test isopen(client.aeron_client)
         close(tp_client)
-        @test isopen(client)
+        @test isopen(client.aeron_client)
     end
 end
 

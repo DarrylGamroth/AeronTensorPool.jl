@@ -62,7 +62,7 @@
                 false,
             )
             receiver = Bridge.init_bridge_receiver(bridge_cfg, mapping; producer_state = producer, client = client)
-            sub = Aeron.add_subscription(client, "aeron:ipc", mapping.dest_control_stream_id)
+            sub = Aeron.add_subscription(client.aeron_client, "aeron:ipc", mapping.dest_control_stream_id)
 
             buffer = Vector{UInt8}(undef, AeronTensorPool.FRAME_PROGRESS_LEN)
             enc = FrameProgress.Encoder(Vector{UInt8})

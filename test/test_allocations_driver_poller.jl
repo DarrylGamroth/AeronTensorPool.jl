@@ -1,6 +1,6 @@
 @testset "Allocation checks: driver response poller" begin
     with_driver_and_client() do media_driver, client
-        sub = Aeron.add_subscription(client, "aeron:ipc", Int32(15010))
+        sub = Aeron.add_subscription(client.aeron_client, "aeron:ipc", Int32(15010))
         poller = DriverResponsePoller(sub)
 
         buf = Vector{UInt8}(undef, 4096)

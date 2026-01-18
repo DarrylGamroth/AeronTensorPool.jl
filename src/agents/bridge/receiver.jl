@@ -5,7 +5,7 @@ Arguments:
 - `config`: bridge configuration.
 - `mapping`: bridge mapping definition.
 - `producer_state`: optional producer state for rematerialization.
-- `client`: Aeron client to use for publications/subscriptions.
+- `client`: Tensor pool client/runtime to use for publications/subscriptions.
 
 Returns:
 - `BridgeReceiverState` initialized for receiving.
@@ -14,7 +14,7 @@ function init_bridge_receiver(
     config::BridgeConfig,
     mapping::BridgeMapping;
     producer_state::Union{Nothing, ProducerState} = nothing,
-    client::Aeron.Client,
+    client::AbstractTensorPoolClient,
     callbacks::BridgeCallbacks = NOOP_BRIDGE_CALLBACKS,
 )
     if (config.forward_progress || config.forward_qos) &&
@@ -23,8 +23,9 @@ function init_bridge_receiver(
     end
     clock = Clocks.CachedEpochClock(Clocks.MonotonicClock())
 
-    sub_payload = Aeron.add_subscription(client, config.payload_channel, config.payload_stream_id)
-    sub_control = Aeron.add_subscription(client, config.control_channel, config.control_stream_id)
+    aeron_client = client.aeron_client
+    sub_payload = Aeron.add_subscription(aeron_client, config.payload_channel, config.payload_stream_id)
+    sub_control = Aeron.add_subscription(aeron_client, config.control_channel, config.control_stream_id)
 
     chunk_bytes = bridge_effective_chunk_bytes(config)
     max_payload = Int(config.max_payload_bytes)
@@ -67,18 +68,18 @@ function init_bridge_receiver(
     sub_metadata = nothing
     metadata_assembler = nothing
     if (config.forward_metadata || config.forward_tracelink) && !isempty(config.metadata_channel)
-        sub_metadata = Aeron.add_subscription(client, config.metadata_channel, config.metadata_stream_id)
-        pub_metadata_local = Aeron.add_publication(client, "aeron:ipc", dest_metadata_stream_id)
+        sub_metadata = Aeron.add_subscription(aeron_client, config.metadata_channel, config.metadata_stream_id)
+        pub_metadata_local = Aeron.add_publication(aeron_client, "aeron:ipc", dest_metadata_stream_id)
     end
     pub_control_local = nothing
     if (config.forward_qos || config.forward_progress) && mapping.dest_control_stream_id != 0
-        pub_control_local = Aeron.add_publication(client, "aeron:ipc", mapping.dest_control_stream_id)
+        pub_control_local = Aeron.add_publication(aeron_client, "aeron:ipc", mapping.dest_control_stream_id)
     end
 
     state = BridgeReceiverState(
         config,
         mapping,
-        client,
+        aeron_client,
         clock,
         BridgeReceiverMetrics(UInt64(0), UInt64(0), UInt64(0), UInt64(0)),
         producer_state,

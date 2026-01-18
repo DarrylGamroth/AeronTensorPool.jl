@@ -43,8 +43,8 @@ using UnsafeArrays
         AeronTensorPool.Core.TPLog.set_backend!(logger)
         AeronTensorPool.Core.TPLog.update_log_settings!()
 
-        driver_state = init_driver(cfg; client = client)
-        pub = Aeron.add_publication(client, "aeron:ipc", 1000)
+        driver_state = init_driver(cfg; client = client.aeron_client)
+        pub = Aeron.add_publication(client.aeron_client, "aeron:ipc", 1000)
         claim = Aeron.BufferClaim()
         msg_len = AeronTensorPool.DRIVER_MESSAGE_HEADER_LEN +
             Int(ShmAttachResponse.sbe_block_length(ShmAttachResponse.Decoder))

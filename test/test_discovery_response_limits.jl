@@ -16,6 +16,14 @@ using UnsafeArrays
             metadata_channel = "aeron:ipc"
             metadata_stream_id = Int32(6103)
 
+            ctx = TensorPoolContext(
+                ;
+                aeron_dir = Aeron.MediaDriver.aeron_dir(driver),
+                control_channel = request_channel,
+                control_stream_id = request_stream_id,
+            )
+            tp_client = connect(ctx; aeron_client = client)
+
             config = DiscoveryConfig(
                 request_channel,
                 request_stream_id,
@@ -32,7 +40,7 @@ using UnsafeArrays
                 AeronTensorPool.DISCOVERY_MAX_TAGS_PER_ENTRY_DEFAULT,
                 AeronTensorPool.DISCOVERY_MAX_POOLS_PER_ENTRY_DEFAULT,
             )
-            state = AeronTensorPool.Agents.Discovery.init_discovery_provider(config; client = client)
+            state = AeronTensorPool.Agents.Discovery.init_discovery_provider(config; client = tp_client)
             try
                 request_asm = AeronTensorPool.Agents.Discovery.make_request_assembler(state)
                 announce_asm = AeronTensorPool.Agents.Discovery.make_announce_assembler(state)
@@ -97,6 +105,7 @@ using UnsafeArrays
                 @test length(slot.out_entries) == 1
             finally
                 AeronTensorPool.Agents.Discovery.close_discovery_state!(state)
+                close(tp_client)
             end
         end
     end
@@ -114,6 +123,14 @@ end
             metadata_channel = "aeron:ipc"
             metadata_stream_id = Int32(6203)
 
+            ctx = TensorPoolContext(
+                ;
+                aeron_dir = Aeron.MediaDriver.aeron_dir(driver),
+                control_channel = request_channel,
+                control_stream_id = request_stream_id,
+            )
+            tp_client = connect(ctx; aeron_client = client)
+
             config = DiscoveryConfig(
                 request_channel,
                 request_stream_id,
@@ -130,7 +147,7 @@ end
                 AeronTensorPool.DISCOVERY_MAX_TAGS_PER_ENTRY_DEFAULT,
                 AeronTensorPool.DISCOVERY_MAX_POOLS_PER_ENTRY_DEFAULT,
             )
-            state = AeronTensorPool.Agents.Discovery.init_discovery_provider(config; client = client)
+            state = AeronTensorPool.Agents.Discovery.init_discovery_provider(config; client = tp_client)
             try
                 response_sub = Aeron.add_subscription(client, response_channel, Int32(response_stream_id))
                 error_len = Ref(0)
@@ -170,6 +187,7 @@ end
                 close(response_sub)
             finally
                 AeronTensorPool.Agents.Discovery.close_discovery_state!(state)
+                close(tp_client)
             end
         end
     end
@@ -177,7 +195,7 @@ end
 
 @testset "Discovery client handles error responses on max_results" begin
     with_driver_and_client() do driver, client
-        sub = Aeron.add_subscription(client, "aeron:ipc", Int32(6300))
+        sub = Aeron.add_subscription(client.aeron_client, "aeron:ipc", Int32(6300))
         poller = AeronTensorPool.DiscoveryClient.DiscoveryResponsePoller(sub)
 
         out_entries = AeronTensorPool.DiscoveryClient.DiscoveryEntry[]

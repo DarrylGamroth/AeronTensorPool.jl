@@ -91,7 +91,7 @@ end
             streams,
         )
 
-        driver_state = init_driver(cfg; client = client)
+        driver_state = init_driver(cfg; client = client.aeron_client)
         try
             rng = Random.MersenneTwister(0x1c80_c4f9)
             for _ in 1:200

@@ -25,10 +25,9 @@ using Test
         )
         streams = Dict("cam1" => DriverStreamConfig("cam1", UInt32(58), "raw"))
         cfg = DriverConfig(endpoints, shm, policies, Dict("raw" => profile), streams)
-        driver_state = init_driver(cfg; client = client)
+        driver_state = init_driver(cfg; client = client.aeron_client)
 
-        producer_client = init_driver_client(
-            client,
+        producer_client = init_driver_client(client.aeron_client,
             "aeron:ipc",
             Int32(13340),
             UInt32(60),

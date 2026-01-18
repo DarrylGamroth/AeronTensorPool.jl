@@ -156,10 +156,11 @@ progress and refer to remaining items.
 ### 19) Client vs agent API split
 - Goal: define a clearer split between `TensorPoolClient` and agent APIs (`ProducerAgent`/`ConsumerAgent`).
 - Rationale: reduce ambiguity about attach/keepalive vs data-plane responsibilities.
-- Status: deferred.
+- Status: completed (refactor/client-agent-split).
 - Effort rank: 18
 - Dependencies: agent client convenience wrappers (optional).
 - Notes: keep constructors thin; avoid coupling to `Aeron.Client`.
+- Progress: core `AbstractTensorPoolClient` added; agent constructors updated; scripts/tests migrated; poller wrapper added.
 - Proposal:
   - Public split:
     - Client layer (control plane + discovery + QoS/metadata): `connect`, `attach`, `request_attach`, `poll_attach!`,

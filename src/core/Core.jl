@@ -10,6 +10,7 @@ include("telemetry.jl")
 using .Telemetry
 include("logging.jl")
 using .TPLog
+include("client_interface.jl")
 include("fixed_string.jl")
 include("metadata.jl")
 include("qos_api.jl")
@@ -20,6 +21,7 @@ export TensorPoolError,
     ProtocolError,
     ShmError,
     AeronError,
+    AbstractTensorPoolClient,
     TelemetrySink,
     NoopTelemetrySink,
     telemetry_enabled,

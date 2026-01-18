@@ -18,8 +18,8 @@
         ctrl_asm = Supervisor.make_control_assembler(supervisor_state)
         qos_asm = Supervisor.make_qos_assembler(supervisor_state)
 
-        pub_control = Aeron.add_publication(client, uri, control_stream)
-        pub_qos = Aeron.add_publication(client, uri, qos_stream)
+        pub_control = Aeron.add_publication(client.aeron_client, uri, control_stream)
+        pub_qos = Aeron.add_publication(client.aeron_client, uri, qos_stream)
         sub_cfg = nothing
 
         try
@@ -119,7 +119,7 @@
             nothing
         end
         cfg_asm = Aeron.FragmentAssembler(cfg_handler)
-        sub_cfg = Aeron.add_subscription(client, uri, control_stream)
+        sub_cfg = Aeron.add_subscription(client.aeron_client, uri, control_stream)
 
         Supervisor.emit_consumer_config!(supervisor_state, UInt32(21); use_shm = false, mode = Mode.STREAM)
 

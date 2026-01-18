@@ -99,7 +99,7 @@ Arguments:
 - `config`: bridge configuration.
 - `mapping`: bridge mapping definition.
 - `producer_state`: optional producer state for rematerialization.
-- `client`: Aeron client to use for publications/subscriptions.
+- `client`: Tensor pool client/runtime to use for publications/subscriptions.
 - `callbacks`: optional bridge callbacks.
 
 Returns:
@@ -110,7 +110,7 @@ function BridgeAgent(
     mapping::BridgeMapping,
     consumer_config::ConsumerConfig,
     producer_config::ProducerConfig;
-    client::Aeron.Client,
+    client::AbstractTensorPoolClient,
     callbacks::BridgeCallbacks = NOOP_BRIDGE_CALLBACKS,
 )
     validate_bridge_config(bridge_config, [mapping])

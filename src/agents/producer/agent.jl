@@ -17,7 +17,7 @@ Construct a ProducerAgent from a ProducerConfig.
 
 Arguments:
 - `config`: producer configuration.
-- `client`: Aeron client to use for publications/subscriptions.
+- `client`: TensorPool client (owns Aeron resources).
 - `callbacks`: optional producer callbacks.
 
 Returns:
@@ -25,7 +25,7 @@ Returns:
 """
 function ProducerAgent(
     config::ProducerConfig;
-    client::Aeron.Client,
+    client::AbstractTensorPoolClient,
     callbacks::ProducerCallbacks = NOOP_PRODUCER_CALLBACKS,
     qos_monitor::Union{AbstractQosMonitor, Nothing} = nothing,
     qos_interval_ns::UInt64 = config.qos_interval_ns,

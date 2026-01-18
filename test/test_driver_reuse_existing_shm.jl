@@ -32,7 +32,7 @@ using Test
             streams,
         )
 
-        driver_state = init_driver(cfg; client = client)
+        driver_state = init_driver(cfg; client = client.aeron_client)
         stream_state, status = AeronTensorPool.Driver.get_or_create_stream!(
             driver_state,
             UInt32(5001),

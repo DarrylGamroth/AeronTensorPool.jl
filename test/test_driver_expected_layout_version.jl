@@ -32,11 +32,11 @@ using Test
             streams,
         )
 
-        driver_state = init_driver(cfg; client = client)
+        driver_state = init_driver(cfg; client = client.aeron_client)
         AeronTensorPool.Timers.disable!(driver_state.timer_set.timers[1])
 
-        pub = Aeron.add_publication(client, "aeron:ipc", 16200)
-        sub = Aeron.add_subscription(client, "aeron:ipc", 16200)
+        pub = Aeron.add_publication(client.aeron_client, "aeron:ipc", 16200)
+        sub = Aeron.add_subscription(client.aeron_client, "aeron:ipc", 16200)
         attach_proxy = AttachRequestProxy(pub)
         poller = DriverResponsePoller(sub)
 

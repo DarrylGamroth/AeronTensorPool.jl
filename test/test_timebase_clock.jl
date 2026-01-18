@@ -18,7 +18,7 @@
             Dict("raw" => DriverProfileConfig("raw", UInt32(8), UInt16(256), UInt8(8), [DriverPoolConfig(UInt16(1), UInt32(1024))])),
             Dict{String, DriverStreamConfig}(),
         )
-        driver_state = init_driver(driver_cfg; client = client)
+        driver_state = init_driver(driver_cfg; client = client.aeron_client)
         try
             @test driver_state.clock.clock isa Clocks.MonotonicClock
 

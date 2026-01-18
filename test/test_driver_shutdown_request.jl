@@ -30,9 +30,9 @@ using Test
             Dict{String, DriverStreamConfig}(),
         )
 
-        driver_state = init_driver(cfg; client = client)
-        pub = Aeron.add_publication(client, "aeron:ipc", 1000)
-        sub = Aeron.add_subscription(client, "aeron:ipc", 1000)
+        driver_state = init_driver(cfg; client = client.aeron_client)
+        pub = Aeron.add_publication(client.aeron_client, "aeron:ipc", 1000)
+        sub = Aeron.add_subscription(client.aeron_client, "aeron:ipc", 1000)
         poller = DriverResponsePoller(sub)
         shutdown_proxy = AeronTensorPool.ShutdownRequestProxy(pub)
 

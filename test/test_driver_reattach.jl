@@ -57,17 +57,15 @@ end
                 streams,
             )
 
-            driver_state = init_driver(cfg; client = client)
+            driver_state = init_driver(cfg; client = client.aeron_client)
 
-            producer_client = init_driver_client(
-                client,
+            producer_client = init_driver_client(client.aeron_client,
                 "aeron:ipc",
                 Int32(13100),
                 UInt32(30),
                 DriverRole.PRODUCER,
             )
-            consumer_client = init_driver_client(
-                client,
+            consumer_client = init_driver_client(client.aeron_client,
                 "aeron:ipc",
                 Int32(13100),
                 UInt32(31),

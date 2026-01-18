@@ -10,7 +10,7 @@ using Test
                 mkpath(dirname(parse_shm_uri(pool.uri).path))
             end
             state = Producer.init_producer(cfg; client = client)
-            sub = Aeron.add_subscription(client, cfg.aeron_uri, cfg.control_stream_id)
+            sub = Aeron.add_subscription(client.aeron_client, cfg.aeron_uri, cfg.control_stream_id)
             try
                 progress = Ref{Union{
                     NamedTuple{(:seq, :state, :bytes), Tuple{UInt64, AeronTensorPool.ShmTensorpoolControl.FrameProgressState.SbeEnum, UInt64}},

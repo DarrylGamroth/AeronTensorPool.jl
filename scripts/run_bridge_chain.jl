@@ -197,27 +197,27 @@ function run_chain(bridge_a_path::String, bridge_b_path::String, duration_s::Flo
                 control_stream_id = producer_cfg.control_stream_id,
             )
             with_runtime(ctx; create_control = false) do runtime
-                producer_agent = ProducerAgent(producer_cfg; client = runtime.aeron_client)
+                producer_agent = ProducerAgent(producer_cfg; client = runtime)
                 bridge_a_agent = BridgeAgent(
                     bridge_a_cfg,
                     mapping_a,
                     bridge_a_consumer_cfg,
                     bridge_a_producer_cfg;
-                    client = runtime.aeron_client,
+                    client = runtime,
                 )
                 bridge_b_agent = BridgeAgent(
                     bridge_b_cfg,
                     mapping_b,
                     bridge_b_consumer_cfg,
                     bridge_b_producer_cfg;
-                    client = runtime.aeron_client,
+                    client = runtime,
                 )
 
                 received = Ref(0)
                 callbacks = let received = received
                     ConsumerCallbacks(; on_frame! = (_, _) -> (received[] += 1))
                 end
-                consumer_agent = ConsumerAgent(consumer_cfg; client = runtime.aeron_client, callbacks = callbacks)
+                consumer_agent = ConsumerAgent(consumer_cfg; client = runtime, callbacks = callbacks)
 
                 producer_invoker = AgentInvoker(producer_agent)
                 bridge_a_invoker = AgentInvoker(bridge_a_agent)

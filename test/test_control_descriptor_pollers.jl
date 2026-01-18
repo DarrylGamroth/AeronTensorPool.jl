@@ -67,7 +67,7 @@ end
 @testset "Control pollers: descriptor/config/progress/tracelink" begin
     with_driver_and_client() do driver, client
         ctx = TensorPoolContext(control_channel = "aeron:ipc", control_stream_id = Int32(15500))
-        tp_client = connect(ctx; aeron_client = client)
+        tp_client = connect(ctx; aeron_client = client.aeron_client)
 
         called = Ref(false)
         desc_handler = (poller, dec) -> (called[] = FrameDescriptor.seq(dec) == UInt64(1))

@@ -13,7 +13,7 @@ Construct a SupervisorAgent from a SupervisorConfig.
 
 Arguments:
 - `config`: supervisor configuration.
-- `client`: Aeron client to use for publications/subscriptions.
+- `client`: TensorPool client (owns Aeron resources).
 - `callbacks`: optional supervisor callbacks.
 
 Returns:
@@ -21,7 +21,7 @@ Returns:
 """
 function SupervisorAgent(
     config::SupervisorConfig;
-    client::Aeron.Client,
+    client::AbstractTensorPoolClient,
     callbacks::SupervisorCallbacks = NOOP_SUPERVISOR_CALLBACKS,
 )
     state = init_supervisor(config; client = client)

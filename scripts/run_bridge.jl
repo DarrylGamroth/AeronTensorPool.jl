@@ -68,7 +68,7 @@ function run_agent(bridge_path::String, driver_path::Union{String, Nothing})
     with_runtime(ctx; create_control = false) do runtime
         @info "Bridge agent init" aeron_dir payload_channel = bridge_cfg.payload_channel payload_stream_id =
             bridge_cfg.payload_stream_id
-        agent = BridgeSystemAgent(bridge_cfg, mappings, consumer_cfg, producer_cfg; client = runtime.aeron_client)
+        agent = BridgeSystemAgent(bridge_cfg, mappings, consumer_cfg, producer_cfg; client = runtime)
         runner = AgentRunner(BackoffIdleStrategy(), agent)
         if isnothing(core_id)
             Agent.start_on_thread(runner)

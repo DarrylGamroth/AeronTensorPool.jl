@@ -31,12 +31,12 @@ using Test
             streams,
         )
 
-        pub = Aeron.add_publication(client, "aeron:ipc", 14000)
-        sub = Aeron.add_subscription(client, "aeron:ipc", 14000)
+        pub = Aeron.add_publication(client.aeron_client, "aeron:ipc", 14000)
+        sub = Aeron.add_subscription(client.aeron_client, "aeron:ipc", 14000)
         attach_proxy = AttachRequestProxy(pub)
         poller = DriverResponsePoller(sub)
 
-        driver_state = init_driver(cfg; client = client)
+        driver_state = init_driver(cfg; client = client.aeron_client)
         correlation_id = Int64(1)
         send_attach!(
             attach_proxy;
@@ -57,7 +57,7 @@ using Test
 
         close_driver_state!(driver_state)
 
-        driver_state = init_driver(cfg; client = client)
+        driver_state = init_driver(cfg; client = client.aeron_client)
         correlation_id = Int64(2)
         send_attach!(
             attach_proxy;

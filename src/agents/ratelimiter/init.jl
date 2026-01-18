@@ -36,9 +36,10 @@ end
 function init_mapping_state(
     config::RateLimiterConfig,
     mapping::RateLimiterMapping,
-    client::Aeron.Client;
+    client::AbstractTensorPoolClient;
     driver_work_fn::Union{Nothing, Function} = nothing,
 )
+    aeron_client = client.aeron_client
     driver_control_channel =
         isempty(config.driver_control_channel) ? config.control_channel : config.driver_control_channel
     driver_control_stream_id =
@@ -75,7 +76,7 @@ function init_mapping_state(
     )
 
     consumer_driver = init_driver_client(
-        client,
+        aeron_client,
         driver_control_channel,
         driver_control_stream_id,
         consumer_id,
@@ -110,7 +111,7 @@ function init_mapping_state(
     )
 
     producer_driver = init_driver_client(
-        client,
+        aeron_client,
         driver_control_channel,
         driver_control_stream_id,
         producer_id,
@@ -202,7 +203,7 @@ function init_mapping_state(
 
     metadata_pub =
         config.forward_metadata && !isempty(config.metadata_channel) && mapping.metadata_stream_id != 0 ?
-            Aeron.add_publication(client, config.metadata_channel, Int32(mapping.metadata_stream_id)) : nothing
+            Aeron.add_publication(aeron_client, config.metadata_channel, Int32(mapping.metadata_stream_id)) : nothing
 
     lifecycle = RateLimiterMappingLifecycle()
     mapping_state = RateLimiterMappingState(
@@ -230,11 +231,12 @@ Initialize the rate limiter for the given mappings.
 function init_rate_limiter(
     config::RateLimiterConfig,
     mappings::Vector{RateLimiterMapping};
-    client::Aeron.Client,
+    client::AbstractTensorPoolClient,
     driver_work_fn::Union{Nothing, Function} = nothing,
 )
     validate_rate_limiter_config!(config)
     clock = Clocks.CachedEpochClock(Clocks.MonotonicClock())
+    aeron_client = client.aeron_client
 
     mapping_states = RateLimiterMappingState[]
     mapping_by_source = Dict{UInt32, RateLimiterMappingState}()
@@ -248,17 +250,17 @@ function init_rate_limiter(
 
     metadata_sub =
         config.forward_metadata && !isempty(config.metadata_channel) && config.metadata_stream_id != 0 ?
-            Aeron.add_subscription(client, config.metadata_channel, config.metadata_stream_id) : nothing
+            Aeron.add_subscription(aeron_client, config.metadata_channel, config.metadata_stream_id) : nothing
 
     control_sub = config.forward_progress && config.source_control_stream_id != 0 ?
-        Aeron.add_subscription(client, config.control_channel, config.source_control_stream_id) : nothing
+        Aeron.add_subscription(aeron_client, config.control_channel, config.source_control_stream_id) : nothing
     control_pub = config.forward_progress && config.dest_control_stream_id != 0 ?
-        Aeron.add_publication(client, config.control_channel, config.dest_control_stream_id) : nothing
+        Aeron.add_publication(aeron_client, config.control_channel, config.dest_control_stream_id) : nothing
 
     qos_sub = config.forward_qos && config.source_qos_stream_id != 0 ?
-        Aeron.add_subscription(client, config.qos_channel, config.source_qos_stream_id) : nothing
+        Aeron.add_subscription(aeron_client, config.qos_channel, config.source_qos_stream_id) : nothing
     qos_pub = config.forward_qos && config.dest_qos_stream_id != 0 ?
-        Aeron.add_publication(client, config.qos_channel, config.dest_qos_stream_id) : nothing
+        Aeron.add_publication(aeron_client, config.qos_channel, config.dest_qos_stream_id) : nothing
 
     state = RateLimiterState(
         config,

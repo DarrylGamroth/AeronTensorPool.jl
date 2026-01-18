@@ -13,12 +13,12 @@ Construct a DiscoveryAgent from a DiscoveryConfig.
 
 Arguments:
 - `config`: discovery configuration.
-- `client`: Aeron client to use for publications/subscriptions.
+- `client`: TensorPool client (owns Aeron resources).
 
 Returns:
 - `DiscoveryAgent` wrapping the discovery provider state and assemblers.
 """
-function DiscoveryAgent(config::DiscoveryConfig; client::Aeron.Client)
+function DiscoveryAgent(config::DiscoveryConfig; client::AbstractTensorPoolClient)
     state = init_discovery_provider(config; client = client)
     request_assembler = make_request_assembler(state)
     announce_assembler = make_announce_assembler(state)

@@ -92,8 +92,7 @@
                 false,
             )
             state = Consumer.init_consumer(consumer_cfg; client = client)
-            driver_client = init_driver_client(
-                client,
+            driver_client = init_driver_client(client.aeron_client,
                 "aeron:ipc",
                 Int32(14050),
                 UInt32(99),

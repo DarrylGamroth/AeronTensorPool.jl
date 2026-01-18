@@ -63,8 +63,23 @@
                         false,
                     )
 
-                    producer_state = Producer.init_producer(producer_cfg; client = producer_client)
-                    consumer_state = Consumer.init_consumer(consumer_cfg; client = consumer_client)
+                    producer_ctx = TensorPoolContext(
+                        ;
+                        aeron_dir = aeron_dir,
+                        control_channel = producer_cfg.aeron_uri,
+                        control_stream_id = producer_cfg.control_stream_id,
+                    )
+                    consumer_ctx = TensorPoolContext(
+                        ;
+                        aeron_dir = aeron_dir,
+                        control_channel = consumer_cfg.aeron_uri,
+                        control_stream_id = consumer_cfg.control_stream_id,
+                    )
+                    tp_producer_client = connect(producer_ctx; aeron_client = producer_client)
+                    tp_consumer_client = connect(consumer_ctx; aeron_client = consumer_client)
+
+                    producer_state = Producer.init_producer(producer_cfg; client = tp_producer_client)
+                    consumer_state = Consumer.init_consumer(consumer_cfg; client = tp_consumer_client)
                     prod_ctrl = Producer.make_control_assembler(producer_state)
                     cons_ctrl = Consumer.make_control_assembler(consumer_state)
                     cons_desc = Consumer.make_descriptor_assembler(consumer_state)
@@ -116,6 +131,8 @@
 
                     close_consumer_state!(consumer_state)
                     close_producer_state!(producer_state)
+                    close(tp_producer_client)
+                    close(tp_consumer_client)
                 end
             end
         end

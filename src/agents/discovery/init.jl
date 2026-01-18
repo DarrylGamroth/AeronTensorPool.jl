@@ -3,25 +3,26 @@ Initialize a discovery provider: create Aeron resources and state.
 
 Arguments:
 - `config`: discovery configuration.
-- `client`: Aeron client to use for publications/subscriptions.
+- `client`: TensorPool client (owns Aeron resources).
 
 Returns:
 - `DiscoveryProviderState` initialized for polling.
 """
-function init_discovery_provider(config::DiscoveryConfig; client::Aeron.Client)
+function init_discovery_provider(config::DiscoveryConfig; client::AbstractTensorPoolClient)
     clock = Clocks.CachedEpochClock(Clocks.MonotonicClock())
 
-    sub_requests = Aeron.add_subscription(client, config.channel, config.stream_id)
-    sub_announce = Aeron.add_subscription(client, config.announce_channel, config.announce_stream_id)
+    aeron_client = client.aeron_client
+    sub_requests = Aeron.add_subscription(aeron_client, config.channel, config.stream_id)
+    sub_announce = Aeron.add_subscription(aeron_client, config.announce_channel, config.announce_stream_id)
     sub_metadata =
         isempty(config.metadata_channel) || config.metadata_stream_id == 0 ?
-        nothing : Aeron.add_subscription(client, config.metadata_channel, config.metadata_stream_id)
+        nothing : Aeron.add_subscription(aeron_client, config.metadata_channel, config.metadata_stream_id)
 
     response_buf_bytes =
         config.response_buf_bytes == 0 ? DISCOVERY_RESPONSE_BUF_BYTES : config.response_buf_bytes
 
     runtime = DiscoveryRuntime(
-        client,
+        aeron_client,
         sub_requests,
         sub_announce,
         sub_metadata,

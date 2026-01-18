@@ -147,9 +147,9 @@ Aeron.MediaDriver.launch_embedded() do driver
             control_stream_id = control_stream_id,
         )
         with_runtime(ctx; create_control = false) do runtime
-            producer = Producer.init_producer(producer_cfg; client = runtime.aeron_client)
-            consumer = Consumer.init_consumer(consumer_cfg; client = runtime.aeron_client)
-            supervisor = Supervisor.init_supervisor(supervisor_cfg; client = runtime.aeron_client)
+            producer = Producer.init_producer(producer_cfg; client = runtime)
+            consumer = Consumer.init_consumer(consumer_cfg; client = runtime)
+            supervisor = Supervisor.init_supervisor(supervisor_cfg; client = runtime)
 
             prod_ctrl = Producer.make_control_assembler(producer)
             cons_ctrl = Consumer.make_control_assembler(consumer)

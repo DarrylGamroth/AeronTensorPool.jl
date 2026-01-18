@@ -2,7 +2,7 @@ using Test
 
 @testset "Driver control schema gating" begin
     with_driver_and_client() do driver, client
-        sub = Aeron.add_subscription(client, "aeron:ipc", Int32(15501))
+        sub = Aeron.add_subscription(client.aeron_client, "aeron:ipc", Int32(15501))
         poller = AeronTensorPool.Control.DriverResponsePoller(sub)
 
         buf = Vector{UInt8}(

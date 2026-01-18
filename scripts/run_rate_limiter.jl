@@ -31,7 +31,7 @@ function run_agent(config_path::String)
     with_runtime(ctx; create_control = false) do runtime
         @info "RateLimiter agent init" aeron_dir = config.aeron_dir descriptor_channel = config.descriptor_channel descriptor_stream_id =
             config.descriptor_stream_id mappings = length(mappings)
-        state = init_rate_limiter(config, mappings; client = runtime.aeron_client)
+        state = init_rate_limiter(config, mappings; client = runtime)
         agent = RateLimiterAgent(state)
         runner = AgentRunner(BackoffIdleStrategy(), agent)
         if isnothing(core_id)

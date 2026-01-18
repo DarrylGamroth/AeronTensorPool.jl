@@ -19,7 +19,7 @@ function Agents.Producer.init_producer(
     client::TensorPoolClient;
     kwargs...,
 )
-    return Agents.Producer.init_producer(config; client = client.aeron_client, kwargs...)
+    return Agents.Producer.init_producer(config; client = client, kwargs...)
 end
 
 function Agents.Producer.ProducerAgent(
@@ -27,7 +27,7 @@ function Agents.Producer.ProducerAgent(
     client::TensorPoolClient;
     kwargs...,
 )
-    return Agents.Producer.ProducerAgent(config; client = client.aeron_client, kwargs...)
+    return Agents.Producer.ProducerAgent(config; client = client, kwargs...)
 end
 
 function Agents.Consumer.init_consumer(
@@ -35,7 +35,7 @@ function Agents.Consumer.init_consumer(
     client::TensorPoolClient;
     kwargs...,
 )
-    return Agents.Consumer.init_consumer(config; client = client.aeron_client, kwargs...)
+    return Agents.Consumer.init_consumer(config; client = client, kwargs...)
 end
 
 function Agents.Consumer.ConsumerAgent(
@@ -43,7 +43,7 @@ function Agents.Consumer.ConsumerAgent(
     client::TensorPoolClient;
     kwargs...,
 )
-    return Agents.Consumer.ConsumerAgent(config; client = client.aeron_client, kwargs...)
+    return Agents.Consumer.ConsumerAgent(config; client = client, kwargs...)
 end
 
 function Agents.Supervisor.init_supervisor(
@@ -51,7 +51,7 @@ function Agents.Supervisor.init_supervisor(
     client::TensorPoolClient;
     kwargs...,
 )
-    return Agents.Supervisor.init_supervisor(config; client = client.aeron_client, kwargs...)
+    return Agents.Supervisor.init_supervisor(config; client = client, kwargs...)
 end
 
 function Agents.Supervisor.SupervisorAgent(
@@ -59,7 +59,7 @@ function Agents.Supervisor.SupervisorAgent(
     client::TensorPoolClient;
     kwargs...,
 )
-    return Agents.Supervisor.SupervisorAgent(config; client = client.aeron_client, kwargs...)
+    return Agents.Supervisor.SupervisorAgent(config; client = client, kwargs...)
 end
 
 function Agents.Bridge.init_bridge_sender(
@@ -73,7 +73,7 @@ function Agents.Bridge.init_bridge_sender(
         consumer_state,
         config,
         mapping;
-        client = client.aeron_client,
+        client = client,
         kwargs...,
     )
 end
@@ -87,7 +87,7 @@ function Agents.Bridge.init_bridge_receiver(
     return Agents.Bridge.init_bridge_receiver(
         config,
         mapping;
-        client = client.aeron_client,
+        client = client,
         kwargs...,
     )
 end
@@ -105,7 +105,7 @@ function Agents.Bridge.BridgeAgent(
         mapping,
         consumer_config,
         producer_config;
-        client = client.aeron_client,
+        client = client,
         kwargs...,
     )
 end
@@ -123,7 +123,7 @@ function Agents.Bridge.BridgeSystemAgent(
         mappings,
         consumer_config,
         producer_config;
-        client = client.aeron_client,
+        client = client,
         kwargs...,
     )
 end
@@ -133,7 +133,7 @@ function Agents.Discovery.init_discovery_provider(
     client::TensorPoolClient;
     kwargs...,
 )
-    return Agents.Discovery.init_discovery_provider(config; client = client.aeron_client, kwargs...)
+    return Agents.Discovery.init_discovery_provider(config; client = client, kwargs...)
 end
 
 function Agents.Discovery.DiscoveryAgent(
@@ -141,7 +141,7 @@ function Agents.Discovery.DiscoveryAgent(
     client::TensorPoolClient;
     kwargs...,
 )
-    return Agents.Discovery.DiscoveryAgent(config; client = client.aeron_client, kwargs...)
+    return Agents.Discovery.DiscoveryAgent(config; client = client, kwargs...)
 end
 
 function Agents.DiscoveryRegistry.init_discovery_registry(
@@ -149,7 +149,7 @@ function Agents.DiscoveryRegistry.init_discovery_registry(
     client::TensorPoolClient;
     kwargs...,
 )
-    return Agents.DiscoveryRegistry.init_discovery_registry(config; client = client.aeron_client, kwargs...)
+    return Agents.DiscoveryRegistry.init_discovery_registry(config; client = client, kwargs...)
 end
 
 function Agents.DiscoveryRegistry.DiscoveryRegistryAgent(
@@ -157,7 +157,7 @@ function Agents.DiscoveryRegistry.DiscoveryRegistryAgent(
     client::TensorPoolClient;
     kwargs...,
 )
-    return Agents.DiscoveryRegistry.DiscoveryRegistryAgent(config; client = client.aeron_client, kwargs...)
+    return Agents.DiscoveryRegistry.DiscoveryRegistryAgent(config; client = client, kwargs...)
 end
 
 function Agents.RateLimiter.init_rate_limiter(
@@ -169,7 +169,7 @@ function Agents.RateLimiter.init_rate_limiter(
     return Agents.RateLimiter.init_rate_limiter(
         config,
         mappings;
-        client = client.aeron_client,
+        client = client,
         kwargs...,
     )
 end

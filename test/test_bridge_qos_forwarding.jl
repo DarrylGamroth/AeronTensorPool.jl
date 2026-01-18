@@ -27,7 +27,7 @@ using UnsafeArrays
         )
 
         receiver = Bridge.init_bridge_receiver(bridge_cfg, mapping; client = client)
-        sub = Aeron.add_subscription(client, "aeron:ipc", mapping.dest_control_stream_id)
+        sub = Aeron.add_subscription(client.aeron_client, "aeron:ipc", mapping.dest_control_stream_id)
 
         connected = wait_for() do
             receiver.pub_control_local !== nothing &&

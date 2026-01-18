@@ -1,7 +1,6 @@
 @testset "Driver client handles duplicate revoke idempotently" begin
     with_driver_and_client() do driver, client
-        driver_client = init_driver_client(
-            client,
+        driver_client = init_driver_client(client.aeron_client,
             "aeron:ipc",
             Int32(14060),
             UInt32(88),

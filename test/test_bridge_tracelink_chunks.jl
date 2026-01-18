@@ -115,7 +115,7 @@ end
     with_driver_and_client() do driver, client
         receiver, producer_state = make_bridge_receiver_with_producer(driver, client; stream_id = UInt32(21))
         try
-            sub = Aeron.add_subscription(client, "aeron:ipc", Int32(17310))
+            sub = Aeron.add_subscription(client.aeron_client, "aeron:ipc", Int32(17310))
             ok = wait_for(; timeout = 3.0) do
                 Aeron.is_connected(producer_state.runtime.pub_descriptor) && Aeron.is_connected(sub)
             end

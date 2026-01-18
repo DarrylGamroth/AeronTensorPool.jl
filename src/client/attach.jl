@@ -275,7 +275,7 @@ function attach_consumer(
         consumer_cfg,
         attach;
         driver_client = request.driver_client,
-        client = client.aeron_client,
+        client = client,
     )
     consumer_cbs = consumer_callbacks(callbacks)
     descriptor_asm = Consumer.make_descriptor_assembler(consumer_state; callbacks = consumer_cbs)
@@ -322,7 +322,7 @@ function attach(
         consumer_cfg,
         attach;
         driver_client = request.driver_client,
-        client = client.aeron_client,
+        client = client,
     )
     consumer_cbs = consumer_callbacks(callbacks)
     descriptor_asm = Consumer.make_descriptor_assembler(consumer_state; callbacks = consumer_cbs)
@@ -398,7 +398,7 @@ function attach_producer(
         config,
         attach;
         driver_client = request.driver_client,
-        client = client.aeron_client,
+        client = client,
     )
     producer_cbs = producer_callbacks(callbacks)
     control_asm = Producer.make_control_assembler(producer_state; callbacks = producer_cbs)
@@ -452,7 +452,7 @@ function attach(
         config,
         attach;
         driver_client = request.driver_client,
-        client = client.aeron_client,
+        client = client,
     )
     producer_cbs = producer_callbacks(callbacks)
     control_asm = Producer.make_control_assembler(producer_state; callbacks = producer_cbs)

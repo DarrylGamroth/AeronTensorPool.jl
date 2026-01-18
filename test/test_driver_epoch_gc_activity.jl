@@ -45,7 +45,7 @@ profile = \"camera\"
             end
 
             cfg = load_driver_config(config_path)
-            state = AeronTensorPool.Driver.init_driver(cfg; client = client)
+            state = AeronTensorPool.Driver.init_driver(cfg; client = client.aeron_client)
             try
                 now_ns = UInt64(time_ns())
                 user = AeronTensorPool.Shm.canonical_user_name()

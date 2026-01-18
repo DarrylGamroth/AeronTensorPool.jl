@@ -1,4 +1,4 @@
-import ..Control: FrameDescriptorPoller, ConsumerConfigPoller, FrameProgressPoller
+import ..Control: FrameDescriptorPoller, ConsumerConfigPoller, FrameProgressPoller, TraceLinkPoller
 
 """
 Construct a FrameDescriptorPoller from a TensorPoolClient.
@@ -12,6 +12,17 @@ function FrameDescriptorPoller(
     return Control.FrameDescriptorPoller(client.aeron_client, channel, stream_id, handler)
 end
 
+"""
+Construct a TraceLinkPoller from a TensorPoolClient.
+"""
+function TraceLinkPoller(
+    client::TensorPoolClient,
+    channel::AbstractString,
+    stream_id::Int32,
+    handler::H,
+) where {H}
+    return Control.TraceLinkPoller(client.aeron_client, channel, stream_id, handler)
+end
 """
 Construct a ConsumerConfigPoller from a TensorPoolClient.
 """

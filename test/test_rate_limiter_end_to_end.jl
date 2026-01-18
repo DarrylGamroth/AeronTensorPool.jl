@@ -84,10 +84,9 @@ end
             streams,
         )
 
-        driver_state = init_driver(cfg; client = client)
+        driver_state = init_driver(cfg; client = client.aeron_client)
 
-        producer_client = init_driver_client(
-            client,
+        producer_client = init_driver_client(client.aeron_client,
             endpoints.control_channel,
             endpoints.control_stream_id,
             UInt32(1),
@@ -133,8 +132,7 @@ end
         prod_ctrl = Producer.make_control_assembler(producer_state)
         prod_qos = Producer.make_qos_assembler(producer_state)
 
-        consumer_client = init_driver_client(
-            client,
+        consumer_client = init_driver_client(client.aeron_client,
             endpoints.control_channel,
             endpoints.control_stream_id,
             UInt32(2),
@@ -255,8 +253,8 @@ end
         AeronTensorPool.Agents.RateLimiter.publish_pending!(mapping_state)
         @test mapping_state.pending.valid == false
         control_stream_id = Int32(1500)
-        control_pub = Aeron.add_publication(client, "aeron:ipc", control_stream_id)
-        control_sub = Aeron.add_subscription(client, "aeron:ipc", control_stream_id)
+        control_pub = Aeron.add_publication(client.aeron_client, "aeron:ipc", control_stream_id)
+        control_sub = Aeron.add_subscription(client.aeron_client, "aeron:ipc", control_stream_id)
         rl_state.control_pub = control_pub
 
         progress_buf = Vector{UInt8}(undef, 128)

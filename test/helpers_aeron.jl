@@ -74,7 +74,18 @@ end
 function with_driver_and_client(f::Function)
     with_embedded_driver() do driver
         with_client(; driver = driver) do client
-            f(driver, client)
+            ctx = AeronTensorPool.TensorPoolContext(
+                ;
+                aeron_dir = Aeron.MediaDriver.aeron_dir(driver),
+                control_channel = "aeron:ipc",
+                control_stream_id = Int32(1000),
+            )
+            tp_client = AeronTensorPool.connect(ctx; aeron_client = client)
+            try
+                f(driver, tp_client)
+            finally
+                close(tp_client)
+            end
         end
     end
 end

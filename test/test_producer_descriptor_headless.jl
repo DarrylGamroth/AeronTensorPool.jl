@@ -18,7 +18,7 @@
                 sent = Producer.offer_frame!(producer, payload, shape, strides, Dtype.UINT8, UInt32(0))
                 @test sent
 
-                sub = Aeron.add_subscription(client, producer_cfg.aeron_uri, producer_cfg.descriptor_stream_id)
+                sub = Aeron.add_subscription(client.aeron_client, producer_cfg.aeron_uri, producer_cfg.descriptor_stream_id)
                 try
                     ok = wait_for() do
                         Aeron.is_connected(sub)
@@ -52,7 +52,7 @@ end
             end
 
             producer = Producer.init_producer(producer_cfg; client = client)
-            sub = Aeron.add_subscription(client, producer_cfg.aeron_uri, producer_cfg.descriptor_stream_id)
+            sub = Aeron.add_subscription(client.aeron_client, producer_cfg.aeron_uri, producer_cfg.descriptor_stream_id)
             try
                 ok = wait_for() do
                     Aeron.is_connected(producer.runtime.pub_descriptor) && Aeron.is_connected(sub)

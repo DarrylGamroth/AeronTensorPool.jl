@@ -3,24 +3,25 @@ Initialize a supervisor: create Aeron resources and timers.
 
 Arguments:
 - `config`: supervisor configuration.
-- `client`: Aeron client to use for publications/subscriptions.
+- `client`: TensorPool client (owns Aeron resources).
 
 Returns:
 - `SupervisorState` initialized for polling.
 """
-function init_supervisor(config::SupervisorConfig; client::Aeron.Client)
+function init_supervisor(config::SupervisorConfig; client::AbstractTensorPoolClient)
     clock = Clocks.CachedEpochClock(Clocks.MonotonicClock())
 
-    pub_control = Aeron.add_publication(client, config.aeron_uri, config.control_stream_id)
-    sub_control = Aeron.add_subscription(client, config.aeron_uri, config.control_stream_id)
-    sub_qos = Aeron.add_subscription(client, config.aeron_uri, config.qos_stream_id)
+    aeron_client = client.aeron_client
+    pub_control = Aeron.add_publication(aeron_client, config.aeron_uri, config.control_stream_id)
+    sub_control = Aeron.add_subscription(aeron_client, config.aeron_uri, config.control_stream_id)
+    sub_qos = Aeron.add_subscription(aeron_client, config.aeron_uri, config.qos_stream_id)
 
     timer_set = TimerSet(
         (PolledTimer(config.liveness_check_interval_ns),),
         (SupervisorLivenessHandler(),),
     )
 
-    control = ControlPlaneRuntime(client, pub_control, sub_control)
+    control = ControlPlaneRuntime(aeron_client, pub_control, sub_control)
     runtime = SupervisorRuntime(
         control,
         sub_qos,

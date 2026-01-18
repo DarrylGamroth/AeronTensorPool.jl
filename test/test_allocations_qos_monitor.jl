@@ -1,6 +1,6 @@
 @testset "QoS monitor allocations" begin
     with_driver_and_client() do driver, client
-        monitor = QosMonitor("aeron:ipc", Int32(1200); client = client)
+        monitor = QosMonitor("aeron:ipc", Int32(1200); client = client.aeron_client)
         try
             poll_qos!(monitor)
             @test @allocated(poll_qos!(monitor)) == 0

@@ -4,15 +4,14 @@ using Test
     with_driver_and_client() do driver, client
         control_channel = "aeron:ipc"
         control_stream = Int32(15521)
-        driver_client = init_driver_client(
-            client,
+        driver_client = init_driver_client(client.aeron_client,
             control_channel,
             control_stream,
             UInt32(90),
             DriverRole.CONSUMER,
         )
 
-        sub = Aeron.add_subscription(client, control_channel, control_stream)
+        sub = Aeron.add_subscription(client.aeron_client, control_channel, control_stream)
         count = Ref(0)
         handler = Aeron.FragmentHandler(count) do cnt, buffer, _
             header = DriverMessageHeader.Decoder(buffer, 0)
@@ -41,7 +40,7 @@ using Test
             attach_timeout_ns = UInt64(200_000_000),
             attach_retry_interval_ns = UInt64(50_000_000),
         )
-        tp_client = connect(ctx; aeron_client = client)
+        tp_client = connect(ctx; aeron_client = client.aeron_client)
 
         err = nothing
         try

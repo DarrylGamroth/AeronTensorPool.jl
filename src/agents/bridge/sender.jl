@@ -5,7 +5,7 @@ Arguments:
 - `consumer_state`: consumer state providing SHM mappings.
 - `config`: bridge configuration.
 - `mapping`: bridge mapping definition.
-- `client`: Aeron client to use for publications/subscriptions.
+- `client`: TensorPool client (owns Aeron resources).
 
 Returns:
 - `BridgeSenderState` initialized for forwarding.
@@ -14,26 +14,27 @@ function init_bridge_sender(
     consumer_state::ConsumerState,
     config::BridgeConfig,
     mapping::BridgeMapping;
-    client::Aeron.Client,
+    client::AbstractTensorPoolClient,
 )
     if (config.forward_progress || config.forward_qos) &&
        (mapping.source_control_stream_id == 0 || mapping.dest_control_stream_id == 0)
         throw(ArgumentError("bridge mapping requires nonzero control stream IDs for progress/QoS forwarding"))
     end
-    pub_payload = Aeron.add_publication(client, config.payload_channel, config.payload_stream_id)
-    pub_control = Aeron.add_publication(client, config.control_channel, config.control_stream_id)
+    aeron_client = client.aeron_client
+    pub_payload = Aeron.add_publication(aeron_client, config.payload_channel, config.payload_stream_id)
+    pub_control = Aeron.add_publication(aeron_client, config.control_channel, config.control_stream_id)
     source_control = ifelse(
         mapping.source_control_stream_id == 0,
         consumer_state.config.control_stream_id,
         mapping.source_control_stream_id,
     )
-    sub_control = Aeron.add_subscription(client, consumer_state.config.aeron_uri, source_control)
+    sub_control = Aeron.add_subscription(aeron_client, consumer_state.config.aeron_uri, source_control)
     pub_metadata = nothing
     sub_metadata = nothing
     metadata_assembler = nothing
     if (config.forward_metadata || config.forward_tracelink) && !isempty(config.metadata_channel)
-        pub_metadata = Aeron.add_publication(client, config.metadata_channel, config.metadata_stream_id)
-        sub_metadata = Aeron.add_subscription(client, consumer_state.config.aeron_uri, config.source_metadata_stream_id)
+        pub_metadata = Aeron.add_publication(aeron_client, config.metadata_channel, config.metadata_stream_id)
+        sub_metadata = Aeron.add_subscription(aeron_client, consumer_state.config.aeron_uri, config.source_metadata_stream_id)
     end
     chunk_encoder = BridgeFrameChunk.Encoder(UnsafeArrays.UnsafeArray{UInt8, 1})
     chunk_fill = BridgeChunkFill(
@@ -60,7 +61,7 @@ function init_bridge_sender(
         config,
         mapping,
         BridgeSenderMetrics(UInt64(0), UInt64(0), UInt64(0), UInt64(0)),
-        client,
+        aeron_client,
         pub_payload,
         pub_control,
         pub_metadata,

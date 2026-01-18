@@ -2,8 +2,8 @@
     with_driver_and_client() do _, client
         metadata_stream_id = Int32(1300)
         metadata_channel = "aeron:ipc"
-        pub = Aeron.add_publication(client, metadata_channel, metadata_stream_id)
-        cache = MetadataCache(metadata_channel, metadata_stream_id; client = client)
+        pub = Aeron.add_publication(client.aeron_client, metadata_channel, metadata_stream_id)
+        cache = MetadataCache(metadata_channel, metadata_stream_id; client = client.aeron_client)
         publisher = MetadataPublisher(pub, UInt32(1), UInt32(7), UInt64(1))
 
         attrs = MetadataAttribute[

@@ -83,7 +83,7 @@ end
 """
 TensorPool client entry point (Aeron-style).
 """
-mutable struct TensorPoolClient
+mutable struct TensorPoolClient <: AbstractTensorPoolClient
     context::TensorPoolContext
     aeron_context::Union{Aeron.Context, Nothing}
     aeron_client::Aeron.Client

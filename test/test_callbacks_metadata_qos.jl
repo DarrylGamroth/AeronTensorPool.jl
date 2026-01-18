@@ -19,8 +19,8 @@
 
             producer = Producer.init_producer(producer_cfg; client = client)
             consumer = Consumer.init_consumer(consumer_cfg; client = client)
-            monitor = QosMonitor(consumer_cfg; client = client)
-            cache = MetadataCache(producer_cfg; client = client)
+            monitor = QosMonitor(consumer_cfg; client = client.aeron_client)
+            cache = MetadataCache(producer_cfg; client = client.aeron_client)
 
             meta_called = Ref(0)
             qos_prod_called = Ref(0)

@@ -2,7 +2,7 @@ using Test
 
 @testset "Discovery response schema gating" begin
     with_driver_and_client() do driver, client
-        sub = Aeron.add_subscription(client, "aeron:ipc", Int32(15511))
+        sub = Aeron.add_subscription(client.aeron_client, "aeron:ipc", Int32(15511))
         poller = AeronTensorPool.DiscoveryClient.DiscoveryResponsePoller(sub)
 
         out_entries = AeronTensorPool.DiscoveryClient.DiscoveryEntry[]

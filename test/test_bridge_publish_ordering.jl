@@ -66,7 +66,7 @@ using Test
                 )
                 receiver = Bridge.init_bridge_receiver(bridge_cfg, mapping; producer_state = producer_state, client = client)
 
-                sub = Aeron.add_subscription(client, "aeron:ipc", Int32(17210))
+                sub = Aeron.add_subscription(client.aeron_client, "aeron:ipc", Int32(17210))
                 ok = wait_for(; timeout = 3.0) do
                     Aeron.is_connected(producer_state.runtime.pub_descriptor) && Aeron.is_connected(sub)
                 end

@@ -88,6 +88,14 @@ end
             metadata_channel = "aeron:ipc"
             metadata_stream_id = Int32(5103)
 
+            ctx = TensorPoolContext(
+                ;
+                aeron_dir = Aeron.MediaDriver.aeron_dir(driver),
+                control_channel = request_channel,
+                control_stream_id = request_stream_id,
+            )
+            tp_client = connect(ctx; aeron_client = client)
+
             config = DiscoveryConfig(
                 request_channel,
                 request_stream_id,
@@ -104,7 +112,7 @@ end
                 AeronTensorPool.DISCOVERY_MAX_TAGS_PER_ENTRY_DEFAULT,
                 AeronTensorPool.DISCOVERY_MAX_POOLS_PER_ENTRY_DEFAULT,
             )
-            state = AeronTensorPool.Agents.Discovery.init_discovery_provider(config; client = client)
+            state = AeronTensorPool.Agents.Discovery.init_discovery_provider(config; client = tp_client)
             request_asm = AeronTensorPool.Agents.Discovery.make_request_assembler(state)
             announce_asm = AeronTensorPool.Agents.Discovery.make_announce_assembler(state)
             metadata_asm = AeronTensorPool.Agents.Discovery.make_metadata_assembler(state)
@@ -159,6 +167,7 @@ end
             @test slot.out_entries[1].stream_id == UInt32(42)
             @test String(view(slot.out_entries[1].data_source_name)) == "camera-1"
 
+            close(tp_client)
             close(pub_announce)
             close(pub_metadata)
         end
@@ -174,6 +183,14 @@ end
             announce_stream_id = Int32(5201)
             metadata_channel = "aeron:ipc"
             metadata_stream_id = Int32(5202)
+
+            ctx = TensorPoolContext(
+                ;
+                aeron_dir = Aeron.MediaDriver.aeron_dir(driver),
+                control_channel = request_channel,
+                control_stream_id = request_stream_id,
+            )
+            tp_client = connect(ctx; aeron_client = client)
 
             config = DiscoveryConfig(
                 request_channel,
@@ -191,7 +208,7 @@ end
                 AeronTensorPool.DISCOVERY_MAX_TAGS_PER_ENTRY_DEFAULT,
                 AeronTensorPool.DISCOVERY_MAX_POOLS_PER_ENTRY_DEFAULT,
             )
-            state = AeronTensorPool.Agents.Discovery.init_discovery_provider(config; client = client)
+            state = AeronTensorPool.Agents.Discovery.init_discovery_provider(config; client = tp_client)
             request_asm = AeronTensorPool.Agents.Discovery.make_request_assembler(state)
             announce_asm = AeronTensorPool.Agents.Discovery.make_announce_assembler(state)
             metadata_asm = AeronTensorPool.Agents.Discovery.make_metadata_assembler(state)
@@ -246,6 +263,7 @@ end
             @test ok
             @test status[] == DiscoveryStatus.ERROR
 
+            close(tp_client)
             close(response_sub)
             close(pub_req)
         end

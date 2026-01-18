@@ -3,24 +3,25 @@ Initialize a consumer: create Aeron resources and initial timers.
 
 Arguments:
 - `config`: consumer settings.
-- `client`: Aeron client to use for publications/subscriptions.
+- `client`: TensorPool client (owns Aeron resources).
 
 Returns:
 - `ConsumerState` initialized for polling.
 """
-function init_consumer(config::ConsumerConfig; client::Aeron.Client)
+function init_consumer(config::ConsumerConfig; client::AbstractTensorPoolClient)
     clock = Clocks.CachedEpochClock(Clocks.MonotonicClock())
     fetch!(clock)
     announce_join_ns = UInt64(Clocks.time_nanos(clock))
     join_time_ref = Ref{UInt64}(announce_join_ns)
     config.allowed_base_dirs = canonical_allowed_dirs(config.shm_base_dir, config.allowed_base_dirs)
+    aeron_client = client.aeron_client
 
-    pub_control = Aeron.add_publication(client, config.aeron_uri, config.control_stream_id)
+    pub_control = Aeron.add_publication(aeron_client, config.aeron_uri, config.control_stream_id)
     log_publication_ready("Consumer control", pub_control, config.control_stream_id)
-    pub_qos = Aeron.add_publication(client, config.aeron_uri, config.qos_stream_id)
+    pub_qos = Aeron.add_publication(aeron_client, config.aeron_uri, config.qos_stream_id)
     log_publication_ready("Consumer qos", pub_qos, config.qos_stream_id)
 
-    sub_descriptor = Aeron.add_subscription(client, config.aeron_uri, config.descriptor_stream_id)
+    sub_descriptor = Aeron.add_subscription(aeron_client, config.aeron_uri, config.descriptor_stream_id)
     log_subscription_ready("Consumer descriptor", sub_descriptor, config.descriptor_stream_id)
     on_control_available = let ref = join_time_ref
         _ -> begin
@@ -34,14 +35,14 @@ function init_consumer(config::ConsumerConfig; client::Aeron.Client)
         return nothing
     end
     sub_control = Aeron.add_subscription(
-        client,
+        aeron_client,
         config.aeron_uri,
         config.control_stream_id;
         on_available_image = on_control_available,
         on_unavailable_image = on_control_unavailable,
     )
     log_subscription_ready("Consumer control", sub_control, config.control_stream_id)
-    sub_qos = Aeron.add_subscription(client, config.aeron_uri, config.qos_stream_id)
+    sub_qos = Aeron.add_subscription(aeron_client, config.aeron_uri, config.qos_stream_id)
     log_subscription_ready("Consumer qos", sub_qos, config.qos_stream_id)
     sub_progress = nothing
 
@@ -50,7 +51,7 @@ function init_consumer(config::ConsumerConfig; client::Aeron.Client)
         (ConsumerHelloHandler(), ConsumerQosHandler()),
     )
 
-    control = ControlPlaneRuntime(client, pub_control, sub_control)
+    control = ControlPlaneRuntime(aeron_client, pub_control, sub_control)
     runtime = ConsumerRuntime(
         control,
         pub_qos,
@@ -164,7 +165,7 @@ Arguments:
 - `config`: consumer settings.
 - `attach`: driver attach response.
 - `driver_client`: optional driver client state (for keepalives).
-- `client`: Aeron client to use for publications/subscriptions.
+- `client`: Tensor pool client/runtime to use for publications/subscriptions.
 
 Returns:
 - `ConsumerState` mapped to the driver-provisioned regions.
@@ -173,7 +174,7 @@ function init_consumer_from_attach(
     config::ConsumerConfig,
     attach::AttachResponse;
     driver_client::Union{DriverClientState, Nothing} = nothing,
-    client::Aeron.Client,
+    client::AbstractTensorPoolClient,
 )
     attach.code == DriverResponseCode.OK || throw(ArgumentError("attach failed"))
     attach.stream_id == config.stream_id || throw(ArgumentError("stream_id mismatch"))

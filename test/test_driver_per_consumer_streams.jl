@@ -33,11 +33,11 @@ using Test
             control_stream_id_range = AeronTensorPool.DriverStreamIdRange(UInt32(2100), UInt32(2102)),
         )
 
-        driver_state = init_driver(cfg; client = client)
+        driver_state = init_driver(cfg; client = client.aeron_client)
 
-        pub = Aeron.add_publication(client, "aeron:ipc", 1000)
-        sub_responses = Aeron.add_subscription(client, "aeron:ipc", 1000)
-        sub_configs = Aeron.add_subscription(client, "aeron:ipc", 1000)
+        pub = Aeron.add_publication(client.aeron_client, "aeron:ipc", 1000)
+        sub_responses = Aeron.add_subscription(client.aeron_client, "aeron:ipc", 1000)
+        sub_configs = Aeron.add_subscription(client.aeron_client, "aeron:ipc", 1000)
 
         attach_proxy = AttachRequestProxy(pub)
         poller = DriverResponsePoller(sub_responses)
@@ -158,11 +158,11 @@ end
             control_stream_id_range = nothing,
         )
 
-        driver_state = init_driver(cfg; client = client)
+        driver_state = init_driver(cfg; client = client.aeron_client)
 
-        pub = Aeron.add_publication(client, "aeron:ipc", 1000)
-        sub_responses = Aeron.add_subscription(client, "aeron:ipc", 1000)
-        sub_configs = Aeron.add_subscription(client, "aeron:ipc", 1000)
+        pub = Aeron.add_publication(client.aeron_client, "aeron:ipc", 1000)
+        sub_responses = Aeron.add_subscription(client.aeron_client, "aeron:ipc", 1000)
+        sub_configs = Aeron.add_subscription(client.aeron_client, "aeron:ipc", 1000)
 
         attach_proxy = AttachRequestProxy(pub)
         poller = DriverResponsePoller(sub_responses)

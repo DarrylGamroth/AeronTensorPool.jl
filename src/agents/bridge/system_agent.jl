@@ -17,7 +17,7 @@ Arguments:
 - `mappings`: list of bridge mappings.
 - `consumer_config`: base consumer configuration (stream_id overridden per mapping).
 - `producer_config`: base producer configuration (stream_id overridden per mapping).
-- `client`: Aeron client to use for publications/subscriptions.
+- `client`: Tensor pool client/runtime to use for publications/subscriptions.
 - `callbacks`: optional bridge callbacks.
 
 Returns:
@@ -28,10 +28,11 @@ function BridgeSystemAgent(
     mappings::Vector{BridgeMapping},
     consumer_config::ConsumerConfig,
     producer_config::ProducerConfig;
-    client::Aeron.Client,
+    client::AbstractTensorPoolClient,
     callbacks::BridgeCallbacks = NOOP_BRIDGE_CALLBACKS,
 )
     validate_bridge_config(bridge_config, mappings)
+    aeron_client = client.aeron_client
     senders = BridgeSenderState[]
     receivers = BridgeReceiverState[]
     control_assemblers = Aeron.FragmentAssembler[]
@@ -52,7 +53,7 @@ function BridgeSystemAgent(
         push!(receivers, receiver)
         push!(control_assemblers, Consumer.make_control_assembler(consumer_state))
         push!(descriptor_assemblers, make_bridge_descriptor_assembler(sender; callbacks = callbacks))
-        push!(counters, BridgeCounters(client, Int(mapping.dest_stream_id), "Bridge"))
+        push!(counters, BridgeCounters(aeron_client, Int(mapping.dest_stream_id), "Bridge"))
     end
     return BridgeSystemAgent(senders, receivers, control_assemblers, descriptor_assemblers, counters)
 end

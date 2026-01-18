@@ -3,12 +3,12 @@ Initialize a producer: map SHM regions, write superblocks, and create Aeron reso
 
 Arguments:
 - `config`: producer configuration.
-- `client`: Aeron client to use for publications/subscriptions.
+- `client`: TensorPool client (owns Aeron resources).
 
 Returns:
 - `ProducerState` initialized for publishing.
 """
-function init_producer(config::ProducerConfig; client::Aeron.Client)
+function init_producer(config::ProducerConfig; client::AbstractTensorPoolClient)
     ispow2(config.nslots) || throw(ArgumentError("header nslots must be power of two"))
     for pool in config.payload_pools
         pool.nslots == config.nslots || throw(ArgumentError("payload nslots must match header nslots"))
@@ -19,19 +19,20 @@ function init_producer(config::ProducerConfig; client::Aeron.Client)
 
     mappings, sb_encoder = init_producer_shm!(config, clock)
 
-    pub_descriptor = Aeron.add_publication(client, config.aeron_uri, config.descriptor_stream_id)
-    pub_control = Aeron.add_publication(client, config.aeron_uri, config.control_stream_id)
-    pub_qos = Aeron.add_publication(client, config.aeron_uri, config.qos_stream_id)
-    pub_metadata = Aeron.add_publication(client, config.aeron_uri, config.metadata_stream_id)
-    sub_control = Aeron.add_subscription(client, config.aeron_uri, config.control_stream_id)
-    sub_qos = Aeron.add_subscription(client, config.aeron_uri, config.qos_stream_id)
+    aeron_client = client.aeron_client
+    pub_descriptor = Aeron.add_publication(aeron_client, config.aeron_uri, config.descriptor_stream_id)
+    pub_control = Aeron.add_publication(aeron_client, config.aeron_uri, config.control_stream_id)
+    pub_qos = Aeron.add_publication(aeron_client, config.aeron_uri, config.qos_stream_id)
+    pub_metadata = Aeron.add_publication(aeron_client, config.aeron_uri, config.metadata_stream_id)
+    sub_control = Aeron.add_subscription(aeron_client, config.aeron_uri, config.control_stream_id)
+    sub_qos = Aeron.add_subscription(aeron_client, config.aeron_uri, config.qos_stream_id)
 
     timer_set = TimerSet(
         (PolledTimer(config.announce_interval_ns), PolledTimer(config.qos_interval_ns)),
         (ProducerAnnounceHandler(), ProducerQosHandler()),
     )
 
-    control = ControlPlaneRuntime(client, pub_control, sub_control)
+    control = ControlPlaneRuntime(aeron_client, pub_control, sub_control)
     runtime = ProducerRuntime(
         control,
         pub_descriptor,
@@ -162,7 +163,7 @@ Initialize a producer using driver-provisioned SHM regions.
 Arguments:
 - `config`: base producer configuration.
 - `attach`: driver attach response.
-- `client`: Aeron client to use for publications/subscriptions.
+- `client`: Tensor pool client/runtime to use for publications/subscriptions.
 
 Returns:
 - `ProducerState` initialized for publishing.
@@ -171,7 +172,7 @@ function init_producer_from_attach(
     config::ProducerConfig,
     attach::AttachResponse;
     driver_client::Union{DriverClientState, Nothing} = nothing,
-    client::Aeron.Client,
+    client::AbstractTensorPoolClient,
 )
     attach.code == DriverResponseCode.OK || throw(ArgumentError("attach failed"))
     if attach.lease_id == ShmAttachResponse.leaseId_null_value(ShmAttachResponse.Decoder) ||
@@ -200,17 +201,18 @@ function init_producer_from_attach(
     @tp_info "Producer Aeron endpoints" aeron_uri = driver_config.aeron_uri descriptor_stream_id =
         driver_config.descriptor_stream_id control_stream_id = driver_config.control_stream_id qos_stream_id =
         driver_config.qos_stream_id metadata_stream_id = driver_config.metadata_stream_id
-    pub_descriptor = Aeron.add_publication(client, driver_config.aeron_uri, driver_config.descriptor_stream_id)
+    aeron_client = client.aeron_client
+    pub_descriptor = Aeron.add_publication(aeron_client, driver_config.aeron_uri, driver_config.descriptor_stream_id)
     log_publication_ready("Producer descriptor", pub_descriptor, driver_config.descriptor_stream_id)
-    pub_control = Aeron.add_publication(client, driver_config.aeron_uri, driver_config.control_stream_id)
+    pub_control = Aeron.add_publication(aeron_client, driver_config.aeron_uri, driver_config.control_stream_id)
     log_publication_ready("Producer control", pub_control, driver_config.control_stream_id)
-    pub_qos = Aeron.add_publication(client, driver_config.aeron_uri, driver_config.qos_stream_id)
+    pub_qos = Aeron.add_publication(aeron_client, driver_config.aeron_uri, driver_config.qos_stream_id)
     log_publication_ready("Producer qos", pub_qos, driver_config.qos_stream_id)
-    pub_metadata = Aeron.add_publication(client, driver_config.aeron_uri, driver_config.metadata_stream_id)
+    pub_metadata = Aeron.add_publication(aeron_client, driver_config.aeron_uri, driver_config.metadata_stream_id)
     log_publication_ready("Producer metadata", pub_metadata, driver_config.metadata_stream_id)
-    sub_control = Aeron.add_subscription(client, driver_config.aeron_uri, driver_config.control_stream_id)
+    sub_control = Aeron.add_subscription(aeron_client, driver_config.aeron_uri, driver_config.control_stream_id)
     log_subscription_ready("Producer control", sub_control, driver_config.control_stream_id)
-    sub_qos = Aeron.add_subscription(client, driver_config.aeron_uri, driver_config.qos_stream_id)
+    sub_qos = Aeron.add_subscription(aeron_client, driver_config.aeron_uri, driver_config.qos_stream_id)
     log_subscription_ready("Producer qos", sub_qos, driver_config.qos_stream_id)
 
     timer_set = TimerSet(
@@ -218,7 +220,7 @@ function init_producer_from_attach(
         (ProducerAnnounceHandler(), ProducerQosHandler()),
     )
 
-    control = ControlPlaneRuntime(client, pub_control, sub_control)
+    control = ControlPlaneRuntime(aeron_client, pub_control, sub_control)
     runtime = ProducerRuntime(
         control,
         pub_descriptor,

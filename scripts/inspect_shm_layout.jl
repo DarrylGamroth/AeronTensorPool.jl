@@ -63,7 +63,7 @@ Aeron.MediaDriver.launch_embedded() do driver
         control_stream_id = producer_cfg.control_stream_id,
     )
     with_runtime(ctx; create_control = false) do runtime
-        state = Producer.init_producer(producer_cfg; client = runtime.aeron_client)
+        state = Producer.init_producer(producer_cfg; client = runtime)
         close(state.runtime.pub_descriptor)
         close(state.runtime.control.pub_control)
         close(state.runtime.pub_qos)

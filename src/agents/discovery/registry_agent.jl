@@ -13,12 +13,12 @@ Construct a DiscoveryRegistryAgent from a DiscoveryRegistryConfig.
 
 Arguments:
 - `config`: discovery registry configuration.
-- `client`: Aeron client to use for publications/subscriptions.
+- `client`: TensorPool client (owns Aeron resources).
 
 Returns:
 - `DiscoveryRegistryAgent` wrapping the discovery registry state and assemblers.
 """
-function DiscoveryRegistryAgent(config::DiscoveryRegistryConfig; client::Aeron.Client)
+function DiscoveryRegistryAgent(config::DiscoveryRegistryConfig; client::AbstractTensorPoolClient)
     state = init_discovery_registry(config; client = client)
     request_assembler = make_request_assembler(state)
     announce_assemblers =
