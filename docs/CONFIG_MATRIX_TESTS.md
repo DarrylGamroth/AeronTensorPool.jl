@@ -10,6 +10,9 @@ Status legend:
 - Covered: exercised by tests listed.
 - Gap: missing explicit integration coverage; add a test or document verification.
 
+Note: `test/test_system_external_flow.jl` is opt-in (set `ATP_RUN_EXTERNAL_TESTS=1`), and CI
+should enable it for end-to-end validation.
+
 | Area | Axis | Permutations | Evidence | Status | Notes |
 | --- | --- | --- | --- | --- | --- |
 | Driver attach | publishMode | REQUIRE_EXISTING | `test/test_driver_attach.jl` | Covered |  |
