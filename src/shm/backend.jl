@@ -41,6 +41,29 @@ function mmap_shm(uri::AbstractString, size::Integer; write::Bool = false)
 end
 
 """
+Map a SHM region, pass the buffer to `f`, and unmap on exit.
+
+This helper is intended for setup/teardown paths, not hot loops.
+"""
+function with_mmap_shm(f::Function, uri::AbstractString, size::Integer; write::Bool = false)
+    buffer = mmap_shm(uri, size; write = write)
+    try
+        return f(buffer)
+    finally
+        if write
+            try
+                Mmap.sync!(buffer)
+            catch
+            end
+        end
+        try
+            Mmap.munmap(buffer)
+        catch
+        end
+    end
+end
+
+"""
 Map an existing SHM region without truncating the backing file.
 
 Arguments:
@@ -53,6 +76,29 @@ Returns:
 """
 function mmap_shm_existing(uri::AbstractString, size::Integer; write::Bool = false)
     return mmap_shm_existing_linux(uri, size; write = write)
+end
+
+"""
+Map an existing SHM region, pass the buffer to `f`, and unmap on exit.
+
+This helper is intended for setup/teardown paths, not hot loops.
+"""
+function with_mmap_shm_existing(f::Function, uri::AbstractString, size::Integer; write::Bool = false)
+    buffer = mmap_shm_existing(uri, size; write = write)
+    try
+        return f(buffer)
+    finally
+        if write
+            try
+                Mmap.sync!(buffer)
+            catch
+            end
+        end
+        try
+            Mmap.munmap(buffer)
+        catch
+        end
+    end
 end
 
 function shm_available_bytes(path::AbstractString)

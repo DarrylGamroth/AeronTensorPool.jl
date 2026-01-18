@@ -94,6 +94,54 @@ function init_driver(config::DriverConfig; client::Aeron.Client)
 end
 
 """
+Initialize a driver state and ensure resources are cleaned up.
+
+This helper is intended for setup/teardown paths, not hot loops.
+"""
+function with_driver_state(f::Function, config::DriverConfig; client::Aeron.Client)
+    state = init_driver(config; client = client)
+    register_driver!(state)
+    try
+        return f(state)
+    finally
+        try
+            cleanup_shm_on_exit!(state)
+            unregister_driver!(state)
+        catch
+        end
+        try
+            close(state.runtime.control.pub_control)
+            close(state.runtime.pub_announce)
+            close(state.runtime.pub_qos)
+            close(state.runtime.control.sub_control)
+        catch
+        end
+    end
+end
+
+"""
+Construct an Aeron client, run a driver state, and close all resources.
+
+This helper is intended for setup/teardown paths, not hot loops.
+"""
+function with_driver(
+    f::Function,
+    config::DriverConfig;
+    aeron_dir::AbstractString = config.endpoints.aeron_dir,
+    use_invoker::Bool = false,
+)
+    Aeron.Context() do context
+        if !isempty(aeron_dir)
+            Aeron.aeron_dir!(context, aeron_dir)
+        end
+        Aeron.use_conductor_agent_invoker!(context, use_invoker)
+        Aeron.Client(context) do client
+            return with_driver_state(f, config; client = client)
+        end
+    end
+end
+
+"""
 Poll the driver control subscription.
 
 Arguments:

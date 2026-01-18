@@ -114,6 +114,25 @@ function connect(
 end
 
 """
+Construct a client, run `f`, and close owned resources.
+
+This helper is intended for setup/teardown paths, not hot loops.
+"""
+function with_client(
+    f::Function,
+    context::TensorPoolContext;
+    aeron_client::Union{Aeron.Client, Nothing} = nothing,
+    aeron_context::Union{Aeron.Context, Nothing} = nothing,
+)
+    client = connect(context; aeron_client = aeron_client, aeron_context = aeron_context)
+    try
+        return f(client)
+    finally
+        close(client)
+    end
+end
+
+"""
 Close a TensorPoolClient and owned Aeron resources.
 """
 function Base.close(client::TensorPoolClient)
