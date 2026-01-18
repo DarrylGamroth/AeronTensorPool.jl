@@ -56,6 +56,18 @@ mutable struct TraceLinkPoller{H} <: AbstractControlPoller
     handler::H
 end
 
+"""
+Diagnostic probe for FrameDescriptor streams.
+
+Tracks how many descriptors were seen and the last observed seq/epoch.
+"""
+mutable struct FrameDescriptorProbe
+    poller::Union{Nothing, FrameDescriptorPoller}
+    seen::UInt64
+    last_seq::UInt64
+    last_epoch::UInt64
+end
+
 abstract type ControlMessageKind end
 struct DescriptorMessageKind <: ControlMessageKind end
 struct ConsumerConfigMessageKind <: ControlMessageKind end
@@ -189,6 +201,25 @@ function TraceLinkPoller(
     return poller
 end
 
+"""
+Construct a FrameDescriptorProbe using a tensor-pool client.
+"""
+function FrameDescriptorProbe(
+    client::AbstractTensorPoolClient,
+    channel::AbstractString,
+    stream_id::Int32,
+)
+    probe = FrameDescriptorProbe(nothing, UInt64(0), UInt64(0), UInt64(0))
+    poller = FrameDescriptorPoller(aeron_client(client), channel, stream_id) do _, decoder
+        probe.seen += 1
+        probe.last_seq = FrameDescriptor.seq(decoder)
+        probe.last_epoch = FrameDescriptor.epoch(decoder)
+        return nothing
+    end
+    probe.poller = poller
+    return probe
+end
+
 @inline control_message_kind(::FrameDescriptorPoller) = DescriptorMessageKind()
 @inline control_message_kind(::ConsumerConfigPoller) = ConsumerConfigMessageKind()
 @inline control_message_kind(::FrameProgressPoller) = FrameProgressMessageKind()
@@ -271,6 +302,14 @@ function poll!(poller::AbstractControlPoller, fragment_limit::Int32 = DEFAULT_FR
 end
 
 """
+Poll fragments for a FrameDescriptorProbe.
+"""
+function poll!(probe::FrameDescriptorProbe, fragment_limit::Int32 = DEFAULT_FRAGMENT_LIMIT)
+    probe.poller === nothing && return 0
+    return poll!(probe.poller, fragment_limit)
+end
+
+"""
 Rebind a poller to a new channel/stream.
 """
 function rebind!(poller::AbstractControlPoller, channel::AbstractString, stream_id::Int32)
@@ -279,9 +318,28 @@ function rebind!(poller::AbstractControlPoller, channel::AbstractString, stream_
 end
 
 """
+Rebind a FrameDescriptorProbe to a new channel/stream.
+"""
+function rebind!(probe::FrameDescriptorProbe, channel::AbstractString, stream_id::Int32)
+    probe.poller === nothing && return nothing
+    rebind!(probe.poller, channel, stream_id)
+    return nothing
+end
+
+"""
 Close the poller's subscription.
 """
 function Base.close(poller::AbstractControlPoller)
     close(poller.subscription)
+    return nothing
+end
+
+"""
+Close a FrameDescriptorProbe.
+"""
+function Base.close(probe::FrameDescriptorProbe)
+    probe.poller === nothing && return nothing
+    close(probe.poller)
+    probe.poller = nothing
     return nothing
 end

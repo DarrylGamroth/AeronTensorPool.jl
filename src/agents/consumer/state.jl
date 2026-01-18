@@ -65,6 +65,7 @@ mutable struct ConsumerMetrics
     drops_odd::UInt64
     drops_changed::UInt64
     drops_frame_id_mismatch::UInt64
+    drops_epoch_mismatch::UInt64
     drops_header_invalid::UInt64
     drops_payload_invalid::UInt64
     remap_count::UInt64

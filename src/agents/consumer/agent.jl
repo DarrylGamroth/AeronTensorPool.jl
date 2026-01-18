@@ -73,6 +73,11 @@ function Agent.do_work(agent::ConsumerAgent)
         :consumer_drops_frame_id_mismatch,
     )
     AeronUtils.set_counter!(
+        agent.counters.drops_epoch_mismatch,
+        Int64(agent.state.metrics.drops_epoch_mismatch),
+        :consumer_drops_epoch_mismatch,
+    )
+    AeronUtils.set_counter!(
         agent.counters.drops_header_invalid,
         Int64(agent.state.metrics.drops_header_invalid),
         :consumer_drops_header_invalid,

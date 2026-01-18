@@ -8,6 +8,7 @@ struct ConsumerCounters
     drops_odd::Aeron.Counter
     drops_changed::Aeron.Counter
     drops_frame_id_mismatch::Aeron.Counter
+    drops_epoch_mismatch::Aeron.Counter
     drops_header_invalid::Aeron.Counter
     drops_payload_invalid::Aeron.Counter
     remaps::Aeron.Counter
@@ -34,6 +35,7 @@ function ConsumerCounters(client::Aeron.Client, agent_id, agent_name)
         AeronUtils.add_counter(client, agent_id, agent_name, 5, "DropsOdd"),
         AeronUtils.add_counter(client, agent_id, agent_name, 6, "DropsChanged"),
         AeronUtils.add_counter(client, agent_id, agent_name, 7, "DropsFrameIdMismatch"),
+        AeronUtils.add_counter(client, agent_id, agent_name, 13, "DropsEpochMismatch"),
         AeronUtils.add_counter(client, agent_id, agent_name, 8, "DropsHeaderInvalid"),
         AeronUtils.add_counter(client, agent_id, agent_name, 9, "DropsPayloadInvalid"),
         AeronUtils.add_counter(client, agent_id, agent_name, 10, "Remaps"),
@@ -48,6 +50,7 @@ function Base.close(counters::ConsumerCounters)
     close(counters.drops_odd)
     close(counters.drops_changed)
     close(counters.drops_frame_id_mismatch)
+    close(counters.drops_epoch_mismatch)
     close(counters.drops_header_invalid)
     close(counters.drops_payload_invalid)
     close(counters.remaps)

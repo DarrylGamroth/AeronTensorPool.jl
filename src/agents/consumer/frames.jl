@@ -144,6 +144,7 @@ function try_read_frame!(
         return false
     end
     if FrameDescriptor.epoch(desc) != state.mappings.mapped_epoch
+        state.metrics.drops_epoch_mismatch += 1
         @tp_debug "try_read_frame drop" reason = :epoch_mismatch desc_epoch = FrameDescriptor.epoch(desc) mapped_epoch =
             state.mappings.mapped_epoch
         return false

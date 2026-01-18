@@ -29,6 +29,7 @@
                 @test cons.drops_odd isa Aeron.Counter
                 @test cons.drops_changed isa Aeron.Counter
                 @test cons.drops_frame_id_mismatch isa Aeron.Counter
+                @test cons.drops_epoch_mismatch isa Aeron.Counter
                 @test cons.drops_header_invalid isa Aeron.Counter
                 @test cons.drops_payload_invalid isa Aeron.Counter
                 @test cons.remaps isa Aeron.Counter

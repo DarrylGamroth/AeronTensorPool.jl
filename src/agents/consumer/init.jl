@@ -123,6 +123,7 @@ function init_consumer(config::ConsumerConfig; client::AbstractTensorPoolClient)
         UInt64(0),
         UInt64(0),
         UInt64(0),
+        UInt64(0),
         false,
     )
     dummy_handler = Aeron.FragmentHandler(nothing) do _, _, _
