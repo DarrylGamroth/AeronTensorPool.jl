@@ -2,6 +2,7 @@ using Test
 using AeronTensorPool
 
 include("helpers_aeron.jl")
+include("helpers_external.jl")
 
 include("test_shm_uri.jl")
 include("test_shm_superblock.jl")

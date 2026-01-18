@@ -4,17 +4,6 @@ using Test
     run_external = get(ENV, "ATP_RUN_EXTERNAL_TESTS", "1") == "1"
     run_external || return @test true
 
-    function wait_process(proc::Base.Process, timeout_s::Float64)
-        ok = wait_for(() -> !Base.process_running(proc); timeout = timeout_s, sleep_s = 0.05)
-        if !ok
-            kill(proc)
-            wait(proc)
-            return false
-        end
-        wait(proc)
-        return true
-    end
-
     mktempdir("/dev/shm") do dir
         repo_root = abspath(joinpath(@__DIR__, ".."))
         driver_cfg = joinpath(dir, "driver.toml")
@@ -61,14 +50,6 @@ profile = "camera"
 
         Aeron.MediaDriver.launch_embedded() do driver
             aeron_dir = Aeron.MediaDriver.aeron_dir(driver)
-            env = Dict(ENV)
-            env["AERON_DIR"] = aeron_dir
-            env["LAUNCH_MEDIA_DRIVER"] = "false"
-
-            stdbuf = Sys.which("stdbuf")
-            julia_exec = Base.julia_cmd().exec
-            julia_cmd = stdbuf === nothing ? julia_exec : vcat(stdbuf, "-oL", "-eL", julia_exec)
-            project = Base.active_project()
             driver_script = joinpath(repo_root, "scripts", "run_driver.jl")
             producer_script = joinpath(repo_root, "scripts", "example_producer.jl")
             consumer_script = joinpath(repo_root, "scripts", "example_consumer.jl")
@@ -76,6 +57,7 @@ profile = "camera"
             driver_log = joinpath(dir, "driver.log")
             producer_log = joinpath(dir, "producer.log")
             consumer_log = joinpath(dir, "consumer.log")
+            env = external_env(aeron_dir)
             env_driver = Dict(env)
             env_producer = Dict(env)
             env_consumer = Dict(env)
@@ -85,64 +67,51 @@ profile = "camera"
             env_consumer["TP_FAIL_ON_MISMATCH"] = "1"
             env_consumer["TP_READY_FILE"] = ready_file
 
-            julia_flags = ["--project=$(project)", "--startup-file=no", "--history-file=no"]
-            driver_cmd = setenv(
-                Cmd(vcat(julia_cmd, julia_flags, [driver_script, driver_cfg])),
-                env_driver,
+            driver_proc = start_external_julia(
+                [driver_script, driver_cfg];
+                env = env_driver,
+                log_path = driver_log,
             )
-            producer_cmd = setenv(
-                Cmd(
-                    vcat(julia_cmd, julia_flags, [producer_script, driver_cfg, "5", "256"]),
-                ),
-                env_producer,
-            )
-            consumer_cmd = setenv(
-                Cmd(
-                    vcat(julia_cmd, julia_flags, [consumer_script, driver_cfg, "5"]),
-                ),
-                env_consumer,
-            )
-
-            driver_io = open(driver_log, "w")
-            producer_io = open(producer_log, "w")
-            consumer_io = open(consumer_log, "w")
-            driver_proc = run(pipeline(driver_cmd; stdout = driver_io, stderr = driver_io); wait = false)
             sleep(1.0)
-            consumer_proc = run(pipeline(consumer_cmd; stdout = consumer_io, stderr = consumer_io); wait = false)
-            timeout_s = parse(Float64, get(ENV, "TP_EXAMPLE_TIMEOUT", "60"))
+            consumer_proc = start_external_julia(
+                [consumer_script, driver_cfg, "5"];
+                env = env_consumer,
+                log_path = consumer_log,
+            )
+            timeout_s = EXTERNAL_TEST_TIMEOUT_SEC
             ready_ok = wait_for(() -> isfile(ready_file); timeout = timeout_s, sleep_s = 0.05)
             if !ready_ok
-                kill(consumer_proc)
-                wait(consumer_proc)
-                kill(driver_proc)
-                wait(driver_proc)
-                close(consumer_io)
-                close(producer_io)
-                close(driver_io)
+                stop_external(consumer_proc)
+                stop_external(driver_proc)
+                close_external(consumer_proc)
+                close_external(driver_proc)
                 return @test ready_ok
             end
-            producer_proc = run(pipeline(producer_cmd; stdout = producer_io, stderr = producer_io); wait = false)
+            producer_proc = start_external_julia(
+                [producer_script, driver_cfg, "5", "256"];
+                env = env_producer,
+                log_path = producer_log,
+            )
 
-            consumer_ok = wait_process(consumer_proc, timeout_s)
-            producer_ok = wait_process(producer_proc, timeout_s)
-            close(consumer_io)
-            close(producer_io)
+            consumer_ok = wait_external(consumer_proc, timeout_s)
+            producer_ok = wait_external(producer_proc, timeout_s)
+            close_external(consumer_proc)
+            close_external(producer_proc)
 
             @test consumer_ok
             @test producer_ok
-            @test success(consumer_proc)
-            @test success(producer_proc)
+            @test success(consumer_proc.proc)
+            @test success(producer_proc.proc)
 
-            producer_output = read(producer_log, String)
-            consumer_output = read(consumer_log, String)
+            producer_output = read_external(producer_proc)
+            consumer_output = read_external(consumer_proc)
             @test occursin("Producer done", producer_output)
             @test occursin("Producer published frame", producer_output)
             @test occursin("frame=", consumer_output)
             @test occursin("Consumer done", consumer_output)
 
-            kill(driver_proc)
-            wait(driver_proc)
-            close(driver_io)
+            stop_external(driver_proc)
+            close_external(driver_proc)
         end
     end
 end
