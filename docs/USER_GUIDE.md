@@ -96,6 +96,28 @@ device name, stream label, or logical topic).
 
 ---
 
+## 4.1 Client/Runtime interface
+
+Agent constructors and pollers accept an `AbstractTensorPoolClient` rather than a raw `Aeron.Client`.
+Two concrete implementations are provided:
+
+- `TensorPoolClient`: lightweight wrapper over an Aeron client.
+- `TensorPoolRuntime`: owns Aeron + an optional control-plane runtime.
+
+Accessor functions:
+- `client_context(client)` returns the `TensorPoolContext`.
+- `aeron_client(client)` returns the underlying `Aeron.Client`.
+- `control_runtime(client)` returns a `ControlPlaneRuntime` or `nothing`.
+
+Example (wrapping an existing Aeron client):
+
+```julia
+ctx = TensorPoolContext(driver_cfg.endpoints)
+client = connect(ctx; aeron_client = existing_aeron_client)
+```
+
+---
+
 ## 5. Attach flow (Driver mode)
 
 Both producer and consumer attach via the driver control plane:
@@ -112,6 +134,28 @@ In code (see `scripts/example_producer.jl` / `scripts/example_consumer.jl`):
 - Initialize agent state with `init_producer_from_attach` or `init_consumer_from_attach`.
 
 The driver enforces exclusive producer leases and handles epoch changes.
+
+---
+
+## 5.1 Pollers (control-plane)
+
+For read-only control-plane observation (e.g., Recorder tools), use the poller wrappers:
+- `FrameDescriptorPoller`
+- `ConsumerConfigPoller`
+- `FrameProgressPoller`
+- `TraceLinkPoller`
+
+Example:
+
+```julia
+handler = (poller, decoder) -> begin
+    @info "descriptor" seq = FrameDescriptor.seq(decoder)
+end
+
+poller = FrameDescriptorPoller(client, "aeron:ipc", Int32(1100), handler)
+poll!(poller)
+close(poller)
+```
 
 ---
 
@@ -258,6 +302,22 @@ payload = fill(UInt8(1), 1024)
 shape = Int32[1024]
 strides = Int32[1]
 offer_frame!(producer, payload, shape, strides, Dtype.UINT8, UInt32(0))
+```
+
+Consume frames (invoker mode):
+
+```julia
+callbacks = ConsumerCallbacks(; on_frame! = (state, frame) -> begin
+    seq = seqlock_sequence(frame.header.seq_commit)
+    payload = Consumer.payload_view(frame.payload)
+    @info "frame" seq bytes = length(payload)
+end)
+
+consumer = attach(client, consumer_cfg; callbacks = callbacks)
+while true
+    do_work(consumer)
+    yield()
+end
 ```
 
 Cleanup:
