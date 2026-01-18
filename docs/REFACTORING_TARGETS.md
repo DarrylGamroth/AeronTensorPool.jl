@@ -100,7 +100,7 @@ progress and refer to remaining items.
 ### 12) Multiple-dispatch handler split
 - Goal: use multiple dispatch to separate per-message/per-config handling logic.
 - Rationale: improves readability and isolates logic without large `if`/`case` blocks.
-- Status: deferred.
+- Status: completed (refactor/targets-10-14).
 - Effort rank: 12
 - Dependencies: message header gating helper (optional).
 - Notes: ensure dispatch is on concrete types/`Val`s to avoid dynamic dispatch in hot paths.
@@ -116,7 +116,7 @@ progress and refer to remaining items.
 ### 14) Trait-based message dispatch
 - Goal: use Holy Traits to map message kinds to schema/template/decoder types.
 - Rationale: consolidate decode/gating logic while keeping compile-time dispatch.
-- Status: deferred.
+- Status: completed (refactor/targets-10-14).
 - Effort rank: 13
 - Dependencies: message header gating helper; multiple-dispatch handler split (optional).
 - Notes: keep trait returns as constants (`Val`/types) to preserve type stability.

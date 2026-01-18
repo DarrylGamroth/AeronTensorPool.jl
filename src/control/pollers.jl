@@ -162,35 +162,75 @@ function handle_driver_response!(poller::DriverResponsePoller, buffer::AbstractV
     poller.last_template_id = template_id
     @tp_info "driver response" template_id
     if template_id == TEMPLATE_SHM_ATTACH_RESPONSE
-        ShmAttachResponse.wrap!(poller.attach_decoder, buffer, 0; header = header)
-        snapshot_attach_response!(poller.attach_response, poller.attach_decoder)
-        @tp_info "attach response" correlation_id = poller.attach_response.correlation_id code =
-            poller.attach_response.code lease_id = poller.attach_response.lease_id
-        correlation_id = poller.attach_response.correlation_id
-        entry = get!(poller.attach_by_correlation, correlation_id) do
-            AttachResponse()
-        end
-        copy_attach_response!(entry, poller.attach_response)
-        poller.last_attach = entry
-        poller.attach_purge_touch = true
+        return handle_driver_response!(poller, buffer, header, Val(TEMPLATE_SHM_ATTACH_RESPONSE))
     elseif template_id == TEMPLATE_SHM_DETACH_RESPONSE
-        ShmDetachResponse.wrap!(poller.detach_decoder, buffer, 0; header = header)
-        snapshot_detach_response!(poller.detach_response, poller.detach_decoder)
-        @tp_info "detach response" correlation_id = poller.detach_response.correlation_id code =
-            poller.detach_response.code
-        poller.last_detach = poller.detach_response
+        return handle_driver_response!(poller, buffer, header, Val(TEMPLATE_SHM_DETACH_RESPONSE))
     elseif template_id == TEMPLATE_SHM_LEASE_REVOKED
-        ShmLeaseRevoked.wrap!(poller.revoke_decoder, buffer, 0; header = header)
-        snapshot_lease_revoked!(poller.revoke_response, poller.revoke_decoder)
-        @tp_warn "lease revoked" lease_id = poller.revoke_response.lease_id reason =
-            poller.revoke_response.reason
-        poller.last_revoke = poller.revoke_response
+        return handle_driver_response!(poller, buffer, header, Val(TEMPLATE_SHM_LEASE_REVOKED))
     elseif template_id == TEMPLATE_SHM_DRIVER_SHUTDOWN
-        ShmDriverShutdown.wrap!(poller.shutdown_decoder, buffer, 0; header = header)
-        snapshot_shutdown!(poller.shutdown_response, poller.shutdown_decoder)
-        @tp_warn "driver shutdown" reason = poller.shutdown_response.reason
-        poller.last_shutdown = poller.shutdown_response
+        return handle_driver_response!(poller, buffer, header, Val(TEMPLATE_SHM_DRIVER_SHUTDOWN))
     end
+    return true
+end
+
+@inline function handle_driver_response!(
+    poller::DriverResponsePoller,
+    buffer::AbstractVector{UInt8},
+    header::DriverMessageHeader.Decoder,
+    ::Val{TEMPLATE_SHM_ATTACH_RESPONSE},
+)
+    ShmAttachResponse.wrap!(poller.attach_decoder, buffer, 0; header = header)
+    snapshot_attach_response!(poller.attach_response, poller.attach_decoder)
+    @tp_info "attach response" correlation_id = poller.attach_response.correlation_id code =
+        poller.attach_response.code lease_id = poller.attach_response.lease_id
+    correlation_id = poller.attach_response.correlation_id
+    entry = get!(poller.attach_by_correlation, correlation_id) do
+        AttachResponse()
+    end
+    copy_attach_response!(entry, poller.attach_response)
+    poller.last_attach = entry
+    poller.attach_purge_touch = true
+    return true
+end
+
+@inline function handle_driver_response!(
+    poller::DriverResponsePoller,
+    buffer::AbstractVector{UInt8},
+    header::DriverMessageHeader.Decoder,
+    ::Val{TEMPLATE_SHM_DETACH_RESPONSE},
+)
+    ShmDetachResponse.wrap!(poller.detach_decoder, buffer, 0; header = header)
+    snapshot_detach_response!(poller.detach_response, poller.detach_decoder)
+    @tp_info "detach response" correlation_id = poller.detach_response.correlation_id code =
+        poller.detach_response.code
+    poller.last_detach = poller.detach_response
+    return true
+end
+
+@inline function handle_driver_response!(
+    poller::DriverResponsePoller,
+    buffer::AbstractVector{UInt8},
+    header::DriverMessageHeader.Decoder,
+    ::Val{TEMPLATE_SHM_LEASE_REVOKED},
+)
+    ShmLeaseRevoked.wrap!(poller.revoke_decoder, buffer, 0; header = header)
+    snapshot_lease_revoked!(poller.revoke_response, poller.revoke_decoder)
+    @tp_warn "lease revoked" lease_id = poller.revoke_response.lease_id reason =
+        poller.revoke_response.reason
+    poller.last_revoke = poller.revoke_response
+    return true
+end
+
+@inline function handle_driver_response!(
+    poller::DriverResponsePoller,
+    buffer::AbstractVector{UInt8},
+    header::DriverMessageHeader.Decoder,
+    ::Val{TEMPLATE_SHM_DRIVER_SHUTDOWN},
+)
+    ShmDriverShutdown.wrap!(poller.shutdown_decoder, buffer, 0; header = header)
+    snapshot_shutdown!(poller.shutdown_response, poller.shutdown_decoder)
+    @tp_warn "driver shutdown" reason = poller.shutdown_response.reason
+    poller.last_shutdown = poller.shutdown_response
     return true
 end
 

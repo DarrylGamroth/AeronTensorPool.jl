@@ -42,6 +42,11 @@ mutable struct FrameProgressPoller{H} <: AbstractControlPoller
     handler::H
 end
 
+abstract type ControlMessageKind end
+struct DescriptorMessageKind <: ControlMessageKind end
+struct ConsumerConfigMessageKind <: ControlMessageKind end
+struct FrameProgressMessageKind <: ControlMessageKind end
+
 """
 Construct a FrameDescriptorPoller.
 
@@ -138,6 +143,81 @@ function FrameProgressPoller(
     return poller
 end
 
+@inline control_message_kind(::FrameDescriptorPoller) = DescriptorMessageKind()
+@inline control_message_kind(::ConsumerConfigPoller) = ConsumerConfigMessageKind()
+@inline control_message_kind(::FrameProgressPoller) = FrameProgressMessageKind()
+
+@inline control_message_template_id(::DescriptorMessageKind) = TEMPLATE_FRAME_DESCRIPTOR
+@inline control_message_template_id(::ConsumerConfigMessageKind) = TEMPLATE_CONSUMER_CONFIG
+@inline control_message_template_id(::FrameProgressMessageKind) = TEMPLATE_FRAME_PROGRESS
+
+@inline control_message_schema_version(::DescriptorMessageKind) =
+    FrameDescriptor.sbe_schema_version(FrameDescriptor.Decoder)
+@inline control_message_schema_version(::ConsumerConfigMessageKind) =
+    ConsumerConfigMsg.sbe_schema_version(ConsumerConfigMsg.Decoder)
+@inline control_message_schema_version(::FrameProgressMessageKind) =
+    FrameProgress.sbe_schema_version(FrameProgress.Decoder)
+
+@inline function control_message_wrap!(
+    ::DescriptorMessageKind,
+    poller::FrameDescriptorPoller,
+    buffer::AbstractVector{UInt8},
+    header::MessageHeader.Decoder,
+)
+    FrameDescriptor.wrap!(poller.decoder, buffer, 0; header = header)
+    return nothing
+end
+
+@inline function control_message_wrap!(
+    ::ConsumerConfigMessageKind,
+    poller::ConsumerConfigPoller,
+    buffer::AbstractVector{UInt8},
+    header::MessageHeader.Decoder,
+)
+    ConsumerConfigMsg.wrap!(poller.decoder, buffer, 0; header = header)
+    return nothing
+end
+
+@inline function control_message_wrap!(
+    ::FrameProgressMessageKind,
+    poller::FrameProgressPoller,
+    buffer::AbstractVector{UInt8},
+    header::MessageHeader.Decoder,
+)
+    FrameProgress.wrap!(poller.decoder, buffer, 0; header = header)
+    return nothing
+end
+
+@inline function control_message_dispatch!(::DescriptorMessageKind, poller::FrameDescriptorPoller)
+    poller.handler(poller, poller.decoder)
+    return nothing
+end
+
+@inline function control_message_dispatch!(::ConsumerConfigMessageKind, poller::ConsumerConfigPoller)
+    poller.handler(poller, poller.decoder)
+    return nothing
+end
+
+@inline function control_message_dispatch!(::FrameProgressMessageKind, poller::FrameProgressPoller)
+    poller.handler(poller, poller.decoder)
+    return nothing
+end
+
+@inline function handle_control_message!(poller::AbstractControlPoller, buffer::AbstractVector{UInt8})
+    kind = control_message_kind(poller)
+    header = MessageHeader.Decoder(buffer, 0)
+    if !matches_message_header(
+        header,
+        control_message_template_id(kind),
+        control_message_schema_version(kind),
+    )
+        return false
+    end
+    control_message_wrap!(kind, poller, buffer, header)
+    control_message_dispatch!(kind, poller)
+    return true
+end
+
 """
 Poll fragments for any control poller.
 """
@@ -162,43 +242,13 @@ function Base.close(poller::AbstractControlPoller)
 end
 
 function handle_frame_descriptor!(poller::FrameDescriptorPoller, buffer::AbstractVector{UInt8})
-    header = MessageHeader.Decoder(buffer, 0)
-    if !matches_message_header(
-        header,
-        TEMPLATE_FRAME_DESCRIPTOR,
-        FrameDescriptor.sbe_schema_version(FrameDescriptor.Decoder),
-    )
-        return false
-    end
-    FrameDescriptor.wrap!(poller.decoder, buffer, 0; header = header)
-    poller.handler(poller, poller.decoder)
-    return true
+    return handle_control_message!(poller, buffer)
 end
 
 function handle_consumer_config!(poller::ConsumerConfigPoller, buffer::AbstractVector{UInt8})
-    header = MessageHeader.Decoder(buffer, 0)
-    if !matches_message_header(
-        header,
-        TEMPLATE_CONSUMER_CONFIG,
-        ConsumerConfigMsg.sbe_schema_version(ConsumerConfigMsg.Decoder),
-    )
-        return false
-    end
-    ConsumerConfigMsg.wrap!(poller.decoder, buffer, 0; header = header)
-    poller.handler(poller, poller.decoder)
-    return true
+    return handle_control_message!(poller, buffer)
 end
 
 function handle_frame_progress!(poller::FrameProgressPoller, buffer::AbstractVector{UInt8})
-    header = MessageHeader.Decoder(buffer, 0)
-    if !matches_message_header(
-        header,
-        TEMPLATE_FRAME_PROGRESS,
-        FrameProgress.sbe_schema_version(FrameProgress.Decoder),
-    )
-        return false
-    end
-    FrameProgress.wrap!(poller.decoder, buffer, 0; header = header)
-    poller.handler(poller, poller.decoder)
-    return true
+    return handle_control_message!(poller, buffer)
 end
