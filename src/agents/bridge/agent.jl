@@ -160,13 +160,36 @@ function Agent.do_work(agent::BridgeAgent)
     if work_count > 0
         Aeron.add!(agent.counters.base.total_work_done, Int64(work_count))
     end
-    agent.counters.frames_forwarded[] = Int64(agent.sender.metrics.frames_forwarded)
-    agent.counters.chunks_sent[] = Int64(agent.sender.metrics.chunks_sent)
-    agent.counters.chunks_dropped[] = Int64(agent.sender.metrics.chunks_dropped)
-    agent.counters.assemblies_reset[] = Int64(agent.receiver.metrics.assemblies_reset)
-    agent.counters.control_forwarded[] = Int64(agent.sender.metrics.control_forwarded +
-                                               agent.receiver.metrics.control_forwarded)
-    agent.counters.frames_rematerialized[] = Int64(agent.receiver.metrics.frames_rematerialized)
+    AeronUtils.set_counter!(
+        agent.counters.frames_forwarded,
+        Int64(agent.sender.metrics.frames_forwarded),
+        :bridge_frames_forwarded,
+    )
+    AeronUtils.set_counter!(
+        agent.counters.chunks_sent,
+        Int64(agent.sender.metrics.chunks_sent),
+        :bridge_chunks_sent,
+    )
+    AeronUtils.set_counter!(
+        agent.counters.chunks_dropped,
+        Int64(agent.sender.metrics.chunks_dropped),
+        :bridge_chunks_dropped,
+    )
+    AeronUtils.set_counter!(
+        agent.counters.assemblies_reset,
+        Int64(agent.receiver.metrics.assemblies_reset),
+        :bridge_assemblies_reset,
+    )
+    AeronUtils.set_counter!(
+        agent.counters.control_forwarded,
+        Int64(agent.sender.metrics.control_forwarded + agent.receiver.metrics.control_forwarded),
+        :bridge_control_forwarded,
+    )
+    AeronUtils.set_counter!(
+        agent.counters.frames_rematerialized,
+        Int64(agent.receiver.metrics.frames_rematerialized),
+        :bridge_frames_rematerialized,
+    )
     return work_count
 end
 

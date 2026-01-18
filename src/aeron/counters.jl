@@ -63,6 +63,19 @@ function Counters(client::Aeron.Client, agent_id, agent_name)
     )
 end
 
+const NO_FIELDS = NamedTuple()
+
+@inline function set_counter!(
+    counter::Aeron.Counter,
+    value::Int64,
+    name::Symbol,
+    fields::NamedTuple = NO_FIELDS,
+)
+    counter[] = value
+    maybe_emit_counter!(name, value, fields)
+    return value
+end
+
 function Base.close(counters::Counters)
     close(counters.total_duty_cycles)
     close(counters.total_work_done)

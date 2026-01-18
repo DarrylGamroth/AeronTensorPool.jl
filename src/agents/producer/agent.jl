@@ -75,16 +75,51 @@ function Agent.do_work(agent::ProducerAgent)
     if work_done > 0
         Aeron.add!(agent.counters.base.total_work_done, Int64(work_done))
     end
-    agent.counters.frames_published[] = Int64(agent.state.seq)
-    agent.counters.announces[] = Int64(agent.state.metrics.announce_count)
-    agent.counters.qos_published[] = Int64(agent.state.metrics.qos_count)
-    agent.counters.descriptor_backpressured[] = Int64(agent.state.metrics.descriptor_backpressured)
-    agent.counters.descriptor_not_connected[] = Int64(agent.state.metrics.descriptor_not_connected)
-    agent.counters.descriptor_admin_action[] = Int64(agent.state.metrics.descriptor_admin_action)
-    agent.counters.descriptor_closed[] = Int64(agent.state.metrics.descriptor_closed)
-    agent.counters.descriptor_max_position_exceeded[] =
-        Int64(agent.state.metrics.descriptor_max_position_exceeded)
-    agent.counters.descriptor_errors[] = Int64(agent.state.metrics.descriptor_error)
+    AeronUtils.set_counter!(
+        agent.counters.frames_published,
+        Int64(agent.state.seq),
+        :producer_frames_published,
+    )
+    AeronUtils.set_counter!(
+        agent.counters.announces,
+        Int64(agent.state.metrics.announce_count),
+        :producer_announces,
+    )
+    AeronUtils.set_counter!(
+        agent.counters.qos_published,
+        Int64(agent.state.metrics.qos_count),
+        :producer_qos_published,
+    )
+    AeronUtils.set_counter!(
+        agent.counters.descriptor_backpressured,
+        Int64(agent.state.metrics.descriptor_backpressured),
+        :producer_descriptor_backpressured,
+    )
+    AeronUtils.set_counter!(
+        agent.counters.descriptor_not_connected,
+        Int64(agent.state.metrics.descriptor_not_connected),
+        :producer_descriptor_not_connected,
+    )
+    AeronUtils.set_counter!(
+        agent.counters.descriptor_admin_action,
+        Int64(agent.state.metrics.descriptor_admin_action),
+        :producer_descriptor_admin_action,
+    )
+    AeronUtils.set_counter!(
+        agent.counters.descriptor_closed,
+        Int64(agent.state.metrics.descriptor_closed),
+        :producer_descriptor_closed,
+    )
+    AeronUtils.set_counter!(
+        agent.counters.descriptor_max_position_exceeded,
+        Int64(agent.state.metrics.descriptor_max_position_exceeded),
+        :producer_descriptor_max_position_exceeded,
+    )
+    AeronUtils.set_counter!(
+        agent.counters.descriptor_errors,
+        Int64(agent.state.metrics.descriptor_error),
+        :producer_descriptor_errors,
+    )
     if agent.qos_monitor !== nothing
         now_ns = UInt64(Clocks.time_nanos(agent.state.clock))
         if expired(agent.qos_timer, now_ns)

@@ -4,6 +4,7 @@ export @tp_debug, @tp_info, @tp_warn, @tp_error, set_backend!, set_json_backend!
 
 using LoggingExtras
 using LoggingFormats
+using ..Telemetry
 
 const TODO_RUNTIME_LOGGING = "TODO: reduce runtime logging overhead and revisit default JSON backend"
 
@@ -16,6 +17,7 @@ const LEVEL_ERROR = 40
 const LOG_ENABLED = Ref(false)
 const LOG_LEVEL = Ref(LEVEL_INFO)
 const LOG_MODULES = Ref{Union{Nothing, Set{Symbol}}}(nothing)
+const LOG_FLUSH = Ref(false)
 
 const DEFAULT_BACKEND = ConsoleLogger(stderr)
 const BACKEND = Ref{AbstractLogger}(DEFAULT_BACKEND)
@@ -25,12 +27,17 @@ const LOG_FILE = Ref{Union{IO, Nothing}}(nothing)
 @inline backend() = BACKEND[]
 @inline log_enabled() = LOG_ENABLED[]
 @inline log_level() = LOG_LEVEL[]
+@inline log_flush_enabled() = LOG_FLUSH[]
+@inline telemetry_enabled() = Telemetry.telemetry_enabled()
+@inline telemetry_sink() = Telemetry.telemetry_sink()
+@inline emit_log!(sink, level, mod, args) = Telemetry.emit_log!(sink, level, mod, args)
 
 function update_log_settings!()
     LOG_ENABLED[] = get(ENV, "TP_LOG", "0") == "1"
     level = get(ENV, "TP_LOG_LEVEL", "")
     parsed = level == "" ? nothing : tryparse(Int, level)
     LOG_LEVEL[] = parsed === nothing ? LEVEL_INFO : parsed
+    LOG_FLUSH[] = get(ENV, "TP_LOG_FLUSH", "0") == "1"
     mods = get(ENV, "TP_LOG_MODULES", "")
     LOG_MODULES[] = isempty(mods) ? nothing : Set(Symbol.(split(mods, ',')))
     log_file = get(ENV, "TP_LOG_FILE", "")
@@ -46,6 +53,12 @@ function update_log_settings!()
         BACKEND_IO[] = io
         BACKEND[] = ConsoleLogger(io)
     end
+    format = lowercase(get(ENV, "TP_LOG_FORMAT", ""))
+    if format == "json"
+        io = BACKEND_IO[] === nothing ? stdout : BACKEND_IO[]
+        set_json_backend!(io)
+    end
+    update_telemetry_settings!()
     return nothing
 end
 
@@ -90,6 +103,7 @@ end
 end
 
 @inline function flush_backend()
+    log_flush_enabled() || return nothing
     io = BACKEND_IO[]
     io === nothing && return nothing
     isopen(io) || return nothing
@@ -102,8 +116,10 @@ macro tp_debug(args...)
     tpmod = @__MODULE__
     return esc(quote
         local _tp = $tpmod
-        if _tp.log_enabled() && _tp.log_level() <= _tp.LEVEL_DEBUG
-            if _tp.module_enabled($(QuoteNode(mod)))
+        local _telemetry_on = _tp.telemetry_enabled()
+        local _log_ok = _tp.log_enabled() && _tp.log_level() <= _tp.LEVEL_DEBUG
+        if (_log_ok || _telemetry_on) && _tp.module_enabled($(QuoteNode(mod)))
+            if _log_ok
                 try
                     Base.CoreLogging.with_logger(_tp.backend()) do
                         Base.@debug $(args...)
@@ -111,6 +127,9 @@ macro tp_debug(args...)
                     _tp.flush_backend()
                 catch
                 end
+            end
+            if _telemetry_on
+                _tp.emit_log!(_tp.telemetry_sink(), _tp.LEVEL_DEBUG, $(QuoteNode(mod)), ($(args...),))
             end
         end
         nothing
@@ -122,8 +141,10 @@ macro tp_info(args...)
     tpmod = @__MODULE__
     return esc(quote
         local _tp = $tpmod
-        if _tp.log_enabled() && _tp.log_level() <= _tp.LEVEL_INFO
-            if _tp.module_enabled($(QuoteNode(mod)))
+        local _telemetry_on = _tp.telemetry_enabled()
+        local _log_ok = _tp.log_enabled() && _tp.log_level() <= _tp.LEVEL_INFO
+        if (_log_ok || _telemetry_on) && _tp.module_enabled($(QuoteNode(mod)))
+            if _log_ok
                 try
                     Base.CoreLogging.with_logger(_tp.backend()) do
                         Base.@info $(args...)
@@ -131,6 +152,9 @@ macro tp_info(args...)
                     _tp.flush_backend()
                 catch
                 end
+            end
+            if _telemetry_on
+                _tp.emit_log!(_tp.telemetry_sink(), _tp.LEVEL_INFO, $(QuoteNode(mod)), ($(args...),))
             end
         end
         nothing
@@ -142,8 +166,10 @@ macro tp_warn(args...)
     tpmod = @__MODULE__
     return esc(quote
         local _tp = $tpmod
-        if _tp.log_enabled() && _tp.log_level() <= _tp.LEVEL_WARN
-            if _tp.module_enabled($(QuoteNode(mod)))
+        local _telemetry_on = _tp.telemetry_enabled()
+        local _log_ok = _tp.log_enabled() && _tp.log_level() <= _tp.LEVEL_WARN
+        if (_log_ok || _telemetry_on) && _tp.module_enabled($(QuoteNode(mod)))
+            if _log_ok
                 try
                     Base.CoreLogging.with_logger(_tp.backend()) do
                         Base.@warn $(args...)
@@ -151,6 +177,9 @@ macro tp_warn(args...)
                     _tp.flush_backend()
                 catch
                 end
+            end
+            if _telemetry_on
+                _tp.emit_log!(_tp.telemetry_sink(), _tp.LEVEL_WARN, $(QuoteNode(mod)), ($(args...),))
             end
         end
         nothing
@@ -162,8 +191,10 @@ macro tp_error(args...)
     tpmod = @__MODULE__
     return esc(quote
         local _tp = $tpmod
-        if _tp.log_enabled() && _tp.log_level() <= _tp.LEVEL_ERROR
-            if _tp.module_enabled($(QuoteNode(mod)))
+        local _telemetry_on = _tp.telemetry_enabled()
+        local _log_ok = _tp.log_enabled() && _tp.log_level() <= _tp.LEVEL_ERROR
+        if (_log_ok || _telemetry_on) && _tp.module_enabled($(QuoteNode(mod)))
+            if _log_ok
                 try
                     Base.CoreLogging.with_logger(_tp.backend()) do
                         Base.@error $(args...)
@@ -171,6 +202,9 @@ macro tp_error(args...)
                     _tp.flush_backend()
                 catch
                 end
+            end
+            if _telemetry_on
+                _tp.emit_log!(_tp.telemetry_sink(), _tp.LEVEL_ERROR, $(QuoteNode(mod)), ($(args...),))
             end
         end
         nothing

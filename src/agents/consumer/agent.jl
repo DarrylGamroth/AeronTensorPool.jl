@@ -47,16 +47,56 @@ function Agent.do_work(agent::ConsumerAgent)
     if work_done > 0
         Aeron.add!(agent.counters.base.total_work_done, Int64(work_done))
     end
-    agent.counters.drops_gap[] = Int64(agent.state.metrics.drops_gap)
-    agent.counters.drops_late[] = Int64(agent.state.metrics.drops_late)
-    agent.counters.drops_odd[] = Int64(agent.state.metrics.drops_odd)
-    agent.counters.drops_changed[] = Int64(agent.state.metrics.drops_changed)
-    agent.counters.drops_frame_id_mismatch[] = Int64(agent.state.metrics.drops_frame_id_mismatch)
-    agent.counters.drops_header_invalid[] = Int64(agent.state.metrics.drops_header_invalid)
-    agent.counters.drops_payload_invalid[] = Int64(agent.state.metrics.drops_payload_invalid)
-    agent.counters.remaps[] = Int64(agent.state.metrics.remap_count)
-    agent.counters.hello_published[] = Int64(agent.state.metrics.hello_count)
-    agent.counters.qos_published[] = Int64(agent.state.metrics.qos_count)
+    AeronUtils.set_counter!(
+        agent.counters.drops_gap,
+        Int64(agent.state.metrics.drops_gap),
+        :consumer_drops_gap,
+    )
+    AeronUtils.set_counter!(
+        agent.counters.drops_late,
+        Int64(agent.state.metrics.drops_late),
+        :consumer_drops_late,
+    )
+    AeronUtils.set_counter!(
+        agent.counters.drops_odd,
+        Int64(agent.state.metrics.drops_odd),
+        :consumer_drops_odd,
+    )
+    AeronUtils.set_counter!(
+        agent.counters.drops_changed,
+        Int64(agent.state.metrics.drops_changed),
+        :consumer_drops_changed,
+    )
+    AeronUtils.set_counter!(
+        agent.counters.drops_frame_id_mismatch,
+        Int64(agent.state.metrics.drops_frame_id_mismatch),
+        :consumer_drops_frame_id_mismatch,
+    )
+    AeronUtils.set_counter!(
+        agent.counters.drops_header_invalid,
+        Int64(agent.state.metrics.drops_header_invalid),
+        :consumer_drops_header_invalid,
+    )
+    AeronUtils.set_counter!(
+        agent.counters.drops_payload_invalid,
+        Int64(agent.state.metrics.drops_payload_invalid),
+        :consumer_drops_payload_invalid,
+    )
+    AeronUtils.set_counter!(
+        agent.counters.remaps,
+        Int64(agent.state.metrics.remap_count),
+        :consumer_remaps,
+    )
+    AeronUtils.set_counter!(
+        agent.counters.hello_published,
+        Int64(agent.state.metrics.hello_count),
+        :consumer_hello_published,
+    )
+    AeronUtils.set_counter!(
+        agent.counters.qos_published,
+        Int64(agent.state.metrics.qos_count),
+        :consumer_qos_published,
+    )
     return work_done
 end
 

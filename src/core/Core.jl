@@ -6,6 +6,8 @@ using ..ShmTensorpoolBridge
 using ..ShmTensorpoolDiscovery
 using ..ShmTensorpoolTraceLink
 using ..SBE
+include("telemetry.jl")
+using .Telemetry
 include("logging.jl")
 using .TPLog
 include("fixed_string.jl")
@@ -15,6 +17,16 @@ include("messages.jl")
 include("errors.jl")
 
 export TensorPoolError,
+    TelemetrySink,
+    NoopTelemetrySink,
+    telemetry_enabled,
+    telemetry_sink,
+    set_telemetry_sink!,
+    update_telemetry_settings!,
+    emit_log!,
+    emit_counter!,
+    maybe_emit_log!,
+    maybe_emit_counter!,
     FixedString,
     MetadataAttribute,
     MetadataEntry,

@@ -37,8 +37,16 @@ function Agent.do_work(agent::SupervisorAgent)
     Aeron.increment!(agent.counters.base.total_duty_cycles)
     work_done = supervisor_do_work!(agent.state, agent.control_assembler, agent.qos_assembler)
     work_done > 0 && Aeron.add!(agent.counters.base.total_work_done, Int64(work_done))
-    agent.counters.config_published[] = Int64(agent.state.tracking.config_count)
-    agent.counters.liveness_checks[] = Int64(agent.state.tracking.liveness_count)
+    AeronUtils.set_counter!(
+        agent.counters.config_published,
+        Int64(agent.state.tracking.config_count),
+        :supervisor_config_published,
+    )
+    AeronUtils.set_counter!(
+        agent.counters.liveness_checks,
+        Int64(agent.state.tracking.liveness_count),
+        :supervisor_liveness_checks,
+    )
     return work_done
 end
 
