@@ -10,7 +10,7 @@ Goal: provide a clean AeronTensorPool API boundary for AeronTensorPoolRecorder.j
 
 ## Decisions (locked)
 - Use `TensorPoolClient` directly; no extra PollerRuntime wrapper.
-- Add pollers for descriptors, consumer config, and progress.
+- Add pollers for descriptors, consumer config, progress, and TraceLink.
 - Pollers own subscriptions + fragment assemblers and expose `poll!`.
 - Provide `rebind!` for per-consumer stream reassignment (spec-driven).
 
@@ -23,13 +23,15 @@ Goal: provide a clean AeronTensorPool API boundary for AeronTensorPoolRecorder.j
   - Required methods: `poll!`, `close!`
   - Optional: `rebind!`
 - Types:
-  - `FrameDescriptorPoller{H}`
-  - `ConsumerConfigPoller{H}`
-  - `FrameProgressPoller{H}`
+- `FrameDescriptorPoller{H}`
+- `ConsumerConfigPoller{H}`
+- `FrameProgressPoller{H}`
+- `TraceLinkPoller{H}`
 - Constructors:
-  - `FrameDescriptorPoller(client::TensorPoolClient, channel::AbstractString, stream_id::Int32, handler::H)`
-  - `ConsumerConfigPoller(client::TensorPoolClient, channel::AbstractString, stream_id::Int32, handler::H)`
-  - `FrameProgressPoller(client::TensorPoolClient, channel::AbstractString, stream_id::Int32, handler::H)`
+- `FrameDescriptorPoller(client::TensorPoolClient, channel::AbstractString, stream_id::Int32, handler::H)`
+- `ConsumerConfigPoller(client::TensorPoolClient, channel::AbstractString, stream_id::Int32, handler::H)`
+- `FrameProgressPoller(client::TensorPoolClient, channel::AbstractString, stream_id::Int32, handler::H)`
+- `TraceLinkPoller(client::TensorPoolClient, channel::AbstractString, stream_id::Int32, handler::H)`
 - Methods:
   - `poll!(poller, fragment_limit::Int32 = DEFAULT_FRAGMENT_LIMIT)::Int`
   - `rebind!(poller, channel::AbstractString, stream_id::Int32)::Nothing`
@@ -54,8 +56,10 @@ Handler contract (type-stable):
   - [x] Invalid schema/template ignored.
   - [x] Valid ConsumerConfig invokes handler.
   - [x] Invalid template ignored.
-  - [x] Valid FrameProgress invokes handler.
-  - [x] Invalid schema ignored.
+- [x] Valid FrameProgress invokes handler.
+- [x] Invalid schema ignored.
+- [x] Valid TraceLinkSet invokes handler.
+- [x] Invalid TraceLink schema ignored.
   - [x] `rebind!` updates subscription channel/stream correctly.
 
 ## Recorder follow-up (AeronTensorPoolRecorder.jl)

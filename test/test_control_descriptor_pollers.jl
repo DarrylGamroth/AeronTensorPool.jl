@@ -45,7 +45,26 @@ function build_frame_progress_buf(;
     return buf
 end
 
-@testset "Control pollers: descriptor/config/progress" begin
+function build_tracelink_buf(;
+    stream_id::UInt32 = UInt32(10000),
+    epoch::UInt64 = UInt64(1),
+    seq::UInt64 = UInt64(1),
+    trace_id::UInt64 = UInt64(42),
+    parents::AbstractVector{UInt64} = UInt64[UInt64(7)],
+)
+    parent_count = length(parents)
+    msg_len = AeronTensorPool.TRACELINK_MESSAGE_HEADER_LEN +
+        Int(TraceLinkSet.sbe_block_length(TraceLinkSet.Decoder)) +
+        Int(TraceLinkSet.Parents.sbe_header_size(TraceLinkSet.Parents.Decoder)) +
+        parent_count * Int(TraceLinkSet.Parents.sbe_block_length(TraceLinkSet.Parents.Decoder))
+    buf = Vector{UInt8}(undef, msg_len)
+    enc = TraceLinkSet.Encoder(Vector{UInt8})
+    TraceLinkSet.wrap_and_apply_header!(enc, buf, 0)
+    AeronTensorPool.encode_tracelink_set!(enc, stream_id, epoch, seq, trace_id, parents)
+    return buf
+end
+
+@testset "Control pollers: descriptor/config/progress/tracelink" begin
     with_driver_and_client() do driver, client
         ctx = TensorPoolContext(control_channel = "aeron:ipc", control_stream_id = Int32(15500))
         tp_client = connect(ctx; aeron_client = client)
@@ -105,5 +124,20 @@ end
         rebind!(progress_poller, "aeron:ipc", Int32(15504))
         @test Aeron.stream_id(progress_poller.subscription) == Int32(15504)
         close(progress_poller)
+
+        tracelink_called = Ref(false)
+        tracelink_handler = (poller, dec) -> (tracelink_called[] = TraceLinkSet.seq(dec) == UInt64(1))
+        tracelink_poller = TraceLinkPoller(tp_client, "aeron:ipc", Int32(15505), tracelink_handler)
+        tracelink_buf = build_tracelink_buf()
+        tracelink_unsafe = UnsafeArrays.UnsafeArray{UInt8, 1}(pointer(tracelink_buf), (length(tracelink_buf),))
+        @test AeronTensorPool.Control.handle_control_message!(tracelink_poller, tracelink_unsafe)
+        @test tracelink_called[]
+
+        tracelink_called[] = false
+        tracelink_header = TraceLinkMessageHeader.Encoder(tracelink_buf)
+        TraceLinkMessageHeader.schemaId!(tracelink_header, UInt16(999))
+        @test !AeronTensorPool.Control.handle_control_message!(tracelink_poller, tracelink_unsafe)
+        @test !tracelink_called[]
+        close(tracelink_poller)
     end
 end

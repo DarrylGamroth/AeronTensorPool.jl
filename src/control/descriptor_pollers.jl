@@ -42,6 +42,20 @@ mutable struct FrameProgressPoller{H} <: AbstractControlPoller
     handler::H
 end
 
+"""
+Poller for TraceLinkSet messages.
+
+The poller owns its Aeron subscription and calls `handler(poller, decoder)` for
+each accepted TraceLinkSet.
+"""
+mutable struct TraceLinkPoller{H} <: AbstractControlPoller
+    client::Aeron.Client
+    subscription::Aeron.Subscription
+    assembler::Aeron.FragmentAssembler
+    decoder::TraceLinkSet.Decoder{UnsafeArrays.UnsafeArray{UInt8, 1}}
+    handler::H
+end
+
 abstract type ControlMessageKind end
 struct DescriptorMessageKind <: ControlMessageKind end
 struct ConsumerConfigMessageKind <: ControlMessageKind end
@@ -143,6 +157,38 @@ function FrameProgressPoller(
     return poller
 end
 
+"""
+Construct a TraceLinkPoller.
+
+Arguments:
+- `client`: Aeron client used to create the subscription.
+- `channel`: Aeron channel for the TraceLink stream.
+- `stream_id`: Aeron stream id for the TraceLink stream.
+- `handler`: callable invoked as `handler(poller, decoder)`.
+"""
+function TraceLinkPoller(
+    client::Aeron.Client,
+    channel::AbstractString,
+    stream_id::Int32,
+    handler::H,
+) where {H}
+    sub = Aeron.add_subscription(client, channel, stream_id)
+    poller = TraceLinkPoller(
+        client,
+        sub,
+        Aeron.FragmentAssembler(Aeron.FragmentHandler(nothing) do _, _, _
+            nothing
+        end),
+        TraceLinkSet.Decoder(UnsafeArrays.UnsafeArray{UInt8, 1}),
+        handler,
+    )
+    poller.assembler = Aeron.FragmentAssembler(Aeron.FragmentHandler(poller) do plr, buffer, _
+        handle_control_message!(plr, buffer)
+        nothing
+    end)
+    return poller
+end
+
 @inline control_message_kind(::FrameDescriptorPoller) = DescriptorMessageKind()
 @inline control_message_kind(::ConsumerConfigPoller) = ConsumerConfigMessageKind()
 @inline control_message_kind(::FrameProgressPoller) = FrameProgressMessageKind()
@@ -166,6 +212,20 @@ end
 )
     FrameDescriptor.wrap!(poller.decoder, buffer, 0; header = header)
     return nothing
+end
+
+@inline function handle_control_message!(poller::TraceLinkPoller, buffer::AbstractVector{UInt8})
+    header = TraceLinkMessageHeader.Decoder(buffer, 0)
+    if !matches_tracelink_header(
+        header,
+        TraceLinkSet.sbe_template_id(TraceLinkSet.Decoder),
+        TraceLinkSet.sbe_schema_version(TraceLinkSet.Decoder),
+    )
+        return false
+    end
+    TraceLinkSet.wrap!(poller.decoder, buffer, 0; header = header)
+    poller.handler(poller, poller.decoder)
+    return true
 end
 
 @inline function control_message_wrap!(
