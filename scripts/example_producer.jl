@@ -62,7 +62,10 @@ function Agent.do_work(agent::AppProducerAgent)
             break
         end
     end
-    per_consumer_requested = !isempty(state.consumer_streams)
+    per_consumer_requested = any(
+        entry -> entry.descriptor_pub !== nothing || entry.control_pub !== nothing,
+        values(state.consumer_streams),
+    )
     if per_consumer_requested
         if !per_consumer_connected
             if now_ns - agent.last_connect_log_ns > 1_000_000_000
