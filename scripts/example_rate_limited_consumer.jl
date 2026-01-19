@@ -117,6 +117,45 @@ function per_consumer_stream_id(base::UInt32, consumer_id::UInt32)
     return base + consumer_id
 end
 
+function parse_bool_env(key::String, default::Bool)
+    raw = lowercase(get(ENV, key, default ? "1" : "0"))
+    return raw in ("1", "true", "yes", "y")
+end
+
+function resolve_per_consumer_streams(driver_cfg::DriverConfig, consumer_id::UInt32)
+    base_descriptor_env = get(ENV, "TP_PER_CONSUMER_DESCRIPTOR_BASE", "")
+    base_control_env = get(ENV, "TP_PER_CONSUMER_CONTROL_BASE", "")
+    dynamic = parse_bool_env("TP_PER_CONSUMER_DYNAMIC", false)
+    descriptor_range = driver_cfg.descriptor_stream_id_range
+    control_range = driver_cfg.control_stream_id_range
+
+    if !isempty(base_descriptor_env) || !isempty(base_control_env)
+        base_descriptor_id = UInt32(parse(Int, isempty(base_descriptor_env) ? "21000" : base_descriptor_env))
+        base_control_id = UInt32(parse(Int, isempty(base_control_env) ? "22000" : base_control_env))
+        return per_consumer_stream_id(base_descriptor_id, consumer_id),
+            per_consumer_stream_id(base_control_id, consumer_id),
+            false
+    end
+
+    if dynamic && (descriptor_range !== nothing || control_range !== nothing)
+        descriptor_stream_id =
+            descriptor_range === nothing ? UInt32(1) : descriptor_range.start_id
+        control_stream_id =
+            control_range === nothing ? UInt32(1) : control_range.start_id
+        return descriptor_stream_id, control_stream_id, true
+    end
+
+    if dynamic
+        @warn "Dynamic per-consumer streams requested but no driver ranges configured; falling back to defaults"
+    end
+
+    base_descriptor_id = UInt32(parse(Int, get(ENV, "TP_PER_CONSUMER_DESCRIPTOR_BASE", "21000")))
+    base_control_id = UInt32(parse(Int, get(ENV, "TP_PER_CONSUMER_CONTROL_BASE", "22000")))
+    return per_consumer_stream_id(base_descriptor_id, consumer_id),
+        per_consumer_stream_id(base_control_id, consumer_id),
+        false
+end
+
 function run_consumer(
     driver_cfg_path::String,
     count::Int,
@@ -129,10 +168,8 @@ function run_consumer(
     consumer_cfg = default_consumer_config(; stream_id = stream_id, consumer_id = consumer_id)
 
     per_consumer_channel = get(ENV, "TP_PER_CONSUMER_CHANNEL", "aeron:ipc")
-    base_descriptor_id = UInt32(parse(Int, get(ENV, "TP_PER_CONSUMER_DESCRIPTOR_BASE", "21000")))
-    base_control_id = UInt32(parse(Int, get(ENV, "TP_PER_CONSUMER_CONTROL_BASE", "22000")))
-    descriptor_stream_id = per_consumer_stream_id(base_descriptor_id, consumer_cfg.consumer_id)
-    control_stream_id = per_consumer_stream_id(base_control_id, consumer_cfg.consumer_id)
+    descriptor_stream_id, control_stream_id, dynamic =
+        resolve_per_consumer_streams(driver_cfg, consumer_cfg.consumer_id)
     apply_per_consumer_channels!(
         consumer_cfg,
         per_consumer_channel,
@@ -140,7 +177,8 @@ function run_consumer(
         control_stream_id,
         max_rate_hz,
     )
-    @info "Per-consumer streams requested" channel = per_consumer_channel max_rate_hz = max_rate_hz
+    @info "Per-consumer streams requested" channel = per_consumer_channel max_rate_hz = max_rate_hz descriptor_stream_id =
+        descriptor_stream_id control_stream_id = control_stream_id dynamic = dynamic
 
     core_id = haskey(ENV, "AGENT_TASK_CORE") ? parse(Int, ENV["AGENT_TASK_CORE"]) : nothing
     ready_file = get(ENV, "TP_READY_FILE", "")

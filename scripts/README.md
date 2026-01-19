@@ -15,7 +15,9 @@ first argument; defaults are shown below.
 
 - `run_examples_per_consumer.sh`  
   Runs the driver/producer + per-consumer stream consumer example (rate-limited consumer).  
-  Usage: `scripts/run_examples_per_consumer.sh [config/driver_integration_example.toml] [count] [payload_bytes] [max_rate_hz]`
+  Usage:  
+  `scripts/run_examples_per_consumer.sh [config/driver_integration_example.toml] [count] [payload_bytes] [max_rate_hz] [descriptor_base] [control_base] [dynamic] [consumer_id] [channel]`
+  `dynamic=1` requests driver-assigned per-consumer stream IDs (requires driver stream-id ranges).
 
 ## Bridge
 
