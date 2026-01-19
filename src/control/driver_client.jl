@@ -211,7 +211,7 @@ function driver_client_do_work!(state::DriverClientState, now_ns::UInt64)
         @tp_warn "driver shutdown received" reason = poller.last_shutdown.reason
     end
 
-    if state.lease_id != 0 && due!(state.keepalive_timer, now_ns)
+    if state.lease_id != 0 && expired(state.keepalive_timer, now_ns)
         sent = send_keepalive!(
             state.keepalive_proxy;
             lease_id = state.lease_id,
@@ -221,6 +221,7 @@ function driver_client_do_work!(state::DriverClientState, now_ns::UInt64)
             client_timestamp_ns = now_ns,
         )
         if sent
+            reset!(state.keepalive_timer, now_ns)
             @tp_info "Driver keepalive sent" client_id = state.client_id role = state.role lease_id = state.lease_id stream_id =
                 state.stream_id
             work_count += 1
@@ -228,6 +229,8 @@ function driver_client_do_work!(state::DriverClientState, now_ns::UInt64)
             @tp_warn "Driver keepalive failed" client_id = state.client_id role = state.role lease_id = state.lease_id stream_id =
                 state.stream_id
             state.keepalive_failed = true
+            state.revoked = true
+            state.lease_id = UInt64(0)
         end
     end
     return work_count
