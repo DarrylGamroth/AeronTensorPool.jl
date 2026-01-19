@@ -620,3 +620,27 @@ See `config/driver_camera_example.toml` for a concrete example.
   </sbe:message>
 
 </sbe:messageSchema>
+
+---
+
+## Appendix B. Client Correlation and Identity Rules (Normative)
+
+### B.1 Correlation IDs
+
+Clients MUST choose `correlationId` values that do not collide with stale
+responses from prior runs. Clients SHOULD seed correlationId sequences with a
+per-process random value (or another uniqueness source) and MUST NOT reuse a
+correlationId while it is still outstanding.
+
+Clients MUST ignore duplicate `ShmAttachResponse` messages for a given
+correlationId once an `OK` response has been accepted. Non-`OK` duplicates
+MUST NOT override an accepted `OK`.
+
+### B.2 Client ID Auto-Assignment
+
+If a client uses `clientId=0` as an auto-assign sentinel, it MUST choose a
+non-zero clientId before sending any attach request.
+
+If an attach is rejected with `errorMessage="client_id already attached"` and
+the clientId was auto-assigned, the client SHOULD choose a new clientId and
+retry (respecting backoff).
