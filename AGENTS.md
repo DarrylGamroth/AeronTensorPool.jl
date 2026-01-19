@@ -151,3 +151,4 @@ flag any spec requirement lacking coverage.
 - Bridge, discovery, and rate limiter are optional; current focus is wire-level correctness and zero-allocation hot paths.
 - Driver and client are both implemented in Julia; the driver is expected to remain in Julia even if
   a C client is added later.
+- When running the full test suite via Codex, use a 5-minute timeout to avoid premature CI-like timeouts.
