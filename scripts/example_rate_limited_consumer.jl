@@ -16,7 +16,8 @@ mutable struct AppRateLimitedConsumerAgent
     last_log_ns::UInt64
     validate_limit::Int
     validated::Int
-    ready::Bool
+    ready_file::String
+    Base.@atomic ready::Bool
 end
 
 Agent.name(::AppRateLimitedConsumerAgent) = "app-rate-limited-consumer"
@@ -46,7 +47,13 @@ function (hook::AppConsumerOnFrame)(state::ConsumerState, frame::ConsumerFrameVi
 end
 
 function Agent.on_start(agent::AppRateLimitedConsumerAgent)
-    agent.ready = true
+    Base.@atomic agent.ready = true
+    if !isempty(agent.ready_file)
+        open(agent.ready_file, "w") do io
+            write(io, "ready\n")
+        end
+    end
+    @info "AppRateLimitedConsumerAgent started"
     return nothing
 end
 
@@ -136,6 +143,7 @@ function run_consumer(
     @info "Per-consumer streams requested" channel = per_consumer_channel max_rate_hz = max_rate_hz
 
     core_id = haskey(ENV, "AGENT_TASK_CORE") ? parse(Int, ENV["AGENT_TASK_CORE"]) : nothing
+    ready_file = get(ENV, "TP_READY_FILE", "")
 
     ctx = TensorPoolContext(driver_cfg.endpoints)
     tp_client = connect(ctx)
@@ -159,6 +167,7 @@ function run_consumer(
             UInt64(0),
             10,
             0,
+            ready_file,
             false,
         )
         app_ref[] = app_agent
@@ -170,7 +179,7 @@ function run_consumer(
             Agent.start_on_thread(runner, core_id)
         end
         try
-            while !app_agent.ready
+            while !Base.@atomic app_agent.ready
                 yield()
             end
             if count > 0
