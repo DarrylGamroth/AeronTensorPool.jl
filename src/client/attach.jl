@@ -56,6 +56,7 @@ function await_attach_response(
                 end
                 throw(AttachRejectedError(String(attach.error_message)))
             end
+            driver_client_do_work!(driver_client, now_ns)
             return attach
         end
         if now_ns - last_retry_ns > retry_interval_ns
