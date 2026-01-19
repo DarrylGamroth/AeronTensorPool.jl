@@ -28,10 +28,10 @@ Goal: provide a clean AeronTensorPool API boundary for AeronTensorPoolRecorder.j
 - `FrameProgressPoller{H}`
 - `TraceLinkPoller{H}`
 - Constructors:
-- `FrameDescriptorPoller(client::TensorPoolClient, channel::AbstractString, stream_id::Int32, handler::H)`
-- `ConsumerConfigPoller(client::TensorPoolClient, channel::AbstractString, stream_id::Int32, handler::H)`
-- `FrameProgressPoller(client::TensorPoolClient, channel::AbstractString, stream_id::Int32, handler::H)`
-- `TraceLinkPoller(client::TensorPoolClient, channel::AbstractString, stream_id::Int32, handler::H)`
+- `FrameDescriptorPoller(handler::H, client::TensorPoolClient, channel::AbstractString, stream_id::Int32)`
+- `ConsumerConfigPoller(handler::H, client::TensorPoolClient, channel::AbstractString, stream_id::Int32)`
+- `FrameProgressPoller(handler::H, client::TensorPoolClient, channel::AbstractString, stream_id::Int32)`
+- `TraceLinkPoller(handler::H, client::TensorPoolClient, channel::AbstractString, stream_id::Int32)`
 - Methods:
   - `poll!(poller, fragment_limit::Int32 = DEFAULT_FRAGMENT_LIMIT)::Int`
   - `rebind!(poller, channel::AbstractString, stream_id::Int32)::Nothing`

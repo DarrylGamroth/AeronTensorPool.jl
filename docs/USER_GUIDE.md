@@ -148,11 +148,10 @@ For read-only control-plane observation (e.g., Recorder tools), use the poller w
 Example:
 
 ```julia
-handler = (poller, decoder) -> begin
+poller = FrameDescriptorPoller(client, "aeron:ipc", Int32(1100)) do _, decoder
     @info "descriptor" seq = FrameDescriptor.seq(decoder)
 end
 
-poller = FrameDescriptorPoller(client, "aeron:ipc", Int32(1100), handler)
 poll!(poller)
 close(poller)
 ```

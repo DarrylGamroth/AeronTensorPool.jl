@@ -70,8 +70,9 @@ end
         tp_client = connect(ctx; aeron_client = client.aeron_client)
 
         called = Ref(false)
-        desc_handler = (poller, dec) -> (called[] = FrameDescriptor.seq(dec) == UInt64(1))
-        desc_poller = FrameDescriptorPoller(tp_client, "aeron:ipc", Int32(15501), desc_handler)
+        desc_poller = FrameDescriptorPoller(tp_client, "aeron:ipc", Int32(15501)) do _, dec
+            called[] = FrameDescriptor.seq(dec) == UInt64(1)
+        end
         buf, _ = build_frame_descriptor(seq = UInt64(1))
         unsafe_buf = UnsafeArrays.UnsafeArray{UInt8, 1}(pointer(buf), (length(buf),))
         @test AeronTensorPool.Control.handle_control_message!(desc_poller, unsafe_buf)
@@ -93,8 +94,9 @@ end
         close(desc_poller)
 
         config_called = Ref(false)
-        config_handler = (poller, dec) -> (config_called[] = ConsumerConfigMsg.streamId(dec) == UInt32(10000))
-        config_poller = ConsumerConfigPoller(tp_client, "aeron:ipc", Int32(15502), config_handler)
+        config_poller = ConsumerConfigPoller(tp_client, "aeron:ipc", Int32(15502)) do _, dec
+            config_called[] = ConsumerConfigMsg.streamId(dec) == UInt32(10000)
+        end
         config_buf = build_consumer_config_buf()
         config_unsafe = UnsafeArrays.UnsafeArray{UInt8, 1}(pointer(config_buf), (length(config_buf),))
         @test AeronTensorPool.Control.handle_control_message!(config_poller, config_unsafe)
@@ -108,8 +110,9 @@ end
         close(config_poller)
 
         progress_called = Ref(false)
-        progress_handler = (poller, dec) -> (progress_called[] = FrameProgress.seq(dec) == UInt64(1))
-        progress_poller = FrameProgressPoller(tp_client, "aeron:ipc", Int32(15503), progress_handler)
+        progress_poller = FrameProgressPoller(tp_client, "aeron:ipc", Int32(15503)) do _, dec
+            progress_called[] = FrameProgress.seq(dec) == UInt64(1)
+        end
         progress_buf = build_frame_progress_buf()
         progress_unsafe = UnsafeArrays.UnsafeArray{UInt8, 1}(pointer(progress_buf), (length(progress_buf),))
         @test AeronTensorPool.Control.handle_control_message!(progress_poller, progress_unsafe)
@@ -126,8 +129,9 @@ end
         close(progress_poller)
 
         tracelink_called = Ref(false)
-        tracelink_handler = (poller, dec) -> (tracelink_called[] = TraceLinkSet.seq(dec) == UInt64(1))
-        tracelink_poller = TraceLinkPoller(tp_client, "aeron:ipc", Int32(15505), tracelink_handler)
+        tracelink_poller = TraceLinkPoller(tp_client, "aeron:ipc", Int32(15505)) do _, dec
+            tracelink_called[] = TraceLinkSet.seq(dec) == UInt64(1)
+        end
         tracelink_buf = build_tracelink_buf()
         tracelink_unsafe = UnsafeArrays.UnsafeArray{UInt8, 1}(pointer(tracelink_buf), (length(tracelink_buf),))
         @test AeronTensorPool.Control.handle_control_message!(tracelink_poller, tracelink_unsafe)

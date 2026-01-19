@@ -77,16 +77,16 @@ struct FrameProgressMessageKind <: ControlMessageKind end
 Construct a FrameDescriptorPoller.
 
 Arguments:
+- `handler`: callable invoked as `handler(poller, decoder)`.
 - `client`: Aeron client used to create the subscription.
 - `channel`: Aeron channel for the descriptor stream.
 - `stream_id`: Aeron stream id for the descriptor stream.
-- `handler`: callable invoked as `handler(poller, decoder)`.
 """
 function FrameDescriptorPoller(
+    handler::H,
     client::Aeron.Client,
     channel::AbstractString,
     stream_id::Int32,
-    handler::H,
 ) where {H}
     sub = Aeron.add_subscription(client, channel, stream_id)
     poller = FrameDescriptorPoller(
@@ -109,16 +109,16 @@ end
 Construct a ConsumerConfigPoller.
 
 Arguments:
+- `handler`: callable invoked as `handler(poller, decoder)`.
 - `client`: Aeron client used to create the subscription.
 - `channel`: Aeron channel for the control stream.
 - `stream_id`: Aeron stream id for the control stream.
-- `handler`: callable invoked as `handler(poller, decoder)`.
 """
 function ConsumerConfigPoller(
+    handler::H,
     client::Aeron.Client,
     channel::AbstractString,
     stream_id::Int32,
-    handler::H,
 ) where {H}
     sub = Aeron.add_subscription(client, channel, stream_id)
     poller = ConsumerConfigPoller(
@@ -141,16 +141,16 @@ end
 Construct a FrameProgressPoller.
 
 Arguments:
+- `handler`: callable invoked as `handler(poller, decoder)`.
 - `client`: Aeron client used to create the subscription.
 - `channel`: Aeron channel for the progress stream.
 - `stream_id`: Aeron stream id for the progress stream.
-- `handler`: callable invoked as `handler(poller, decoder)`.
 """
 function FrameProgressPoller(
+    handler::H,
     client::Aeron.Client,
     channel::AbstractString,
     stream_id::Int32,
-    handler::H,
 ) where {H}
     sub = Aeron.add_subscription(client, channel, stream_id)
     poller = FrameProgressPoller(
@@ -173,16 +173,16 @@ end
 Construct a TraceLinkPoller.
 
 Arguments:
+- `handler`: callable invoked as `handler(poller, decoder)`.
 - `client`: Aeron client used to create the subscription.
 - `channel`: Aeron channel for the TraceLink stream.
 - `stream_id`: Aeron stream id for the TraceLink stream.
-- `handler`: callable invoked as `handler(poller, decoder)`.
 """
 function TraceLinkPoller(
+    handler::H,
     client::Aeron.Client,
     channel::AbstractString,
     stream_id::Int32,
-    handler::H,
 ) where {H}
     sub = Aeron.add_subscription(client, channel, stream_id)
     poller = TraceLinkPoller(
@@ -210,13 +210,12 @@ function FrameDescriptorProbe(
     stream_id::Int32,
 )
     probe = FrameDescriptorProbe(nothing, UInt64(0), UInt64(0), UInt64(0))
-    handler = function (_, decoder)
+    poller = FrameDescriptorPoller(aeron_client(client), channel, stream_id) do _, decoder
         probe.seen += 1
         probe.last_seq = FrameDescriptor.seq(decoder)
         probe.last_epoch = FrameDescriptor.epoch(decoder)
         return nothing
     end
-    poller = FrameDescriptorPoller(aeron_client(client), channel, stream_id, handler)
     probe.poller = poller
     return probe
 end

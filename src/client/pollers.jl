@@ -4,45 +4,45 @@ import ..Control: FrameDescriptorPoller, ConsumerConfigPoller, FrameProgressPoll
 Construct a FrameDescriptorPoller from a TensorPoolClient.
 """
 function FrameDescriptorPoller(
+    handler::H,
     client::TensorPoolClient,
     channel::AbstractString,
     stream_id::Int32,
-    handler::H,
 ) where {H}
-    return Control.FrameDescriptorPoller(client.aeron_client, channel, stream_id, handler)
+    return Control.FrameDescriptorPoller(handler, client.aeron_client, channel, stream_id)
 end
 
 """
 Construct a TraceLinkPoller from a TensorPoolClient.
 """
 function TraceLinkPoller(
+    handler::H,
     client::TensorPoolClient,
     channel::AbstractString,
     stream_id::Int32,
-    handler::H,
 ) where {H}
-    return Control.TraceLinkPoller(client.aeron_client, channel, stream_id, handler)
+    return Control.TraceLinkPoller(handler, client.aeron_client, channel, stream_id)
 end
 """
 Construct a ConsumerConfigPoller from a TensorPoolClient.
 """
 function ConsumerConfigPoller(
+    handler::H,
     client::TensorPoolClient,
     channel::AbstractString,
     stream_id::Int32,
-    handler::H,
 ) where {H}
-    return Control.ConsumerConfigPoller(client.aeron_client, channel, stream_id, handler)
+    return Control.ConsumerConfigPoller(handler, client.aeron_client, channel, stream_id)
 end
 
 """
 Construct a FrameProgressPoller from a TensorPoolClient.
 """
 function FrameProgressPoller(
+    handler::H,
     client::TensorPoolClient,
     channel::AbstractString,
     stream_id::Int32,
-    handler::H,
 ) where {H}
-    return Control.FrameProgressPoller(client.aeron_client, channel, stream_id, handler)
+    return Control.FrameProgressPoller(handler, client.aeron_client, channel, stream_id)
 end

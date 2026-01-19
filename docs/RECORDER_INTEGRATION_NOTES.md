@@ -36,12 +36,10 @@ ctx = TensorPoolContext(
 
 client = connect(ctx)
 
-handler = (poller, decoder) -> begin
+poller = FrameDescriptorPoller(client, "aeron:ipc", Int32(1100)) do poller, decoder
     # Handle FrameDescriptor / TraceLinkSet here
 end
-
-poller = FrameDescriptorPoller(client, "aeron:ipc", Int32(1100), handler)
-# Or TraceLinkPoller(client, "aeron:ipc", Int32(17310), handler)
+# Or TraceLinkPoller(client, "aeron:ipc", Int32(17310)) do poller, decoder ... end
 
 # In loop:
 #   poll!(poller)
