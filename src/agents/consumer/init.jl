@@ -133,6 +133,7 @@ function init_consumer(config::ConsumerConfig; client::AbstractTensorPoolClient)
     phase = config.use_shm ? UNMAPPED : FALLBACK
     mapping_lifecycle = ConsumerMappingLifecycle()
     driver_lifecycle = ConsumerDriverLifecycle()
+    announce_lifecycle = ConsumerAnnounceLifecycle()
     state = ConsumerState(
         config,
         clock,
@@ -155,6 +156,7 @@ function init_consumer(config::ConsumerConfig; client::AbstractTensorPoolClient)
         UInt64(0),
         PolledTimer(UInt64(0)),
         false,
+        announce_lifecycle,
     )
     set_mapping_phase!(state, phase)
     state.progress_assembler = make_progress_assembler(state)

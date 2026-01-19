@@ -99,4 +99,5 @@ mutable struct ConsumerState{ClockT}
     awaiting_announce_epoch::UInt64
     announce_wait_timer::PolledTimer
     announce_wait_active::Bool
+    announce_lifecycle::ConsumerAnnounceLifecycle
 end

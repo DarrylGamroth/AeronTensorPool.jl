@@ -449,6 +449,7 @@ function handle_shm_pool_announce!(state::ConsumerState, msg::ShmPoolAnnounce.De
     if state.mappings.mapped_epoch != 0 && epoch != state.mappings.mapped_epoch
         @tp_warn "announce epoch change; remapping" old_epoch = state.mappings.mapped_epoch new_epoch = epoch
         reset_mappings!(state)
+        Hsm.dispatch!(state.announce_lifecycle, :EpochChange, state)
     end
 
     if state.mappings.header_mmap === nothing
@@ -461,7 +462,10 @@ function handle_shm_pool_announce!(state::ConsumerState, msg::ShmPoolAnnounce.De
             set_mapping_phase!(state, FALLBACK)
             return true
         end
-        ok && set_mapping_phase!(state, MAPPED)
+        if ok
+            Hsm.dispatch!(state.announce_lifecycle, :RemapComplete, state)
+            set_mapping_phase!(state, MAPPED)
+        end
         return ok
     end
 
@@ -485,7 +489,10 @@ function handle_shm_pool_announce!(state::ConsumerState, msg::ShmPoolAnnounce.De
             set_mapping_phase!(state, FALLBACK)
             return true
         end
-        ok && set_mapping_phase!(state, MAPPED)
+        if ok
+            Hsm.dispatch!(state.announce_lifecycle, :RemapComplete, state)
+            set_mapping_phase!(state, MAPPED)
+        end
         return ok
     end
     return true

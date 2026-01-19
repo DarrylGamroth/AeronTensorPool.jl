@@ -26,6 +26,7 @@ function start_announce_wait!(state::ConsumerState, now_ns::UInt64, epoch::UInt6
     set_interval!(state.announce_wait_timer, state.config.announce_freshness_ns * ANNOUNCE_WAIT_MULTIPLIER)
     reset!(state.announce_wait_timer, now_ns)
     state.announce_wait_active = true
+    Hsm.dispatch!(state.announce_lifecycle, :ProducerRevoke, state)
     return nothing
 end
 
@@ -33,6 +34,15 @@ function stop_announce_wait!(state::ConsumerState)
     state.awaiting_announce_epoch = UInt64(0)
     state.announce_wait_active = false
     set_interval!(state.announce_wait_timer, UInt64(0))
+    Hsm.dispatch!(state.announce_lifecycle, :AnnounceSeen, state)
+    return nothing
+end
+
+function abort_announce_wait!(state::ConsumerState)
+    state.awaiting_announce_epoch = UInt64(0)
+    state.announce_wait_active = false
+    set_interval!(state.announce_wait_timer, UInt64(0))
+    Hsm.dispatch!(state.announce_lifecycle, :AbortWait, state)
     return nothing
 end
 
@@ -42,6 +52,7 @@ function poll_announce_wait!(state::ConsumerState, now_ns::UInt64)
             state.awaiting_announce_epoch
         reset_mappings!(state)
         reset!(state.announce_wait_timer, now_ns)
+        Hsm.dispatch!(state.announce_lifecycle, :AnnounceTimeout, state)
         return 1
     end
     return 0
@@ -60,7 +71,7 @@ function handle_driver_events!(state::ConsumerState, now_ns::UInt64)
     if current == :Attached && (dc.revoked || dc.shutdown || dc.lease_id == 0)
         state.driver_active = false
         reset_mappings!(state)
-        stop_announce_wait!(state)
+        abort_announce_wait!(state)
         state.pending_attach_id = Int64(0)
         Hsm.dispatch!(lifecycle, :LeaseInvalid, state)
         current = Hsm.current(lifecycle)
