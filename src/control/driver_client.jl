@@ -65,11 +65,17 @@ function init_driver_client(
         UInt32(0),
         UInt32(0),
         PolledTimer(keepalive_interval_ns),
-        (Int64(client_id) << 32) + 1,
+        init_correlation_seed(client_id),
         false,
         false,
         false,
     )
+end
+
+function init_correlation_seed(client_id::UInt32)
+    low = rand(UInt32)
+    low == 0 && (low = UInt32(1))
+    return Int64((UInt64(client_id) << 32) | UInt64(low))
 end
 
 """
@@ -83,7 +89,10 @@ Returns:
 """
 function next_correlation_id!(state::DriverClientState)
     cid = state.next_correlation_id
-    state.next_correlation_id += 1
+    high = UInt64(cid) & 0xffff_ffff_0000_0000
+    low = UInt32(cid) + UInt32(1)
+    low == 0 && (low = UInt32(1))
+    state.next_correlation_id = Int64(high | UInt64(low))
     return cid
 end
 

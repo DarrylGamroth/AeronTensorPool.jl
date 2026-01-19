@@ -8,6 +8,7 @@ using ..AeronUtils
 using ..UnsafeArrays
 using ..SBE
 using ..StringViews
+using Random
 
 include("errors.jl")
 include("constants.jl")

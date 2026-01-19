@@ -184,6 +184,19 @@ end
     @tp_info "attach response" correlation_id = poller.attach_response.correlation_id code =
         poller.attach_response.code lease_id = poller.attach_response.lease_id
     correlation_id = poller.attach_response.correlation_id
+    if haskey(poller.attach_by_correlation, correlation_id)
+        entry = poller.attach_by_correlation[correlation_id]
+        if entry.code == DriverResponseCode.OK
+            return true
+        end
+        if poller.attach_response.code != DriverResponseCode.OK
+            return true
+        end
+        copy_attach_response!(entry, poller.attach_response)
+        poller.last_attach = entry
+        poller.attach_purge_touch = true
+        return true
+    end
     entry = get!(poller.attach_by_correlation, correlation_id) do
         AttachResponse()
     end
