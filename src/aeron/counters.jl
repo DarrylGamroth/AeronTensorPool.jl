@@ -1,17 +1,21 @@
+@inline function normalize_agent_id(agent_id)
+    return Int(UInt32(agent_id) & 0xffff)
+end
+
 """
 Compose a 32-bit Aeron counter type id from agent id and counter type.
 
 Arguments:
-- `agent_id`: 16-bit agent identifier (0-65535).
+- `agent_id`: agent identifier (normalized to 16-bit for counters).
 - `counter_type`: 16-bit counter type (0-65535).
 
 Returns:
 - `Int32` counter type id.
 """
 function make_counter_type_id(agent_id, counter_type)
-    @assert 0 ≤ agent_id ≤ 65535 "agent_id must be in range 0-65535 (16-bit)"
     @assert 0 ≤ counter_type ≤ 65535 "counter_type must be in range 0-65535 (16-bit)"
-    return Int32((Int32(agent_id) << 16) | Int32(counter_type))
+    agent_id_norm = normalize_agent_id(agent_id)
+    return Int32((Int32(agent_id_norm) << 16) | Int32(counter_type))
 end
 
 """
@@ -28,12 +32,13 @@ Returns:
 - `Aeron.Counter`.
 """
 function add_counter(client::Aeron.Client, agent_id, agent_name, counter_type, label)
-    type_id = make_counter_type_id(agent_id, counter_type)
+    agent_id_norm = normalize_agent_id(agent_id)
+    type_id = make_counter_type_id(agent_id_norm, counter_type)
     name_bytes = codeunits(agent_name)
     key_buffer = Vector{UInt8}(undef, sizeof(Int64) + length(name_bytes))
-    key_buffer[1:8] .= reinterpret(UInt8, [agent_id])
+    key_buffer[1:8] .= reinterpret(UInt8, [agent_id_norm])
     key_buffer[9:end] .= name_bytes
-    full_label = "$label: NodeId=$agent_id Name=$agent_name"
+    full_label = "$label: NodeId=$agent_id_norm Name=$agent_name"
     return Aeron.add_counter(client, type_id, key_buffer, full_label)
 end
 

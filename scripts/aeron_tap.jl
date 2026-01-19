@@ -897,39 +897,56 @@ function run_tap(cfg_path::String, log_path::String, data_channel::String, descr
     descriptor_stream_id = descriptor_stream_id == 0 ? default_cfg.descriptor_stream_id : descriptor_stream_id
     metadata_stream_id = metadata_stream_id == 0 ? default_cfg.metadata_stream_id : metadata_stream_id
 
+    core_id = haskey(ENV, "AGENT_TASK_CORE") ? parse(Int, ENV["AGENT_TASK_CORE"]) : nothing
     aeron_dir = get(ENV, "AERON_DIR", driver_cfg.endpoints.aeron_dir)
     ctx = TensorPoolContext(driver_cfg.endpoints; aeron_dir = aeron_dir)
-    client = connect(ctx)
 
     io = isempty(log_path) ? stdout : open(log_path, "w")
     flush_logs = flush_logs || (!isempty(log_path))
-    tap_state = TapState(io, flush_logs, TapDecoders())
-    subs = build_tap_subscriptions(client, tap_state, driver_cfg; data_channel = data_channel, descriptor_stream_id = descriptor_stream_id, metadata_stream_id = metadata_stream_id, extra_subs = extra_subs)
-    agent = TapAgent(tap_state, subs, AeronTensorPool.Control.DEFAULT_FRAGMENT_LIMIT)
-    composite = CompositeAgent(agent)
-    runner = AgentRunner(BackoffIdleStrategy(), composite)
-
-    @info "Aeron tap started" data_channel descriptor_stream_id metadata_stream_id log_path
 
     try
-        if duration_s > 0
-            start = time()
-            Agent.start_on_thread(runner)
-            while time() - start < duration_s
-                sleep(0.1)
+        with_runtime(ctx; create_control = false) do runtime
+            tap_state = TapState(io, flush_logs, TapDecoders())
+            subs = build_tap_subscriptions(
+                runtime,
+                tap_state,
+                driver_cfg;
+                data_channel = data_channel,
+                descriptor_stream_id = descriptor_stream_id,
+                metadata_stream_id = metadata_stream_id,
+                extra_subs = extra_subs,
+            )
+            agent = TapAgent(tap_state, subs, AeronTensorPool.Control.DEFAULT_FRAGMENT_LIMIT)
+            runner = AgentRunner(BackoffIdleStrategy(), agent)
+
+            @info "Aeron tap started" data_channel descriptor_stream_id metadata_stream_id log_path
+
+            if isnothing(core_id)
+                Agent.start_on_thread(runner)
+            else
+                Agent.start_on_thread(runner, core_id)
             end
-            close(runner)
-            wait(runner)
-        else
-            Agent.start_on_thread(runner)
-            wait(runner)
+
+            try
+                if duration_s > 0
+                    start = time()
+                    while time() - start < duration_s
+                        sleep(0.1)
+                    end
+                else
+                    wait(runner)
+                end
+            catch e
+                if e isa InterruptException
+                    @info "Aeron tap shutting down..."
+                else
+                    @error "Aeron tap error" exception = (e, catch_backtrace())
+                end
+            finally
+                close(runner)
+            end
         end
     finally
-        try
-            close(runner)
-        catch
-        end
-        close(client)
         io !== stdout && close(io)
     end
 end

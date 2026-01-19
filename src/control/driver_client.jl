@@ -110,7 +110,7 @@ Returns:
 function next_correlation_id!(state::DriverClientState)
     cid = state.next_correlation_id
     high = UInt64(cid) & 0xffff_ffff_0000_0000
-    low = UInt32(cid) + UInt32(1)
+    low = UInt32(UInt64(cid) & 0xffff_ffff) + UInt32(1)
     low == 0 && (low = UInt32(1))
     state.next_correlation_id = Int64(high | UInt64(low))
     return cid

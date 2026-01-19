@@ -14,7 +14,7 @@ Correctness legend:
 - Noncompliant
 - N/A
 
-Last updated: 2026-01-17
+Last updated: 2026-01-18
 
 Traceability: `docs/SPEC_TRACEABILITY_MATRIX.md` provides per-requirement code/test mapping. Spec versions are locked in `docs/SPEC_LOCK.toml`.
 
@@ -50,6 +50,7 @@ Known gaps / open questions:
 | --- | --- | --- | --- |
 | 1–3 Scope/Roles/Authority | Implemented | Compliant | Driver owns SHM + control-plane. |
 | 4 Attach/Detach/Keepalive | Implemented | Compliant | Driver HSM + tests; expectedLayoutVersion + desiredNodeId covered in `test/test_driver_expected_layout_version.jl` and `test/test_driver_desired_node_id.jl`. |
+| Appendix B Correlation/ClientId rules | Implemented | Compliant | `test/test_driver_client_correlation_rules.jl`, `test/test_client_id_auto_assign.jl`. |
 | 5 Exclusive Producer Rule | Implemented | Compliant | Enforced by driver. |
 | 6 Epoch Management | Implemented | Compliant | Epoch bump/remap logic. |
 | 7 Failure/Recovery | Implemented | Compliant | Shutdown/epoch bump + tests. |
