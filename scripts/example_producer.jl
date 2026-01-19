@@ -54,11 +54,28 @@ function Agent.do_work(agent::AppProducerAgent)
         end
         return 0
     end
-    if !producer_connected(agent.handle)
+    per_consumer_connected = false
+    for entry in values(state.consumer_streams)
+        pub = entry.descriptor_pub
+        if pub !== nothing && Aeron.is_connected(pub)
+            per_consumer_connected = true
+            break
+        end
+    end
+    per_consumer_requested = !isempty(state.consumer_streams)
+    if per_consumer_requested
+        if !per_consumer_connected
+            if now_ns - agent.last_connect_log_ns > 1_000_000_000
+                @info "Waiting for per-consumer descriptor publication to connect" per_consumer_connected = per_consumer_connected
+                agent.last_connect_log_ns = now_ns
+            end
+            return 0
+        end
+    elseif !producer_connected(agent.handle)
         if now_ns - agent.last_connect_log_ns > 1_000_000_000
             conn = AeronTensorPool.producer_connections(agent.handle)
             @info "Waiting for producer publications to connect" descriptor_connected = conn.descriptor_connected control_connected =
-                conn.control_connected qos_connected = conn.qos_connected
+                conn.control_connected qos_connected = conn.qos_connected per_consumer_connected = per_consumer_connected
             agent.last_connect_log_ns = now_ns
         end
         return 0

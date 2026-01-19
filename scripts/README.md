@@ -18,6 +18,7 @@ first argument; defaults are shown below.
   Usage:  
   `scripts/run_examples_per_consumer.sh [config/driver_integration_example.toml] [count] [payload_bytes] [max_rate_hz] [descriptor_base] [control_base] [dynamic] [consumer_id] [channel]`
   `dynamic=1` requests driver-assigned per-consumer stream IDs (requires driver stream-id ranges).
+  The wrapper scales producer count to satisfy `max_rate_hz` when non-zero.
 
 ## Bridge
 

@@ -11,6 +11,7 @@ dynamic_stream_ids="${7:-}"
 consumer_id="${8:-}"
 per_consumer_channel="${9:-}"
 timeout_s="${TP_EXAMPLE_TIMEOUT:-30}"
+send_rate_hz=100
 
 export TP_LOG=1
 export TP_LOG_LEVEL="${TP_LOG_LEVEL:-20}"
@@ -56,7 +57,12 @@ while [[ ! -f "${ready_file}" && ${SECONDS} -lt ${deadline} ]]; do
   sleep 0.1
 done
 
-timeout "${timeout_s}" julia --project scripts/example_producer.jl "${config_path}" "${count}" "${payload_bytes}" &
+producer_count="${count}"
+if [[ "${count}" -gt 0 && "${max_rate_hz}" -gt 0 ]]; then
+  producer_count=$(( (count * send_rate_hz + max_rate_hz - 1) / max_rate_hz ))
+fi
+
+timeout "${timeout_s}" julia --project scripts/example_producer.jl "${config_path}" "${producer_count}" "${payload_bytes}" &
 producer_pid=$!
 
 wait "${producer_pid}"
