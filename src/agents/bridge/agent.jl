@@ -41,6 +41,8 @@ function bridge_consumer_settings(config::ConsumerConfig, mapping::BridgeMapping
         config.requested_control_channel,
         config.requested_control_stream_id,
         config.mlock_shm,
+        config.announce_channel,
+        config.announce_stream_id,
     )
 end
 

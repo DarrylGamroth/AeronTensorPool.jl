@@ -166,6 +166,8 @@ function run_consumer(
 
     consumer_id = UInt32(parse(Int, get(ENV, "TP_CONSUMER_ID", "2")))
     consumer_cfg = default_consumer_config(; stream_id = stream_id, consumer_id = consumer_id)
+    consumer_cfg.announce_channel = driver_cfg.endpoints.announce_channel
+    consumer_cfg.announce_stream_id = driver_cfg.endpoints.announce_stream_id
 
     per_consumer_channel = get(ENV, "TP_PER_CONSUMER_CHANNEL", "aeron:ipc")
     descriptor_stream_id, control_stream_id, dynamic =

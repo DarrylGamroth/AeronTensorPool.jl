@@ -82,6 +82,8 @@ function apply_canonical_layout(config::ConsumerConfig, base_dir::String)
         config.requested_control_channel,
         config.requested_control_stream_id,
         config.mlock_shm,
+        config.announce_channel,
+        config.announce_stream_id,
     )
 end
 
@@ -124,6 +126,8 @@ Aeron.MediaDriver.launch_embedded() do driver
             control_stream_id = control_stream_id,
             qos_stream_id = qos_stream_id,
         )
+        consumer_cfg.announce_channel = driver_cfg.endpoints.announce_channel
+        consumer_cfg.announce_stream_id = driver_cfg.endpoints.announce_stream_id
         consumer_cfg = apply_canonical_layout(consumer_cfg, dir)
         supervisor_cfg = SupervisorConfig(
             env["AERON_DIR"],

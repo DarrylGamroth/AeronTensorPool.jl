@@ -105,6 +105,10 @@ function close_consumer_state!(state::ConsumerState)
         close(state.runtime.pub_qos)
         close(state.runtime.sub_descriptor)
         close(state.runtime.control.sub_control)
+        sub_announce = state.runtime.sub_announce
+        if sub_announce !== nothing && sub_announce !== state.runtime.control.sub_control
+            close(sub_announce)
+        end
         close(state.runtime.sub_qos)
         state.runtime.sub_progress === nothing || close(state.runtime.sub_progress)
     catch

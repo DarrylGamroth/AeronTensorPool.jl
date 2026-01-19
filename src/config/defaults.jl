@@ -62,6 +62,8 @@ function default_consumer_config(;
     descriptor_stream_id::Int32 = Int32(1100),
     control_stream_id::Int32 = Int32(1000),
     qos_stream_id::Int32 = Int32(1200),
+    announce_channel::AbstractString = "",
+    announce_stream_id::Int32 = Int32(0),
     stream_id::UInt32 = UInt32(10000),
     consumer_id::UInt32 = UInt32(1),
     expected_layout_version::UInt32 = UInt32(1),
@@ -87,6 +89,8 @@ function default_consumer_config(;
     mlock_shm::Bool = false,
 )
     allowed_base_dirs = isempty(shm_base_dir) ? String[] : [String(shm_base_dir)]
+    announce_channel = isempty(announce_channel) ? String(aeron_uri) : String(announce_channel)
+    announce_stream_id = announce_stream_id == 0 ? control_stream_id : announce_stream_id
     return ConsumerConfig(
         String(aeron_dir),
         String(aeron_uri),
@@ -118,5 +122,7 @@ function default_consumer_config(;
         String(requested_control_channel),
         requested_control_stream_id,
         mlock_shm,
+        announce_channel,
+        announce_stream_id,
     )
 end

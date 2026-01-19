@@ -26,6 +26,7 @@ should enable it for end-to-end validation.
 | Producer/consumer | supports_progress | false / true | `test/test_producer_progress_emit.jl` | Covered | False is default in most integration tests. |
 | Producer/consumer | progress hints | interval / delta units | `test/test_producer_progress_hints.jl` | Covered |  |
 | Producer/consumer | per-consumer streams | off / on | `test/test_per_consumer_streams.jl`, `test/test_driver_per_consumer_streams.jl` | Covered |  |
+| Producer/consumer | announce stream separation | control==announce / separate announce | `test/test_consumer_announce_stream.jl` | Covered |  |
 | Producer/consumer | mode | STREAM / RATE_LIMITED | `test/test_consumer_rate_limited.jl`, `test/test_rate_limiter_end_to_end.jl` | Covered |  |
 | Producer/consumer | fallback URI | invalid primary / fallback | `test/test_consumer_remap_fallback.jl` | Covered |  |
 | Bridge | forward_metadata | off / on | `test/test_bridge_integration.jl` | Covered |  |

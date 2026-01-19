@@ -114,6 +114,10 @@ function Agent.on_close(agent::ConsumerAgent)
         close(agent.state.runtime.pub_qos)
         close(agent.state.runtime.sub_descriptor)
         close(agent.state.runtime.control.sub_control)
+        sub_announce = agent.state.runtime.sub_announce
+        if sub_announce !== nothing && sub_announce !== agent.state.runtime.control.sub_control
+            close(sub_announce)
+        end
         close(agent.state.runtime.sub_qos)
         agent.state.runtime.sub_progress === nothing || close(agent.state.runtime.sub_progress)
     catch

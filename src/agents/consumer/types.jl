@@ -32,6 +32,76 @@ mutable struct ConsumerConfig
     requested_control_channel::String
     requested_control_stream_id::UInt32
     mlock_shm::Bool
+    announce_channel::String
+    announce_stream_id::Int32
+end
+
+function ConsumerConfig(
+    aeron_dir::String,
+    aeron_uri::String,
+    descriptor_stream_id::Int32,
+    control_stream_id::Int32,
+    qos_stream_id::Int32,
+    stream_id::UInt32,
+    consumer_id::UInt32,
+    expected_layout_version::UInt32,
+    max_dims::UInt8,
+    mode::Mode.SbeEnum,
+    max_outstanding_seq_gap::UInt32,
+    use_shm::Bool,
+    supports_shm::Bool,
+    supports_progress::Bool,
+    max_rate_hz::UInt16,
+    payload_fallback_uri::String,
+    shm_base_dir::String,
+    allowed_base_dirs::Vector{String},
+    require_hugepages::Bool,
+    progress_interval_us::UInt32,
+    progress_bytes_delta::UInt32,
+    progress_major_delta_units::UInt32,
+    hello_interval_ns::UInt64,
+    qos_interval_ns::UInt64,
+    announce_freshness_ns::UInt64,
+    requested_descriptor_channel::String,
+    requested_descriptor_stream_id::UInt32,
+    requested_control_channel::String,
+    requested_control_stream_id::UInt32,
+    mlock_shm::Bool,
+)
+    return ConsumerConfig(
+        aeron_dir,
+        aeron_uri,
+        descriptor_stream_id,
+        control_stream_id,
+        qos_stream_id,
+        stream_id,
+        consumer_id,
+        expected_layout_version,
+        max_dims,
+        mode,
+        max_outstanding_seq_gap,
+        use_shm,
+        supports_shm,
+        supports_progress,
+        max_rate_hz,
+        payload_fallback_uri,
+        shm_base_dir,
+        allowed_base_dirs,
+        require_hugepages,
+        progress_interval_us,
+        progress_bytes_delta,
+        progress_major_delta_units,
+        hello_interval_ns,
+        qos_interval_ns,
+        announce_freshness_ns,
+        requested_descriptor_channel,
+        requested_descriptor_stream_id,
+        requested_control_channel,
+        requested_control_stream_id,
+        mlock_shm,
+        aeron_uri,
+        control_stream_id,
+    )
 end
 
 """

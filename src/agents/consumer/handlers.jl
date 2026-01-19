@@ -169,6 +169,27 @@ function poll_control!(
 end
 
 """
+Poll the announce subscription when configured separately.
+
+Arguments:
+- `state`: consumer state.
+- `assembler`: fragment assembler for announce/control messages.
+- `fragment_limit`: max fragments per poll (default: DEFAULT_FRAGMENT_LIMIT).
+
+Returns:
+- Number of fragments processed.
+"""
+function poll_announce!(
+    state::ConsumerState,
+    assembler::Aeron.FragmentAssembler,
+    fragment_limit::Int32 = DEFAULT_FRAGMENT_LIMIT,
+)
+    sub = state.runtime.sub_announce
+    sub === nothing && return 0
+    return Aeron.poll(sub, assembler, fragment_limit)
+end
+
+"""
 Poll the per-consumer progress subscription when assigned.
 
 Arguments:

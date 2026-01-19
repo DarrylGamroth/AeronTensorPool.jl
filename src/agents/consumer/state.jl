@@ -19,6 +19,7 @@ mutable struct ConsumerRuntime
     control::ControlPlaneRuntime
     pub_qos::Aeron.Publication
     sub_descriptor::Aeron.Subscription
+    sub_announce::Union{Aeron.Subscription, Nothing}
     sub_qos::Aeron.Subscription
     sub_progress::Union{Aeron.Subscription, Nothing}
     hello_buf::FixedSizeVectorDefault{UInt8}

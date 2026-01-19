@@ -29,6 +29,7 @@ function consumer_do_work!(
     work_count = 0
     work_count += poll_descriptor!(state, descriptor_assembler, fragment_limit)
     work_count += poll_control!(state, control_assembler, fragment_limit)
+    work_count += poll_announce!(state, control_assembler, fragment_limit)
     if qos_assembler !== nothing
         work_count += poll_qos!(state, qos_assembler, fragment_limit)
     end

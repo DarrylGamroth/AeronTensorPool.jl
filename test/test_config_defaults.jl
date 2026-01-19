@@ -3,8 +3,10 @@
     @test consumer_cfg.shm_base_dir == "/dev/shm"
     @test consumer_cfg.allowed_base_dirs == ["/dev/shm"]
     @test consumer_cfg.control_stream_id == 1000
+    @test consumer_cfg.announce_stream_id == 1000
     @test consumer_cfg.descriptor_stream_id == 1100
     @test consumer_cfg.qos_stream_id == 1200
+    @test consumer_cfg.announce_channel == consumer_cfg.aeron_uri
     @test consumer_cfg.hello_interval_ns == UInt64(1_000_000_000)
     @test consumer_cfg.qos_interval_ns == UInt64(1_000_000_000)
 

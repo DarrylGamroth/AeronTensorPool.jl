@@ -24,6 +24,8 @@ function load_driver_overrides(path::String)
         qos_stream_id = driver_cfg.endpoints.qos_stream_id,
         aeron_dir = driver_cfg.endpoints.aeron_dir,
         control_channel = driver_cfg.endpoints.control_channel,
+        announce_channel = driver_cfg.endpoints.announce_channel,
+        announce_stream_id = driver_cfg.endpoints.announce_stream_id,
     )
 end
 
@@ -35,11 +37,15 @@ function run_agent(bridge_path::String, driver_path::Union{String, Nothing})
     control_stream_id = Int32(1000)
     qos_stream_id = Int32(1200)
     control_channel = isempty(bridge_cfg.control_channel) ? "aeron:ipc" : bridge_cfg.control_channel
+    announce_channel = control_channel
+    announce_stream_id = control_stream_id
     if driver_path !== nothing
         overrides = load_driver_overrides(driver_path)
         control_stream_id = overrides.control_stream_id
         qos_stream_id = overrides.qos_stream_id
         control_channel = overrides.control_channel
+        announce_channel = overrides.announce_channel
+        announce_stream_id = overrides.announce_stream_id
         if isempty(aeron_dir) && !isempty(overrides.aeron_dir)
             aeron_dir = overrides.aeron_dir
         end
@@ -53,6 +59,8 @@ function run_agent(bridge_path::String, driver_path::Union{String, Nothing})
         control_stream_id = control_stream_id,
         qos_stream_id = qos_stream_id,
     )
+    consumer_cfg.announce_channel = announce_channel
+    consumer_cfg.announce_stream_id = announce_stream_id
     producer_cfg = default_producer_config(
         ;
         aeron_dir = aeron_dir,

@@ -15,6 +15,11 @@ function init_consumer(config::ConsumerConfig; client::AbstractTensorPoolClient)
     join_time_ref = Ref{UInt64}(announce_join_ns)
     config.allowed_base_dirs = canonical_allowed_dirs(config.shm_base_dir, config.allowed_base_dirs)
     aeron_client = client.aeron_client
+    announce_channel = isempty(config.announce_channel) ? config.aeron_uri : config.announce_channel
+    announce_stream_id = config.announce_stream_id == 0 ? config.control_stream_id : config.announce_stream_id
+    config.announce_channel = announce_channel
+    config.announce_stream_id = announce_stream_id
+    announce_shared = announce_channel == config.aeron_uri && announce_stream_id == config.control_stream_id
 
     pub_control = Aeron.add_publication(aeron_client, config.aeron_uri, config.control_stream_id)
     log_publication_ready("Consumer control", pub_control, config.control_stream_id)
@@ -23,13 +28,21 @@ function init_consumer(config::ConsumerConfig; client::AbstractTensorPoolClient)
 
     sub_descriptor = Aeron.add_subscription(aeron_client, config.aeron_uri, config.descriptor_stream_id)
     log_subscription_ready("Consumer descriptor", sub_descriptor, config.descriptor_stream_id)
-    on_control_available = let ref = join_time_ref
+    on_announce_available = let ref = join_time_ref
         _ -> begin
             ref[] = UInt64(time_ns())
-            @tp_info "Consumer control image available" join_time_ns = ref[]
+            @tp_info "Consumer announce image available" join_time_ns = ref[]
             return nothing
         end
     end
+    on_announce_unavailable = _ -> begin
+        @tp_info "Consumer announce image unavailable"
+        return nothing
+    end
+    on_control_available = announce_shared ? on_announce_available : (_ -> begin
+        @tp_info "Consumer control image available"
+        return nothing
+    end)
     on_control_unavailable = _ -> begin
         @tp_info "Consumer control image unavailable"
         return nothing
@@ -42,6 +55,19 @@ function init_consumer(config::ConsumerConfig; client::AbstractTensorPoolClient)
         on_unavailable_image = on_control_unavailable,
     )
     log_subscription_ready("Consumer control", sub_control, config.control_stream_id)
+    sub_announce = if announce_shared
+        nothing
+    else
+        sub = Aeron.add_subscription(
+            aeron_client,
+            announce_channel,
+            announce_stream_id;
+            on_available_image = on_announce_available,
+            on_unavailable_image = on_announce_unavailable,
+        )
+        log_subscription_ready("Consumer announce", sub, announce_stream_id)
+        sub
+    end
     sub_qos = Aeron.add_subscription(aeron_client, config.aeron_uri, config.qos_stream_id)
     log_subscription_ready("Consumer qos", sub_qos, config.qos_stream_id)
     sub_progress = nothing
@@ -68,6 +94,7 @@ function init_consumer(config::ConsumerConfig; client::AbstractTensorPoolClient)
         control,
         pub_qos,
         sub_descriptor,
+        sub_announce,
         sub_qos,
         sub_progress,
         FixedSizeVectorDefault{UInt8}(undef, CONTROL_BUF_BYTES),

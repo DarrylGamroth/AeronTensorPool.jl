@@ -89,6 +89,16 @@ function resolve_entry_attach_params(
     return (entry.stream_id, control_channel, control_stream_id)
 end
 
+function apply_consumer_announce_defaults!(config::ConsumerConfig, context::TensorPoolContext)
+    if isempty(config.announce_channel)
+        config.announce_channel = isempty(context.announce_channel) ? context.control_channel : context.announce_channel
+    end
+    if config.announce_stream_id == 0
+        config.announce_stream_id = context.announce_stream_id == 0 ? context.control_stream_id : context.announce_stream_id
+    end
+    return config
+end
+
 """
 Send a consumer attach request and return an AttachRequestHandle.
 """
@@ -257,7 +267,7 @@ function attach_consumer(
     callbacks::Union{ConsumerCallbacks, ClientCallbacks} = Consumer.NOOP_CONSUMER_CALLBACKS,
 )
     auto_client_id = settings.consumer_id == 0
-    consumer_cfg = settings
+    consumer_cfg = deepcopy(settings)
     stream_id = settings.stream_id
     control_channel = client.context.control_channel
     control_stream_id = client.context.control_stream_id
@@ -268,6 +278,7 @@ function attach_consumer(
         consumer_cfg = deepcopy(settings)
         consumer_cfg.stream_id = stream_id
     end
+    apply_consumer_announce_defaults!(consumer_cfg, client.context)
 
     request = request_attach_consumer(
         client,
@@ -335,6 +346,7 @@ function attach(
     stream_id, control_channel, control_stream_id = resolve_entry_attach_params(client, entry)
     consumer_cfg = deepcopy(settings)
     consumer_cfg.stream_id = stream_id
+    apply_consumer_announce_defaults!(consumer_cfg, client.context)
     request = request_attach_consumer(
         client,
         consumer_cfg;
