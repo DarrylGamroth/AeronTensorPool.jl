@@ -7,6 +7,8 @@ announce_channel = "aeron:ipc?term-length=4m"
 announce_stream_id = 1001
 qos_channel = "aeron:ipc?term-length=4m"
 qos_stream_id = 1200
+descriptor_stream_id_range = "31000-31999"
+control_stream_id_range = "32000-32999"
 
 [shm]
 base_dir = "/dev/shm"
