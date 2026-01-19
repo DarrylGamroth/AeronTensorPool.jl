@@ -31,6 +31,7 @@ function await_attach_response(
     timeout_ns::UInt64 = client.context.attach_timeout_ns,
     retry_interval_ns::UInt64 = client.context.attach_retry_interval_ns,
     retry_fn::Union{Nothing, Function} = nothing,
+    retry_on_reject::Union{Nothing, Function} = nothing,
 )
     pending = Int64[correlation_id]
     deadline = UInt64(time_ns()) + timeout_ns
@@ -42,7 +43,19 @@ function await_attach_response(
         if attach !== nothing
             @tp_info "attach response received" correlation_id = attach.correlation_id code = attach.code lease_id =
                 attach.lease_id
-            attach.code == DriverResponseCode.OK || throw(AttachRejectedError(String(attach.error_message)))
+            if attach.code != DriverResponseCode.OK
+                if retry_on_reject !== nothing
+                    new_id = retry_on_reject(attach)
+                    if new_id != 0
+                        push!(pending, new_id)
+                        @tp_warn "attach rejected; retrying" correlation_id = attach.correlation_id new_correlation_id =
+                            new_id error_message = String(attach.error_message)
+                        last_retry_ns = now_ns
+                        continue
+                    end
+                end
+                throw(AttachRejectedError(String(attach.error_message)))
+            end
             return attach
         end
         if now_ns - last_retry_ns > retry_interval_ns
@@ -86,8 +99,6 @@ function request_attach_consumer(
     control_stream_id::Int32 = client.context.control_stream_id,
     desired_node_id::Union{UInt32, Nothing} = nothing,
 )
-    @tp_info "request attach consumer" stream_id = stream_id client_id = settings.consumer_id control_channel =
-        control_channel control_stream_id = control_stream_id
     driver_client = init_driver_client_for_context(
         client,
         DriverRole.CONSUMER;
@@ -95,6 +106,11 @@ function request_attach_consumer(
         control_stream_id = control_stream_id,
         client_id = settings.consumer_id,
     )
+    if settings.consumer_id == 0
+        settings.consumer_id = driver_client.client_id
+    end
+    @tp_info "request attach consumer" stream_id = stream_id client_id = settings.consumer_id control_channel =
+        control_channel control_stream_id = control_stream_id
     correlation_id = send_attach_request!(
         driver_client;
         stream_id = stream_id,
@@ -137,8 +153,6 @@ function request_attach_producer(
     control_stream_id::Int32 = client.context.control_stream_id,
     desired_node_id::Union{UInt32, Nothing} = nothing,
 )
-    @tp_info "request attach producer" stream_id = stream_id client_id = config.producer_id control_channel =
-        control_channel control_stream_id = control_stream_id
     driver_client = init_driver_client_for_context(
         client,
         DriverRole.PRODUCER;
@@ -146,6 +160,8 @@ function request_attach_producer(
         control_stream_id = control_stream_id,
         client_id = config.producer_id,
     )
+    @tp_info "request attach producer" stream_id = stream_id client_id = driver_client.client_id control_channel =
+        control_channel control_stream_id = control_stream_id
     correlation_id = send_attach_request!(
         driver_client;
         stream_id = stream_id,
@@ -239,6 +255,7 @@ function attach_consumer(
     desired_node_id::Union{UInt32, Nothing} = nothing,
     callbacks::Union{ConsumerCallbacks, ClientCallbacks} = Consumer.NOOP_CONSUMER_CALLBACKS,
 )
+    auto_client_id = settings.consumer_id == 0
     consumer_cfg = settings
     stream_id = settings.stream_id
     control_channel = client.context.control_channel
@@ -270,6 +287,21 @@ function attach_consumer(
             require_hugepages = consumer_cfg.require_hugepages,
             desired_node_id = desired_node_id,
         ),
+        retry_on_reject = auto_client_id ? (resp::AttachResponse) -> begin
+            if String(resp.error_message) != "client_id already attached"
+                return Int64(0)
+            end
+            new_id = Control.resolve_client_id(UInt32(0))
+            Control.reset_client_id!(request.driver_client, new_id)
+            consumer_cfg.consumer_id = new_id
+            return send_attach_request!(
+                request.driver_client;
+                stream_id = stream_id,
+                expected_layout_version = consumer_cfg.expected_layout_version,
+                require_hugepages = consumer_cfg.require_hugepages,
+                desired_node_id = desired_node_id,
+            )
+        end : nothing,
     )
     consumer_state = Consumer.init_consumer_from_attach(
         consumer_cfg,
@@ -280,7 +312,11 @@ function attach_consumer(
     consumer_cbs = consumer_callbacks(callbacks)
     descriptor_asm = Consumer.make_descriptor_assembler(consumer_state; callbacks = consumer_cbs)
     control_asm = Consumer.make_control_assembler(consumer_state)
-    counters = ConsumerCounters(consumer_state.runtime.control.client, Int(settings.consumer_id), "Consumer")
+    counters = ConsumerCounters(
+        consumer_state.runtime.control.client,
+        Int(consumer_state.config.consumer_id),
+        "Consumer",
+    )
     consumer_agent = ConsumerAgent(consumer_state, descriptor_asm, control_asm, counters)
     return ConsumerHandle(client, request.driver_client, consumer_agent)
 end
@@ -366,6 +402,7 @@ function attach_producer(
     qos_monitor::Union{AbstractQosMonitor, Nothing} = nothing,
     qos_interval_ns::UInt64 = config.qos_interval_ns,
 )
+    auto_client_id = config.producer_id == 0
     stream_id = config.stream_id
     control_channel = client.context.control_channel
     control_stream_id = client.context.control_stream_id
@@ -393,6 +430,19 @@ function attach_producer(
             expected_layout_version = config.layout_version,
             desired_node_id = desired_node_id,
         ),
+        retry_on_reject = auto_client_id ? (resp::AttachResponse) -> begin
+            if String(resp.error_message) != "client_id already attached"
+                return Int64(0)
+            end
+            new_id = Control.resolve_client_id(UInt32(0))
+            Control.reset_client_id!(request.driver_client, new_id)
+            return send_attach_request!(
+                request.driver_client;
+                stream_id = stream_id,
+                expected_layout_version = config.layout_version,
+                desired_node_id = desired_node_id,
+            )
+        end : nothing,
     )
     producer_state = Producer.init_producer_from_attach(
         config,
@@ -403,7 +453,11 @@ function attach_producer(
     producer_cbs = producer_callbacks(callbacks)
     control_asm = Producer.make_control_assembler(producer_state; callbacks = producer_cbs)
     qos_asm = Producer.make_qos_assembler(producer_state; callbacks = producer_cbs)
-    counters = ProducerCounters(producer_state.runtime.control.client, Int(config.producer_id), "Producer")
+    counters = ProducerCounters(
+        producer_state.runtime.control.client,
+        Int(producer_state.config.producer_id),
+        "Producer",
+    )
     producer_agent = ProducerAgent(
         producer_state,
         control_asm,

@@ -179,6 +179,9 @@ function init_consumer_from_attach(
 )
     attach.code == DriverResponseCode.OK || throw(ArgumentError("attach failed"))
     attach.stream_id == config.stream_id || throw(ArgumentError("stream_id mismatch"))
+    if config.consumer_id == 0 && driver_client !== nothing
+        config.consumer_id = driver_client.client_id
+    end
     state = init_consumer(config; client = client)
     ok = map_from_attach_response!(state, attach)
     ok || throw(ArgumentError("failed to map SHM from attach"))

@@ -46,7 +46,8 @@ function init_driver_client(
 )
     pub = Aeron.add_publication(client, control_channel, control_stream_id)
     sub = Aeron.add_subscription(client, control_channel, control_stream_id)
-    @tp_info "Driver client control endpoints" role = role client_id = client_id channel = control_channel stream_id =
+    effective_id = resolve_client_id(client_id)
+    @tp_info "Driver client control endpoints" role = role client_id = effective_id channel = control_channel stream_id =
         control_stream_id pub_max_payload = Aeron.max_payload_length(pub) pub_max_message =
         Aeron.max_message_length(pub) pub_channel_status_indicator_id = Aeron.channel_status_indicator_id(pub) sub_channel_status_indicator_id =
         Aeron.channel_status_indicator_id(sub)
@@ -59,23 +60,42 @@ function init_driver_client(
         KeepaliveProxy(pub),
         DetachRequestProxy(pub),
         poller,
-        client_id,
+        effective_id,
         role,
         UInt64(0),
         UInt32(0),
         UInt32(0),
         PolledTimer(keepalive_interval_ns),
-        init_correlation_seed(client_id),
+        init_correlation_seed(effective_id),
         false,
         false,
         false,
     )
 end
 
+function resolve_client_id(client_id::UInt32)
+    if client_id == 0
+        assigned = rand(UInt32)
+        assigned == 0 && (assigned = UInt32(1))
+        @tp_info "auto-assigned client_id" client_id = assigned
+        return assigned
+    end
+    return client_id
+end
+
 function init_correlation_seed(client_id::UInt32)
     low = rand(UInt32)
     low == 0 && (low = UInt32(1))
     return Int64((UInt64(client_id) << 32) | UInt64(low))
+end
+
+function reset_client_id!(state::DriverClientState, client_id::UInt32)
+    state.client_id = client_id
+    state.next_correlation_id = init_correlation_seed(client_id)
+    empty!(state.poller.attach_by_correlation)
+    state.poller.attach_purge_active = false
+    state.poller.attach_purge_touch = false
+    return nothing
 end
 
 """

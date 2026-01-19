@@ -157,6 +157,33 @@ function producer_config_from_attach(config::ProducerConfig, attach::AttachRespo
     )
 end
 
+function with_producer_id(config::ProducerConfig, producer_id::UInt32)
+    return ProducerConfig(
+        config.aeron_dir,
+        config.aeron_uri,
+        config.descriptor_stream_id,
+        config.control_stream_id,
+        config.qos_stream_id,
+        config.metadata_stream_id,
+        config.stream_id,
+        producer_id,
+        config.layout_version,
+        config.nslots,
+        config.shm_base_dir,
+        config.shm_namespace,
+        config.producer_instance_id,
+        config.header_uri,
+        config.payload_pools,
+        config.max_dims,
+        config.announce_interval_ns,
+        config.qos_interval_ns,
+        config.progress_interval_ns,
+        config.progress_bytes_delta,
+        config.progress_major_delta_units,
+        config.mlock_shm,
+    )
+end
+
 """
 Initialize a producer using driver-provisioned SHM regions.
 
@@ -187,7 +214,11 @@ function init_producer_from_attach(
     attach.pool_count > 0 || throw(ArgumentError("attach response missing payload pools"))
     attach.header_slot_bytes == UInt16(HEADER_SLOT_BYTES) || throw(ArgumentError("header_slot_bytes mismatch"))
 
-    driver_config = producer_config_from_attach(config, attach)
+    base_config = config
+    if config.producer_id == 0 && driver_client !== nothing
+        base_config = with_producer_id(config, driver_client.client_id)
+    end
+    driver_config = producer_config_from_attach(base_config, attach)
     ispow2(driver_config.nslots) || throw(ArgumentError("header nslots must be power of two"))
     for pool in driver_config.payload_pools
         pool.nslots == driver_config.nslots || throw(ArgumentError("payload nslots must match header nslots"))
