@@ -87,6 +87,7 @@ mutable struct ConsumerState{ClockT}
     mapping_lifecycle::ConsumerMappingLifecycle
     phase::ConsumerPhase
     driver_client::Union{DriverClientState, Nothing}
+    driver_lifecycle::ConsumerDriverLifecycle
     pending_attach_id::Int64
     timer_set::TimerSet{Tuple{PolledTimer, PolledTimer}, Tuple{ConsumerHelloHandler, ConsumerQosHandler}}
     assigned_descriptor_channel::String

@@ -24,11 +24,13 @@ using ..Producer: PayloadPoolConfig
 
 include("types.jl")
 include("mapping_lifecycle_types.jl")
+include("driver_lifecycle_types.jl")
 include("state.jl")
 include("callbacks.jl")
 include("counters.jl")
 include("frames.jl")
 include("mapping_lifecycle.jl")
+include("driver_lifecycle.jl")
 include("mapping.jl")
 include("proxy.jl")
 include("handlers.jl")

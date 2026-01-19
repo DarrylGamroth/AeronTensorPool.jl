@@ -1,7 +1,11 @@
 function consumer_driver_active(state::ConsumerState)
     dc = state.driver_client
     dc === nothing && return true
-    return state.driver_active && dc.lease_id != 0 && !dc.revoked && !dc.shutdown
+    return Hsm.current(state.driver_lifecycle) == :Attached &&
+           state.driver_active &&
+           dc.lease_id != 0 &&
+           !dc.revoked &&
+           !dc.shutdown
 end
 
 """
@@ -50,11 +54,20 @@ function handle_driver_events!(state::ConsumerState, now_ns::UInt64)
     dc = state.driver_client
     dc === nothing && return 0
     work_count = 0
+    lifecycle = state.driver_lifecycle
+    current = Hsm.current(lifecycle)
 
-    if dc.revoked || dc.shutdown || dc.lease_id == 0
+    if current == :Attached && (dc.revoked || dc.shutdown || dc.lease_id == 0)
         state.driver_active = false
         reset_mappings!(state)
         stop_announce_wait!(state)
+        state.pending_attach_id = Int64(0)
+        Hsm.dispatch!(lifecycle, :LeaseInvalid, state)
+        current = Hsm.current(lifecycle)
+    end
+    if current == :Backoff
+        Hsm.dispatch!(lifecycle, :BackoffElapsed, state)
+        current = Hsm.current(lifecycle)
     end
     revoke = dc.poller.last_revoke
     if revoke !== nothing &&
@@ -67,7 +80,7 @@ function handle_driver_events!(state::ConsumerState, now_ns::UInt64)
         end
     end
 
-    if !state.driver_active && state.pending_attach_id == 0
+    if current == :Unattached && state.pending_attach_id == 0
         cid = send_attach_request!(
             dc;
             stream_id = state.config.stream_id,
@@ -77,6 +90,7 @@ function handle_driver_events!(state::ConsumerState, now_ns::UInt64)
         )
         if cid != 0
             state.pending_attach_id = cid
+            Hsm.dispatch!(lifecycle, :AttachRequested, state)
             work_count += 1
         end
     end
@@ -87,10 +101,17 @@ function handle_driver_events!(state::ConsumerState, now_ns::UInt64)
             state.pending_attach_id = Int64(0)
             if attach.code == DriverResponseCode.OK
                 state.driver_active = remap_consumer_from_attach!(state, attach)
-                state.driver_active || (dc.lease_id = UInt64(0))
+                if state.driver_active
+                    Hsm.dispatch!(lifecycle, :AttachOk, state)
+                else
+                    dc.lease_id = UInt64(0)
+                    Hsm.dispatch!(lifecycle, :AttachFailed, state)
+                end
             else
                 state.driver_active = false
+                Hsm.dispatch!(lifecycle, :AttachFailed, state)
             end
+            work_count += 1
         end
     end
     work_count += poll_announce_wait!(state, now_ns)

@@ -132,6 +132,7 @@ function init_consumer(config::ConsumerConfig; client::AbstractTensorPoolClient)
     dummy_assembler = Aeron.FragmentAssembler(dummy_handler)
     phase = config.use_shm ? UNMAPPED : FALLBACK
     mapping_lifecycle = ConsumerMappingLifecycle()
+    driver_lifecycle = ConsumerDriverLifecycle()
     state = ConsumerState(
         config,
         clock,
@@ -142,6 +143,7 @@ function init_consumer(config::ConsumerConfig; client::AbstractTensorPoolClient)
         mapping_lifecycle,
         phase,
         nothing,
+        driver_lifecycle,
         Int64(0),
         timer_set,
         "",
@@ -187,5 +189,6 @@ function init_consumer_from_attach(
     ok || throw(ArgumentError("failed to map SHM from attach"))
     state.driver_client = driver_client
     state.driver_active = true
+    Hsm.dispatch!(state.driver_lifecycle, :AttachOk, state)
     return state
 end
