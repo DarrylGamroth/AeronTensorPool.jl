@@ -210,12 +210,13 @@ function FrameDescriptorProbe(
     stream_id::Int32,
 )
     probe = FrameDescriptorProbe(nothing, UInt64(0), UInt64(0), UInt64(0))
-    poller = FrameDescriptorPoller(aeron_client(client), channel, stream_id) do _, decoder
+    handler = function (_, decoder)
         probe.seen += 1
         probe.last_seq = FrameDescriptor.seq(decoder)
         probe.last_epoch = FrameDescriptor.epoch(decoder)
         return nothing
     end
+    poller = FrameDescriptorPoller(aeron_client(client), channel, stream_id, handler)
     probe.poller = poller
     return probe
 end
