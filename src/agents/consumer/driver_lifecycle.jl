@@ -15,6 +15,9 @@ end
 
 @on_event function(sm::ConsumerDriverLifecycle, ::Root, ::LeaseInvalid, state::ConsumerState)
     state.driver_active = false
+    reset_mappings!(state)
+    abort_announce_wait!(state)
+    state.pending_attach_id = Int64(0)
     return Hsm.transition!(sm, :Unattached)
 end
 

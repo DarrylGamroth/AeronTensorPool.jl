@@ -157,6 +157,8 @@ function init_consumer(config::ConsumerConfig; client::AbstractTensorPoolClient)
         PolledTimer(UInt64(0)),
         false,
         announce_lifecycle,
+        UInt64(0),
+        UInt64(0),
     )
     set_mapping_phase!(state, phase)
     state.progress_assembler = make_progress_assembler(state)
