@@ -31,7 +31,6 @@ function handle_driver_events!(state::ProducerState, now_ns::UInt64)
     current = Hsm.current(lifecycle)
 
     if current == :Active && (dc.revoked || dc.shutdown || dc.lease_id == 0)
-        state.pending_attach_id = Int64(0)
         Hsm.dispatch!(lifecycle, :LeaseInvalid, state)
         current = Hsm.current(lifecycle)
     end

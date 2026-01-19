@@ -7,10 +7,12 @@ end
 end
 
 @on_event function(sm::ProducerDriverLifecycle, ::Root, ::AttachFailed, state::ProducerState)
+    state.pending_attach_id = Int64(0)
     return Hsm.transition!(sm, :Backoff)
 end
 
 @on_event function(sm::ProducerDriverLifecycle, ::Root, ::LeaseInvalid, state::ProducerState)
+    state.pending_attach_id = Int64(0)
     return Hsm.transition!(sm, :Backoff)
 end
 

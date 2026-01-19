@@ -94,6 +94,8 @@ mutable struct ProducerState{ClockT}
     driver_client::Union{DriverClientState, Nothing}
     driver_lifecycle::ProducerDriverLifecycle
     pending_attach_id::Int64
+    attach_event_now_ns::UInt64
+    attach_event_stream_id::UInt32
     timer_set::TimerSet{Tuple{PolledTimer, PolledTimer}, Tuple{ProducerAnnounceHandler, ProducerQosHandler}}
     consumer_streams::Dict{UInt32, ProducerConsumerStream}
     supports_progress::Bool
