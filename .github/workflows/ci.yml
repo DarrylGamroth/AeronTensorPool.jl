@@ -37,7 +37,7 @@ jobs:
       - uses: julia-actions/add-julia-registry@v2
         with:
           registry: DarrylGamroth/PackageRegistry
-          github-token: ${{ secrets.GITHUB_TOKEN }}          
+          ssh-key: ${{ secrets.SSH_KEY }}         
       - uses: julia-actions/julia-buildpkg@v1
       - uses: julia-actions/julia-runtest@v1
         env:
