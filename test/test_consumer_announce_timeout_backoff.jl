@@ -99,9 +99,10 @@
                 DriverRole.CONSUMER,
             )
             try
-                state.driver_client = driver_client
-                state.driver_active = true
-                driver_client.lease_id = UInt64(10)
+            state.driver_client = driver_client
+            state.driver_active = true
+            driver_client.lease_id = UInt64(10)
+            AeronTensorPool.Hsm.dispatch!(state.driver_lifecycle, :AttachOk, state)
 
                 fetch!(state.clock)
                 announce_ts = UInt64(Clocks.time_nanos(state.clock))
@@ -116,6 +117,7 @@
                     announce_ts = announce_ts,
                 )
                 @test Consumer.map_from_announce!(state, announce.dec, now_ns)
+                AeronTensorPool.Hsm.dispatch!(state.announce_lifecycle, :RemapComplete, state)
                 @test state.phase == AeronTensorPool.MAPPED
 
                 revoke = LeaseRevoked()
