@@ -115,6 +115,11 @@ function init_bridge_receiver(
         FixedSizeVectorDefault{Int32}(undef, MAX_DIMS),
         FixedSizeVectorDefault{Int32}(undef, MAX_DIMS),
         false,
+        UInt64(0),
+        UInt64(0),
+        UInt32(0),
+        UInt32(0),
+        UInt64(0),
     )
 
     state.payload_assembler = make_bridge_payload_assembler(state; callbacks = callbacks)

@@ -213,4 +213,9 @@ mutable struct BridgeReceiverState{ClockT}
     scratch_dims::FixedSizeVectorDefault{Int32}
     scratch_strides::FixedSizeVectorDefault{Int32}
     have_announce::Bool
+    assembly_event_seq::UInt64
+    assembly_event_epoch::UInt64
+    assembly_event_chunk_count::UInt32
+    assembly_event_payload_length::UInt32
+    assembly_event_now_ns::UInt64
 end
