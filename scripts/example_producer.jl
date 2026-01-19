@@ -18,6 +18,7 @@ mutable struct AppProducerAgent
     send_interval_ns::UInt64
     last_connect_log_ns::UInt64
     Base.@atomic ready::Bool
+    Base.@atomic has_consumer::Bool
     log_every::Int
 end
 
@@ -28,6 +29,15 @@ struct AppProducerOnQos end
 (hook::AppProducerOnQos)(::ProducerState, snapshot::QosProducerSnapshot) =
     @info "Producer QoS snapshot" current_seq = snapshot.current_seq
 
+struct AppProducerOnHello
+    app_ref::Base.RefValue{AppProducerAgent}
+end
+
+function (hook::AppProducerOnHello)(::ProducerState, ::ConsumerHello.Decoder)
+    Base.@atomic hook.app_ref[].has_consumer = true
+    return nothing
+end
+
 function Agent.on_start(agent::AppProducerAgent)
     Base.@atomic agent.ready = true
     @info "AppProducerAgent started"
@@ -37,6 +47,13 @@ end
 function Agent.do_work(agent::AppProducerAgent)
     now_ns = UInt64(time_ns())
     state = AeronTensorPool.handle_state(agent.handle)
+    if !Base.@atomic agent.has_consumer
+        if now_ns - agent.last_connect_log_ns > 1_000_000_000
+            @info "Waiting for consumer hello"
+            agent.last_connect_log_ns = now_ns
+        end
+        return 0
+    end
     if !producer_connected(agent.handle)
         if now_ns - agent.last_connect_log_ns > 1_000_000_000
             conn = AeronTensorPool.producer_connections(agent.handle)
@@ -168,10 +185,8 @@ function run_producer(driver_cfg_path::String, count::Int, payload_bytes::Int)
             MetadataAttribute("pattern" => ("text/plain", "counter")),
             MetadataAttribute("payload_bytes" => ("text/plain", effective_payload_bytes)),
         ]
-        noop_hello!(_, _) = nothing
-        noop_qos!(_, _) = nothing
-        noop_frame!(_, _, _) = nothing
-        callbacks = ProducerCallbacks(; on_qos_producer! = AppProducerOnQos())
+        app_ref = Ref{AppProducerAgent}()
+        callbacks = ProducerCallbacks(; on_qos_producer! = AppProducerOnQos(), on_consumer_hello! = AppProducerOnHello(app_ref))
         handle = try
             attach(
                 tp_client,
@@ -215,8 +230,10 @@ function run_producer(driver_cfg_path::String, count::Int, payload_bytes::Int)
             UInt64(10_000_000),
             UInt64(0),
             false,
+            false,
             log_every,
         )
+        app_ref[] = app_agent
         composite = CompositeAgent(AeronTensorPool.handle_agent(handle), app_agent)
         runner = AgentRunner(BackoffIdleStrategy(), composite; error_handler = agent_error_handler)
         if isnothing(core_id)

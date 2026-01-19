@@ -20,10 +20,19 @@ trap cleanup EXIT
 
 sleep 1
 
-timeout "${timeout_s}" julia --project scripts/example_producer.jl "${config_path}" "${count}" "${payload_bytes}" &
-producer_pid=$!
+ready_file="$(mktemp)"
+export TP_READY_FILE="${ready_file}"
+
 timeout "${timeout_s}" julia --project scripts/example_consumer.jl "${config_path}" "${count}" &
 consumer_pid=$!
+
+deadline=$((SECONDS + timeout_s))
+while [[ ! -f "${ready_file}" && ${SECONDS} -lt ${deadline} ]]; do
+  sleep 0.1
+done
+
+timeout "${timeout_s}" julia --project scripts/example_producer.jl "${config_path}" "${count}" "${payload_bytes}" &
+producer_pid=$!
 
 wait "${producer_pid}"
 wait "${consumer_pid}"
