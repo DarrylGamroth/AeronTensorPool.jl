@@ -1,5 +1,6 @@
 struct ProducerAnnounceHandler end
 struct ProducerQosHandler end
+struct ProducerBackoffHandler end
 
 """
 Mutable producer runtime resources (Aeron publications/subscriptions and codecs).
@@ -96,7 +97,11 @@ mutable struct ProducerState{ClockT}
     pending_attach_id::Int64
     attach_event_now_ns::UInt64
     attach_event_stream_id::UInt32
-    timer_set::TimerSet{Tuple{PolledTimer, PolledTimer}, Tuple{ProducerAnnounceHandler, ProducerQosHandler}}
+    backoff_timer::PolledTimer
+    timer_set::TimerSet{
+        Tuple{PolledTimer, PolledTimer, PolledTimer},
+        Tuple{ProducerAnnounceHandler, ProducerQosHandler, ProducerBackoffHandler},
+    }
     consumer_streams::Dict{UInt32, ProducerConsumerStream}
     supports_progress::Bool
     emit_announce::Bool

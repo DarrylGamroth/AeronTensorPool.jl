@@ -27,9 +27,10 @@ function init_producer(config::ProducerConfig; client::AbstractTensorPoolClient)
     sub_control = Aeron.add_subscription(aeron_client, config.aeron_uri, config.control_stream_id)
     sub_qos = Aeron.add_subscription(aeron_client, config.aeron_uri, config.qos_stream_id)
 
+    backoff_timer = PolledTimer(UInt64(0))
     timer_set = TimerSet(
-        (PolledTimer(config.announce_interval_ns), PolledTimer(config.qos_interval_ns)),
-        (ProducerAnnounceHandler(), ProducerQosHandler()),
+        (PolledTimer(config.announce_interval_ns), PolledTimer(config.qos_interval_ns), backoff_timer),
+        (ProducerAnnounceHandler(), ProducerQosHandler(), ProducerBackoffHandler()),
     )
 
     control = ControlPlaneRuntime(aeron_client, pub_control, sub_control)
@@ -93,6 +94,7 @@ function init_producer(config::ProducerConfig; client::AbstractTensorPoolClient)
         Int64(0),
         UInt64(0),
         UInt32(0),
+        backoff_timer,
         timer_set,
         Dict{UInt32, ProducerConsumerStream}(),
         false,
@@ -248,9 +250,10 @@ function init_producer_from_attach(
     sub_qos = Aeron.add_subscription(aeron_client, driver_config.aeron_uri, driver_config.qos_stream_id)
     log_subscription_ready("Producer qos", sub_qos, driver_config.qos_stream_id)
 
+    backoff_timer = PolledTimer(UInt64(0))
     timer_set = TimerSet(
-        (PolledTimer(driver_config.announce_interval_ns), PolledTimer(driver_config.qos_interval_ns)),
-        (ProducerAnnounceHandler(), ProducerQosHandler()),
+        (PolledTimer(driver_config.announce_interval_ns), PolledTimer(driver_config.qos_interval_ns), backoff_timer),
+        (ProducerAnnounceHandler(), ProducerQosHandler(), ProducerBackoffHandler()),
     )
 
     control = ControlPlaneRuntime(aeron_client, pub_control, sub_control)
@@ -314,6 +317,7 @@ function init_producer_from_attach(
         Int64(0),
         UInt64(0),
         UInt32(0),
+        backoff_timer,
         timer_set,
         Dict{UInt32, ProducerConsumerStream}(),
         false,

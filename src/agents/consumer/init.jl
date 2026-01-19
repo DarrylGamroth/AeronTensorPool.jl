@@ -47,9 +47,20 @@ function init_consumer(config::ConsumerConfig; client::AbstractTensorPoolClient)
     sub_progress = nothing
 
     announce_wait_timer = PolledTimer(UInt64(0))
+    backoff_timer = PolledTimer(UInt64(0))
     timer_set = TimerSet(
-        (PolledTimer(config.hello_interval_ns), PolledTimer(config.qos_interval_ns), announce_wait_timer),
-        (ConsumerHelloHandler(), ConsumerQosHandler(), ConsumerAnnounceTimeoutHandler()),
+        (
+            PolledTimer(config.hello_interval_ns),
+            PolledTimer(config.qos_interval_ns),
+            announce_wait_timer,
+            backoff_timer,
+        ),
+        (
+            ConsumerHelloHandler(),
+            ConsumerQosHandler(),
+            ConsumerAnnounceTimeoutHandler(),
+            ConsumerBackoffHandler(),
+        ),
     )
 
     control = ControlPlaneRuntime(aeron_client, pub_control, sub_control)
@@ -147,6 +158,8 @@ function init_consumer(config::ConsumerConfig; client::AbstractTensorPoolClient)
         nothing,
         driver_lifecycle,
         Int64(0),
+        UInt64(0),
+        backoff_timer,
         timer_set,
         "",
         UInt32(0),

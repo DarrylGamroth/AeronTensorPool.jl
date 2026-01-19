@@ -31,11 +31,8 @@ function handle_driver_events!(state::ProducerState, now_ns::UInt64)
     current = Hsm.current(lifecycle)
 
     if current == :Active && (dc.revoked || dc.shutdown || dc.lease_id == 0)
+        state.attach_event_now_ns = now_ns
         Hsm.dispatch!(lifecycle, :LeaseInvalid, state)
-        current = Hsm.current(lifecycle)
-    end
-    if current == :Backoff
-        Hsm.dispatch!(lifecycle, :BackoffElapsed, state)
         current = Hsm.current(lifecycle)
     end
 
@@ -62,9 +59,11 @@ function handle_driver_events!(state::ProducerState, now_ns::UInt64)
                     Hsm.dispatch!(lifecycle, :AttachOk, state)
                 else
                     dc.lease_id = UInt64(0)
+                    state.attach_event_now_ns = now_ns
                     Hsm.dispatch!(lifecycle, :AttachFailed, state)
                 end
             else
+                state.attach_event_now_ns = now_ns
                 Hsm.dispatch!(lifecycle, :AttachFailed, state)
             end
             work_count += 1

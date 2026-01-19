@@ -127,6 +127,14 @@ function (handler::ProducerQosHandler)(state::ProducerState, now_ns::UInt64)
     return 1
 end
 
+function (handler::ProducerBackoffHandler)(state::ProducerState, now_ns::UInt64)
+    if Hsm.current(state.driver_lifecycle) == :Backoff
+        Hsm.dispatch!(state.driver_lifecycle, :BackoffElapsed, state)
+        return 1
+    end
+    return 0
+end
+
 function consumer_stream_timeout_ns(state::ProducerState)
     base = max(state.config.announce_interval_ns, state.config.qos_interval_ns)
     return base * 5

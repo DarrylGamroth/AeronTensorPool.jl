@@ -207,6 +207,14 @@ function (handler::ConsumerAnnounceTimeoutHandler)(state::ConsumerState, now_ns:
     return 1
 end
 
+function (handler::ConsumerBackoffHandler)(state::ConsumerState, now_ns::UInt64)
+    if Hsm.current(state.driver_lifecycle) == :Backoff
+        Hsm.dispatch!(state.driver_lifecycle, :BackoffElapsed, state)
+        return 1
+    end
+    return 0
+end
+
 """
 Apply a ConsumerConfig message to the consumer settings.
 
