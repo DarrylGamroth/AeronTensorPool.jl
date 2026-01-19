@@ -533,6 +533,8 @@ It may publish:
 - **STREAM**: process all descriptors; drop if late.
 - **RATE_LIMITED**: consumer requests reduced-rate delivery (e.g., per-consumer descriptor/control stream or downstream rate limiter). Producer/supervisor MAY decline; if declined, consumer remains on the shared stream and MAY drop locally. `max_rate_hz` in `ConsumerHello` is authoritative when `mode=RATE_LIMITED`.
 
+**Implementation note (non-normative):** when enforcing `RATE_LIMITED`, consumers SHOULD base rate gating on `FrameDescriptor.timestampNs` when present (non-null). If it is null, consumers MAY fall back to the `SlotHeader.timestampNs` (from SHM) to avoid per-poll clock aliasing. If both are unavailable, use a local monotonic clock.
+
 ---
 
 ## 12. Bridge Service (Optional)
