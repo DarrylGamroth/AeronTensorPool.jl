@@ -14,7 +14,7 @@ already described by the specs, while keeping hot paths unchanged.
 - [x] Phase 1: Consumer attach/reattach lifecycle HSM (attach/ok/failed/invalid transitions).
 - [x] Phase 2: Producer attach/backoff lifecycle HSM extension.
 - [x] Phase 3: Consumer announce/remap gating lifecycle HSM.
-- [ ] Phase 4: Driver shutdown/drain lifecycle HSM extension.
+- [x] Phase 4: Driver shutdown/drain lifecycle HSM extension.
 
 ## Out of scope
 - Fragment handlers, per-frame processing, and publish hot paths.

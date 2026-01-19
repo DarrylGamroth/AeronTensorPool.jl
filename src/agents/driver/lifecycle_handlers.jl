@@ -19,6 +19,10 @@ end
     return reject_attach!(state, state.runtime.attach_decoder)
 end
 
+@on_event function(sm::DriverLifecycle, ::Stopped, ::AttachRequest, state::DriverState)
+    return reject_attach!(state, state.runtime.attach_decoder)
+end
+
 function begin_draining!(state::DriverState, sm::DriverLifecycle)
     timeout_ns = UInt64(state.config.policies.shutdown_timeout_ms) * 1_000_000
     timer = driver_shutdown_timer(state)
@@ -32,10 +36,26 @@ end
     return begin_draining!(state, sm)
 end
 
+@on_event function(sm::DriverLifecycle, ::Draining, ::ShutdownRequested, state::DriverState)
+    return Hsm.EventHandled
+end
+
+@on_event function(sm::DriverLifecycle, ::Stopped, ::ShutdownRequested, state::DriverState)
+    return Hsm.EventHandled
+end
+
+@on_event function(sm::DriverLifecycle, ::Running, ::ShutdownTimeout, state::DriverState)
+    return Hsm.EventHandled
+end
+
 @on_event function(sm::DriverLifecycle, ::Draining, ::ShutdownTimeout, state::DriverState)
     emit_driver_shutdown!(state, state.shutdown_reason, state.shutdown_message)
     disable!(driver_shutdown_timer(state))
     return Hsm.transition!(sm, :Stopped)
+end
+
+@on_event function(sm::DriverLifecycle, ::Stopped, ::ShutdownTimeout, state::DriverState)
+    return Hsm.EventHandled
 end
 
 function driver_lifecycle_dispatch!(state::DriverState, event::Symbol)
