@@ -107,6 +107,25 @@ Deliverable: short mapping of current flags → new HSM states.
 - Driver emits shutdown notice and stops per spec.
 - No duplicate shutdown transitions.
 
+## Additional candidates (move side effects into handlers)
+- [x] Consumer driver lifecycle: move `reset_mappings!`, `abort_announce_wait!`, and `pending_attach_id` resets into
+  `LeaseInvalid` handler in `src/agents/consumer/driver_lifecycle.jl`.
+- [x] Consumer announce lifecycle: move timer resets and mapping clears into `ProducerRevoke`/`AnnounceTimeout` handlers
+  in `src/agents/consumer/announce_lifecycle.jl` (stash `now_ns`/epoch context in state before dispatch).
+- [x] Producer driver lifecycle: move `pending_attach_id` resets and backoff timer setup into `AttachFailed`/`LeaseInvalid`
+  handlers in `src/agents/producer/driver_lifecycle_handlers.jl`.
+- [x] Bridge assembly lifecycle: move `reset_bridge_assembly!`/`clear_bridge_assembly!` into `AssemblyStart`/
+  `AssemblyClear`/`AssemblyTimeout` handlers (stash assembly parameters in state before dispatch).
+- [x] RateLimiter mapping lifecycle: move mapping cleanup into `MappingReset` handler in
+  `src/agents/ratelimiter/mapping_lifecycle.jl`.
+
+## Timer events as HSM events
+- [x] Keep `TimerSet` but have each timer handler dispatch an HSM event (no queues, no allocations).
+- [x] Consumer announce wait timer -> `AnnounceTimeout`.
+- [x] Consumer/producer backoff timers -> `BackoffElapsed`.
+- [x] Driver shutdown timer already emits `ShutdownTimeout`.
+- [x] Add small context fields in state (e.g., `announce_event_epoch`, `announce_event_now_ns`) that handlers read.
+
 ## Tests
 Add or update tests to cover transitions:
 - Consumer attach timeout → backoff → reattach.
