@@ -1,8 +1,8 @@
 """
 Agent wrapper for running a DriverState with Agent.jl.
 """
-struct DriverAgent
-    state::DriverState
+struct DriverAgent{StateT<:DriverState}
+    state::StateT
     counters::DriverCounters
 end
 

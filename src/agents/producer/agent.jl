@@ -1,13 +1,17 @@
 """
 Agent wrapper for running a ProducerState with Agent.jl.
 """
-struct ProducerAgent
-    state::ProducerState
+struct ProducerAgent{
+    StateT<:ProducerState,
+    CallbacksT<:ProducerCallbacks,
+    QosMonitorT<:Union{AbstractQosMonitor, Nothing},
+}
+    state::StateT
     control_assembler::Aeron.FragmentAssembler
     qos_assembler::Aeron.FragmentAssembler
     counters::ProducerCounters
-    callbacks::ProducerCallbacks
-    qos_monitor::Union{AbstractQosMonitor, Nothing}
+    callbacks::CallbacksT
+    qos_monitor::QosMonitorT
     qos_timer::PolledTimer
     closed::Base.RefValue{Bool}
 end

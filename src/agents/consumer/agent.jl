@@ -1,8 +1,8 @@
 """
 Agent wrapper for running a ConsumerState with Agent.jl.
 """
-struct ConsumerAgent
-    state::ConsumerState
+struct ConsumerAgent{StateT<:ConsumerState}
+    state::StateT
     descriptor_assembler::Aeron.FragmentAssembler
     control_assembler::Aeron.FragmentAssembler
     counters::ConsumerCounters

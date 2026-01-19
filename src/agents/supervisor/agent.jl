@@ -1,8 +1,8 @@
 """
 Agent wrapper for running a SupervisorState with Agent.jl.
 """
-struct SupervisorAgent
-    state::SupervisorState
+struct SupervisorAgent{StateT<:SupervisorState}
+    state::StateT
     control_assembler::Aeron.FragmentAssembler
     qos_assembler::Aeron.FragmentAssembler
     counters::SupervisorCounters

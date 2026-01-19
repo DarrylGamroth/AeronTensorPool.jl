@@ -1,19 +1,19 @@
 """
 Consumer handle returned by attach.
 """
-mutable struct ConsumerHandle
-    client::TensorPoolClient
+mutable struct ConsumerHandle{ClientT<:AbstractTensorPoolClient, AgentT<:ConsumerAgent}
+    client::ClientT
     driver_client::DriverClientState
-    consumer_agent::ConsumerAgent
+    consumer_agent::AgentT
 end
 
 """
 Producer handle returned by attach.
 """
-mutable struct ProducerHandle
-    client::TensorPoolClient
+mutable struct ProducerHandle{ClientT<:AbstractTensorPoolClient, AgentT<:ProducerAgent}
+    client::ClientT
     driver_client::DriverClientState
-    producer_agent::ProducerAgent
+    producer_agent::AgentT
 end
 
 """

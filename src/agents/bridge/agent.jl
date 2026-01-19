@@ -1,9 +1,9 @@
 """
 Agent wrapper for running a bridge sender/receiver with Agent.jl.
 """
-struct BridgeAgent
-    sender::BridgeSenderState
-    receiver::BridgeReceiverState
+struct BridgeAgent{SenderT<:BridgeSenderState, ReceiverT<:BridgeReceiverState}
+    sender::SenderT
+    receiver::ReceiverT
     control_assembler::Aeron.FragmentAssembler
     descriptor_assembler::Aeron.FragmentAssembler
     counters::BridgeCounters

@@ -1,8 +1,8 @@
 """
 Agent wrapper for running a DiscoveryProviderState with Agent.jl.
 """
-struct DiscoveryAgent
-    state::DiscoveryProviderState
+struct DiscoveryAgent{StateT<:DiscoveryProviderState}
+    state::StateT
     request_assembler::Aeron.FragmentAssembler
     announce_assembler::Aeron.FragmentAssembler
     metadata_assembler::Aeron.FragmentAssembler
