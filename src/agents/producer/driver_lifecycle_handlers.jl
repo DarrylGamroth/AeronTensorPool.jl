@@ -7,10 +7,18 @@ end
 end
 
 @on_event function(sm::ProducerDriverLifecycle, ::Root, ::AttachFailed, state::ProducerState)
-    return Hsm.transition!(sm, :Inactive)
+    return Hsm.transition!(sm, :Backoff)
 end
 
 @on_event function(sm::ProducerDriverLifecycle, ::Root, ::LeaseInvalid, state::ProducerState)
+    return Hsm.transition!(sm, :Backoff)
+end
+
+@on_event function(sm::ProducerDriverLifecycle, ::Root, ::AttachTimeout, state::ProducerState)
+    return Hsm.transition!(sm, :Backoff)
+end
+
+@on_event function(sm::ProducerDriverLifecycle, ::Root, ::BackoffElapsed, state::ProducerState)
     return Hsm.transition!(sm, :Inactive)
 end
 

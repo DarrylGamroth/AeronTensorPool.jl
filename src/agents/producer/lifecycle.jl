@@ -27,12 +27,20 @@ function handle_driver_events!(state::ProducerState, now_ns::UInt64)
     dc = state.driver_client
     dc === nothing && return 0
     work_count = 0
+    lifecycle = state.driver_lifecycle
+    current = Hsm.current(lifecycle)
 
-    if dc.revoked || dc.shutdown || dc.lease_id == 0
-        Hsm.dispatch!(state.driver_lifecycle, :LeaseInvalid, state)
+    if current == :Active && (dc.revoked || dc.shutdown || dc.lease_id == 0)
+        state.pending_attach_id = Int64(0)
+        Hsm.dispatch!(lifecycle, :LeaseInvalid, state)
+        current = Hsm.current(lifecycle)
+    end
+    if current == :Backoff
+        Hsm.dispatch!(lifecycle, :BackoffElapsed, state)
+        current = Hsm.current(lifecycle)
     end
 
-    if Hsm.current(state.driver_lifecycle) == :Inactive && state.pending_attach_id == 0
+    if current == :Inactive && state.pending_attach_id == 0
         cid = send_attach_request!(
             dc;
             stream_id = state.config.stream_id,
@@ -41,7 +49,7 @@ function handle_driver_events!(state::ProducerState, now_ns::UInt64)
         )
         if cid != 0
             state.pending_attach_id = cid
-            Hsm.dispatch!(state.driver_lifecycle, :AttachRequested, state)
+            Hsm.dispatch!(lifecycle, :AttachRequested, state)
             work_count += 1
         end
     end
@@ -52,13 +60,13 @@ function handle_driver_events!(state::ProducerState, now_ns::UInt64)
             state.pending_attach_id = Int64(0)
             if attach.code == DriverResponseCode.OK
                 if remap_producer_from_attach!(state, attach)
-                    Hsm.dispatch!(state.driver_lifecycle, :AttachOk, state)
+                    Hsm.dispatch!(lifecycle, :AttachOk, state)
                 else
                     dc.lease_id = UInt64(0)
-                    Hsm.dispatch!(state.driver_lifecycle, :AttachFailed, state)
+                    Hsm.dispatch!(lifecycle, :AttachFailed, state)
                 end
             else
-                Hsm.dispatch!(state.driver_lifecycle, :AttachFailed, state)
+                Hsm.dispatch!(lifecycle, :AttachFailed, state)
             end
             work_count += 1
         end

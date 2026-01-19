@@ -12,7 +12,7 @@ already described by the specs, while keeping hot paths unchanged.
 
 ## Progress
 - [x] Phase 1: Consumer attach/reattach lifecycle HSM (attach/ok/failed/invalid transitions).
-- [ ] Phase 2: Producer attach/backoff lifecycle HSM extension.
+- [x] Phase 2: Producer attach/backoff lifecycle HSM extension.
 - [ ] Phase 3: Consumer announce/remap gating lifecycle HSM.
 - [ ] Phase 4: Driver shutdown/drain lifecycle HSM extension.
 
