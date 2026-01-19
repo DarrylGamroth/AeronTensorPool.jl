@@ -22,26 +22,18 @@ end
 const ANNOUNCE_WAIT_MULTIPLIER = UInt64(3)
 
 function start_announce_wait!(state::ConsumerState, now_ns::UInt64, epoch::UInt64)
-    state.awaiting_announce_epoch = epoch
-    set_interval!(state.announce_wait_timer, state.config.announce_freshness_ns * ANNOUNCE_WAIT_MULTIPLIER)
-    reset!(state.announce_wait_timer, now_ns)
-    state.announce_wait_active = true
+    state.announce_event_epoch = epoch
+    state.announce_event_now_ns = now_ns
     Hsm.dispatch!(state.announce_lifecycle, :ProducerRevoke, state)
     return nothing
 end
 
 function stop_announce_wait!(state::ConsumerState)
-    state.awaiting_announce_epoch = UInt64(0)
-    state.announce_wait_active = false
-    set_interval!(state.announce_wait_timer, UInt64(0))
     Hsm.dispatch!(state.announce_lifecycle, :AnnounceSeen, state)
     return nothing
 end
 
 function abort_announce_wait!(state::ConsumerState)
-    state.awaiting_announce_epoch = UInt64(0)
-    state.announce_wait_active = false
-    set_interval!(state.announce_wait_timer, UInt64(0))
     Hsm.dispatch!(state.announce_lifecycle, :AbortWait, state)
     return nothing
 end
@@ -50,8 +42,7 @@ function poll_announce_wait!(state::ConsumerState, now_ns::UInt64)
     if state.announce_wait_active && expired(state.announce_wait_timer, now_ns)
         @tp_warn "announce wait timed out; continuing to wait" stream_id = state.config.stream_id waiting_epoch =
             state.awaiting_announce_epoch
-        reset_mappings!(state)
-        reset!(state.announce_wait_timer, now_ns)
+        state.announce_event_now_ns = now_ns
         Hsm.dispatch!(state.announce_lifecycle, :AnnounceTimeout, state)
         return 1
     end
