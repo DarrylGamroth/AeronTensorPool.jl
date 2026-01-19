@@ -46,9 +46,10 @@ function init_consumer(config::ConsumerConfig; client::AbstractTensorPoolClient)
     log_subscription_ready("Consumer qos", sub_qos, config.qos_stream_id)
     sub_progress = nothing
 
+    announce_wait_timer = PolledTimer(UInt64(0))
     timer_set = TimerSet(
-        (PolledTimer(config.hello_interval_ns), PolledTimer(config.qos_interval_ns)),
-        (ConsumerHelloHandler(), ConsumerQosHandler()),
+        (PolledTimer(config.hello_interval_ns), PolledTimer(config.qos_interval_ns), announce_wait_timer),
+        (ConsumerHelloHandler(), ConsumerQosHandler(), ConsumerAnnounceTimeoutHandler()),
     )
 
     control = ControlPlaneRuntime(aeron_client, pub_control, sub_control)
@@ -154,7 +155,7 @@ function init_consumer(config::ConsumerConfig; client::AbstractTensorPoolClient)
         dummy_assembler,
         true,
         UInt64(0),
-        PolledTimer(UInt64(0)),
+        announce_wait_timer,
         false,
         announce_lifecycle,
         UInt64(0),

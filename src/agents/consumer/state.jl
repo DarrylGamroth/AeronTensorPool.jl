@@ -1,5 +1,6 @@
 struct ConsumerHelloHandler end
 struct ConsumerQosHandler end
+struct ConsumerAnnounceTimeoutHandler end
 
 """
 Decoded frame header, payload view, and descriptor trace ID.
@@ -89,7 +90,10 @@ mutable struct ConsumerState{ClockT}
     driver_client::Union{DriverClientState, Nothing}
     driver_lifecycle::ConsumerDriverLifecycle
     pending_attach_id::Int64
-    timer_set::TimerSet{Tuple{PolledTimer, PolledTimer}, Tuple{ConsumerHelloHandler, ConsumerQosHandler}}
+    timer_set::TimerSet{
+        Tuple{PolledTimer, PolledTimer, PolledTimer},
+        Tuple{ConsumerHelloHandler, ConsumerQosHandler, ConsumerAnnounceTimeoutHandler},
+    }
     assigned_descriptor_channel::String
     assigned_descriptor_stream_id::UInt32
     assigned_control_channel::String

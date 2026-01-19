@@ -199,6 +199,14 @@ function (handler::ConsumerQosHandler)(state::ConsumerState, now_ns::UInt64)
     return 1
 end
 
+function (handler::ConsumerAnnounceTimeoutHandler)(state::ConsumerState, now_ns::UInt64)
+    state.announce_event_now_ns = now_ns
+    @tp_warn "announce wait timed out; continuing to wait" stream_id = state.config.stream_id waiting_epoch =
+        state.awaiting_announce_epoch
+    Hsm.dispatch!(state.announce_lifecycle, :AnnounceTimeout, state)
+    return 1
+end
+
 """
 Apply a ConsumerConfig message to the consumer settings.
 

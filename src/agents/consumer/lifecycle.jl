@@ -38,17 +38,6 @@ function abort_announce_wait!(state::ConsumerState)
     return nothing
 end
 
-function poll_announce_wait!(state::ConsumerState, now_ns::UInt64)
-    if state.announce_wait_active && expired(state.announce_wait_timer, now_ns)
-        @tp_warn "announce wait timed out; continuing to wait" stream_id = state.config.stream_id waiting_epoch =
-            state.awaiting_announce_epoch
-        state.announce_event_now_ns = now_ns
-        Hsm.dispatch!(state.announce_lifecycle, :AnnounceTimeout, state)
-        return 1
-    end
-    return 0
-end
-
 """
 Handle driver revocations and reattach when a lease is invalidated.
 """
@@ -112,6 +101,5 @@ function handle_driver_events!(state::ConsumerState, now_ns::UInt64)
             work_count += 1
         end
     end
-    work_count += poll_announce_wait!(state, now_ns)
     return work_count
 end
