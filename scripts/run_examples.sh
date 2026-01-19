@@ -14,7 +14,7 @@ julia --project scripts/run_driver.jl "${config_path}" &
 driver_pid=$!
 
 cleanup() {
-  kill "${driver_pid}" >/dev/null 2>&1 || true
+  kill -INT "${driver_pid}" >/dev/null 2>&1 || true
 }
 trap cleanup EXIT
 
