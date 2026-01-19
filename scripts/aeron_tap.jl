@@ -175,8 +175,7 @@ struct TapSubscription
     assembler::Aeron.FragmentAssembler
 end
 
-mutable struct TapAgent{CClient <: AeronTensorPool.AbstractTensorPoolClient}
-    client::CClient
+mutable struct TapAgent
     state::TapState
     subscriptions::Vector{TapSubscription}
     fragment_limit::Int32
@@ -906,7 +905,7 @@ function run_tap(cfg_path::String, log_path::String, data_channel::String, descr
     flush_logs = flush_logs || (!isempty(log_path))
     tap_state = TapState(io, flush_logs, TapDecoders())
     subs = build_tap_subscriptions(client, tap_state, driver_cfg; data_channel = data_channel, descriptor_stream_id = descriptor_stream_id, metadata_stream_id = metadata_stream_id, extra_subs = extra_subs)
-    agent = TapAgent(client, tap_state, subs, AeronTensorPool.Control.DEFAULT_FRAGMENT_LIMIT)
+    agent = TapAgent(tap_state, subs, AeronTensorPool.Control.DEFAULT_FRAGMENT_LIMIT)
     composite = CompositeAgent(agent)
     runner = AgentRunner(BackoffIdleStrategy(), composite)
 
