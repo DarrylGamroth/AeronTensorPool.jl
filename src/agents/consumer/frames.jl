@@ -1,9 +1,8 @@
-function should_process(state::ConsumerState, seq::UInt64)
+@inline function should_process_with_time(state::ConsumerState, seq::UInt64, now_ns::UInt64)
     state.config.mode == Mode.RATE_LIMITED || return true
     rate = state.config.max_rate_hz
     rate == 0 && return true
     period_ns = UInt64(1_000_000_000) ÷ UInt64(rate)
-    now_ns = UInt64(Clocks.time_nanos(state.clock))
     if now_ns - state.metrics.last_rate_ns < period_ns
         state.metrics.last_seq_seen = seq
         state.metrics.seen_any = true
@@ -11,6 +10,19 @@ function should_process(state::ConsumerState, seq::UInt64)
     end
     state.metrics.last_rate_ns = now_ns
     return true
+end
+
+function should_process(state::ConsumerState, seq::UInt64)
+    now_ns = UInt64(Clocks.time_nanos(state.clock))
+    return should_process_with_time(state, seq, now_ns)
+end
+
+function should_process(state::ConsumerState, seq::UInt64, timestamp_ns::UInt64)
+    null_ts = FrameDescriptor.timestampNs_null_value(FrameDescriptor.Decoder)
+    if timestamp_ns == null_ts
+        return should_process(state, seq)
+    end
+    return should_process_with_time(state, seq, timestamp_ns)
 end
 
 function maybe_track_gap!(state::ConsumerState, seq::UInt64)
@@ -150,9 +162,13 @@ function try_read_frame!(
         return false
     end
     seq = FrameDescriptor.seq(desc)
-    if !should_process(state, seq)
-        @tp_debug "try_read_frame drop" reason = :rate_limited seq
-        return false
+    desc_ts = FrameDescriptor.timestampNs(desc)
+    desc_ts_null = FrameDescriptor.timestampNs_null_value(FrameDescriptor.Decoder)
+    if desc_ts != desc_ts_null
+        if !should_process(state, seq, desc_ts)
+            @tp_debug "try_read_frame drop" reason = :rate_limited seq
+            return false
+        end
     end
 
     if state.mappings.mapped_nslots == 0
@@ -196,6 +212,22 @@ function try_read_frame!(
         state.metrics.drops_changed += 1
         @tp_debug "try_read_frame drop" reason = :seqlock_changed first second
         return false
+    end
+
+    if desc_ts == desc_ts_null
+        header_ts = header.timestamp_ns
+        header_ts_null = SlotHeaderMsg.timestampNs_null_value(SlotHeaderMsg.Decoder)
+        if header_ts == header_ts_null
+            if !should_process(state, seq)
+                @tp_debug "try_read_frame drop" reason = :rate_limited seq
+                return false
+            end
+        else
+            if !should_process(state, seq, header_ts)
+                @tp_debug "try_read_frame drop" reason = :rate_limited seq
+                return false
+            end
+        end
     end
 
     if header.seq_commit != second

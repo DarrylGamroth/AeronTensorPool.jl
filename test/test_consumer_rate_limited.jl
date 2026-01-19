@@ -41,6 +41,12 @@ using Clocks
             @test !Consumer.should_process(state, UInt64(1))
             state.metrics.last_rate_ns = UInt64(0)
             @test Consumer.should_process(state, UInt64(2))
+            state.metrics.last_rate_ns = UInt64(1_000_000_000)
+            @test !Consumer.should_process(state, UInt64(3), UInt64(1_000_000_500))
+            @test Consumer.should_process(state, UInt64(4), UInt64(1_001_000_000))
+            null_ts = FrameDescriptor.timestampNs_null_value(FrameDescriptor.Decoder)
+            state.metrics.last_rate_ns = UInt64(0)
+            @test Consumer.should_process(state, UInt64(5), null_ts)
         finally
             close_consumer_state!(state)
         end
