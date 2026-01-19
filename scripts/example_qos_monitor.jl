@@ -9,34 +9,33 @@ function run_qos_monitor(driver_cfg_path::String)
     driver_cfg = from_toml(DriverConfig, driver_cfg_path; env = true)
 
     ctx = TensorPoolContext(driver_cfg.endpoints)
-    client = connect(ctx)
-    try
-        monitor = QosMonitor(driver_cfg.endpoints; client = client.aeron_client)
-        producer_id = parse(UInt32, get(ENV, "TP_PRODUCER_ID", "0"))
-        consumer_id = parse(UInt32, get(ENV, "TP_CONSUMER_ID", "0"))
-        deadline = time_ns() + 5_000_000_000
-        while time_ns() < deadline
-            AeronTensorPool.do_work(client)
-            poll_qos!(monitor)
-            if producer_id != 0
-                snapshot = producer_qos(monitor, producer_id)
-                if snapshot !== nothing
-                    println("producer qos: stream=$(snapshot.stream_id) seq=$(snapshot.current_seq)")
-                    break
+    with_runtime(ctx; create_control = false) do runtime
+        monitor = QosMonitor(driver_cfg.endpoints; client = runtime.aeron_client)
+        try
+            producer_id = parse(UInt32, get(ENV, "TP_PRODUCER_ID", "0"))
+            consumer_id = parse(UInt32, get(ENV, "TP_CONSUMER_ID", "0"))
+            deadline = time_ns() + 5_000_000_000
+            while time_ns() < deadline
+                poll_qos!(monitor)
+                if producer_id != 0
+                    snapshot = producer_qos(monitor, producer_id)
+                    if snapshot !== nothing
+                        println("producer qos: stream=$(snapshot.stream_id) seq=$(snapshot.current_seq)")
+                        break
+                    end
                 end
-            end
-            if consumer_id != 0
-                snapshot = consumer_qos(monitor, consumer_id)
-                if snapshot !== nothing
-                    println("consumer qos: stream=$(snapshot.stream_id) last=$(snapshot.last_seq_seen)")
-                    break
+                if consumer_id != 0
+                    snapshot = consumer_qos(monitor, consumer_id)
+                    if snapshot !== nothing
+                        println("consumer qos: stream=$(snapshot.stream_id) last=$(snapshot.last_seq_seen)")
+                        break
+                    end
                 end
+                yield()
             end
-            yield()
+        finally
+            close(monitor)
         end
-        close(monitor)
-    finally
-        close(client)
     end
     return nothing
 end
