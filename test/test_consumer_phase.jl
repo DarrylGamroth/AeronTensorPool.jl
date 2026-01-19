@@ -105,6 +105,7 @@
                     pool_uri = pool_uri,
                 )
                 @test Consumer.map_from_announce!(state, announce.dec, UInt64(time_ns()))
+                AeronTensorPool.Hsm.dispatch!(state.announce_lifecycle, :RemapComplete, state)
                 @test state.phase == AeronTensorPool.MAPPED
 
                 bad_pool_uri = "shm:file?path=$(joinpath(mktempdir(), "pool"))"
