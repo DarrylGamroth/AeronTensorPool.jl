@@ -160,7 +160,6 @@ function map_from_announce!(state::ConsumerState, msg::ShmPoolAnnounce.Decoder, 
     state.metrics.last_seq_seen = UInt64(0)
     state.metrics.seen_any = false
     state.metrics.remap_count += 1
-    set_mapping_phase!(state, MAPPED)
     return true
 end
 
@@ -462,10 +461,7 @@ function handle_shm_pool_announce!(state::ConsumerState, msg::ShmPoolAnnounce.De
             set_mapping_phase!(state, FALLBACK)
             return true
         end
-        if ok
-            Hsm.dispatch!(state.announce_lifecycle, :RemapComplete, state)
-            set_mapping_phase!(state, MAPPED)
-        end
+        ok && Hsm.dispatch!(state.announce_lifecycle, :RemapComplete, state)
         return ok
     end
 
@@ -489,10 +485,7 @@ function handle_shm_pool_announce!(state::ConsumerState, msg::ShmPoolAnnounce.De
             set_mapping_phase!(state, FALLBACK)
             return true
         end
-        if ok
-            Hsm.dispatch!(state.announce_lifecycle, :RemapComplete, state)
-            set_mapping_phase!(state, MAPPED)
-        end
+        ok && Hsm.dispatch!(state.announce_lifecycle, :RemapComplete, state)
         return ok
     end
     return true

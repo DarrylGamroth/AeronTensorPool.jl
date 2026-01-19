@@ -15,6 +15,7 @@ end
 end
 
 @on_event function(sm::ConsumerAnnounceLifecycle, ::Root, ::RemapComplete, state::ConsumerState)
+    set_mapping_phase!(state, MAPPED)
     return Hsm.transition!(sm, :Ready)
 end
 
