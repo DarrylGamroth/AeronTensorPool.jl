@@ -12,6 +12,7 @@ consumer_id="${8:-}"
 per_consumer_channel="${9:-}"
 timeout_s="${TP_EXAMPLE_TIMEOUT:-30}"
 send_rate_hz=100
+send_interval_ns="${TP_PRODUCER_SEND_INTERVAL_NS:-}"
 
 export TP_LOG=1
 export TP_LOG_LEVEL="${TP_LOG_LEVEL:-20}"
@@ -32,6 +33,14 @@ fi
 if [[ -n "${per_consumer_channel}" ]]; then
   export TP_PER_CONSUMER_CHANNEL="${per_consumer_channel}"
 fi
+if [[ -z "${send_interval_ns}" ]]; then
+  if [[ "${max_rate_hz}" -gt 0 ]]; then
+    send_interval_ns=$((1000000000 / max_rate_hz))
+  else
+    send_interval_ns=10000000
+  fi
+fi
+export TP_PRODUCER_SEND_INTERVAL_NS="${send_interval_ns}"
 if [[ -z "${TP_PER_CONSUMER_DESCRIPTOR_BASE:-}" && -z "${TP_PER_CONSUMER_CONTROL_BASE:-}" ]]; then
   export TP_PER_CONSUMER_DYNAMIC="${TP_PER_CONSUMER_DYNAMIC:-1}"
 fi
@@ -58,7 +67,10 @@ while [[ ! -f "${ready_file}" && ${SECONDS} -lt ${deadline} ]]; do
 done
 
 producer_count="${count}"
-if [[ "${count}" -gt 0 && "${max_rate_hz}" -gt 0 ]]; then
+if [[ "${send_interval_ns}" -gt 0 ]]; then
+  send_rate_hz=$((1000000000 / send_interval_ns))
+fi
+if [[ "${count}" -gt 0 && "${max_rate_hz}" -gt 0 && "${send_rate_hz}" -gt 0 ]]; then
   producer_count=$(( (count * send_rate_hz + max_rate_hz - 1) / max_rate_hz ))
 fi
 

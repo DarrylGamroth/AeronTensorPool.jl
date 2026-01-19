@@ -115,7 +115,9 @@ end
 
 function usage()
     println("Usage: julia --project scripts/example_producer.jl [driver_config] [count] [payload_bytes]")
-    println("Env: TP_EXAMPLE_VERBOSE=1, TP_EXAMPLE_LOG_EVERY=100, TP_PATTERN=interop")
+    println(
+        "Env: TP_EXAMPLE_VERBOSE=1, TP_EXAMPLE_LOG_EVERY=100, TP_PATTERN=interop, TP_PRODUCER_SEND_INTERVAL_NS=10000000",
+    )
 end
 
 function fill_interop_pattern!(payload::AbstractVector{UInt8}, seq::UInt64)
@@ -234,22 +236,23 @@ function run_producer(driver_cfg_path::String, count::Int, payload_bytes::Int)
         payload = Vector{UInt8}(undef, effective_payload_bytes)
         shape = Int32[effective_payload_bytes]
         strides = Int32[1]
-        app_agent = AppProducerAgent(
-            handle,
-            meta_version,
-            count,
-            payload,
-            shape,
-            strides,
-            pattern,
-            0,
-            UInt64(0),
-            UInt64(10_000_000),
-            UInt64(0),
-            false,
-            false,
-            log_every,
-        )
+    send_interval_ns = UInt64(parse(Int, get(ENV, "TP_PRODUCER_SEND_INTERVAL_NS", "10000000")))
+    app_agent = AppProducerAgent(
+        handle,
+        meta_version,
+        count,
+        payload,
+        shape,
+        strides,
+        pattern,
+        0,
+        UInt64(0),
+        send_interval_ns,
+        UInt64(0),
+        false,
+        false,
+        log_every,
+    )
         app_ref[] = app_agent
         composite = CompositeAgent(AeronTensorPool.handle_agent(handle), app_agent)
         runner = AgentRunner(BackoffIdleStrategy(), composite; error_handler = agent_error_handler)
