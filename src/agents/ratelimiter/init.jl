@@ -217,6 +217,7 @@ function init_mapping_state(
         mapping.max_rate_hz,
         UInt64(0),
         UInt64(0),
+        UInt64(0),
         pending,
         FixedSizeVectorDefault{Int32}(undef, MAX_DIMS),
         FixedSizeVectorDefault{Int32}(undef, MAX_DIMS),

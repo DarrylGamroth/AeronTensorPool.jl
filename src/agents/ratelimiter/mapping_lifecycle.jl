@@ -7,6 +7,11 @@ end
 end
 
 @on_event function(sm::RateLimiterMappingLifecycle, ::Root, ::MappingReset, state::RateLimiterMappingState)
+    state.dest_consumer_id = UInt32(0)
+    state.max_rate_hz = state.mapping.max_rate_hz
+    state.next_allowed_ns = UInt64(0)
+    state.last_source_epoch = state.mapping_event_epoch
+    clear_pending!(state.pending)
     return Hsm.transition!(sm, :Unbound)
 end
 

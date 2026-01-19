@@ -24,6 +24,7 @@ mutable struct RateLimiterMappingState
     max_rate_hz::UInt32
     next_allowed_ns::UInt64
     last_source_epoch::UInt64
+    mapping_event_epoch::UInt64
     pending::RateLimiterPending
     scratch_dims::FixedSizeVectorDefault{Int32}
     scratch_strides::FixedSizeVectorDefault{Int32}

@@ -9,9 +9,8 @@ function handle_source_frame!(
     now_ns = UInt64(Clocks.time_nanos(consumer_state.clock))
     mapped_epoch = consumer_state.mappings.mapped_epoch
     if mapped_epoch != mapping_state.last_source_epoch
-        mapping_state.last_source_epoch = mapped_epoch
-        mapping_state.next_allowed_ns = UInt64(0)
-        clear_pending!(mapping_state.pending)
+        mapping_state.mapping_event_epoch = mapped_epoch
+        reset_mapping_lifecycle!(mapping_state)
     end
 
     header = view.header
